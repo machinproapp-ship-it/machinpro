@@ -1,0 +1,19 @@
+{
+  "domain": "machinpro.app",
+  "legalName": "Canario Contracting",
+  "tradingName": "Machinpro",
+  "address": {
+    "street": "",
+    "city": "",
+    "state": "",
+    "postalCode": "",
+    "country": ""
+  },
+  "taxId": "",
+  "registrationNumber": "",
+  "contact": {
+    "email": "",
+    "phone": ""
+  },
+  "bankDetailsProvided": true
+}

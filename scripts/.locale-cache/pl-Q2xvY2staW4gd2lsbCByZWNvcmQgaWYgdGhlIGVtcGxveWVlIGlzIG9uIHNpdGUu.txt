@@ -1,0 +1,1 @@
+Rejestr czasu pracy zarejestruje, czy pracownik jest na miejscu.

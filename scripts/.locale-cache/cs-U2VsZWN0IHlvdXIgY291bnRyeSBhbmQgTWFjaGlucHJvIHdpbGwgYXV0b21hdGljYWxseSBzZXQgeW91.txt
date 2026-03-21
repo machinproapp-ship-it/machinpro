@@ -1,0 +1,1 @@
+Select your country and Machinpro will automatically set your currency, measurement system and tax labels.

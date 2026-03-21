@@ -1,0 +1,1 @@
+Jesteś {n}m od projektu. Rejestracja czasu wejścia zostanie zarejestrowana jako strefa zewnętrzna.

@@ -1,0 +1,1 @@
+Utwórz niestandardowe role i przypisz określone uprawnienia każdemu członkowi zespołu.

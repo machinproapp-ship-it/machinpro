@@ -1,0 +1,1 @@
+Create custom roles and assign specific permissions to each team member.

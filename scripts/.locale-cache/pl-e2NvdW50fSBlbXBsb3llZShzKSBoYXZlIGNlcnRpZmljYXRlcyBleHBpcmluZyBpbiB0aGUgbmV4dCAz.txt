@@ -1,0 +1,1 @@
+Liczba pracowników, których certyfikaty wygasają w ciągu najbliższych 30 dni: {count}

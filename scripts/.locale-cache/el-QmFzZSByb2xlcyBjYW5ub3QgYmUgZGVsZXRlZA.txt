@@ -1,0 +1,1 @@
+Base roles cannot be deleted

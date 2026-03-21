@@ -1,0 +1,1 @@
+{count} active project(s) with no alerts or issues
