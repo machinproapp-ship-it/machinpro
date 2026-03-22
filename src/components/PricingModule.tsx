@@ -3,14 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { detectGeoTier, type GeoTier } from "@/lib/geoTier";
-import {
-  PLANS,
-  getPriceForTier,
-  CURRENCY_BY_TIER,
-  type PlanKey,
-  type BillingPeriod,
-} from "@/lib/stripe";
+import { detectGeo, getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
+import { PLANS, getPriceForTier, CURRENCY_BY_TIER, type PlanKey, type BillingPeriod } from "@/lib/stripe";
 
 export interface PricingModuleProps {
   t: Record<string, string>;
@@ -21,9 +15,15 @@ export interface PricingModuleProps {
   onClose?: () => void;
 }
 
-function formatMoney(amount: number, tier: GeoTier): string {
-  const currency = CURRENCY_BY_TIER[tier];
-  const locale = tier === 1 ? "en-CA" : tier === 2 ? "en-US" : "es-MX";
+function formatMoney(amount: number, currency: string): string {
+  const locale =
+    currency === "CAD"
+      ? "en-CA"
+      : currency === "GBP"
+        ? "en-GB"
+        : currency === "MXN"
+          ? "es-MX"
+          : "en-US";
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
@@ -43,6 +43,7 @@ export function PricingModule({
 }: PricingModuleProps) {
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [geoTier, setGeoTier] = useState<GeoTier>(1);
+  const [countryCode, setCountryCode] = useState<string | null>(null);
   const [loadingTier, setLoadingTier] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<PlanKey | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +51,10 @@ export function PricingModule({
   useEffect(() => {
     let cancelled = false;
     setLoadingTier(true);
-    void detectGeoTier().then((tier) => {
+    void detectGeo().then(({ tier, countryCode: cc }) => {
       if (!cancelled) {
         setGeoTier(tier);
+        setCountryCode(cc);
         setLoadingTier(false);
       }
     });
@@ -60,6 +62,8 @@ export function PricingModule({
       cancelled = true;
     };
   }, []);
+
+  const displayCurrency = getCurrencyForCountry(countryCode, geoTier);
 
   const startCheckout = useCallback(
     async (plan: PlanKey) => {
@@ -104,7 +108,7 @@ export function PricingModule({
   );
 
   return (
-    <div className="relative w-full max-w-6xl mx-auto px-4 py-8 sm:py-12">
+    <div className="relative w-full max-w-6xl mx-auto px-4 py-8 sm:py-12 text-gray-900 dark:text-gray-100">
       {onClose && (
         <button
           type="button"
@@ -155,9 +159,18 @@ export function PricingModule({
           </button>
         </div>
         {!loadingTier && (
-          <p className="text-xs text-center sm:text-left text-zinc-500 dark:text-zinc-400">
-            {CURRENCY_BY_TIER[geoTier]}
-          </p>
+          <div className="text-xs text-center sm:text-left text-zinc-500 dark:text-zinc-400 space-y-0.5">
+            <p>
+              {displayCurrency === "GBP"
+                ? (t.currency_gbp ?? "GBP (£)")
+                : displayCurrency || CURRENCY_BY_TIER[geoTier]}
+            </p>
+            {displayCurrency === "GBP" && (
+              <p className="text-[11px] opacity-90">
+                {t.billing_gbp_approx ?? "Approximate GBP (from CAD reference pricing)"}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
@@ -170,7 +183,7 @@ export function PricingModule({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
         {PLAN_ORDER.map((key) => {
           const plan = PLANS[key];
-          const price = getPriceForTier(key, period, geoTier);
+          const price = getPriceForTier(key, period, geoTier, countryCode);
           const isPro = key === "pro";
           const title =
             key === "starter"
@@ -206,7 +219,7 @@ export function PricingModule({
               </p>
               <div className="mt-6 mb-6">
                 <span className="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white">
-                  {loadingTier ? "…" : formatMoney(price, geoTier)}
+                  {loadingTier ? "…" : formatMoney(price, displayCurrency)}
                 </span>
                 <span className="text-sm text-zinc-500 dark:text-zinc-400 ml-1">
                   {period === "monthly" ? (t.billing_short_month ?? "/mo") : (t.billing_short_year ?? "/yr")}

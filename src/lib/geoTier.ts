@@ -49,18 +49,52 @@ export function countryCodeToTier(code: string | undefined | null): GeoTier {
 }
 
 /**
+ * Moneda de referencia para precios en UI (CA/ US/ GB/ MX explícitos; resto por tier).
+ */
+export function getCurrencyForCountry(
+  countryCode: string | null | undefined,
+  fallbackTier: GeoTier = 1
+): "CAD" | "USD" | "GBP" | "MXN" {
+  const c = (countryCode ?? "").trim().toUpperCase();
+  if (!c) {
+    if (fallbackTier === 2) return "USD";
+    if (fallbackTier === 3) return "MXN";
+    return "CAD";
+  }
+  if (c === "CA") return "CAD";
+  if (c === "US") return "USD";
+  if (c === "GB") return "GBP";
+  if (c === "MX") return "MXN";
+  const tier = countryCodeToTier(c);
+  if (tier === 2) return "USD";
+  if (tier === 3) return "MXN";
+  return "CAD";
+}
+
+export type GeoDetect = { tier: GeoTier; countryCode: string | null };
+
+/**
+ * Tier + código ISO del país vía ipapi.co (fallback tier 1 si falla red/CORS).
+ */
+export async function detectGeo(): Promise<GeoDetect> {
+  try {
+    const res = await fetch("https://ipapi.co/json/", { cache: "no-store" });
+    if (!res.ok) return { tier: 1, countryCode: null };
+    const data = (await res.json()) as { country_code?: string; error?: boolean };
+    if (data.error) return { tier: 1, countryCode: null };
+    const cc = (data.country_code ?? "").trim().toUpperCase() || null;
+    return { tier: countryCodeToTier(cc), countryCode: cc };
+  } catch {
+    return { tier: 1, countryCode: null };
+  }
+}
+
+/**
  * Detecta tier geográfico vía ipapi.co (fallback tier 1 si falla red/CORS).
  */
 export async function detectGeoTier(): Promise<GeoTier> {
-  try {
-    const res = await fetch("https://ipapi.co/json/", { cache: "no-store" });
-    if (!res.ok) return 1;
-    const data = (await res.json()) as { country_code?: string; error?: boolean };
-    if (data.error) return 1;
-    return countryCodeToTier(data.country_code);
-  } catch {
-    return 1;
-  }
+  const { tier } = await detectGeo();
+  return tier;
 }
 
 /** Etiquetas en español (fallback si no hay i18n). */

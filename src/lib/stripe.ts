@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import type { GeoTier } from "@/lib/geoTier";
+import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
 
 export type PlanKey = "starter" | "pro" | "enterprise";
 
@@ -19,7 +19,10 @@ export const PLAN_PRICES_CAD: Record<PlanKey, { monthly: number; annual: number 
   enterprise: { monthly: 299, annual: 2870 },
 };
 
-/** Moneda de visualización por tier (PPP). */
+/**
+ * Moneda por tier cuando no hay código de país (fallback).
+ * Tier 1 incluye UK (GB) — usar siempre `getCurrencyForCountry("GB", 1)` → GBP en UI.
+ */
 export const CURRENCY_BY_TIER: Record<GeoTier, "CAD" | "USD" | "MXN"> = {
   1: "CAD",
   2: "USD",
@@ -29,17 +32,35 @@ export const CURRENCY_BY_TIER: Record<GeoTier, "CAD" | "USD" | "MXN"> = {
 /** Conversión aproximada CAD → moneda de tier (solo UI; cobro real vía Stripe). */
 const CAD_TO_USD = 0.74;
 const CAD_TO_MXN = 13.5;
+/** USD → GBP aproximado para equivalente UK en UI (sobre precio ya pasado por CAD→USD). */
+const USD_TO_GBP = 0.78;
+const CAD_TO_GBP = CAD_TO_USD * USD_TO_GBP;
 
 /**
- * Precio mostrado según plan, periodo y tier (redondeado).
- * Tier 1: CAD; Tier 2: USD; Tier 3: MXN.
+ * Precio mostrado según plan, periodo, tier PPP y país (redondeado).
+ * UK (GB) → GBP; CA → CAD; US → USD; MX → MXN; resto según tier.
  */
-export function getPriceForTier(plan: PlanKey, period: BillingPeriod, tier: GeoTier): number {
+export function getPriceForTier(
+  plan: PlanKey,
+  period: BillingPeriod,
+  tier: GeoTier,
+  countryCode?: string | null
+): number {
   const baseCad = PLAN_PRICES_CAD[plan][period];
   const adjustedCad = baseCad * GEO_TIERS[tier];
-  if (tier === 1) return Math.round(adjustedCad);
-  if (tier === 2) return Math.round(adjustedCad * CAD_TO_USD);
-  return Math.round(adjustedCad * CAD_TO_MXN);
+  const currency = getCurrencyForCountry(countryCode, tier);
+  switch (currency) {
+    case "CAD":
+      return Math.round(adjustedCad);
+    case "USD":
+      return Math.round(adjustedCad * CAD_TO_USD);
+    case "GBP":
+      return Math.round(adjustedCad * CAD_TO_GBP);
+    case "MXN":
+      return Math.round(adjustedCad * CAD_TO_MXN);
+    default:
+      return Math.round(adjustedCad);
+  }
 }
 
 export const PLANS: Record<
