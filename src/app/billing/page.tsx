@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { BillingModule } from "@/components/BillingModule";
 import { ALL_TRANSLATIONS, loadLocale, isLazyLocale, type Language } from "@/lib/i18n";
+import type { UserRole } from "@/types/shared";
 
 const TRANSLATIONS = ALL_TRANSLATIONS;
 
@@ -103,6 +104,7 @@ export default function BillingPage() {
         employeesCount={0}
         projectsCount={0}
         storageUsedGb={0}
+        userRole={(profile?.role as UserRole) ?? "admin"}
       />
     </div>
   );

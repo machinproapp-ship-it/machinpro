@@ -590,6 +590,7 @@ export default {
   taskUnassigned: "Unassigned",
   editTask: "Edit task",
   billing_title: "Billing & plans",
+  billing_menu: "Billing",
   billing_plan_starter: "Starter",
   billing_plan_pro: "Pro",
   billing_plan_enterprise: "Enterprise",

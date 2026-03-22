@@ -33,9 +33,11 @@ import { OperationsModule } from "@/components/OperationsModule";
 import ScheduleModule from "@/components/ScheduleModule";
 import { FormsModule } from "@/components/FormsModule";
 import { BindersModule } from "@/components/BindersModule";
+import { BillingModule } from "@/components/BillingModule";
 import LoginScreen from "@/components/LoginScreen";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
+import type { Session } from "@supabase/supabase-js";
 import { LogOut, Wifi, WifiOff, Cloud, CloudOff, CloudCheck, Camera, AlertTriangle, Shield, X, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
@@ -706,7 +708,38 @@ function getDefaultComplianceFields(country: string): ComplianceField[] {
 // ─── Estado global y layout ────────────────────────────────────────────────────
 
 export default function Home() {
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  // PASO MANUAL: Crear usuario admin en Supabase Dashboard
+  // Authentication → Users → Add user
+  // Email: admin@machinpro.com
+  // Password: (elegir una segura)
+
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const { user, profile, signOut, syncSession } = useAuth();
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthLoading(false);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    if (!supabase) return;
+    await signOut();
+    setSession(null);
+  };
   const companyId = profile?.companyId ?? null;
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -871,6 +904,62 @@ export default function Home() {
   });
   const [binders, setBinders] = useState<Binder[]>(INITIAL_BINDERS);
   const [binderDocuments, setBinderDocuments] = useState<BinderDocument[]>([]);
+
+  useEffect(() => {
+    if (!supabase || !session) return;
+    const client = supabase;
+    const loadEmployees = async () => {
+      const { data, error } = await client.from("employees").select("*");
+      if (!error && data && data.length > 0) {
+        setEmployees(
+          data.map((e: Record<string, unknown>) => ({
+            id: String(e.id),
+            name: String(e.name),
+            role: String(e.role),
+            hours: typeof e.hours === "number" ? e.hours : Number(e.hours) || 0,
+            payType: e.pay_type as Employee["payType"],
+            hourlyRate: e.hourly_rate != null ? Number(e.hourly_rate) : undefined,
+            monthlySalary: e.monthly_salary != null ? Number(e.monthly_salary) : undefined,
+            phone: e.phone != null ? String(e.phone) : undefined,
+            email: e.email != null ? String(e.email) : undefined,
+            certificates: [],
+            hoursLog: [],
+          }))
+        );
+      }
+    };
+    void loadEmployees();
+  }, [session]);
+
+  useEffect(() => {
+    if (!supabase || !session) return;
+    const client = supabase;
+    const loadProjects = async () => {
+      const { data, error } = await client.from("projects").select("*");
+      if (!error && data && data.length > 0) {
+        setProjects(
+          data.map((p: Record<string, unknown>) => ({
+            id: String(p.id),
+            name: String(p.name),
+            type: String(p.type ?? ""),
+            location: String(p.location ?? ""),
+            projectCode: p.project_code != null ? String(p.project_code) : undefined,
+            budgetCAD: p.budget_cad != null ? Number(p.budget_cad) : undefined,
+            spentCAD: p.spent_cad != null ? Number(p.spent_cad) : undefined,
+            estimatedStart: String(p.estimated_start ?? ""),
+            estimatedEnd: String(p.estimated_end ?? ""),
+            locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
+            locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
+            archived: Boolean(p.archived),
+            assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
+              ? (p.assigned_employee_ids as string[])
+              : [],
+          }))
+        );
+      }
+    };
+    void loadProjects();
+  }, [session]);
 
   const [isOnline, setIsOnline] = useState(true);
 
@@ -1675,6 +1764,7 @@ export default function Home() {
     schedule: t.schedule,
     forms: (t as Record<string, string>).forms ?? "Formularios",
     binders: (t as Record<string, string>).binders ?? "Documentos",
+    billing: (t as Record<string, string>).billing_menu ?? "Billing",
     settings: t.settings,
     worker: t.worker,
     blueprints: t.blueprints ?? "Planos",
@@ -2036,21 +2126,29 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-amber-500 text-sm animate-pulse">
-          Cargando…
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-slate-950">
+        <div className="w-8 h-8 rounded-full border-4 border-amber-500 border-t-transparent animate-spin" />
       </div>
     );
   }
 
-  if (!user || !profile) {
-    return <LoginScreen />;
+  if (!session && supabase) {
+    return (
+      <LoginScreen
+        onLogin={async () => {
+          await syncSession();
+          if (supabase) {
+            const { data } = await supabase.auth.getSession();
+            setSession(data.session ?? null);
+          }
+        }}
+      />
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-x-hidden">
-      {user && effectiveRole === "admin" && !onboardingComplete && (
+      {session && effectiveRole === "admin" && !onboardingComplete && (
         <OnboardingModal
           onComplete={completeOnboarding}
           onGoToSettings={() => {
@@ -2071,6 +2169,7 @@ export default function Home() {
           canAccessSchedule={perms.canAccessSchedule ?? true}
           canAccessForms={perms.forms ?? false}
           canAccessBinders={perms.canViewBinders ?? false}
+          canAccessBilling={effectiveRole === "admin"}
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -2182,7 +2281,7 @@ export default function Home() {
               >
                 {darkMode ? "☾ " + (t.darkMode ?? "Oscuro") : "☀ " + (t.darkMode ?? "Oscuro")}
               </button>
-              {user && (
+              {session && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-amber-500 hidden sm:block">
                     Machin<span className="text-zinc-500">Pro</span>
@@ -2192,11 +2291,11 @@ export default function Home() {
                   </span>
                   <button
                     type="button"
-                    onClick={signOut}
-                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[36px] transition-colors"
+                    onClick={() => void handleLogout()}
+                    className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
                   >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span className="hidden sm:block">Salir</span>
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden sm:inline">Cerrar sesión</span>
                   </button>
                 </div>
               )}
@@ -2783,6 +2882,19 @@ export default function Home() {
               />
             )}
 
+            {activeSection === "billing" && effectiveRole === "admin" && companyId && (
+              <BillingModule
+                t={t as Record<string, string>}
+                companyId={companyId}
+                companyName={profile?.companyName ?? companyName}
+                email={profile?.email ?? undefined}
+                employeesCount={(employees ?? []).length}
+                projectsCount={(projects ?? []).filter((p) => !p.archived).length}
+                storageUsedGb={0}
+                userRole={effectiveRole}
+              />
+            )}
+
             {activeSection === "settings" && (
               <SettingsModule
                 labels={{
@@ -2825,6 +2937,8 @@ export default function Home() {
                 onCompanyNameChange={setCompanyName}
                 logoUrl={logoUrl}
                 onLogoUpload={handleLogoUpload}
+                session={session}
+                onSignOut={() => void handleLogout()}
               />
             )}
 

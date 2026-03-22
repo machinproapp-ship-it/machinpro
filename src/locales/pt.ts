@@ -590,6 +590,7 @@ export default {
   taskUnassigned: "Não atribuído",
   editTask: "Editar tarefa",
   billing_title: "Faturação e planos",
+  billing_menu: "Faturação",
   billing_plan_starter: "Starter",
   billing_plan_pro: "Pro",
   billing_plan_enterprise: "Enterprise",

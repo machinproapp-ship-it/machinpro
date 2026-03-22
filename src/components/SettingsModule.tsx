@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sliders, Lock, Pencil, Trash2 } from "lucide-react";
+import { Sliders, Lock, Pencil, Trash2, LogOut } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
 import { LANGUAGES, CURRENCY_META } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
 import type { ComplianceField, ComplianceFieldType, ComplianceTarget } from "@/app/page";
@@ -73,6 +74,8 @@ export interface SettingsModuleProps {
   onLogoUpload: () => void;
   complianceFields?: ComplianceField[];
   onComplianceFieldsChange?: (fields: ComplianceField[]) => void;
+  session?: Session | null;
+  onSignOut?: () => void;
 }
 
 export function SettingsModule({
@@ -92,6 +95,8 @@ export function SettingsModule({
   onLogoUpload,
   complianceFields = [],
   onComplianceFieldsChange,
+  session = null,
+  onSignOut,
 }: SettingsModuleProps) {
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
   const [complianceModalOpen, setComplianceModalOpen] = useState(false);
@@ -116,6 +121,19 @@ export function SettingsModule({
         <Sliders className="h-5 w-5" />
         {t.settings}
       </h2>
+
+      {session && onSignOut && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </button>
+        </div>
+      )}
 
       {autoSetupMessage && (
         <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">

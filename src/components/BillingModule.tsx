@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useSubscription } from "@/lib/useSubscription";
 import type { PlanKey } from "@/lib/stripe";
 import { PricingModule } from "@/components/PricingModule";
+import type { UserRole } from "@/types/shared";
 
 export interface BillingModuleProps {
   t: Record<string, string>;
@@ -15,6 +16,8 @@ export interface BillingModuleProps {
   employeesCount: number;
   projectsCount: number;
   storageUsedGb: number;
+  /** Rol efectivo en la app (p. ej. admin para facturación). */
+  userRole: UserRole;
 }
 
 function statusLabel(
@@ -48,6 +51,7 @@ export function BillingModule({
   employeesCount,
   projectsCount,
   storageUsedGb,
+  userRole,
 }: BillingModuleProps) {
   const {
     subscription,
@@ -106,7 +110,10 @@ export function BillingModule({
   const currentPlanKey = subscription?.plan as PlanKey | undefined;
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-10">
+    <div
+      className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-10"
+      data-section-user-role={userRole}
+    >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">

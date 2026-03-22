@@ -12,6 +12,8 @@ export type MainSection =
   | "site"
   | "schedule"
   | "binders"
+  | "billing"
+  | "pricing"
   | "settings";
 
 export type UserRole =
@@ -52,6 +54,7 @@ export interface SidebarLabels {
   schedule: string;
   forms: string;
   binders: string;
+  billing?: string;
   settings: string;
   operations?: string;
   payroll?: string;

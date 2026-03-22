@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "./supabase";
@@ -24,6 +24,8 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  /** Relee sesión y perfil desde Supabase (p. ej. tras login en LoginScreen). */
+  syncSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -61,7 +63,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName,
         email,
       });
+    } else {
+      setProfile(null);
     }
+  };
+
+  const syncSession = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    const s = data.session ?? null;
+    setSession(s);
+    setUser(s?.user ?? null);
+    if (s?.user) await fetchProfile(s.user.id);
+    else setProfile(null);
   };
 
   useEffect(() => {
@@ -103,11 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
     setProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ user, session, profile, loading, signIn, signOut, syncSession }}
+    >
       {children}
     </AuthContext.Provider>
   );
