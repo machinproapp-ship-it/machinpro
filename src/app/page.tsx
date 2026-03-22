@@ -35,6 +35,10 @@ import { FormsModule } from "@/components/FormsModule";
 import { BindersModule } from "@/components/BindersModule";
 import { BillingModule } from "@/components/BillingModule";
 import { VisitorModule } from "@/components/VisitorModule";
+import {
+  CorrectiveActionsModule,
+  type CorrectiveActionsPrefill,
+} from "@/components/CorrectiveActionsModule";
 import { HazardModule } from "@/components/HazardModule";
 import LoginScreen from "@/components/LoginScreen";
 import { OnboardingModal } from "@/components/OnboardingModal";
@@ -874,6 +878,9 @@ export default function Home() {
   const [fabIncidentNotes, setFabIncidentNotes] = useState<string>("");
 
   const [activeSection, setActiveSection] = useState<MainSection>("office");
+  const [correctivePrefill, setCorrectivePrefill] = useState<CorrectiveActionsPrefill | null>(null);
+  const [focusHazardId, setFocusHazardId] = useState<string | null>(null);
+  const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>(INITIAL_CUSTOM_ROLES);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
@@ -1769,6 +1776,7 @@ export default function Home() {
     billing: (t as Record<string, string>).billing_menu ?? "Billing",
     visitors: (t as Record<string, string>).visitors_menu ?? "Visitantes",
     hazards: (t as Record<string, string>).hazards_menu ?? "Riesgos",
+    actions: (t as Record<string, string>).actions_menu ?? "Acciones",
     settings: t.settings,
     worker: t.worker,
     blueprints: t.blueprints ?? "Planos",
@@ -2176,6 +2184,11 @@ export default function Home() {
           canAccessBilling={effectiveRole === "admin"}
           canAccessVisitors={effectiveRole === "admin" || effectiveRole === "supervisor"}
           canAccessHazards={
+            effectiveRole === "admin" ||
+            effectiveRole === "supervisor" ||
+            effectiveRole === "worker"
+          }
+          canAccessCorrectiveActions={
             effectiveRole === "admin" ||
             effectiveRole === "supervisor" ||
             effectiveRole === "worker"
@@ -2917,6 +2930,40 @@ export default function Home() {
                   userProfileId={profile?.id ?? null}
                   projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
                   employees={(employees ?? []).map((e) => ({ id: e.id, name: e.name }))}
+                  focusHazardId={focusHazardId}
+                  onFocusHazardConsumed={() => setFocusHazardId(null)}
+                  onOpenCorrectiveFromHazard={({ hazardId, projectId, projectName }) => {
+                    setCorrectivePrefill({
+                      hazardId,
+                      projectId,
+                      projectName,
+                    });
+                    setActiveSection("corrective_actions");
+                  }}
+                />
+              )}
+
+            {activeSection === "corrective_actions" &&
+              (effectiveRole === "admin" ||
+                effectiveRole === "supervisor" ||
+                effectiveRole === "worker") && (
+                <CorrectiveActionsModule
+                  t={t as Record<string, string>}
+                  companyId={companyId}
+                  companyName={profile?.companyName ?? companyName}
+                  userRole={effectiveRole}
+                  userName={
+                    profile?.fullName ?? profile?.email ?? user?.email ?? "User"
+                  }
+                  userProfileId={profile?.id ?? null}
+                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                  employees={(employees ?? []).map((e) => ({ id: e.id, name: e.name }))}
+                  prefill={correctivePrefill}
+                  onConsumePrefill={consumeCorrectivePrefill}
+                  onNavigateToHazard={(id) => {
+                    setFocusHazardId(id);
+                    setActiveSection("hazards");
+                  }}
                 />
               )}
 

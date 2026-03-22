@@ -12,6 +12,7 @@ import {
   CreditCard,
   UserCheck,
   AlertTriangle,
+  ClipboardCheck,
 } from "lucide-react";
 import type { MainSection, SidebarLabels } from "@/types/shared";
 
@@ -30,6 +31,8 @@ export interface SidebarProps {
   canAccessVisitors?: boolean;
   /** Riesgos en obra — admin, supervisor y trabajador (solo lectura) */
   canAccessHazards?: boolean;
+  /** Acciones correctivas — admin, supervisor y trabajador (solo lectura para trabajador) */
+  canAccessCorrectiveActions?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
 }
@@ -46,12 +49,14 @@ export function Sidebar({
   canAccessBilling = false,
   canAccessVisitors = false,
   canAccessHazards = false,
+  canAccessCorrectiveActions = false,
   labels,
   collapsed = false,
 }: SidebarProps) {
   const billingLabel = labels.billing ?? "Billing";
   const visitorsLabel = labels.visitors ?? "Visitors";
   const hazardsLabel = labels.hazards ?? "Hazards";
+  const actionsLabel = labels.actions ?? "Actions";
   const sidebarNavItems = [
     { id: "office" as const, icon: Building2, label: labels.office ?? "Central", show: canAccessOffice },
     { id: "warehouse" as const, icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
@@ -61,6 +66,12 @@ export function Sidebar({
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
     { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
     { id: "hazards" as const, icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
+    {
+      id: "corrective_actions" as const,
+      icon: ClipboardCheck,
+      label: actionsLabel,
+      show: !!canAccessCorrectiveActions,
+    },
     { id: "settings" as const, icon: Sliders, label: labels.settings ?? "Ajustes", show: true },
   ].filter((item) => item.show);
 
@@ -73,6 +84,12 @@ export function Sidebar({
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
     { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
     { id: "hazards" as const, icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
+    {
+      id: "corrective_actions" as const,
+      icon: ClipboardCheck,
+      label: actionsLabel,
+      show: !!canAccessCorrectiveActions,
+    },
     { id: "settings" as const, icon: Settings, label: labels.settings ?? "Ajustes", show: true },
   ];
   const visibleBottom = allBottomItems.filter((item) => item.show);
@@ -85,11 +102,13 @@ export function Sidebar({
               i.id !== "settings" &&
               i.id !== "billing" &&
               i.id !== "visitors" &&
-              i.id !== "hazards"
+              i.id !== "hazards" &&
+              i.id !== "corrective_actions"
           ).slice(0, 3),
           ...visibleBottom.filter((i) => i.id === "schedule"),
           ...visibleBottom.filter((i) => i.id === "visitors"),
           ...visibleBottom.filter((i) => i.id === "hazards"),
+          ...visibleBottom.filter((i) => i.id === "corrective_actions"),
           ...visibleBottom.filter((i) => i.id === "billing"),
           ...visibleBottom.filter((i) => i.id === "settings"),
         ]
@@ -127,7 +146,9 @@ export function Sidebar({
                             ? "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300"
                             : item.id === "hazards"
                               ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
-                              : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
+                              : item.id === "corrective_actions"
+                                ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200"
+                                : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
           return (
             <button
               key={item.id}

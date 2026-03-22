@@ -49,6 +49,15 @@ export interface HazardModuleProps {
   userProfileId: string | null;
   projects: { id: string; name: string }[];
   employees: { id: string; name: string }[];
+  /** Abre el módulo de acciones correctivas con peligro/proyecto pre-rellenados. */
+  onOpenCorrectiveFromHazard?: (p: {
+    hazardId: string;
+    projectId: string | null;
+    projectName: string | null;
+  }) => void;
+  /** Al volver desde acciones correctivas, abre el detalle de este peligro. */
+  focusHazardId?: string | null;
+  onFocusHazardConsumed?: () => void;
 }
 
 type SortKey = "date" | "score" | "severity" | "status";
@@ -110,9 +119,15 @@ export function HazardModule({
   userProfileId,
   projects,
   employees,
+  onOpenCorrectiveFromHazard,
+  focusHazardId,
+  onFocusHazardConsumed,
 }: HazardModuleProps) {
   const readOnly = userRole === "worker";
   const [rows, setRows] = useState<Hazard[]>([]);
+  const [caByHazard, setCaByHazard] = useState<
+    Record<string, { count: number; allDone: boolean }>
+  >({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterProject, setFilterProject] = useState<string>("all");
@@ -136,6 +151,7 @@ export function HazardModule({
   const load = useCallback(async () => {
     if (!supabase || !companyId) {
       setRows([]);
+      setCaByHazard({});
       setLoading(false);
       return;
     }
@@ -148,9 +164,27 @@ export function HazardModule({
     if (error) {
       console.error(error);
       setRows([]);
+      setCaByHazard({});
     } else {
       setRows((data ?? []) as Hazard[]);
     }
+    const { data: caRows } = await supabase
+      .from("corrective_actions")
+      .select("hazard_id, status")
+      .eq("company_id", companyId)
+      .not("hazard_id", "is", null);
+    const caMap: Record<string, { count: number; allDone: boolean }> = {};
+    for (const r of caRows ?? []) {
+      const row = r as { hazard_id: string | null; status: string };
+      const hid = row.hazard_id;
+      if (!hid) continue;
+      if (!caMap[hid]) caMap[hid] = { count: 0, allDone: true };
+      caMap[hid].count += 1;
+      if (row.status !== "closed" && row.status !== "verified") {
+        caMap[hid].allDone = false;
+      }
+    }
+    setCaByHazard(caMap);
     setLoading(false);
   }, [companyId]);
 
@@ -199,6 +233,15 @@ export function HazardModule({
     if (detail?.id) void loadHistory(detail.id);
     else setHistory([]);
   }, [detail?.id, loadHistory]);
+
+  useEffect(() => {
+    if (!focusHazardId || rows.length === 0) return;
+    const h = rows.find((r) => r.id === focusHazardId);
+    if (h) {
+      setDetail(h);
+      onFocusHazardConsumed?.();
+    }
+  }, [focusHazardId, rows, onFocusHazardConsumed]);
 
   useEffect(() => {
     if (detail) {
@@ -754,6 +797,20 @@ export function HazardModule({
                 {catLabel(h.category)} · {t.hazards_risk_score ?? "Score"}: {h.risk_score} ·{" "}
                 {statusLabel(h.status)}
               </p>
+              {(caByHazard[h.id]?.count ?? 0) > 0 && (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    {t.hazards_linked_corrective_count ?? t.actions_title ?? "Acciones"}:{" "}
+                    {caByHazard[h.id]!.count}
+                  </span>
+                  {caByHazard[h.id]!.allDone &&
+                    (h.status === "open" || h.status === "in_progress") && (
+                      <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 font-medium text-emerald-800 dark:text-emerald-200">
+                        {t.actions_ready_to_close_hazard ?? "Listo para cerrar"}
+                      </span>
+                    )}
+                </div>
+              )}
             </button>
           ))
         )}
@@ -765,7 +822,7 @@ export function HazardModule({
         ) : sorted.length === 0 ? (
           <div className="p-8 text-center text-zinc-500">{t.hazards_no_results ?? "—"}</div>
         ) : (
-          <table className="w-full text-sm min-w-[960px]">
+          <table className="w-full text-sm min-w-[1040px]">
             <thead className="bg-zinc-50 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">{t.hazards_title_col ?? "Title"}</th>
@@ -776,6 +833,9 @@ export function HazardModule({
                 <th className="px-4 py-3 text-left font-medium">{t.hazards_status ?? "Status"}</th>
                 <th className="px-4 py-3 text-left font-medium">{t.hazards_assigned_to ?? "Assign"}</th>
                 <th className="px-4 py-3 text-left font-medium">{t.hazards_due_date ?? "Due"}</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">
+                  {t.hazards_corrective_actions_col ?? t.actions_title ?? "Acciones"}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -802,6 +862,19 @@ export function HazardModule({
                   </td>
                   <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
                     {h.due_date ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+                    <div className="flex flex-col gap-1">
+                      <span className="tabular-nums">{caByHazard[h.id]?.count ?? 0}</span>
+                      {caByHazard[h.id] &&
+                        caByHazard[h.id]!.count > 0 &&
+                        caByHazard[h.id]!.allDone &&
+                        (h.status === "open" || h.status === "in_progress") && (
+                          <span className="inline-flex w-fit rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium text-emerald-800 dark:text-emerald-200">
+                            {t.actions_ready_to_close_hazard ?? "OK"}
+                          </span>
+                        )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1055,6 +1128,23 @@ export function HazardModule({
                 </dd>
               </div>
             </dl>
+
+            {!readOnly && onOpenCorrectiveFromHazard && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenCorrectiveFromHazard({
+                    hazardId: detail.id,
+                    projectId: detail.project_id,
+                    projectName: detail.project_name,
+                  });
+                  setDetail(null);
+                }}
+                className="w-full min-h-[44px] rounded-xl border border-cyan-600/60 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 font-semibold text-sm py-3 hover:bg-cyan-100 dark:hover:bg-cyan-900/50"
+              >
+                {t.hazards_new_corrective_action ?? t.actions_new ?? "Nueva acción correctiva"}
+              </button>
+            )}
 
             {!readOnly && (
               <div className="space-y-3 border-t border-zinc-200 dark:border-zinc-700 pt-4">

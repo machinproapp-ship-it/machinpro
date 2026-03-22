@@ -144,3 +144,5 @@ alter table user_profiles enable row level security;
 -- create table visitor_logs (...);  — ejecutar visitor_logs.sql en el editor SQL de Supabase
 
 -- Sprint AH: hazards — ejecutar src/lib/hazards.sql en el editor SQL de Supabase
+
+-- Sprint AI: acciones correctivas — ejecutar src/lib/corrective_actions.sql
