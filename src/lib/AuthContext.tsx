@@ -15,6 +15,8 @@ interface UserProfile {
   fullName?: string | null;
   /** Auth email (session). */
   email?: string | null;
+  /** Panel MachinPro global (columna `is_superadmin` en Supabase). */
+  isSuperadmin?: boolean;
 }
 
 interface AuthContextValue {
@@ -54,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             : null) ?? null;
       const { data: authUser } = await supabase.auth.getUser();
       const email = authUser?.user?.email ?? null;
+      const superRow = row as { is_superadmin?: boolean };
       setProfile({
         id: data.id,
         employeeId: data.employee_id ?? null,
@@ -62,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         companyName: companies?.name ?? null,
         fullName,
         email,
+        isSuperadmin: superRow.is_superadmin === true,
       });
     } else {
       setProfile(null);

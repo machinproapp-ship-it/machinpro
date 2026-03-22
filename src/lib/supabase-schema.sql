@@ -146,3 +146,5 @@ alter table user_profiles enable row level security;
 -- Sprint AH: hazards — ejecutar src/lib/hazards.sql en el editor SQL de Supabase
 
 -- Sprint AI: acciones correctivas — ejecutar src/lib/corrective_actions.sql
+
+-- Superadmin: columna is_superadmin en user_profiles — ejecutar src/lib/user_profiles_superadmin.sql

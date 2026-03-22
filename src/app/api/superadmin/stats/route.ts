@@ -1,0 +1,88 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { verifySuperadminAccess } from "@/lib/verify-api-session";
+import { PLAN_PRICES_CAD, type PlanKey } from "@/lib/stripe";
+
+export const runtime = "nodejs";
+
+function planKeyFromRow(plan: string | null | undefined): PlanKey | null {
+  const p = (plan ?? "").toLowerCase();
+  if (p === "starter" || p === "trial") return "starter";
+  if (p === "pro" || p === "professional") return "pro";
+  if (p === "enterprise") return "enterprise";
+  return null;
+}
+
+function monthlyEquivalentMrr(plan: PlanKey, billingPeriod: string | null | undefined): number {
+  const prices = PLAN_PRICES_CAD[plan];
+  if (billingPeriod === "annual") return Math.round(prices.annual / 12);
+  return prices.monthly;
+}
+
+export async function GET(_req: NextRequest) {
+  const auth = await verifySuperadminAccess(_req);
+  if (!auth) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  const { data: companies, error: cErr } = await admin.from("companies").select("id");
+  if (cErr) {
+    return NextResponse.json({ error: cErr.message }, { status: 500 });
+  }
+
+  const { count: userTotal, error: uErr } = await admin
+    .from("user_profiles")
+    .select("id", { count: "exact", head: true });
+  if (uErr) {
+    return NextResponse.json({ error: uErr.message }, { status: 500 });
+  }
+
+  const { data: subs } = await admin.from("subscriptions").select("*");
+  const now = Date.now();
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+  let mrrCad = 0;
+  let trialsActive = 0;
+  let conversionsWeek = 0;
+
+  for (const s of subs ?? []) {
+    const row = s as {
+      status: string;
+      plan: string;
+      billing_period: string | null;
+      updated_at?: string;
+    };
+    if (row.status === "trialing") trialsActive += 1;
+    if (row.status === "active") {
+      const pk = planKeyFromRow(row.plan);
+      if (pk) mrrCad += monthlyEquivalentMrr(pk, row.billing_period);
+    }
+    const updated = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+    if (row.status === "active" && updated >= weekAgo) conversionsWeek += 1;
+  }
+
+  const planDist: Record<string, number> = { starter: 0, pro: 0, enterprise: 0, trial: 0, other: 0 };
+  for (const s of subs ?? []) {
+    const row = s as { plan: string; status: string };
+    const pk = planKeyFromRow(row.plan);
+    if (row.status === "trialing") {
+      planDist.trial += 1;
+    } else if (pk === "starter") planDist.starter += 1;
+    else if (pk === "pro") planDist.pro += 1;
+    else if (pk === "enterprise") planDist.enterprise += 1;
+    else planDist.other += 1;
+  }
+
+  return NextResponse.json({
+    totalCompanies: companies?.length ?? 0,
+    totalUsers: userTotal ?? 0,
+    mrrCadApprox: mrrCad,
+    trialsActive,
+    conversionsWeek,
+    planDistribution: planDist,
+  });
+}
