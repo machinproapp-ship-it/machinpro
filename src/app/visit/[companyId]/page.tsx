@@ -490,7 +490,7 @@ export default function VisitorCheckInPage() {
           {loading ? (t.visitors_loading ?? "…") : (t.visitors_submit ?? "Submit")}
         </button>
 
-        <p className="text-xs text-center text-gray-500 dark:text-gray-500 break-all">
+        <p className="text-xs text-center text-gray-500 dark:text-gray-400 break-all">
           {buildVisitorCheckInUrl(companyId)}
         </p>
       </main>
