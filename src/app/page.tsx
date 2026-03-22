@@ -42,6 +42,7 @@ import {
 } from "@/components/CorrectiveActionsModule";
 import { HazardModule } from "@/components/HazardModule";
 import LoginScreen from "@/components/LoginScreen";
+import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
 import type { Session } from "@supabase/supabase-js";
@@ -2168,15 +2169,18 @@ export default function Home() {
 
   if (!session && supabase) {
     return (
-      <LoginScreen
-        onLogin={async () => {
-          await syncSession();
-          if (supabase) {
-            const { data } = await supabase.auth.getSession();
-            setSession(data.session ?? null);
-          }
-        }}
-      />
+      <>
+        <LoginScreen
+          onLogin={async () => {
+            await syncSession();
+            if (supabase) {
+              const { data } = await supabase.auth.getSession();
+              setSession(data.session ?? null);
+            }
+          }}
+        />
+        <InstallPWABanner labels={t} isDark={darkMode ?? false} />
+      </>
     );
   }
 
@@ -3785,6 +3789,7 @@ export default function Home() {
           </div>
         </>
       )}
+      <InstallPWABanner labels={t} isDark={darkMode ?? false} />
     </div>
   );
 }

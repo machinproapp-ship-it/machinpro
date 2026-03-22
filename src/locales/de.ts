@@ -949,4 +949,13 @@ export default {
   superadmin_loading: "Laden…",
   superadmin_error_auth: "Anmeldung nötig",
   superadmin_error_load: "Ladefehler",
+
+  pwa_install_title: "MachinPro",
+  pwa_install_desc: "MachinPro auf Ihrem Gerät installieren",
+  pwa_install_btn: "Installieren",
+  pwa_install_close: "Schließen",
+  pwa_install_ios_title: "Zum Home-Bildschirm",
+  pwa_install_ios_step1: "Tippen Sie in Safari auf „Teilen“.",
+  pwa_install_ios_step2: "Wählen Sie „Zum Home-Bildschirm“.",
+  pwa_install_ios_step3: "Bestätigen Sie mit „Hinzufügen“.",
 } as const;

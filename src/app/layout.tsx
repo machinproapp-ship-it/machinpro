@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "MachinPro",
   },
   icons: {
@@ -17,11 +17,14 @@ export const metadata: Metadata = {
   },
   other: {
     "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "MachinPro",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1a3a4a",
+  themeColor: "#f97316",
 };
 
 const MACHINPRO_THEME_SCRIPT = `
@@ -35,6 +38,16 @@ const MACHINPRO_THEME_SCRIPT = `
 })();
 `.trim();
 
+const MACHINPRO_SW_REGISTER = `
+(function(){
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/sw.js');
+    });
+  }
+})();
+`.trim();
+
 export default function RootLayout({
   children,
 }: {
@@ -43,7 +56,15 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#f97316" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="MachinPro" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <script dangerouslySetInnerHTML={{ __html: MACHINPRO_THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: MACHINPRO_SW_REGISTER }} />
       </head>
       <body>
         <Script src="https://upload-widget.cloudinary.com/global/all.js" strategy="lazyOnload" />

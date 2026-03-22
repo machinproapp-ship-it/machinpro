@@ -8,6 +8,7 @@
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "build": "next build --webpack",
     "generate-icons": "node scripts/generate-icons.js",
+    "generate-pwa-assets": "node scripts/generate-pwa-icons.mjs && node scripts/generate-pwa-screenshot.mjs",
     "start": "next start",
     "lint": "eslint"
   },

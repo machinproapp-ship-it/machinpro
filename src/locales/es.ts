@@ -949,4 +949,13 @@ export default {
   superadmin_loading: "Cargando…",
   superadmin_error_auth: "Sesión requerida",
   superadmin_error_load: "Error al cargar datos",
+
+  pwa_install_title: "MachinPro",
+  pwa_install_desc: "Instala MachinPro en tu dispositivo",
+  pwa_install_btn: "Instalar",
+  pwa_install_close: "Cerrar",
+  pwa_install_ios_title: "Añadir a la pantalla de inicio",
+  pwa_install_ios_step1: "Pulsa el botón Compartir en Safari.",
+  pwa_install_ios_step2: "Selecciona «Añadir a pantalla de inicio».",
+  pwa_install_ios_step3: "Confirma con «Añadir».",
 } as const;
