@@ -22,8 +22,26 @@ export interface Blueprint {
   width: number | null;
   height: number | null;
   is_active: boolean;
+  parent_version_id: string | null;
+  version_notes: string | null;
   created_by: string | null;
   created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlueprintAnnotation {
+  id: string;
+  blueprint_id: string;
+  company_id: string;
+  project_id: string;
+  x_percent: number;
+  y_percent: number;
+  content: string;
+  color: string;
+  author_name: string | null;
+  author_id: string | null;
+  is_resolved: boolean;
   created_at: string;
   updated_at: string;
 }

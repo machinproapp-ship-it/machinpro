@@ -10,11 +10,14 @@ import {
   MousePointer2,
   Crosshair,
   File,
+  StickyNote,
+  History,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
 import type {
   Blueprint as BlueprintRow,
+  BlueprintAnnotation,
   BlueprintPin,
   BlueprintLayer,
   PinType,
@@ -36,6 +39,30 @@ const LAYERS: { id: BlueprintLayer; labelKey: string }[] = [
 ];
 
 const PIN_TYPES: PinType[] = ["annotation", "hazard", "corrective_action", "photo"];
+
+const NOTE_COLORS = ["#fbbf24", "#22c55e", "#3b82f6", "#ec4899"] as const;
+
+const MAX_NOTE_LEN = 500;
+const NOTE_PREVIEW_LEN = 50;
+
+function normalizeBlueprintRow(r: Record<string, unknown>): BlueprintRow {
+  return {
+    ...(r as unknown as BlueprintRow),
+    parent_version_id: (r.parent_version_id as string | null | undefined) ?? null,
+    version_notes: (r.version_notes as string | null | undefined) ?? null,
+  };
+}
+
+function formatBlueprintWhen(iso: string, locale: string | undefined): string {
+  try {
+    return new Date(iso).toLocaleString(locale || undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 function clamp(n: number, a: number, b: number): number {
   return Math.min(b, Math.max(a, n));
@@ -191,12 +218,70 @@ export default function BlueprintViewer({
   const [hazardSearch, setHazardSearch] = useState("");
   const [savingPin, setSavingPin] = useState(false);
 
+  const [notesLayerVisible, setNotesLayerVisible] = useState(true);
+  const [addNoteMode, setAddNoteMode] = useState(false);
+  const [annotations, setAnnotations] = useState<BlueprintAnnotation[]>([]);
+  const [annotationPopup, setAnnotationPopup] = useState<BlueprintAnnotation | null>(null);
+  const [noteFormOpen, setNoteFormOpen] = useState(false);
+  const [pendingNotePct, setPendingNotePct] = useState<{ x: number; y: number } | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteColorChoice, setNoteColorChoice] = useState<string>(NOTE_COLORS[0]);
+  const [savingNote, setSavingNote] = useState(false);
+
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [versionFile, setVersionFile] = useState<File | null>(null);
+  const [versionNotesText, setVersionNotesText] = useState("");
+  const [migratePins, setMigratePins] = useState(true);
+  const [migrateAnnotations, setMigrateAnnotations] = useState(true);
+  const [versionUploading, setVersionUploading] = useState(false);
+  const [versionDragActive, setVersionDragActive] = useState(false);
+  const versionFileInputRef = useRef<HTMLInputElement>(null);
+  const versionDragDepthRef = useRef(0);
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   const viewportRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const pinchRef = useRef<{ dist: number; z: number } | null>(null);
 
   const selected = useMemo(() => rows.find((r) => r.id === selectedId) ?? null, [rows, selectedId]);
+
+  const browserLocale = useMemo(
+    () => (typeof navigator !== "undefined" ? navigator.language : undefined),
+    []
+  );
+
+  const blueprintOptions = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const c = a.name.localeCompare(b.name);
+      if (c !== 0) return c;
+      return b.version - a.version;
+    });
+  }, [rows]);
+
+  const sameNamePeers = useMemo(() => {
+    if (!selected) return [];
+    return rows.filter((r) => r.name === selected.name);
+  }, [rows, selected]);
+
+  const activeVersionRow = useMemo(() => {
+    if (!selected) return null;
+    const peers = rows.filter((r) => r.name === selected.name);
+    const active = peers.find((r) => r.is_active);
+    if (active) return active;
+    const sorted = [...peers].sort((a, b) => b.version - a.version);
+    return sorted[0] ?? null;
+  }, [rows, selected]);
+
+  const isViewingActiveVersion = Boolean(
+    selected && activeVersionRow && selected.id === activeVersionRow.id
+  );
+
+  const activeNotesCount = useMemo(
+    () => annotations.filter((a) => !a.is_resolved).length,
+    [annotations]
+  );
 
   const closeUploadModal = useCallback(() => {
     setUploadOpen(false);
@@ -223,13 +308,13 @@ export default function BlueprintViewer({
       .select("*")
       .eq("company_id", companyId)
       .eq("project_id", projectId)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+      .order("name", { ascending: true })
+      .order("version", { ascending: false });
     if (error) {
       console.error(error);
       setRows([]);
     } else {
-      setRows((data ?? []) as BlueprintRow[]);
+      setRows((data ?? []).map((r) => normalizeBlueprintRow(r as Record<string, unknown>)));
     }
     setLoading(false);
   }, [companyId, projectId]);
@@ -242,6 +327,26 @@ export default function BlueprintViewer({
       }
       const { data } = await supabase.from("blueprint_pins").select("*").eq("blueprint_id", bpId);
       setPins((data ?? []) as BlueprintPin[]);
+    },
+    [companyId]
+  );
+
+  const loadAnnotations = useCallback(
+    async (bpId: string) => {
+      if (!supabase || !companyId) {
+        setAnnotations([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("blueprint_annotations")
+        .select("*")
+        .eq("blueprint_id", bpId);
+      if (error) {
+        console.error(error);
+        setAnnotations([]);
+        return;
+      }
+      setAnnotations((data ?? []) as BlueprintAnnotation[]);
     },
     [companyId]
   );
@@ -270,8 +375,40 @@ export default function BlueprintViewer({
   }, [selectedId, loadPins]);
 
   useEffect(() => {
-    if (rows.length && !selectedId) setSelectedId(rows[0].id);
+    if (selectedId) void loadAnnotations(selectedId);
+    else setAnnotations([]);
+  }, [selectedId, loadAnnotations]);
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (selectedId && !rows.some((r) => r.id === selectedId)) {
+      const active = rows.find((r) => r.is_active) ?? rows[0];
+      setSelectedId(active.id);
+      return;
+    }
+    if (!selectedId) {
+      const active = rows.find((r) => r.is_active) ?? rows[0];
+      setSelectedId(active.id);
+    }
   }, [rows, selectedId]);
+
+  const closeVersionModal = useCallback(() => {
+    setVersionModalOpen(false);
+    setVersionFile(null);
+    setVersionNotesText("");
+    setMigratePins(true);
+    setMigrateAnnotations(true);
+    setVersionDragActive(false);
+    versionDragDepthRef.current = 0;
+    if (versionFileInputRef.current) versionFileInputRef.current.value = "";
+  }, []);
+
+  const pickVersionFile = useCallback((file: File | null | undefined) => {
+    if (file && isValidBlueprintFile(file)) setVersionFile(file);
+  }, []);
 
   useEffect(() => {
     if (!pinPopup?.hazard_id) {
@@ -337,12 +474,22 @@ export default function BlueprintViewer({
   };
 
   const handleImgClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!addMode || !canEditPins || !selected) return;
+    if (!selected) return;
     const img = e.currentTarget;
     const rect = img.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     if (x < 0 || x > 100 || y < 0 || y > 100) return;
+
+    if (addNoteMode && userProfileId && notesLayerVisible) {
+      setPendingNotePct({ x, y });
+      setNoteDraft("");
+      setNoteColorChoice(NOTE_COLORS[0]);
+      setNoteFormOpen(true);
+      return;
+    }
+
+    if (!addMode || !canEditPins) return;
     setPendingPct({ x, y });
     setFormTitle("");
     setFormDesc("");
@@ -417,6 +564,247 @@ export default function BlueprintViewer({
     await loadPins(selected.id);
   };
 
+  const canEditAnnotation = (a: BlueprintAnnotation) =>
+    Boolean(userProfileId && (a.author_id === userProfileId || canEditPins));
+
+  const saveNote = async () => {
+    if (!supabase || !companyId || !userProfileId || !selected || !pendingNotePct || !noteDraft.trim()) return;
+    const content = noteDraft.trim().slice(0, MAX_NOTE_LEN);
+    if (!content) return;
+    setSavingNote(true);
+    try {
+      const row = {
+        blueprint_id: selected.id,
+        company_id: companyId,
+        project_id: projectId,
+        x_percent: pendingNotePct.x,
+        y_percent: pendingNotePct.y,
+        content,
+        color: noteColorChoice,
+        author_id: userProfileId,
+        author_name: userName,
+        is_resolved: false,
+      };
+      const { data, error } = await supabase
+        .from("blueprint_annotations")
+        .insert(row)
+        .select("id")
+        .single();
+      if (error) throw error;
+      await logAuditEvent({
+        company_id: companyId,
+        user_id: userProfileId,
+        user_name: userName,
+        action: "annotation_added",
+        entity_type: "blueprint",
+        entity_id: String(data?.id ?? ""),
+        entity_name: content.slice(0, 80),
+        new_value: { blueprint_id: selected.id, x: pendingNotePct.x, y: pendingNotePct.y },
+      });
+      setNoteFormOpen(false);
+      setPendingNotePct(null);
+      setAddNoteMode(false);
+      await loadAnnotations(selected.id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const resolveAnnotation = async (ann: BlueprintAnnotation) => {
+    if (!supabase || !companyId || !userProfileId) return;
+    if (!canEditAnnotation(ann) || ann.is_resolved) return;
+    const { error } = await supabase
+      .from("blueprint_annotations")
+      .update({ is_resolved: true })
+      .eq("id", ann.id);
+    if (error) return;
+    await logAuditEvent({
+      company_id: companyId,
+      user_id: userProfileId,
+      user_name: userName,
+      action: "annotation_resolved",
+      entity_type: "blueprint",
+      entity_id: ann.id,
+      entity_name: ann.content.slice(0, 80),
+    });
+    setAnnotationPopup(null);
+    if (selectedId) await loadAnnotations(selectedId);
+  };
+
+  const deleteAnnotation = async (ann: BlueprintAnnotation) => {
+    if (!supabase || !companyId || !userProfileId) return;
+    if (!canEditAnnotation(ann)) return;
+    const { error } = await supabase.from("blueprint_annotations").delete().eq("id", ann.id);
+    if (error) return;
+    await logAuditEvent({
+      company_id: companyId,
+      user_id: userProfileId,
+      user_name: userName,
+      action: "annotation_deleted",
+      entity_type: "blueprint",
+      entity_id: ann.id,
+      entity_name: ann.content.slice(0, 80),
+    });
+    setAnnotationPopup(null);
+    if (selectedId) await loadAnnotations(selectedId);
+  };
+
+  const submitNewVersion = async () => {
+    if (!supabase || !companyId || !userProfileId || !selected || !versionFile) return;
+    setVersionUploading(true);
+    try {
+      let blob: Blob = versionFile;
+      let fname = versionFile.name;
+      let w: number | null = null;
+      let h: number | null = null;
+      let fileType: "image" | "pdf" = "image";
+
+      if (versionFile.type === "application/pdf") {
+        const r = await pdfFirstPageToPng(versionFile);
+        blob = r.blob;
+        w = r.width;
+        h = r.height;
+        fname = "blueprint-page1.png";
+        fileType = "pdf";
+      } else {
+        const url = URL.createObjectURL(versionFile);
+        try {
+          const dim = await loadImageNaturalSize(url);
+          w = dim.width;
+          h = dim.height;
+        } catch {
+          w = null;
+          h = null;
+        }
+        URL.revokeObjectURL(url);
+      }
+
+      const imageUrl = await uploadToCloudinary(blob, fname);
+      if (w == null || h == null) {
+        try {
+          const dim = await loadImageNaturalSize(imageUrl);
+          w = dim.width;
+          h = dim.height;
+        } catch {
+          w = 1200;
+          h = 800;
+        }
+      }
+
+      const peers = rows.filter((r) => r.name === selected.name);
+      const nextVersion =
+        peers.length > 0 ? Math.max(...peers.map((r) => r.version)) + 1 : selected.version + 1;
+
+      await supabase
+        .from("blueprints")
+        .update({ is_active: false })
+        .eq("company_id", companyId)
+        .eq("project_id", projectId)
+        .eq("name", selected.name);
+
+      const insert = {
+        company_id: companyId,
+        project_id: projectId,
+        project_name: projectName,
+        name: selected.name,
+        version: nextVersion,
+        image_url: imageUrl,
+        file_type: fileType,
+        width: w,
+        height: h,
+        is_active: true,
+        parent_version_id: selected.id,
+        version_notes: versionNotesText.trim() || null,
+        created_by: userProfileId,
+        created_by_name: userName,
+      };
+      const { data: newRow, error: insErr } = await supabase
+        .from("blueprints")
+        .insert(insert)
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+      const newId = String(newRow?.id ?? "");
+
+      if (migratePins) {
+        const { data: oldPins } = await supabase.from("blueprint_pins").select("*").eq("blueprint_id", selected.id);
+        for (const p of oldPins ?? []) {
+          const raw = p as Record<string, unknown>;
+          const { id: _pid, ...pinRest } = raw;
+          await supabase.from("blueprint_pins").insert({ ...pinRest, blueprint_id: newId });
+        }
+      }
+
+      if (migrateAnnotations) {
+        const { data: oldAnn } = await supabase
+          .from("blueprint_annotations")
+          .select("*")
+          .eq("blueprint_id", selected.id);
+        for (const a of oldAnn ?? []) {
+          const raw = a as Record<string, unknown>;
+          const { id: _aid, ...annRest } = raw;
+          await supabase.from("blueprint_annotations").insert({ ...annRest, blueprint_id: newId });
+        }
+      }
+
+      await logAuditEvent({
+        company_id: companyId,
+        user_id: userProfileId,
+        user_name: userName,
+        action: "blueprint_new_version",
+        entity_type: "blueprint",
+        entity_id: newId,
+        entity_name: selected.name,
+        new_value: {
+          from_version: selected.version,
+          to_version: nextVersion,
+          parent_id: selected.id,
+        },
+      });
+
+      closeVersionModal();
+      await loadBlueprints();
+      setSelectedId(newId);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setVersionUploading(false);
+    }
+  };
+
+  const restoreVersion = async (targetId: string) => {
+    if (!supabase || !companyId || !userProfileId || !selected) return;
+    const target = rows.find((r) => r.id === targetId);
+    if (!target || target.name !== selected.name) return;
+
+    await supabase
+      .from("blueprints")
+      .update({ is_active: false })
+      .eq("company_id", companyId)
+      .eq("project_id", projectId)
+      .eq("name", target.name);
+
+    const { error } = await supabase.from("blueprints").update({ is_active: true }).eq("id", targetId);
+    if (error) return;
+
+    await logAuditEvent({
+      company_id: companyId,
+      user_id: userProfileId,
+      user_name: userName,
+      action: "blueprint_version_restored",
+      entity_type: "blueprint",
+      entity_id: targetId,
+      entity_name: target.name,
+      new_value: { version: target.version },
+    });
+
+    setHistoryOpen(false);
+    await loadBlueprints();
+    setSelectedId(targetId);
+  };
+
   const submitUpload = async () => {
     if (!supabase || !companyId || !userProfileId || !uploadName.trim() || !uploadFile) return;
     setUploading(true);
@@ -459,20 +847,37 @@ export default function BlueprintViewer({
         }
       }
 
+      const trimmedName = uploadName.trim();
+      const siblings = rows.filter((r) => r.name === trimmedName);
       const nextVersion =
-        rows.length > 0 ? Math.max(...rows.map((r) => r.version)) + 1 : 1;
+        siblings.length > 0 ? Math.max(...siblings.map((r) => r.version)) + 1 : 1;
+      const parentId =
+        siblings.length > 0
+          ? [...siblings].sort((a, b) => b.version - a.version)[0]?.id ?? null
+          : null;
+
+      if (siblings.length > 0) {
+        await supabase
+          .from("blueprints")
+          .update({ is_active: false })
+          .eq("company_id", companyId)
+          .eq("project_id", projectId)
+          .eq("name", trimmedName);
+      }
 
       const insert = {
         company_id: companyId,
         project_id: projectId,
         project_name: projectName,
-        name: uploadName.trim(),
+        name: trimmedName,
         version: nextVersion,
         image_url: imageUrl,
         file_type: fileType,
         width: w,
         height: h,
         is_active: true,
+        parent_version_id: parentId,
+        version_notes: null,
         created_by: userProfileId,
         created_by_name: userName,
       };
@@ -499,7 +904,7 @@ export default function BlueprintViewer({
   };
 
   const onPointerDownViewport = (e: React.PointerEvent) => {
-    if (addMode) return;
+    if (addMode || addNoteMode) return;
     if (e.button !== 0) return;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     dragRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
@@ -593,31 +998,85 @@ export default function BlueprintViewer({
                 <span className="tabular-nums opacity-70">{layerCounts[l.id] ?? 0}</span>
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setNotesLayerVisible((v) => !v)}
+              className={`flex w-full min-h-[44px] items-center justify-between rounded-lg border px-2 py-2 text-left text-xs font-medium ${
+                notesLayerVisible
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                  : "border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <StickyNote className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+                {t.blueprints_notes_layer ?? "Notes"}
+              </span>
+              <span className="tabular-nums opacity-70" title={t.blueprints_active_notes ?? "Active notes"}>
+                {activeNotesCount}
+              </span>
+            </button>
           </aside>
 
           <div className="flex-1 min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center gap-2">
+              <label className="text-xs text-zinc-600 dark:text-zinc-400 flex flex-wrap items-center gap-2">
                 {t.blueprints_select ?? "Blueprint"}
                 <select
                   value={selectedId ?? ""}
                   onChange={(e) => setSelectedId(e.target.value || null)}
-                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm min-h-[44px] px-2"
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm min-h-[44px] px-2 max-w-[min(100%,280px)]"
                 >
-                  {rows.map((r) => (
+                  {blueprintOptions.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} · v{r.version}
+                      {r.name} · V{r.version}
+                      {r.is_active ? ` · ${t.blueprints_version_active ?? "Active"}` : ""}
                     </option>
                   ))}
                 </select>
               </label>
               {selected && (
                 <span className="rounded-full bg-zinc-200 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-800 dark:text-zinc-200">
-                  {t.blueprints_version ?? "v"}
-                  {selected.version}
+                  V{selected.version}
                 </span>
               )}
+              {canEditPins && selected && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    versionDragDepthRef.current = 0;
+                    setVersionDragActive(false);
+                    setVersionModalOpen(true);
+                  }}
+                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  <Upload className="h-4 w-4 shrink-0" aria-hidden />
+                  {t.blueprints_new_version ?? "New version"}
+                </button>
+              )}
+              {selected && sameNamePeers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen(true)}
+                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  <History className="h-4 w-4 shrink-0" aria-hidden />
+                  {t.blueprints_version_history ?? "Version history"}
+                </button>
+              )}
             </div>
+
+            {selected && activeVersionRow && selected.id !== activeVersionRow.id && (
+              <div
+                role="status"
+                className="rounded-xl border border-amber-400/80 bg-amber-50 dark:bg-amber-950/35 dark:border-amber-600/60 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100"
+              >
+                {t.blueprints_old_version_banner ?? "Versión anterior — viendo"} V{selected.version}
+                <span className="opacity-90">
+                  {" "}
+                  ({t.blueprints_version_current ?? "actual"}: V{activeVersionRow.version})
+                </span>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2 items-center">
               <button
@@ -640,11 +1099,12 @@ export default function BlueprintViewer({
                 type="button"
                 onClick={() => {
                   setAddMode(false);
+                  setAddNoteMode(false);
                   setZoom(1);
                   setPan({ x: 0, y: 0 });
                 }}
                 className={`min-h-[44px] inline-flex items-center gap-2 rounded-xl border px-3 text-sm font-medium ${
-                  !addMode
+                  !addMode && !addNoteMode
                     ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
                     : "border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
                 }`}
@@ -655,7 +1115,13 @@ export default function BlueprintViewer({
               {canEditPins && (
                 <button
                   type="button"
-                  onClick={() => setAddMode((a) => !a)}
+                  onClick={() =>
+                    setAddMode((a) => {
+                      const n = !a;
+                      if (n) setAddNoteMode(false);
+                      return n;
+                    })
+                  }
                   className={`min-h-[44px] inline-flex items-center gap-2 rounded-xl border px-3 text-sm font-medium ${
                     addMode
                       ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
@@ -664,6 +1130,26 @@ export default function BlueprintViewer({
                 >
                   <Crosshair className="h-4 w-4" />
                   {t.blueprints_mode_add ?? "Add pin"}
+                </button>
+              )}
+              {userProfileId && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAddNoteMode((a) => {
+                      const n = !a;
+                      if (n) setAddMode(false);
+                      return n;
+                    })
+                  }
+                  className={`min-h-[44px] inline-flex items-center gap-2 rounded-xl border px-3 text-sm font-medium ${
+                    addNoteMode
+                      ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
+                      : "border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+                  }`}
+                >
+                  <StickyNote className="h-4 w-4 shrink-0" aria-hidden />
+                  {t.blueprints_add_note ?? "Add note"}
                 </button>
               )}
             </div>
@@ -700,7 +1186,9 @@ export default function BlueprintViewer({
                       src={selected.image_url}
                       alt=""
                       className={`max-w-[min(100vw-4rem,920px)] max-h-[min(70vh,560px)] w-auto h-auto object-contain select-none ${
-                        addMode && canEditPins ? "cursor-crosshair" : ""
+                        (addMode && canEditPins) || (addNoteMode && userProfileId && notesLayerVisible)
+                          ? "cursor-crosshair"
+                          : ""
                       }`}
                       onClick={handleImgClick}
                       draggable={false}
@@ -709,11 +1197,13 @@ export default function BlueprintViewer({
                       <button
                         key={pin.id}
                         type="button"
-                        className="absolute min-h-[44px] min-w-[44px] flex items-end justify-center -translate-x-1/2 -translate-y-full text-lg leading-none drop-shadow-md"
+                        className="absolute min-h-[44px] min-w-[44px] flex items-end justify-center -translate-x-1/2 -translate-y-full text-lg leading-none drop-shadow-md transition-opacity"
                         style={{
                           left: `${num(pin.x_percent)}%`,
                           top: `${num(pin.y_percent)}%`,
                           color: pin.status === "resolved" ? "#22c55e" : pin.color,
+                          opacity: isViewingActiveVersion ? 1 : 0.42,
+                          filter: isViewingActiveVersion ? undefined : "grayscale(0.5)",
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -724,6 +1214,44 @@ export default function BlueprintViewer({
                         <span className="text-2xl">{pinEmoji(pin.pin_type)}</span>
                       </button>
                     ))}
+                    {notesLayerVisible &&
+                      annotations.map((ann) => {
+                        const preview =
+                          ann.content.length > NOTE_PREVIEW_LEN
+                            ? `${ann.content.slice(0, NOTE_PREVIEW_LEN)}…`
+                            : ann.content;
+                        return (
+                          <button
+                            key={ann.id}
+                            type="button"
+                            className="absolute z-[1] flex max-w-[min(200px,45vw)] min-h-[44px] -translate-x-1/2 -translate-y-full flex-col items-stretch rounded-lg border border-black/10 dark:border-white/10 px-2 py-1.5 text-left shadow-md transition-opacity"
+                            style={{
+                              left: `${num(ann.x_percent)}%`,
+                              top: `${num(ann.y_percent)}%`,
+                              backgroundColor: ann.color,
+                              opacity: ann.is_resolved ? 0.5 : 1,
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAnnotationPopup(ann);
+                            }}
+                            aria-label={preview}
+                          >
+                            <span
+                              className={`text-[11px] font-semibold leading-snug text-zinc-900 line-clamp-3 ${
+                                ann.is_resolved ? "line-through opacity-90" : ""
+                              }`}
+                            >
+                              {preview}
+                            </span>
+                            <span className="mt-1 text-[9px] font-medium text-zinc-800/90 truncate">
+                              {(ann.author_name ?? "—") +
+                                " · " +
+                                formatBlueprintWhen(ann.created_at, browserLocale)}
+                            </span>
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -975,6 +1503,288 @@ export default function BlueprintViewer({
         </div>
       )}
 
+      {noteFormOpen && pendingNotePct && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 sm:p-6 space-y-3 shadow-xl">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              {t.blueprints_add_note ?? "Add note"}
+            </h3>
+            <label className="block text-sm">
+              <span className="text-zinc-600 dark:text-zinc-400">
+                {t.blueprints_note_placeholder ?? "Note"}
+              </span>
+              <textarea
+                value={noteDraft}
+                maxLength={MAX_NOTE_LEN}
+                onChange={(e) => setNoteDraft(e.target.value.slice(0, MAX_NOTE_LEN))}
+                placeholder={t.blueprints_note_placeholder ?? ""}
+                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[100px] text-sm"
+              />
+              <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                {noteDraft.length}/{MAX_NOTE_LEN}
+              </span>
+            </label>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {t.blueprints_note_color ?? "Color"}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {NOTE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`${t.blueprints_note_color ?? "Color"} ${c}`}
+                    onClick={() => setNoteColorChoice(c)}
+                    className={`min-h-[44px] min-w-[44px] rounded-full border-2 transition-transform ${
+                      noteColorChoice === c
+                        ? "border-zinc-900 dark:border-white scale-110"
+                        : "border-transparent ring-2 ring-zinc-300 dark:ring-zinc-600"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setNoteFormOpen(false);
+                  setPendingNotePct(null);
+                }}
+                className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 text-sm font-medium text-zinc-800 dark:text-zinc-200"
+              >
+                {t.hazards_close ?? "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={savingNote || !noteDraft.trim()}
+                onClick={() => void saveNote()}
+                className="flex-1 min-h-[44px] rounded-xl bg-amber-600 text-white font-semibold text-sm disabled:opacity-50"
+              >
+                {t.hazards_save ?? "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {versionModalOpen && selected && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 sm:p-6 space-y-4 shadow-xl max-h-[95vh] overflow-y-auto">
+            <div className="flex justify-between items-center gap-2">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
+                {t.blueprints_new_version ?? "New version"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => closeVersionModal()}
+                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                aria-label={t.hazards_close ?? "Close"}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <input
+              ref={versionFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,application/pdf"
+              className="hidden"
+              aria-hidden
+              onChange={(e) => {
+                pickVersionFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+
+            <div>
+              <button
+                type="button"
+                onClick={() => versionFileInputRef.current?.click()}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  versionDragDepthRef.current += 1;
+                  setVersionDragActive(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  versionDragDepthRef.current -= 1;
+                  if (versionDragDepthRef.current <= 0) {
+                    versionDragDepthRef.current = 0;
+                    setVersionDragActive(false);
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  versionDragDepthRef.current = 0;
+                  setVersionDragActive(false);
+                  pickVersionFile(e.dataTransfer.files?.[0]);
+                }}
+                className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors min-h-[160px] touch-manipulation ${
+                  versionDragActive
+                    ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-400"
+                    : "border-zinc-300 bg-zinc-50/80 dark:border-zinc-600 dark:bg-zinc-800/50 hover:border-amber-400/80 dark:hover:border-amber-600/60"
+                }`}
+              >
+                <Upload className="h-8 w-8 text-amber-600 dark:text-amber-400" aria-hidden />
+                <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                  {t.blueprints_upload_drop_primary ?? "Drop file"}
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {t.blueprints_upload_formats ?? "PNG, JPG, PDF"}
+                </p>
+              </button>
+              {versionFile && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-600 px-2 py-2 text-sm text-zinc-700 dark:text-zinc-300">
+                  <File className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{versionFile.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVersionFile(null);
+                      if (versionFileInputRef.current) versionFileInputRef.current.value = "";
+                    }}
+                    className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600"
+                    aria-label={t.blueprints_upload_remove_file ?? "Remove"}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <label className="block text-sm">
+              <span className="text-zinc-600 dark:text-zinc-400">
+                {t.blueprints_version_notes ?? "Version notes"}
+              </span>
+              <textarea
+                value={versionNotesText}
+                onChange={(e) => setVersionNotesText(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[72px] text-sm"
+              />
+            </label>
+
+            <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={migratePins}
+                onChange={(e) => setMigratePins(e.target.checked)}
+                className="mt-1 h-5 w-5 rounded border-zinc-300"
+              />
+              <span className="text-sm text-zinc-700 dark:text-zinc-300">{t.blueprints_migrate_pins ?? ""}</span>
+            </label>
+            <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={migrateAnnotations}
+                onChange={(e) => setMigrateAnnotations(e.target.checked)}
+                className="mt-1 h-5 w-5 rounded border-zinc-300"
+              />
+              <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                {t.blueprints_migrate_annotations ?? ""}
+              </span>
+            </label>
+
+            <button
+              type="button"
+              disabled={versionUploading || !versionFile}
+              onClick={() => void submitNewVersion()}
+              className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {versionUploading ? (t.hazards_loading ?? "…") : (t.hazards_save ?? "Save")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {historyOpen && selected && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setHistoryOpen(false)}
+        >
+          <div
+            className="h-full w-full max-w-md overflow-y-auto border-l border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-700 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 backdrop-blur-sm">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
+                {t.blueprints_version_history ?? "Version history"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600"
+                aria-label={t.hazards_close ?? "Close"}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-4">
+              {[...sameNamePeers]
+                .sort((a, b) => b.version - a.version)
+                .map((row) => (
+                  <div
+                    key={row.id}
+                    className="rounded-xl border border-zinc-200 dark:border-zinc-600 overflow-hidden bg-zinc-50/50 dark:bg-zinc-800/40"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={row.image_url}
+                      alt=""
+                      className="h-32 w-full object-cover border-b border-zinc-200 dark:border-zinc-600"
+                    />
+                    <div className="p-3 space-y-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+                          V{row.version}
+                        </span>
+                        {row.is_active && (
+                          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                            {t.blueprints_version_active ?? "Active"}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                          {t.blueprints_version_author ?? "Author"}:{" "}
+                        </span>
+                        {row.created_by_name ?? "—"}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                          {t.blueprints_version_date ?? "Date"}:{" "}
+                        </span>
+                        {formatBlueprintWhen(row.created_at, browserLocale)}
+                      </p>
+                      {row.version_notes && (
+                        <p className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+                          {row.version_notes}
+                        </p>
+                      )}
+                      {canEditPins && (
+                        <button
+                          type="button"
+                          onClick={() => void restoreVersion(row.id)}
+                          className="w-full min-h-[44px] rounded-xl border border-amber-600 text-amber-800 dark:text-amber-300 text-sm font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                        >
+                          {t.blueprints_restore_version ?? "Restore as active"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {pinPopup && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 space-y-3 shadow-xl">
@@ -1055,6 +1865,79 @@ export default function BlueprintViewer({
                   className="min-h-[44px] rounded-xl border border-red-600 text-red-700 dark:text-red-400 text-sm font-semibold"
                 >
                   {t.blueprints_delete_pin ?? "Delete pin"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {annotationPopup && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+          <div
+            className="w-full max-w-sm max-h-[min(90vh,520px)] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 space-y-3 shadow-xl"
+            style={{ borderTop: `4px solid ${annotationPopup.color}` }}
+          >
+            <div className="flex justify-between gap-2">
+              <h4
+                className={`font-semibold text-zinc-900 dark:text-white pr-2 ${
+                  annotationPopup.is_resolved ? "line-through opacity-70" : ""
+                }`}
+              >
+                {t.blueprints_notes_layer ?? "Note"}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setAnnotationPopup(null)}
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-zinc-300 dark:border-zinc-600"
+                aria-label={t.hazards_close ?? "Close"}
+              >
+                <X className="h-5 w-5 mx-auto" />
+              </button>
+            </div>
+            <p
+              className={`text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap ${
+                annotationPopup.is_resolved ? "line-through opacity-60" : ""
+              }`}
+            >
+              {annotationPopup.content}
+            </p>
+            <div className="text-xs space-y-1 text-zinc-500 dark:text-zinc-400">
+              <p>
+                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                  {t.blueprints_note_author ?? "Author"}:{" "}
+                </span>
+                {annotationPopup.author_name ?? "—"}
+              </p>
+              <p>
+                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                  {t.blueprints_version_date ?? "Date"}:{" "}
+                </span>
+                {formatBlueprintWhen(annotationPopup.created_at, browserLocale)}
+              </p>
+            </div>
+            {annotationPopup.is_resolved && (
+              <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                {t.hazards_resolved ?? "Resolved"}
+              </p>
+            )}
+            <div className="flex flex-col gap-2 pt-2">
+              {canEditAnnotation(annotationPopup) && !annotationPopup.is_resolved && (
+                <button
+                  type="button"
+                  onClick={() => void resolveAnnotation(annotationPopup)}
+                  className="min-h-[44px] rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-semibold"
+                >
+                  {t.blueprints_note_resolved ?? "Mark as resolved"}
+                </button>
+              )}
+              {canEditAnnotation(annotationPopup) && (
+                <button
+                  type="button"
+                  onClick={() => void deleteAnnotation(annotationPopup)}
+                  className="min-h-[44px] rounded-xl border border-red-600 text-red-700 dark:text-red-400 text-sm font-semibold"
+                >
+                  {t.blueprints_note_delete ?? "Delete"}
                 </button>
               )}
             </div>

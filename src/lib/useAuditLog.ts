@@ -30,8 +30,13 @@ export type AuditAction =
   | "action_verified"
   | "action_closed"
   | "blueprint_uploaded"
+  | "blueprint_new_version"
+  | "blueprint_version_restored"
   | "pin_added"
-  | "pin_deleted";
+  | "pin_deleted"
+  | "annotation_added"
+  | "annotation_resolved"
+  | "annotation_deleted";
 
 export type AuditEntityType =
   | "photo"
