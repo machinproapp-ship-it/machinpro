@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import type { CentralEmployee, MainSection, UserRole } from "@/types/shared";
 import { CentralModule } from "@/components/CentralModule";
@@ -44,7 +45,20 @@ import LoginScreen from "@/components/LoginScreen";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
 import type { Session } from "@supabase/supabase-js";
-import { LogOut, Wifi, WifiOff, Cloud, CloudOff, CloudCheck, Camera, AlertTriangle, Shield, X, Bell } from "lucide-react";
+import {
+  LogOut,
+  Wifi,
+  WifiOff,
+  Cloud,
+  CloudOff,
+  CloudCheck,
+  Camera,
+  AlertTriangle,
+  Shield,
+  X,
+  Bell,
+  Settings,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
 import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
@@ -2300,7 +2314,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setDarkMode((prev) => !prev)}
-                className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1 text-xs"
+                className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1 text-xs text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 min-h-[44px]"
               >
                 {darkMode ? "☾ " + (t.darkMode ?? "Oscuro") : "☀ " + (t.darkMode ?? "Oscuro")}
               </button>
@@ -2312,6 +2326,17 @@ export default function Home() {
                   <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:block">
                     {profile?.role ?? ""}
                   </span>
+                  {profile?.isSuperadmin && (
+                    <Link
+                      href="/superadmin"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/50 px-3 py-2 text-sm font-medium text-violet-800 dark:text-violet-200 hover:bg-violet-100 dark:hover:bg-violet-900/40"
+                    >
+                      <Settings className="h-4 w-4 shrink-0" aria-hidden />
+                      <span className="hidden sm:inline">
+                        {(t as Record<string, string>).superadmin_panel ?? "Panel Admin"}
+                      </span>
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={() => void handleLogout()}

@@ -297,7 +297,7 @@ export default function VisitorCheckInPage() {
           <button
             type="button"
             onClick={() => setDark((d) => !d)}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 text-zinc-900 dark:text-zinc-100"
             aria-label={t.darkMode ?? "Theme"}
           >
             {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -316,7 +316,7 @@ export default function VisitorCheckInPage() {
               {t.visitors_name ?? "Name"} *
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.visitor_name}
               onChange={(e) => setForm((f) => ({ ...f, visitor_name: e.target.value }))}
             />
@@ -327,7 +327,7 @@ export default function VisitorCheckInPage() {
               {t.visitors_company ?? "Company"}
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.visitor_company}
               onChange={(e) => setForm((f) => ({ ...f, visitor_company: e.target.value }))}
             />
@@ -339,7 +339,7 @@ export default function VisitorCheckInPage() {
             </span>
             <input
               type="email"
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.visitor_email}
               onChange={(e) => setForm((f) => ({ ...f, visitor_email: e.target.value }))}
             />
@@ -351,7 +351,7 @@ export default function VisitorCheckInPage() {
             </span>
             <input
               type="tel"
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.visitor_phone}
               onChange={(e) => setForm((f) => ({ ...f, visitor_phone: e.target.value }))}
             />
@@ -362,7 +362,7 @@ export default function VisitorCheckInPage() {
               {t.visitors_id ?? "ID"}
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.visitor_id_number}
               onChange={(e) => setForm((f) => ({ ...f, visitor_id_number: e.target.value }))}
             />
@@ -373,7 +373,7 @@ export default function VisitorCheckInPage() {
               {t.visitors_purpose ?? "Purpose"} *
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.purpose}
               onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
             />
@@ -384,7 +384,7 @@ export default function VisitorCheckInPage() {
               {t.visitors_host ?? "Host"} *
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.host_name}
               onChange={(e) => setForm((f) => ({ ...f, host_name: e.target.value }))}
             />
@@ -395,7 +395,7 @@ export default function VisitorCheckInPage() {
               {t.visitors_vehicle ?? "Vehicle"}
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               value={form.vehicle_plate}
               onChange={(e) => setForm((f) => ({ ...f, vehicle_plate: e.target.value }))}
             />
@@ -407,7 +407,7 @@ export default function VisitorCheckInPage() {
                 {t.visitors_project ?? "Project"}
               </span>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm min-h-[44px]"
+                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                 value={form.project_id}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -447,7 +447,7 @@ export default function VisitorCheckInPage() {
             </span>
             <canvas
               ref={canvasRef}
-              className="w-full h-40 rounded-xl border border-zinc-300 dark:border-zinc-600 touch-none cursor-crosshair bg-white dark:bg-zinc-900"
+              className="w-full h-40 rounded-xl border border-zinc-300 dark:border-zinc-600 touch-none cursor-crosshair bg-white dark:bg-gray-800"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}

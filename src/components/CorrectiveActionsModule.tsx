@@ -675,7 +675,7 @@ export function CorrectiveActionsModule({
                   {priLabel(r.priority)}
                 </span>
               </div>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 {typeLabel(r.action_type)} · {stLabel(r.status)} ·{" "}
                 {r.due_date ?? "—"}
                 {isOverdue(r) && (

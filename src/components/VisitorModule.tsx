@@ -360,7 +360,7 @@ export function VisitorModule({ t, companyId, companyName, projects }: VisitorMo
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
               {t.visitors_qr_modal_title ?? "QR"}
             </h3>
-            <div className="flex justify-center p-4 bg-white rounded-xl">
+            <div className="flex justify-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-zinc-100 dark:border-zinc-700">
               <QRCodeCanvas
                 ref={qrCanvasRef}
                 value={checkInUrl}
@@ -370,7 +370,7 @@ export function VisitorModule({ t, companyId, companyName, projects }: VisitorMo
                 className="max-w-full h-auto"
               />
             </div>
-            <p className="text-xs text-zinc-500 break-all text-center">{checkInUrl}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 break-all text-center">{checkInUrl}</p>
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
@@ -382,7 +382,7 @@ export function VisitorModule({ t, companyId, companyName, projects }: VisitorMo
               <button
                 type="button"
                 onClick={() => setQrOpen(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 font-medium text-sm py-3"
+                className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 font-medium text-sm py-3 text-zinc-800 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 {t.visitors_close ?? "Close"}
               </button>
