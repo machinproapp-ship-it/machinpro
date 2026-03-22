@@ -1229,7 +1229,7 @@ export default function BlueprintViewer({
 
   if (!companyId) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 text-center text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
         {t.blueprints_no_blueprints ?? t.hazards_no_company ?? "—"}
       </div>
     );
@@ -1238,7 +1238,7 @@ export default function BlueprintViewer({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           {t.blueprints_title ?? t.blueprints ?? "Blueprints"}
         </h2>
         {canEditPins && (
@@ -1258,13 +1258,13 @@ export default function BlueprintViewer({
       </div>
 
       {loading ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.hazards_loading ?? "…"}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t.hazards_loading ?? "…"}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.blueprints_no_blueprints ?? "—"}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t.blueprints_no_blueprints ?? "—"}</p>
       ) : (
         <div className="flex flex-col lg:flex-row gap-4">
-          <aside className="lg:w-56 shrink-0 space-y-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+          <aside className="lg:w-56 shrink-0 space-y-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1">
               <Layers className="h-3.5 w-3.5" />
               {t.blueprints_layers ?? "Layers"}
             </p>
@@ -1276,7 +1276,7 @@ export default function BlueprintViewer({
                 className={`flex w-full min-h-[44px] items-center justify-between rounded-lg border px-2 py-2 text-left text-xs font-medium ${
                   visibleLayers.has(l.id)
                     ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
-                    : "border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"
+                    : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400"
                 }`}
               >
                 <span>{t[l.labelKey] ?? l.id}</span>
@@ -1289,7 +1289,7 @@ export default function BlueprintViewer({
               className={`flex w-full min-h-[44px] items-center justify-between rounded-lg border px-2 py-2 text-left text-xs font-medium ${
                 notesLayerVisible
                   ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
-                  : "border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"
+                  : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400"
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -1306,12 +1306,12 @@ export default function BlueprintViewer({
             {offlineStatusBannerEl}
             {cachedViewBannerEl}
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs text-zinc-600 dark:text-zinc-400 flex flex-wrap items-center gap-2">
+              <label className="text-xs text-gray-600 dark:text-gray-400 flex flex-wrap items-center gap-2">
                 {t.blueprints_select ?? "Blueprint"}
                 <select
                   value={selectedId ?? ""}
                   onChange={(e) => setSelectedId(e.target.value || null)}
-                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm min-h-[44px] px-2 max-w-[min(100%,280px)]"
+                  className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[44px] px-2 max-w-[min(100%,280px)]"
                 >
                   {blueprintOptions.map((r) => (
                     <option key={r.id} value={r.id}>
@@ -1322,7 +1322,7 @@ export default function BlueprintViewer({
                 </select>
               </label>
               {selected && (
-                <span className="rounded-full bg-zinc-200 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                <span className="rounded-full bg-gray-200 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-800 dark:text-gray-200">
                   V{selected.version}
                 </span>
               )}
@@ -1334,7 +1334,7 @@ export default function BlueprintViewer({
                     setVersionDragActive(false);
                     setVersionModalOpen(true);
                   }}
-                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-3 text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <Upload className="h-4 w-4 shrink-0" aria-hidden />
                   {t.blueprints_new_version ?? "New version"}
@@ -1344,7 +1344,7 @@ export default function BlueprintViewer({
                 <button
                   type="button"
                   onClick={() => setHistoryOpen(true)}
-                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-3 text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <History className="h-4 w-4 shrink-0" aria-hidden />
                   {t.blueprints_version_history ?? "Version history"}
@@ -1369,7 +1369,7 @@ export default function BlueprintViewer({
               <button
                 type="button"
                 onClick={() => setZoom((z) => clamp(z + 0.15, 0.25, 5))}
-                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200"
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
                 aria-label={t.blueprints_zoom_in ?? "Zoom in"}
               >
                 <ZoomIn className="h-5 w-5" />
@@ -1377,7 +1377,7 @@ export default function BlueprintViewer({
               <button
                 type="button"
                 onClick={() => setZoom((z) => clamp(z - 0.15, 0.25, 5))}
-                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200"
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
                 aria-label={t.blueprints_zoom_out ?? "Zoom out"}
               >
                 <ZoomOut className="h-5 w-5" />
@@ -1393,7 +1393,7 @@ export default function BlueprintViewer({
                 className={`min-h-[44px] inline-flex items-center gap-2 rounded-xl border px-3 text-sm font-medium ${
                   !addMode && !addNoteMode
                     ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
-                    : "border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+                    : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
                 }`}
               >
                 <MousePointer2 className="h-4 w-4" />
@@ -1412,7 +1412,7 @@ export default function BlueprintViewer({
                   className={`min-h-[44px] inline-flex items-center gap-2 rounded-xl border px-3 text-sm font-medium ${
                     addMode
                       ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
-                      : "border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
                   }`}
                 >
                   <Crosshair className="h-4 w-4" />
@@ -1432,7 +1432,7 @@ export default function BlueprintViewer({
                   className={`min-h-[44px] inline-flex items-center gap-2 rounded-xl border px-3 text-sm font-medium ${
                     addNoteMode
                       ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
-                      : "border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
                   }`}
                 >
                   <StickyNote className="h-4 w-4 shrink-0" aria-hidden />
@@ -1443,7 +1443,7 @@ export default function BlueprintViewer({
 
             <div
               ref={viewportRef}
-              className="relative rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-950 overflow-hidden touch-none"
+              className="relative rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-900 overflow-hidden touch-none"
               style={{ minHeight: "min(70vh, 560px)" }}
               onWheel={onWheel}
               onPointerDown={onPointerDownViewport}
@@ -1484,7 +1484,7 @@ export default function BlueprintViewer({
                       <button
                         key={pin.id}
                         type="button"
-                        className="absolute min-h-[44px] min-w-[44px] flex items-end justify-center -translate-x-1/2 -translate-y-full text-lg leading-none drop-shadow-md transition-opacity"
+                        className="absolute min-h-[44px] min-w-[44px] flex items-end justify-center -translate-x-1/2 -translate-y-full text-lg leading-none drop-shadow-md dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] transition-opacity"
                         style={{
                           left: `${num(pin.x_percent)}%`,
                           top: `${num(pin.y_percent)}%`,
@@ -1523,10 +1523,10 @@ export default function BlueprintViewer({
                           <button
                             key={ann.id}
                             type="button"
-                            className={`absolute z-[1] flex max-w-[min(200px,45vw)] min-h-[44px] -translate-x-1/2 -translate-y-full flex-col items-stretch rounded-lg px-2 py-1.5 text-left shadow-md transition-opacity ${
+                            className={`absolute z-[1] flex max-w-[min(200px,45vw)] min-h-[44px] -translate-x-1/2 -translate-y-full flex-col items-stretch rounded-lg px-2 py-1.5 text-left shadow-lg ring-1 ring-black/10 dark:ring-white/20 transition-opacity ${
                               ann.id.startsWith("offline-")
-                                ? "border-2 border-dashed border-zinc-900/35 dark:border-white/35"
-                                : "border border-black/10 dark:border-white/10"
+                                ? "border-2 border-dashed border-gray-900/40 dark:border-gray-200/50"
+                                : "border border-black/15 dark:border-gray-600"
                             }`}
                             style={{
                               left: `${num(ann.x_percent)}%`,
@@ -1545,13 +1545,13 @@ export default function BlueprintViewer({
                             }
                           >
                             <span
-                              className={`text-[11px] font-semibold leading-snug text-zinc-900 line-clamp-3 ${
+                              className={`text-[11px] font-semibold leading-snug text-gray-900 line-clamp-3 ${
                                 ann.is_resolved ? "line-through opacity-90" : ""
                               }`}
                             >
                               {preview}
                             </span>
-                            <span className="mt-1 text-[9px] font-medium text-zinc-800/90 truncate">
+                            <span className="mt-1 text-[9px] font-medium text-gray-800/90 truncate">
                               {(ann.author_name ?? "—") +
                                 " · " +
                                 formatBlueprintWhen(ann.created_at, browserLocale)}
@@ -1569,27 +1569,27 @@ export default function BlueprintViewer({
 
       {uploadOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 sm:p-6 space-y-4 shadow-xl max-h-[95vh] overflow-y-auto">
+          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 sm:p-6 space-y-4 shadow-xl max-h-[95vh] overflow-y-auto">
             <div className="flex justify-between items-center gap-2">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-2">
                 {t.blueprints_upload ?? "Upload"}
               </h3>
               <button
                 type="button"
                 onClick={() => closeUploadModal()}
-                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.blueprints_name ?? "Name"}</span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-gray-600 dark:text-gray-400">{t.blueprints_name ?? "Name"}</span>
               <input
                 value={uploadName}
                 onChange={(e) => setUploadName(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1.5 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
               />
             </label>
 
@@ -1636,29 +1636,29 @@ export default function BlueprintViewer({
                 className={`group flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-4 py-10 sm:py-12 text-center transition-colors min-h-[200px] touch-manipulation ${
                   uploadDragActive
                     ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-400"
-                    : "border-zinc-300 bg-zinc-50/80 dark:border-zinc-600 dark:bg-zinc-800/50 hover:border-amber-400/80 hover:bg-amber-50/50 dark:hover:border-amber-600/60 dark:hover:bg-amber-950/20"
+                    : "border-gray-300 bg-gray-50/80 dark:border-gray-600 dark:bg-gray-800/50 hover:border-amber-400/80 hover:bg-amber-50/50 dark:hover:border-amber-600/60 dark:hover:bg-amber-950/20"
                 }`}
               >
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white dark:bg-zinc-800 shadow-sm ring-1 ring-zinc-200/80 dark:ring-zinc-600 text-amber-600 dark:text-amber-400">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/80 dark:ring-gray-600 text-amber-600 dark:text-amber-400">
                   <Upload className="h-7 w-7" aria-hidden />
                 </span>
                 <div className="space-y-1 px-2">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
                     {t.blueprints_upload_drop_primary ?? "Arrastra tu plano aquí"}
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {t.blueprints_upload_drop_or ?? "o haz clic para seleccionar"}
                   </p>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500 pt-1">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500 pt-1">
                     {t.blueprints_upload_formats ?? "PNG, JPG, PDF"}
                   </p>
                 </div>
               </button>
 
               {uploadFile && (
-                <div className="mt-3 flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/80 px-3 py-2.5 min-h-[44px]">
+                <div className="mt-3 flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 px-3 py-2.5 min-h-[44px]">
                   <File className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-200">
                     {uploadFile.name}
                   </span>
                   <button
@@ -1667,7 +1667,7 @@ export default function BlueprintViewer({
                       setUploadFile(null);
                       if (uploadFileInputRef.current) uploadFileInputRef.current.value = "";
                     }}
-                    className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                    className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                     aria-label={t.blueprints_upload_remove_file ?? "Quitar archivo"}
                   >
                     <X className="h-5 w-5" />
@@ -1692,32 +1692,32 @@ export default function BlueprintViewer({
 
       {pinFormOpen && pendingPct && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-6 space-y-3 shadow-xl">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 space-y-3 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               {t.blueprints_add_pin ?? "Add pin"}
             </h3>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.blueprints_pin_title ?? "Title"} *</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.blueprints_pin_title ?? "Title"} *</span>
               <input
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.blueprints_pin_desc ?? "Description"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.blueprints_pin_desc ?? "Description"}</span>
               <textarea
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[72px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[72px] text-sm"
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.blueprints_pin_type ?? "Type"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.blueprints_pin_type ?? "Type"}</span>
               <select
                 value={formType}
                 onChange={(e) => setFormType(e.target.value as PinType)}
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
               >
                 {PIN_TYPES.map((pt) => (
                   <option key={pt} value={pt}>
@@ -1727,11 +1727,11 @@ export default function BlueprintViewer({
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.blueprints_pin_layer ?? "Layer"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.blueprints_pin_layer ?? "Layer"}</span>
               <select
                 value={formLayer}
                 onChange={(e) => setFormLayer(e.target.value as BlueprintLayer)}
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
               >
                 {LAYERS.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -1746,16 +1746,16 @@ export default function BlueprintViewer({
                   placeholder={t.hazards_search ?? "Search"}
                   value={hazardSearch}
                   onChange={(e) => setHazardSearch(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
                 />
                 <label className="block text-sm">
-                  <span className="text-zinc-600 dark:text-zinc-400">
+                  <span className="text-gray-600 dark:text-gray-400">
                     {t.blueprints_pin_hazard ?? "Hazard"}
                   </span>
                   <select
                     value={formHazardId}
                     onChange={(e) => setFormHazardId(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
+                    className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
                   >
                     <option value="">—</option>
                     {filteredHazards.map((h) => (
@@ -1769,13 +1769,13 @@ export default function BlueprintViewer({
             )}
             {formType === "corrective_action" && (
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">
+                <span className="text-gray-600 dark:text-gray-400">
                   {t.blueprints_pin_action ?? "Corrective action"}
                 </span>
                 <select
                   value={formActionId}
                   onChange={(e) => setFormActionId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
                 >
                   <option value="">—</option>
                   {actions.map((a) => (
@@ -1793,7 +1793,7 @@ export default function BlueprintViewer({
                   setPinFormOpen(false);
                   setPendingPct(null);
                 }}
-                className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 text-sm font-medium text-zinc-800 dark:text-zinc-200"
+                className="flex-1 min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200"
               >
                 {t.hazards_close ?? "Cancel"}
               </button>
@@ -1812,12 +1812,12 @@ export default function BlueprintViewer({
 
       {noteFormOpen && pendingNotePct && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 sm:p-6 space-y-3 shadow-xl">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 sm:p-6 space-y-3 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               {t.blueprints_add_note ?? "Add note"}
             </h3>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">
+              <span className="text-gray-600 dark:text-gray-400">
                 {t.blueprints_note_placeholder ?? "Note"}
               </span>
               <textarea
@@ -1825,14 +1825,14 @@ export default function BlueprintViewer({
                 maxLength={MAX_NOTE_LEN}
                 onChange={(e) => setNoteDraft(e.target.value.slice(0, MAX_NOTE_LEN))}
                 placeholder={t.blueprints_note_placeholder ?? ""}
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[100px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[100px] text-sm"
               />
-              <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+              <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                 {noteDraft.length}/{MAX_NOTE_LEN}
               </span>
             </label>
             <div className="space-y-2">
-              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
                 {t.blueprints_note_color ?? "Color"}
               </p>
               <div className="flex flex-wrap gap-3">
@@ -1844,8 +1844,8 @@ export default function BlueprintViewer({
                     onClick={() => setNoteColorChoice(c)}
                     className={`min-h-[44px] min-w-[44px] rounded-full border-2 transition-transform ${
                       noteColorChoice === c
-                        ? "border-zinc-900 dark:border-white scale-110"
-                        : "border-transparent ring-2 ring-zinc-300 dark:ring-zinc-600"
+                        ? "border-gray-900 dark:border-white scale-110"
+                        : "border-transparent ring-2 ring-gray-300 dark:ring-gray-600"
                     }`}
                     style={{ backgroundColor: c }}
                   />
@@ -1859,7 +1859,7 @@ export default function BlueprintViewer({
                   setNoteFormOpen(false);
                   setPendingNotePct(null);
                 }}
-                className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 text-sm font-medium text-zinc-800 dark:text-zinc-200"
+                className="flex-1 min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200"
               >
                 {t.hazards_close ?? "Cancel"}
               </button>
@@ -1878,15 +1878,15 @@ export default function BlueprintViewer({
 
       {versionModalOpen && selected && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 sm:p-6 space-y-4 shadow-xl max-h-[95vh] overflow-y-auto">
+          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 sm:p-6 space-y-4 shadow-xl max-h-[95vh] overflow-y-auto">
             <div className="flex justify-between items-center gap-2">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-2">
                 {t.blueprints_new_version ?? "New version"}
               </h3>
               <button
                 type="button"
                 onClick={() => closeVersionModal()}
-                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
@@ -1935,19 +1935,19 @@ export default function BlueprintViewer({
                 className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors min-h-[160px] touch-manipulation ${
                   versionDragActive
                     ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-400"
-                    : "border-zinc-300 bg-zinc-50/80 dark:border-zinc-600 dark:bg-zinc-800/50 hover:border-amber-400/80 dark:hover:border-amber-600/60"
+                    : "border-gray-300 bg-gray-50/80 dark:border-gray-600 dark:bg-gray-800/50 hover:border-amber-400/80 dark:hover:border-amber-600/60"
                 }`}
               >
                 <Upload className="h-8 w-8 text-amber-600 dark:text-amber-400" aria-hidden />
-                <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {t.blueprints_upload_drop_primary ?? "Drop file"}
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t.blueprints_upload_formats ?? "PNG, JPG, PDF"}
                 </p>
               </button>
               {versionFile && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-600 px-2 py-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600 px-2 py-2 text-sm text-gray-700 dark:text-gray-300">
                   <File className="h-4 w-4 shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{versionFile.name}</span>
                   <button
@@ -1956,7 +1956,7 @@ export default function BlueprintViewer({
                       setVersionFile(null);
                       if (versionFileInputRef.current) versionFileInputRef.current.value = "";
                     }}
-                    className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600"
+                    className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600"
                     aria-label={t.blueprints_upload_remove_file ?? "Remove"}
                   >
                     <X className="h-4 w-4" />
@@ -1966,13 +1966,13 @@ export default function BlueprintViewer({
             </div>
 
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">
+              <span className="text-gray-600 dark:text-gray-400">
                 {t.blueprints_version_notes ?? "Version notes"}
               </span>
               <textarea
                 value={versionNotesText}
                 onChange={(e) => setVersionNotesText(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[72px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 min-h-[72px] text-sm"
               />
             </label>
 
@@ -1981,18 +1981,18 @@ export default function BlueprintViewer({
                 type="checkbox"
                 checked={migratePins}
                 onChange={(e) => setMigratePins(e.target.checked)}
-                className="mt-1 h-5 w-5 rounded border-zinc-300"
+                className="mt-1 h-5 w-5 rounded border-gray-300"
               />
-              <span className="text-sm text-zinc-700 dark:text-zinc-300">{t.blueprints_migrate_pins ?? ""}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t.blueprints_migrate_pins ?? ""}</span>
             </label>
             <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
               <input
                 type="checkbox"
                 checked={migrateAnnotations}
                 onChange={(e) => setMigrateAnnotations(e.target.checked)}
-                className="mt-1 h-5 w-5 rounded border-zinc-300"
+                className="mt-1 h-5 w-5 rounded border-gray-300"
               />
-              <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              <span className="text-sm text-gray-700 dark:text-gray-300">
                 {t.blueprints_migrate_annotations ?? ""}
               </span>
             </label>
@@ -2017,17 +2017,17 @@ export default function BlueprintViewer({
           onClick={() => setHistoryOpen(false)}
         >
           <div
-            className="h-full w-full max-w-md overflow-y-auto border-l border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl"
+            className="h-full w-full max-w-md overflow-y-auto border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-700 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 backdrop-blur-sm">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 px-4 py-3 backdrop-blur-sm">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-2">
                 {t.blueprints_version_history ?? "Version history"}
               </h3>
               <button
                 type="button"
                 onClick={() => setHistoryOpen(false)}
-                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600"
+                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
@@ -2039,13 +2039,13 @@ export default function BlueprintViewer({
                 .map((row) => (
                   <div
                     key={row.id}
-                    className="rounded-xl border border-zinc-200 dark:border-zinc-600 overflow-hidden bg-zinc-50/50 dark:bg-zinc-800/40"
+                    className="rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50/50 dark:bg-gray-800/40"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={row.image_url}
                       alt=""
-                      className="h-32 w-full object-cover border-b border-zinc-200 dark:border-zinc-600"
+                      className="h-32 w-full object-cover border-b border-gray-200 dark:border-gray-600"
                     />
                     <div className="p-3 space-y-2 text-sm">
                       <div className="flex flex-wrap items-center gap-2">
@@ -2058,20 +2058,20 @@ export default function BlueprintViewer({
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-medium text-gray-600 dark:text-gray-300">
                           {t.blueprints_version_author ?? "Author"}:{" "}
                         </span>
                         {row.created_by_name ?? "—"}
                       </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-medium text-gray-600 dark:text-gray-300">
                           {t.blueprints_version_date ?? "Date"}:{" "}
                         </span>
                         {formatBlueprintWhen(row.created_at, browserLocale)}
                       </p>
                       {row.version_notes && (
-                        <p className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                           {row.version_notes}
                         </p>
                       )}
@@ -2094,32 +2094,32 @@ export default function BlueprintViewer({
 
       {pinPopup && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 space-y-3 shadow-xl">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 space-y-3 shadow-xl">
             <div className="flex justify-between gap-2">
-              <h4 className="font-semibold text-zinc-900 dark:text-white pr-2">{pinPopup.title}</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white pr-2">{pinPopup.title}</h4>
               <button
                 type="button"
                 onClick={() => setPinPopup(null)}
-                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-zinc-300 dark:border-zinc-600"
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-gray-300 dark:border-gray-600"
               >
                 <X className="h-5 w-5 mx-auto" />
               </button>
             </div>
             {pinPopup.description && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{pinPopup.description}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{pinPopup.description}</p>
             )}
             {pinPopup.hazard_id && hazardDetail && (
               <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-3 text-sm space-y-2">
-                <p className="font-medium text-zinc-900 dark:text-white">{t.blueprints_linked_hazard ?? "Hazard"}</p>
+                <p className="font-medium text-gray-900 dark:text-white">{t.blueprints_linked_hazard ?? "Hazard"}</p>
                 {hazardDetail.photos?.[0] && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={hazardDetail.photos[0]}
                     alt=""
-                    className="w-full h-28 object-cover rounded-lg border border-zinc-200 dark:border-zinc-600"
+                    className="w-full h-28 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
                   />
                 )}
-                <p className="text-zinc-700 dark:text-zinc-300">
+                <p className="text-gray-700 dark:text-gray-300">
                   {hazardDetail.severity} · {hazardDetail.status}
                 </p>
               </div>
@@ -2130,7 +2130,7 @@ export default function BlueprintViewer({
                 <p>
                   {actionDetail.priority} · {actionDetail.status}
                 </p>
-                <p className="text-zinc-600 dark:text-zinc-400">
+                <p className="text-gray-600 dark:text-gray-400">
                   {actionDetail.assigned_to_name ?? "—"}
                 </p>
               </div>
@@ -2148,7 +2148,7 @@ export default function BlueprintViewer({
                     onNavigateToHazard(pinPopup.hazard_id!);
                     setPinPopup(null);
                   }}
-                  className="min-h-[44px] rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-semibold"
+                  className="min-h-[44px] rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold"
                 >
                   {t.blueprints_pin_detail ?? "Full detail"}
                 </button>
@@ -2160,7 +2160,7 @@ export default function BlueprintViewer({
                     onNavigateToCorrective(pinPopup.corrective_action_id!);
                     setPinPopup(null);
                   }}
-                  className="min-h-[44px] rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-semibold"
+                  className="min-h-[44px] rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold"
                 >
                   {t.blueprints_pin_detail ?? "Full detail"}
                 </button>
@@ -2182,12 +2182,12 @@ export default function BlueprintViewer({
       {annotationPopup && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div
-            className="w-full max-w-sm max-h-[min(90vh,520px)] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 space-y-3 shadow-xl"
+            className="w-full max-w-sm max-h-[min(90vh,520px)] overflow-y-auto rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 space-y-3 shadow-xl"
             style={{ borderTop: `4px solid ${annotationPopup.color}` }}
           >
             <div className="flex justify-between gap-2">
               <h4
-                className={`font-semibold text-zinc-900 dark:text-white pr-2 ${
+                className={`font-semibold text-gray-900 dark:text-white pr-2 ${
                   annotationPopup.is_resolved ? "line-through opacity-70" : ""
                 }`}
               >
@@ -2196,28 +2196,28 @@ export default function BlueprintViewer({
               <button
                 type="button"
                 onClick={() => setAnnotationPopup(null)}
-                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-zinc-300 dark:border-zinc-600"
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-gray-300 dark:border-gray-600"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5 mx-auto" />
               </button>
             </div>
             <p
-              className={`text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap ${
+              className={`text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap ${
                 annotationPopup.is_resolved ? "line-through opacity-60" : ""
               }`}
             >
               {annotationPopup.content}
             </p>
-            <div className="text-xs space-y-1 text-zinc-500 dark:text-zinc-400">
+            <div className="text-xs space-y-1 text-gray-500 dark:text-gray-400">
               <p>
-                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                <span className="font-medium text-gray-600 dark:text-gray-300">
                   {t.blueprints_note_author ?? "Author"}:{" "}
                 </span>
                 {annotationPopup.author_name ?? "—"}
               </p>
               <p>
-                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                <span className="font-medium text-gray-600 dark:text-gray-300">
                   {t.blueprints_version_date ?? "Date"}:{" "}
                 </span>
                 {formatBlueprintWhen(annotationPopup.created_at, browserLocale)}
@@ -2233,7 +2233,7 @@ export default function BlueprintViewer({
                 <button
                   type="button"
                   onClick={() => void resolveAnnotation(annotationPopup)}
-                  className="min-h-[44px] rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-semibold"
+                  className="min-h-[44px] rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold"
                 >
                   {t.blueprints_note_resolved ?? "Mark as resolved"}
                 </button>
@@ -2256,7 +2256,7 @@ export default function BlueprintViewer({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-4 left-1/2 z-[70] max-w-[min(100%-2rem,420px)] -translate-x-1/2 rounded-xl border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 shadow-lg"
+          className="fixed bottom-4 left-1/2 z-[70] max-w-[min(100%-2rem,420px)] -translate-x-1/2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 shadow-lg"
         >
           {syncToast.kind === "ok"
             ? `✅ ${interpolate(t.offline_sync_success, { n: syncToast.n })}`

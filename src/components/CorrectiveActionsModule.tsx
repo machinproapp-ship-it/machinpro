@@ -328,7 +328,7 @@ export function CorrectiveActionsModule({
       return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300";
     if (s === "pending_review")
       return "bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300";
-    return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200";
+    return "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
   };
 
   const submitCreate = async () => {
@@ -462,7 +462,7 @@ export function CorrectiveActionsModule({
 
   if (!companyId) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 text-center text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
         {t.actions_no_company ?? t.hazards_no_company ?? "—"}
       </div>
     );
@@ -470,7 +470,7 @@ export function CorrectiveActionsModule({
 
   if (!supabase) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 text-center text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
         {t.actions_error ?? t.hazards_error ?? "—"}
       </div>
     );
@@ -480,12 +480,12 @@ export function CorrectiveActionsModule({
     <section className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <ClipboardCheck className="h-6 w-6 text-amber-500 shrink-0" />
             {t.actions_title ?? "Corrective actions"}
           </h2>
           {companyName ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{companyName}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{companyName}</p>
           ) : null}
         </div>
         {!readOnly && (
@@ -510,51 +510,51 @@ export function CorrectiveActionsModule({
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t.actions_stats_open ?? "Open"}
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
             {stats.open}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t.actions_status_in_progress ?? "In progress"}
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
             {stats.inProg}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t.actions_stats_overdue ?? "Overdue"}
           </p>
           <p className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">
             {stats.overdue}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t.actions_stats_closed_week ?? "Closed (7d)"}
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
             {stats.closedWeek}
           </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 sm:p-6">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-3">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
           {t.actions_dist_type ?? t.actions_type ?? "Types"}
         </h3>
         <div className="space-y-2">
           {ACTION_TYPES.map((ty) => (
             <div key={ty} className="flex items-center gap-2">
-              <span className="text-xs w-28 shrink-0 truncate text-zinc-600 dark:text-zinc-400">
+              <span className="text-xs w-28 shrink-0 truncate text-gray-600 dark:text-gray-400">
                 {typeLabel(ty)}
               </span>
-              <div className="flex-1 h-3 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+              <div className="flex-1 h-3 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                 <div
                   className="h-full bg-amber-500 rounded-full transition-all"
                   style={{
@@ -562,7 +562,7 @@ export function CorrectiveActionsModule({
                   }}
                 />
               </div>
-              <span className="text-xs tabular-nums w-6 text-right text-zinc-600 dark:text-zinc-300">
+              <span className="text-xs tabular-nums w-6 text-right text-gray-600 dark:text-gray-300">
                 {stats.typeDist[ty] ?? 0}
               </span>
             </div>
@@ -572,13 +572,13 @@ export function CorrectiveActionsModule({
 
       <div className="flex flex-col xl:flex-row flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-sm flex-1 min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_project ?? "Project"}
           </span>
           <select
             value={filterProject}
             onChange={(e) => setFilterProject(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {projects.map((p) => (
@@ -589,11 +589,11 @@ export function CorrectiveActionsModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.actions_type ?? "Type"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.actions_type ?? "Type"}</span>
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {ACTION_TYPES.map((x) => (
@@ -604,11 +604,11 @@ export function CorrectiveActionsModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.actions_priority ?? "Priority"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.actions_priority ?? "Priority"}</span>
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {PRIORITIES.map((x) => (
@@ -619,11 +619,11 @@ export function CorrectiveActionsModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.actions_status ?? "Status"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.actions_status ?? "Status"}</span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {STATUSES.map((x) => (
@@ -634,11 +634,11 @@ export function CorrectiveActionsModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[160px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.actions_assigned ?? "Assigned"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.actions_assigned ?? "Assigned"}</span>
           <select
             value={filterAssignee}
             onChange={(e) => setFilterAssignee(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             <option value="unassigned">{t.hazards_no_assignee ?? "—"}</option>
@@ -650,14 +650,14 @@ export function CorrectiveActionsModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm flex-1 min-w-[200px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_search ?? "Search"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.hazards_search ?? "Search"}</span>
           <span className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 pl-10 pr-3 py-2.5 min-h-[44px] text-sm"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 pl-10 pr-3 py-2.5 min-h-[44px] text-sm"
             />
           </span>
         </label>
@@ -665,28 +665,28 @@ export function CorrectiveActionsModule({
 
       <div className="lg:hidden space-y-3">
         {loading ? (
-          <p className="text-zinc-500 text-center py-8">{t.hazards_loading ?? "…"}</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.hazards_loading ?? "…"}</p>
         ) : filtered.length === 0 ? (
-          <p className="text-zinc-500 text-center py-8">{t.actions_no_results ?? "—"}</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.actions_no_results ?? "—"}</p>
         ) : (
           filtered.map((r) => (
             <button
               key={r.id}
               type="button"
               onClick={() => setDetail(r)}
-              className={`w-full text-left rounded-xl border bg-white dark:bg-zinc-900 p-4 space-y-2 min-h-[44px] ${
+              className={`w-full text-left rounded-xl border bg-white dark:bg-gray-800 p-4 space-y-2 min-h-[44px] ${
                 isOverdue(r)
                   ? "border-red-400 dark:border-red-700 ring-1 ring-red-200 dark:ring-red-900"
-                  : "border-zinc-200 dark:border-zinc-700"
+                  : "border-gray-200 dark:border-gray-700"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="font-semibold text-zinc-900 dark:text-white">{r.title}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">{r.title}</span>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${priBadge(r.priority)}`}>
                   {priLabel(r.priority)}
                 </span>
               </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {typeLabel(r.action_type)} · {stLabel(r.status)} ·{" "}
                 {r.due_date ?? "—"}
                 {isOverdue(r) && (
@@ -705,14 +705,14 @@ export function CorrectiveActionsModule({
         )}
       </div>
 
-      <div className="hidden lg:block rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-x-auto">
+      <div className="hidden lg:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">{t.hazards_loading ?? "…"}</div>
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.hazards_loading ?? "…"}</div>
         ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">{t.actions_no_results ?? "—"}</div>
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.actions_no_results ?? "—"}</div>
         ) : (
           <table className="w-full text-sm min-w-[900px]">
-            <thead className="bg-zinc-50 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">{t.actions_title_col ?? "Title"}</th>
                 <th className="px-4 py-3 text-left font-medium">{t.actions_type ?? "Type"}</th>
@@ -727,12 +727,12 @@ export function CorrectiveActionsModule({
               {filtered.map((r) => (
                 <tr
                   key={r.id}
-                  className={`border-t border-zinc-100 dark:border-zinc-800 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/40 ${
+                  className={`border-t border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     isOverdue(r) ? "bg-red-50/50 dark:bg-red-950/20" : ""
                   }`}
                   onClick={() => setDetail(r)}
                 >
-                  <td className="px-4 py-3 font-medium text-zinc-900 dark:text-white max-w-[200px] truncate">
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-[200px] truncate">
                     {r.title}
                     {isOverdue(r) && (
                       <span className="ml-2 text-xs text-red-600 dark:text-red-400">
@@ -740,7 +740,7 @@ export function CorrectiveActionsModule({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{typeLabel(r.action_type)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{typeLabel(r.action_type)}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priBadge(r.priority)}`}>
                       {priLabel(r.priority)}
@@ -751,13 +751,13 @@ export function CorrectiveActionsModule({
                       {stLabel(r.status)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 truncate max-w-[120px]">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 truncate max-w-[120px]">
                     {r.assigned_to_name ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 truncate max-w-[140px]">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 truncate max-w-[140px]">
                     {r.hazard_id ? hazardTitles[r.hazard_id] ?? "—" : "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                     {r.due_date ?? "—"}
                   </td>
                 </tr>
@@ -769,49 +769,49 @@ export function CorrectiveActionsModule({
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50">
-          <div className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl p-6 space-y-4">
+          <div className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t.actions_new ?? "New"}
               </h3>
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.actions_title_col ?? "Title"} *</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.actions_title_col ?? "Title"} *</span>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_description ?? "Desc"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_description ?? "Desc"}</span>
               <textarea
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[72px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[72px] text-sm"
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.actions_root_cause ?? "Root cause"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.actions_root_cause ?? "Root cause"}</span>
               <textarea
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[60px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[60px] text-sm"
                 value={form.root_cause}
                 onChange={(e) => setForm((f) => ({ ...f, root_cause: e.target.value }))}
               />
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.actions_type ?? "Type"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.actions_type ?? "Type"}</span>
                 <select
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={form.action_type}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, action_type: e.target.value as ActionType }))
@@ -825,9 +825,9 @@ export function CorrectiveActionsModule({
                 </select>
               </label>
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.actions_priority ?? "Priority"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.actions_priority ?? "Priority"}</span>
                 <select
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={form.priority}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, priority: e.target.value as ActionPriority }))
@@ -841,19 +841,19 @@ export function CorrectiveActionsModule({
                 </select>
               </label>
               <label className="block text-sm sm:col-span-2">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.actions_due_date ?? "Due"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.actions_due_date ?? "Due"}</span>
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={form.due_date}
                   onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
                 />
               </label>
             </div>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_filter_project ?? "Project"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_filter_project ?? "Project"}</span>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.project_id}
                 onChange={(e) => {
                   const id = e.target.value;
@@ -873,20 +873,20 @@ export function CorrectiveActionsModule({
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">
+              <span className="text-gray-600 dark:text-gray-400">
                 {t.actions_hazard_linked ?? "Hazard"} (ID)
               </span>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm font-mono text-xs"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm font-mono text-xs"
                 placeholder="uuid"
                 value={form.hazard_id}
                 onChange={(e) => setForm((f) => ({ ...f, hazard_id: e.target.value }))}
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.actions_assigned ?? "Assigned"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.actions_assigned ?? "Assigned"}</span>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.assigned_to}
                 onChange={(e) => {
                   const id = e.target.value;
@@ -906,17 +906,17 @@ export function CorrectiveActionsModule({
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.actions_evidence ?? "Evidence notes"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.actions_evidence ?? "Evidence notes"}</span>
               <textarea
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[60px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[60px] text-sm"
                 value={form.evidence_notes}
                 onChange={(e) => setForm((f) => ({ ...f, evidence_notes: e.target.value }))}
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_tags ?? "Tags"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_tags ?? "Tags"}</span>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.tags}
                 onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
               />
@@ -935,13 +935,13 @@ export function CorrectiveActionsModule({
 
       {detail && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
-          <div className="w-full max-w-md h-full overflow-y-auto bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-700 shadow-xl p-6 space-y-4">
+          <div className="w-full max-w-md h-full overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">{detail.title}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-2">{detail.title}</h3>
               <button
                 type="button"
                 onClick={() => setDetail(null)}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 shrink-0"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600 shrink-0"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
@@ -949,7 +949,7 @@ export function CorrectiveActionsModule({
             </div>
             {detail.hazard_id && (
               <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <p className="text-sm text-zinc-800 dark:text-zinc-200">
+                <p className="text-sm text-gray-800 dark:text-gray-200">
                   <span className="font-medium">{t.actions_hazard_linked ?? "Hazard"}:</span>{" "}
                   {hazardTitles[detail.hazard_id] ?? detail.hazard_id}
                 </p>
@@ -970,8 +970,8 @@ export function CorrectiveActionsModule({
             )}
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="text-zinc-500">{t.actions_root_cause ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">{detail.root_cause ?? "—"}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">{t.actions_root_cause ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">{detail.root_cause ?? "—"}</dd>
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priBadge(detail.priority)}`}>
@@ -984,12 +984,12 @@ export function CorrectiveActionsModule({
             </dl>
 
             {!readOnly && (
-              <div className="space-y-3 border-t border-zinc-200 dark:border-zinc-700 pt-4">
-                <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+              <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t.hazards_change_status ?? "Status"}
                 </h4>
                 <select
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={statusDraft}
                   onChange={(e) => setStatusDraft(e.target.value as ActionStatus)}
                 >
@@ -1000,18 +1000,18 @@ export function CorrectiveActionsModule({
                   ))}
                 </select>
                 <label className="block text-sm">
-                  <span className="text-zinc-600 dark:text-zinc-400">
+                  <span className="text-gray-600 dark:text-gray-400">
                     {t.actions_verify ?? t.actions_verified ?? "Verification"}
                   </span>
                   <textarea
-                    className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[72px] text-sm"
+                    className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[72px] text-sm"
                     value={verificationDraft}
                     onChange={(e) => setVerificationDraft(e.target.value)}
                   />
                 </label>
                 {(statusDraft === "closed" || statusDraft === "verified") && (
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                       {t.actions_effectiveness ?? "Effectiveness"} (1–5)
                     </p>
                     <div className="flex gap-1">
@@ -1023,7 +1023,7 @@ export function CorrectiveActionsModule({
                           className={`min-h-[44px] min-w-[44px] rounded-xl border flex items-center justify-center ${
                             effectivenessDraft === n
                               ? "border-amber-500 bg-amber-100 dark:bg-amber-900/40"
-                              : "border-zinc-300 dark:border-zinc-600"
+                              : "border-gray-300 dark:border-gray-600"
                           }`}
                           aria-label={`${n}`}
                         >
@@ -1031,7 +1031,7 @@ export function CorrectiveActionsModule({
                             className={`h-5 w-5 ${
                               effectivenessDraft != null && n <= effectivenessDraft
                                 ? "text-amber-500 fill-amber-500"
-                                : "text-zinc-400"
+                                : "text-gray-400"
                             }`}
                           />
                         </button>
@@ -1049,8 +1049,8 @@ export function CorrectiveActionsModule({
               </div>
             )}
 
-            <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
-              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
                 <ImagePlus className="h-4 w-4" />
                 {t.actions_evidence ?? "Evidence"}
               </h4>
@@ -1061,12 +1061,12 @@ export function CorrectiveActionsModule({
                     key={url}
                     src={url}
                     alt=""
-                    className="rounded-lg border border-zinc-200 dark:border-zinc-600 w-full h-28 object-cover"
+                    className="rounded-lg border border-gray-200 dark:border-gray-600 w-full h-28 object-cover"
                   />
                 ))}
               </div>
               {!readOnly && (detail.photos?.length ?? 0) < MAX_PHOTOS && (
-                <label className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium cursor-pointer">
+                <label className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium cursor-pointer">
                   <input
                     type="file"
                     accept="image/*"
@@ -1079,17 +1079,17 @@ export function CorrectiveActionsModule({
               )}
             </div>
 
-            <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
-              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2">
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
                 {t.hazards_history ?? "History"}
               </h4>
               {history.length === 0 ? (
-                <p className="text-sm text-zinc-500">{t.hazards_history_empty ?? "—"}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t.hazards_history_empty ?? "—"}</p>
               ) : (
-                <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400 max-h-48 overflow-y-auto">
+                <ul className="space-y-2 text-xs text-gray-600 dark:text-gray-400 max-h-48 overflow-y-auto">
                   {history.map((h) => (
-                    <li key={h.id} className="border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">{h.action}</span> ·{" "}
+                    <li key={h.id} className="border-b border-gray-100 dark:border-gray-700 pb-2">
+                      <span className="font-medium text-gray-800 dark:text-gray-200">{h.action}</span> ·{" "}
                       {h.user_name ?? "—"} · {new Date(h.created_at).toLocaleString()}
                     </li>
                   ))}

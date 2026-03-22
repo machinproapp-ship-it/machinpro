@@ -183,7 +183,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
 
   if (!companyId) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 text-center text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
         {t.visitors_no_company ?? t.billing_no_company ?? "—"}
       </div>
     );
@@ -191,7 +191,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
 
   if (!supabase) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 text-center text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
         {t.visitors_error ?? "—"}
       </div>
     );
@@ -201,18 +201,18 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
     <section className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
             {t.visitors_title ?? "Visitors"}
           </h2>
           {companyName ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{companyName}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{companyName}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setQrOpen(true)}
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <QrCode className="h-4 w-4 shrink-0" />
             {t.visitors_generate_qr ?? "QR"}
@@ -220,7 +220,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
           <button
             type="button"
             onClick={exportCsv}
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <Download className="h-4 w-4 shrink-0" />
             {t.visitors_export_csv ?? "CSV"}
@@ -234,22 +234,22 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
 
       <div className="flex flex-col lg:flex-row flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.visitors_filter_date ?? "Date"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.visitors_filter_date ?? "Date"}</span>
           <input
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[160px] flex-1">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.visitors_filter_project ?? "Project"}
           </span>
           <select
             value={filterProjectId}
             onChange={(e) => setFilterProjectId(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.visitors_filter_all ?? "All"}</option>
             {projects.map((p) => (
@@ -260,13 +260,13 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.visitors_filter_status ?? "Status"}
           </span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as "all" | VisitorStatus)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.visitors_filter_all ?? "All"}</option>
             <option value="checked_in">{t.visitors_status_in ?? "In"}</option>
@@ -274,27 +274,27 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm flex-1 min-w-[200px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.visitors_search ?? "Search"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.visitors_search ?? "Search"}</span>
           <span className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 pl-10 pr-3 py-2.5 min-h-[44px] text-sm"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 pl-10 pr-3 py-2.5 min-h-[44px] text-sm"
             />
           </span>
         </label>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-x-auto">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">{t.visitors_loading ?? "…"}</div>
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.visitors_loading ?? "…"}</div>
         ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">{t.visitors_no_results ?? "—"}</div>
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.visitors_no_results ?? "—"}</div>
         ) : (
           <table className="w-full text-sm text-left min-w-[720px]">
-            <thead className="bg-zinc-50 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-3 font-medium">{t.visitors_name ?? "Name"}</th>
                 <th className="px-4 py-3 font-medium">{t.visitors_company ?? "Company"}</th>
@@ -310,22 +310,22 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
               {filtered.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40"
+                  className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
-                  <td className="px-4 py-3 font-medium text-zinc-900 dark:text-white">
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                     {r.visitor_name}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                     {r.visitor_company ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 max-w-[180px] truncate">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
                     {r.purpose ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{r.host_name ?? "—"}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.host_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                     {new Date(r.check_in).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                     {r.check_out ? new Date(r.check_out).toLocaleString() : "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -333,7 +333,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         r.status === "checked_in"
                           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-                          : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+                          : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
                       }`}
                     >
                       {r.status === "checked_in"
@@ -365,11 +365,11 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
           role="dialog"
           aria-modal
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-6 shadow-xl space-y-4">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               {t.visitors_qr_modal_title ?? "QR"}
             </h3>
-            <div className="flex justify-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-zinc-100 dark:border-zinc-700">
+            <div className="flex justify-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
               <QRCodeCanvas
                 ref={qrCanvasRef}
                 value={checkInUrl}
@@ -379,7 +379,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
                 className="max-w-full h-auto"
               />
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 break-all text-center">{checkInUrl}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 break-all text-center">{checkInUrl}</p>
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
@@ -391,7 +391,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
               <button
                 type="button"
                 onClick={() => setQrOpen(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 font-medium text-sm py-3 text-zinc-800 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex-1 min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 font-medium text-sm py-3 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 {t.visitors_close ?? "Close"}
               </button>

@@ -111,9 +111,9 @@ export default function VisitorCheckInPage() {
     c.width = w * dpr;
     c.height = h * dpr;
     ctx.scale(dpr, dpr);
-    ctx.fillStyle = dark ? "#18181b" : "#ffffff";
+    ctx.fillStyle = dark ? "#1f2937" : "#ffffff";
     ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = dark ? "#fafafa" : "#18181b";
+    ctx.strokeStyle = dark ? "#e5e7eb" : "#111827";
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -242,16 +242,16 @@ export default function VisitorCheckInPage() {
 
   if (!companyId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
-        <p className="text-zinc-600 dark:text-zinc-400">{t.visitors_error ?? "Error"}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+        <p className="text-gray-600 dark:text-gray-400">{t.visitors_error ?? "Error"}</p>
       </div>
     );
   }
 
   if (companyError) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-zinc-50 dark:bg-zinc-950 px-4">
-        <p className="text-zinc-700 dark:text-zinc-300 text-center">{companyError}</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-900 px-4">
+        <p className="text-gray-700 dark:text-gray-300 text-center">{companyError}</p>
       </div>
     );
   }
@@ -259,15 +259,15 @@ export default function VisitorCheckInPage() {
   if (done) {
     const checkoutUrl = `/visit/${companyId}/checkout/${done.id}`;
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 px-4 py-10 flex flex-col items-center">
-        <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 shadow-xl text-center space-y-4">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 py-10 flex flex-col items-center">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 shadow-xl text-center space-y-4">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
             {t.visitors_confirmed ?? "Confirmed"}
           </h1>
-          <p className="text-zinc-700 dark:text-zinc-300">
+          <p className="text-gray-700 dark:text-gray-300">
             <span className="font-semibold">{done.visitor_name}</span>
           </p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {t.visitors_checkin ?? "Check-in"}: {new Date(done.check_in).toLocaleString()}
           </p>
           <Link
@@ -282,22 +282,22 @@ export default function VisitorCheckInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur sticky top-0 z-10">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <header className="border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative h-10 w-10 shrink-0">
               <Image src="/logo.png" alt="MachinPro" width={40} height={40} className="object-contain" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">MachinPro</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">MachinPro</p>
               <p className="font-semibold truncate">{companyName || "—"}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setDark((d) => !d)}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 text-zinc-900 dark:text-zinc-100"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             aria-label={t.darkMode ?? "Theme"}
           >
             {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -306,96 +306,96 @@ export default function VisitorCheckInPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-8 space-y-6 pb-24">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           {t.visitors_checkin ?? "Check-in"}
         </h1>
 
         <div className="space-y-4">
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_name ?? "Name"} *
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.visitor_name}
               onChange={(e) => setForm((f) => ({ ...f, visitor_name: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_company ?? "Company"}
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.visitor_company}
               onChange={(e) => setForm((f) => ({ ...f, visitor_company: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_email ?? "Email"}
             </span>
             <input
               type="email"
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.visitor_email}
               onChange={(e) => setForm((f) => ({ ...f, visitor_email: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_phone ?? "Phone"}
             </span>
             <input
               type="tel"
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.visitor_phone}
               onChange={(e) => setForm((f) => ({ ...f, visitor_phone: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_id ?? "ID"}
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.visitor_id_number}
               onChange={(e) => setForm((f) => ({ ...f, visitor_id_number: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_purpose ?? "Purpose"} *
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.purpose}
               onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_host ?? "Host"} *
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.host_name}
               onChange={(e) => setForm((f) => ({ ...f, host_name: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_vehicle ?? "Vehicle"}
             </span>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               value={form.vehicle_plate}
               onChange={(e) => setForm((f) => ({ ...f, vehicle_plate: e.target.value }))}
             />
@@ -403,11 +403,11 @@ export default function VisitorCheckInPage() {
 
           {projects.length > 0 && (
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t.visitors_project ?? "Project"}
               </span>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm min-h-[44px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-sm min-h-[44px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 value={form.project_id}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -430,24 +430,24 @@ export default function VisitorCheckInPage() {
           <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
             <input
               type="checkbox"
-              className="mt-1 h-5 w-5 rounded border-zinc-400"
+              className="mt-1 h-5 w-5 rounded border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800"
               checked={form.safety_briefing_accepted}
               onChange={(e) =>
                 setForm((f) => ({ ...f, safety_briefing_accepted: e.target.checked }))
               }
             />
-            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               {t.visitors_safety_briefing ?? "Safety briefing"}
             </span>
           </label>
 
           <div>
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
               {t.visitors_sign ?? "Signature"} *
             </span>
             <canvas
               ref={canvasRef}
-              className="w-full h-40 rounded-xl border border-zinc-300 dark:border-zinc-600 touch-none cursor-crosshair bg-white dark:bg-gray-800"
+              className="w-full h-40 rounded-xl border border-gray-300 dark:border-gray-600 touch-none cursor-crosshair bg-white dark:bg-gray-700"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -463,7 +463,7 @@ export default function VisitorCheckInPage() {
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.visitors_photo_optional ?? "Photo (optional)"}
             </span>
             <input
@@ -490,7 +490,7 @@ export default function VisitorCheckInPage() {
           {loading ? (t.visitors_loading ?? "…") : (t.visitors_submit ?? "Submit")}
         </button>
 
-        <p className="text-xs text-center text-zinc-500 dark:text-zinc-500 break-all">
+        <p className="text-xs text-center text-gray-500 dark:text-gray-500 break-all">
           {buildVisitorCheckInUrl(companyId)}
         </p>
       </main>

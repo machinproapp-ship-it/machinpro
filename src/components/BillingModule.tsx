@@ -116,12 +116,12 @@ export function BillingModule({
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {t.billing_title ?? "Billing"}
           </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {t.billing_plan_current ?? "Current plan"}:{" "}
-            <span className="font-semibold text-zinc-800 dark:text-zinc-200 capitalize">
+            <span className="font-semibold text-gray-800 dark:text-gray-200 capitalize">
               {subscription?.plan ?? "—"}
             </span>
           </p>
@@ -130,7 +130,7 @@ export function BillingModule({
           <button
             type="button"
             onClick={() => setPricingOpen(true)}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             <LayoutGrid className="h-4 w-4" />
             {t.billing_change_plan ?? "Change plan"}
@@ -155,7 +155,7 @@ export function BillingModule({
       )}
 
       {loading && (
-        <p className="text-sm text-zinc-500 mb-6">{t.billing_loading ?? "Loading…"}</p>
+        <p className="text-sm text-gray-500 mb-6">{t.billing_loading ?? "Loading…"}</p>
       )}
 
       {isTrial && trialDaysLeft != null && trialDaysLeft > 0 && (
@@ -215,20 +215,20 @@ export function BillingModule({
         </div>
       )}
 
-      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 p-4 sm:p-6 shadow-sm mb-8">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/90 p-4 sm:p-6 shadow-sm mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           {t.billing_plan_current ?? "Subscription"}
         </h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <dt className="text-zinc-500 dark:text-zinc-400">{t.billing_field_status ?? "Status"}</dt>
-            <dd className="font-medium text-zinc-900 dark:text-white mt-1">
+            <dt className="text-gray-500 dark:text-gray-400">{t.billing_field_status ?? "Status"}</dt>
+            <dd className="font-medium text-gray-900 dark:text-white mt-1">
               {statusLabel(t, subscription?.status)}
             </dd>
           </div>
           <div>
-            <dt className="text-zinc-500 dark:text-zinc-400">{t.billing_next_charge ?? "Next billing"}</dt>
-            <dd className="font-medium text-zinc-900 dark:text-white mt-1">
+            <dt className="text-gray-500 dark:text-gray-400">{t.billing_next_charge ?? "Next billing"}</dt>
+            <dd className="font-medium text-gray-900 dark:text-white mt-1">
               {subscription?.current_period_end
                 ? new Date(subscription.current_period_end).toLocaleDateString()
                 : "—"}
@@ -237,19 +237,19 @@ export function BillingModule({
         </dl>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 p-4 sm:p-6 shadow-sm mb-8">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/90 p-4 sm:p-6 shadow-sm mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           {t.billing_usage_title ?? "Usage & limits"}
         </h2>
         <div className="space-y-6">
           <div>
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.billing_limit_users ?? "Users"}</span>
-              <span className="text-zinc-900 dark:text-white font-medium">
+              <span className="text-gray-600 dark:text-gray-400">{t.billing_limit_users ?? "Users"}</span>
+              <span className="text-gray-900 dark:text-white font-medium">
                 {employeesCount} / {seatsLimit != null && seatsLimit < 999000 ? seatsLimit : "∞"}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+            <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-500"
                 style={{ width: `${pct(employeesCount, seatsLimit)}%` }}
@@ -258,12 +258,12 @@ export function BillingModule({
           </div>
           <div>
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.billing_limit_projects ?? "Projects"}</span>
-              <span className="text-zinc-900 dark:text-white font-medium">
+              <span className="text-gray-600 dark:text-gray-400">{t.billing_limit_projects ?? "Projects"}</span>
+              <span className="text-gray-900 dark:text-white font-medium">
                 {projectsCount} / {projectsLimit != null && projectsLimit < 999000 ? projectsLimit : "∞"}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+            <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-blue-500"
                 style={{ width: `${pct(projectsCount, projectsLimit)}%` }}
@@ -272,12 +272,12 @@ export function BillingModule({
           </div>
           <div>
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.billing_limit_storage ?? "Storage"}</span>
-              <span className="text-zinc-900 dark:text-white font-medium">
+              <span className="text-gray-600 dark:text-gray-400">{t.billing_limit_storage ?? "Storage"}</span>
+              <span className="text-gray-900 dark:text-white font-medium">
                 {storageUsedGb.toFixed(1)} GB / {storageLimit != null ? `${storageLimit} GB` : "—"}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+            <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-violet-500"
                 style={{ width: `${pct(storageUsedGb, storageLimit)}%` }}
@@ -287,11 +287,11 @@ export function BillingModule({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-6 text-center">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+      <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-6 text-center">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
           {t.billing_invoices_title ?? "Invoices"}
         </h2>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
           {t.billing_invoices_placeholder ?? "Invoice history will appear here."}
         </p>
       </div>
@@ -299,7 +299,7 @@ export function BillingModule({
       {pricingOpen && (
         <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/50 backdrop-blur-sm">
           <div className="min-h-full flex items-start justify-center py-6 sm:py-10 px-2">
-            <div className="relative w-full max-w-6xl rounded-2xl bg-white dark:bg-zinc-950 shadow-xl border border-zinc-200 dark:border-zinc-800 my-4">
+            <div className="relative w-full max-w-6xl rounded-2xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 my-4">
               <PricingModule
                 t={t}
                 companyId={companyId}

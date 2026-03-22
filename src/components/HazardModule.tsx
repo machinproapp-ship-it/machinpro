@@ -376,7 +376,7 @@ export function HazardModule({
     const lvl = getRiskLevel(score);
     if (lvl === "critical") return "bg-red-500/90 text-white";
     if (lvl === "high") return "bg-orange-500/90 text-white";
-    if (lvl === "medium") return "bg-amber-400/90 text-zinc-900";
+    if (lvl === "medium") return "bg-amber-400/90 text-gray-900";
     return "bg-emerald-500/90 text-white";
   };
 
@@ -529,7 +529,7 @@ export function HazardModule({
 
   if (!companyId) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 text-center text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
         {t.hazards_no_company ?? t.billing_no_company ?? "—"}
       </div>
     );
@@ -537,7 +537,7 @@ export function HazardModule({
 
   if (!supabase) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-8 text-center text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
         {t.hazards_error ?? "—"}
       </div>
     );
@@ -547,12 +547,12 @@ export function HazardModule({
     <section className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <AlertTriangle className="h-6 w-6 text-amber-500 shrink-0" />
             {t.hazards_title ?? "Hazards"}
           </h2>
           {companyName ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{companyName}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{companyName}</p>
           ) : null}
         </div>
         {!readOnly && (
@@ -577,49 +577,49 @@ export function HazardModule({
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">{t.hazards_open ?? "Open"}</p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t.hazards_open ?? "Open"}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
             {stats.open}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t.hazards_in_progress ?? "In progress"}
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
             {stats.inProg}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t.hazards_week_resolved ?? "Resolved (7d)"}
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
             {stats.resolvedWeek}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t.hazards_closed ?? "Closed total"}
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
             {rows.filter((r) => r.status === "closed").length}
           </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 sm:p-6">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-3">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
           {t.hazards_bar_categories ?? t.hazards_stats ?? "Stats"}
         </h3>
         <div className="space-y-2">
           {CATEGORIES.map((c) => (
             <div key={c} className="flex items-center gap-2">
-              <span className="text-xs w-28 shrink-0 truncate text-zinc-600 dark:text-zinc-400">
+              <span className="text-xs w-28 shrink-0 truncate text-gray-600 dark:text-gray-400">
                 {catLabel(c)}
               </span>
-              <div className="flex-1 h-3 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+              <div className="flex-1 h-3 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                 <div
                   className="h-full bg-amber-500 rounded-full transition-all"
                   style={{
@@ -627,7 +627,7 @@ export function HazardModule({
                   }}
                 />
               </div>
-              <span className="text-xs tabular-nums w-6 text-right text-zinc-600 dark:text-zinc-300">
+              <span className="text-xs tabular-nums w-6 text-right text-gray-600 dark:text-gray-300">
                 {stats.catCounts[c] ?? 0}
               </span>
             </div>
@@ -635,22 +635,22 @@ export function HazardModule({
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 sm:p-6 overflow-x-auto">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-4">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 overflow-x-auto">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
           {t.hazards_matrix ?? "Matrix"}
         </h3>
-        <p className="text-xs text-zinc-500 mb-2">{t.hazards_matrix_prob_axis ?? "Probability →"}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t.hazards_matrix_prob_axis ?? "Probability →"}</p>
         <div className="inline-block min-w-[320px]">
           <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-1 text-center text-xs">
             <div />
             {PROBS.map((p) => (
-              <div key={p} className="font-medium text-zinc-600 dark:text-zinc-400 py-1">
+              <div key={p} className="font-medium text-gray-600 dark:text-gray-400 py-1">
                 {probLabel(p)}
               </div>
             ))}
             {SEVERITIES.map((sev) => (
               <div key={sev} className="contents">
-                <div className="flex items-center font-medium text-zinc-600 dark:text-zinc-400 pr-2 text-left">
+                <div className="flex items-center font-medium text-gray-600 dark:text-gray-400 pr-2 text-left">
                   {sevLabel(sev)}
                 </div>
                 {PROBS.map((prob) => {
@@ -672,13 +672,13 @@ export function HazardModule({
 
       <div className="flex flex-col xl:flex-row flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-sm flex-1 min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_project ?? "Project"}
           </span>
           <select
             value={filterProject}
             onChange={(e) => setFilterProject(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {projects.map((p) => (
@@ -689,13 +689,13 @@ export function HazardModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_category ?? "Category"}
           </span>
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {CATEGORIES.map((c) => (
@@ -706,13 +706,13 @@ export function HazardModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_severity ?? "Severity"}
           </span>
           <select
             value={filterSeverity}
             onChange={(e) => setFilterSeverity(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {SEVERITIES.map((s) => (
@@ -723,13 +723,13 @@ export function HazardModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_status ?? "Status"}
           </span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             {STATUSES.map((s) => (
@@ -740,13 +740,13 @@ export function HazardModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[160px]">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_assignee ?? "Assignee"}
           </span>
           <select
             value={filterAssignee}
             onChange={(e) => setFilterAssignee(e.target.value)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.hazards_filter_all ?? "All"}</option>
             <option value="unassigned">{t.hazards_no_assignee ?? "Unassigned"}</option>
@@ -758,11 +758,11 @@ export function HazardModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[160px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_sort ?? "Sort"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.hazards_sort ?? "Sort"}</span>
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="date">{t.hazards_sort_date ?? "Date"}</option>
             <option value="score">{t.hazards_sort_score ?? "Score"}</option>
@@ -771,14 +771,14 @@ export function HazardModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm flex-1 min-w-[200px]">
-          <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_search ?? "Search"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{t.hazards_search ?? "Search"}</span>
           <span className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 pl-10 pr-3 py-2.5 min-h-[44px] text-sm"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 pl-10 pr-3 py-2.5 min-h-[44px] text-sm"
             />
           </span>
         </label>
@@ -786,30 +786,30 @@ export function HazardModule({
 
       <div className="lg:hidden space-y-3">
         {loading ? (
-          <p className="text-zinc-500 text-center py-8">{t.hazards_loading ?? "…"}</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.hazards_loading ?? "…"}</p>
         ) : sorted.length === 0 ? (
-          <p className="text-zinc-500 text-center py-8">{t.hazards_no_results ?? "—"}</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.hazards_no_results ?? "—"}</p>
         ) : (
           sorted.map((h) => (
             <button
               key={h.id}
               type="button"
               onClick={() => setDetail(h)}
-              className="w-full text-left rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 space-y-2 min-h-[44px]"
+              className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-2 min-h-[44px]"
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="font-semibold text-zinc-900 dark:text-white">{h.title}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">{h.title}</span>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${sevBadgeClass(h.severity)}`}>
                   {sevLabel(h.severity)}
                 </span>
               </div>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {catLabel(h.category)} · {t.hazards_risk_score ?? "Score"}: {h.risk_score} ·{" "}
                 {statusLabel(h.status)}
               </p>
               {(caByHazard[h.id]?.count ?? 0) > 0 && (
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="text-zinc-600 dark:text-zinc-400">
+                  <span className="text-gray-600 dark:text-gray-400">
                     {t.hazards_linked_corrective_count ?? t.actions_title ?? "Acciones"}:{" "}
                     {caByHazard[h.id]!.count}
                   </span>
@@ -826,14 +826,14 @@ export function HazardModule({
         )}
       </div>
 
-      <div className="hidden lg:block rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-x-auto">
+      <div className="hidden lg:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">{t.hazards_loading ?? "…"}</div>
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.hazards_loading ?? "…"}</div>
         ) : sorted.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">{t.hazards_no_results ?? "—"}</div>
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.hazards_no_results ?? "—"}</div>
         ) : (
           <table className="w-full text-sm min-w-[1040px]">
-            <thead className="bg-zinc-50 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">{t.hazards_title_col ?? "Title"}</th>
                 <th className="px-4 py-3 text-left font-medium">{t.hazards_category ?? "Cat"}</th>
@@ -852,28 +852,28 @@ export function HazardModule({
               {sorted.map((h) => (
                 <tr
                   key={h.id}
-                  className="border-t border-zinc-100 dark:border-zinc-800 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                  className="border-t border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
                   onClick={() => setDetail(h)}
                 >
-                  <td className="px-4 py-3 font-medium text-zinc-900 dark:text-white max-w-[200px] truncate">
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-[200px] truncate">
                     {h.title}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{catLabel(h.category)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{catLabel(h.category)}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sevBadgeClass(h.severity)}`}>
                       {sevLabel(h.severity)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{probLabel(h.probability)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{probLabel(h.probability)}</td>
                   <td className="px-4 py-3 tabular-nums font-semibold">{h.risk_score}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{statusLabel(h.status)}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 truncate max-w-[120px]">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{statusLabel(h.status)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 truncate max-w-[120px]">
                     {h.assigned_to_name ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                     {h.due_date ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                     <div className="flex flex-col gap-1">
                       <span className="tabular-nums">{caByHazard[h.id]?.count ?? 0}</span>
                       {caByHazard[h.id] &&
@@ -895,41 +895,41 @@ export function HazardModule({
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50">
-          <div className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl p-6 space-y-4">
+          <div className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t.hazards_new ?? "New"}
               </h3>
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_title_col ?? "Title"} *</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_title_col ?? "Title"} *</span>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_description ?? "Description"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_description ?? "Description"}</span>
               <textarea
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[88px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[88px] text-sm"
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               />
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_category ?? "Category"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.hazards_category ?? "Category"}</span>
                 <select
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={form.category}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, category: e.target.value as HazardCategory }))
@@ -943,9 +943,9 @@ export function HazardModule({
                 </select>
               </label>
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_severity ?? "Severity"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.hazards_severity ?? "Severity"}</span>
                 <select
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={form.severity}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, severity: e.target.value as HazardSeverity }))
@@ -959,11 +959,11 @@ export function HazardModule({
                 </select>
               </label>
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">
+                <span className="text-gray-600 dark:text-gray-400">
                   {t.hazards_probability ?? "Probability"}
                 </span>
                 <select
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={form.probability}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, probability: e.target.value as HazardProbability }))
@@ -977,19 +977,19 @@ export function HazardModule({
                 </select>
               </label>
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_due_date ?? "Due"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.hazards_due_date ?? "Due"}</span>
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={form.due_date}
                   onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
                 />
               </label>
             </div>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_filter_project ?? "Project"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_filter_project ?? "Project"}</span>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.project_id}
                 onChange={(e) => {
                   const id = e.target.value;
@@ -1006,17 +1006,17 @@ export function HazardModule({
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_location ?? "Location"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_location ?? "Location"}</span>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.location}
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_assigned_to ?? "Assign"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_assigned_to ?? "Assign"}</span>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 value={form.assigned_to}
                 onChange={(e) => {
                   const id = e.target.value;
@@ -1033,9 +1033,9 @@ export function HazardModule({
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_tags ?? "Tags"}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.hazards_tags ?? "Tags"}</span>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                 placeholder={t.hazards_tags_hint ?? "a, b, c"}
                 value={form.tags}
                 onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
@@ -1043,23 +1043,23 @@ export function HazardModule({
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_lat ?? "Lat"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.hazards_lat ?? "Lat"}</span>
                 <input
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={formLat}
                   onChange={(e) => setFormLat(e.target.value)}
                 />
               </label>
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{t.hazards_lng ?? "Lng"}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.hazards_lng ?? "Lng"}</span>
                 <input
-                  className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={formLng}
                   onChange={(e) => setFormLng(e.target.value)}
                 />
               </label>
             </div>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {t.hazards_risk_score ?? "Score"}: {getRiskScore(form.severity, form.probability)} (
               {getRiskLevel(getRiskScore(form.severity, form.probability))})
             </p>
@@ -1077,13 +1077,13 @@ export function HazardModule({
 
       {detail && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
-          <div className="w-full max-w-md h-full overflow-y-auto bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-700 shadow-xl p-6 space-y-4">
+          <div className="w-full max-w-md h-full overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">{detail.title}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-2">{detail.title}</h3>
               <button
                 type="button"
                 onClick={() => setDetail(null)}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 shrink-0"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-gray-300 dark:border-gray-600 shrink-0"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
@@ -1091,12 +1091,12 @@ export function HazardModule({
             </div>
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="text-zinc-500">{t.hazards_category ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">{catLabel(detail.category)}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_category ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">{catLabel(detail.category)}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">{t.hazards_description ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white whitespace-pre-wrap">
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_description ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white whitespace-pre-wrap">
                   {detail.description ?? "—"}
                 </dd>
               </div>
@@ -1104,36 +1104,36 @@ export function HazardModule({
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sevBadgeClass(detail.severity)}`}>
                   {sevLabel(detail.severity)}
                 </span>
-                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-200 dark:bg-zinc-700">
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-700">
                   {probLabel(detail.probability)}
                 </span>
-                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-200 dark:bg-zinc-700">
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-700">
                   {t.hazards_risk_score ?? "Score"}: {detail.risk_score}
                 </span>
               </div>
               <div>
-                <dt className="text-zinc-500">{t.hazards_status ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">{statusLabel(detail.status)}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_status ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">{statusLabel(detail.status)}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">{t.hazards_location ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">{detail.location ?? "—"}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_location ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">{detail.location ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">{t.hazards_reported_by ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">{detail.reported_by_name ?? "—"}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_reported_by ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">{detail.reported_by_name ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">{t.hazards_assigned_to ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">{detail.assigned_to_name ?? "—"}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_assigned_to ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">{detail.assigned_to_name ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">{t.hazards_due_date ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">{detail.due_date ?? "—"}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_due_date ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">{detail.due_date ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">{t.hazards_resolved ?? ""}</dt>
-                <dd className="text-zinc-900 dark:text-white">
+                <dt className="text-gray-500 dark:text-gray-400">{t.hazards_resolved ?? ""}</dt>
+                <dd className="text-gray-900 dark:text-white">
                   {detail.resolved_at ? new Date(detail.resolved_at).toLocaleString() : "—"}
                 </dd>
               </div>
@@ -1157,12 +1157,12 @@ export function HazardModule({
             )}
 
             {!readOnly && (
-              <div className="space-y-3 border-t border-zinc-200 dark:border-zinc-700 pt-4">
-                <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+              <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t.hazards_change_status ?? "Change status"}
                 </h4>
                 <select
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                   value={statusDraft}
                   onChange={(e) => setStatusDraft(e.target.value as HazardStatus)}
                 >
@@ -1173,11 +1173,11 @@ export function HazardModule({
                   ))}
                 </select>
                 <label className="block text-sm">
-                  <span className="text-zinc-600 dark:text-zinc-400">
+                  <span className="text-gray-600 dark:text-gray-400">
                     {t.hazards_resolution_notes ?? "Notes"}
                   </span>
                   <textarea
-                    className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[80px] text-sm"
+                    className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[80px] text-sm"
                     value={resolutionDraft}
                     onChange={(e) => setResolutionDraft(e.target.value)}
                   />
@@ -1192,8 +1192,8 @@ export function HazardModule({
               </div>
             )}
 
-            <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
-              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
                 <ImagePlus className="h-4 w-4" />
                 {t.hazards_photos ?? "Photos"}
               </h4>
@@ -1204,12 +1204,12 @@ export function HazardModule({
                     key={url}
                     src={url}
                     alt=""
-                    className="rounded-lg border border-zinc-200 dark:border-zinc-600 w-full h-28 object-cover"
+                    className="rounded-lg border border-gray-200 dark:border-gray-600 w-full h-28 object-cover"
                   />
                 ))}
               </div>
               {!readOnly && (detail.photos?.length ?? 0) < MAX_PHOTOS && (
-                <label className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium cursor-pointer">
+                <label className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium cursor-pointer">
                   <input
                     type="file"
                     accept="image/*"
@@ -1222,12 +1222,12 @@ export function HazardModule({
               )}
             </div>
 
-            <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
-              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
                 <ClipboardList className="h-4 w-4" />
                 {t.hazards_corrective_actions ?? "Corrective"}
               </h4>
-              <ul className="list-disc pl-5 text-sm text-zinc-700 dark:text-zinc-300 space-y-1">
+              <ul className="list-disc pl-5 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                 {(detail.corrective_actions ?? []).map((a, i) => (
                   <li key={i}>{a}</li>
                 ))}
@@ -1235,7 +1235,7 @@ export function HazardModule({
               {!readOnly && (
                 <div className="mt-3 flex flex-col sm:flex-row gap-2">
                   <input
-                    className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2.5 min-h-[44px] text-sm"
+                    className="flex-1 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
                     value={correctiveDraft}
                     onChange={(e) => setCorrectiveDraft(e.target.value)}
                     placeholder={t.hazards_corrective_placeholder ?? ""}
@@ -1251,17 +1251,17 @@ export function HazardModule({
               )}
             </div>
 
-            <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
-              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2">
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
                 {t.hazards_history ?? "History"}
               </h4>
               {history.length === 0 ? (
-                <p className="text-sm text-zinc-500">{t.hazards_history_empty ?? "—"}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t.hazards_history_empty ?? "—"}</p>
               ) : (
-                <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400 max-h-48 overflow-y-auto">
+                <ul className="space-y-2 text-xs text-gray-600 dark:text-gray-400 max-h-48 overflow-y-auto">
                   {history.map((h) => (
-                    <li key={h.id} className="border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">{h.action}</span> ·{" "}
+                    <li key={h.id} className="border-b border-gray-100 dark:border-gray-800 pb-2">
+                      <span className="font-medium text-gray-800 dark:text-gray-200">{h.action}</span> ·{" "}
                       {h.user_name ?? "—"} · {new Date(h.created_at).toLocaleString()}
                       {h.new_value != null && (
                         <pre className="mt-1 text-[10px] overflow-x-auto whitespace-pre-wrap break-all opacity-80">

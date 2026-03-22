@@ -110,7 +110,7 @@ function severityTone(sev: HazardSeverity): string {
   if (sev === "critical") return "text-red-600 dark:text-red-400";
   if (sev === "high") return "text-orange-600 dark:text-orange-400";
   if (sev === "medium") return "text-amber-600 dark:text-amber-400";
-  return "text-zinc-600 dark:text-zinc-400";
+  return "text-gray-600 dark:text-gray-400";
 }
 
 function TrendBadge({
@@ -124,7 +124,7 @@ function TrendBadge({
 }) {
   if (previous === 0 && current === 0)
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+      <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
         <Minus className="h-3.5 w-3.5" aria-hidden />
         {labels.dashboard_trend_neutral ?? "—"}
       </span>
@@ -132,7 +132,7 @@ function TrendBadge({
   const delta = current - previous;
   if (delta === 0)
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+      <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
         <Minus className="h-3.5 w-3.5" aria-hidden />
         {labels.dashboard_trend_same ?? "="}
       </span>
@@ -159,7 +159,7 @@ function BarStack({
   const total = segments.reduce((s, x) => s + x.pct, 0) || 1;
   return (
     <div
-      className="flex w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
+      className="flex w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
       style={{ height }}
       role="img"
     >
@@ -472,7 +472,7 @@ export function CentralDashboardLive({
       { key: "open", pct: st.open, className: "bg-red-500" },
       { key: "ip", pct: st.in_progress, className: "bg-amber-500" },
       { key: "res", pct: st.resolved, className: "bg-emerald-500" },
-      { key: "clo", pct: st.closed, className: "bg-zinc-400" },
+      { key: "clo", pct: st.closed, className: "bg-gray-400" },
     ];
   }, [hazardRows]);
 
@@ -484,7 +484,7 @@ export function CentralDashboardLive({
       { key: "ip", pct: st.in_progress ?? 0, className: "bg-amber-400" },
       { key: "pr", pct: st.pending_review ?? 0, className: "bg-violet-400" },
       { key: "v", pct: st.verified ?? 0, className: "bg-emerald-500" },
-      { key: "c", pct: st.closed ?? 0, className: "bg-zinc-400" },
+      { key: "c", pct: st.closed ?? 0, className: "bg-gray-400" },
     ];
   }, [actionRows]);
 
@@ -551,7 +551,7 @@ export function CentralDashboardLive({
   return (
     <>
       <section className="space-y-2 mb-4">
-        <p className="text-lg font-medium text-zinc-900 dark:text-white">
+        <p className="text-lg font-medium text-gray-900 dark:text-white">
           {getGreeting()} — {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
         </p>
         {alertCount > 0 ? (
@@ -570,33 +570,33 @@ export function CentralDashboardLive({
         <button
           type="button"
           onClick={() => onNavigateAppSection("office")}
-          className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors min-h-[44px]"
+          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors min-h-[44px]"
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-blue-500/10">
               <Users className="h-5 w-5 text-blue-500" aria-hidden />
             </div>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">{labels.employees ?? "Employees"}</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{labels.employees ?? "Employees"}</span>
           </div>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-white tabular-nums">
+          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">
             {loading ? "—" : empN}
           </p>
-          <p className="text-xs text-zinc-500 mt-2">{labels.dashboard_kpi_hint_personnel ?? ""}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{labels.dashboard_kpi_hint_personnel ?? ""}</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigateAppSection("site")}
-          className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
+          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-amber-500/10">
               <HardHat className="h-5 w-5 text-amber-500" aria-hidden />
             </div>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">{labels.projects ?? "Projects"}</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{labels.projects ?? "Projects"}</span>
           </div>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-white tabular-nums">{activeProjectsCount}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{activeProjectsCount}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             {labels.dashboard_kpi_projects_hint ?? ""}
           </p>
         </button>
@@ -605,17 +605,17 @@ export function CentralDashboardLive({
           type="button"
           onClick={() => (canAccessVisitors ? onNavigateAppSection("visitors") : undefined)}
           disabled={!canAccessVisitors}
-          className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors disabled:opacity-60"
+          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors disabled:opacity-60"
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-emerald-500/10">
               <UserCheck className="h-5 w-5 text-emerald-500" aria-hidden />
             </div>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
               {labels.dashboard_visitors_today ?? "Visitors today"}
             </span>
           </div>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-white tabular-nums">{loading ? "—" : visToday}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{loading ? "—" : visToday}</p>
           <div className="mt-2">
             <TrendBadge current={visToday} previous={visYesterday} labels={labels} />
           </div>
@@ -624,26 +624,26 @@ export function CentralDashboardLive({
         <button
           type="button"
           onClick={() => onNavigateAppSection("hazards")}
-          className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
+          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-red-500/10">
               <AlertTriangle className="h-5 w-5 text-red-500" aria-hidden />
             </div>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
               {labels.dashboard_hazards_open ?? "Open hazards"}
             </span>
           </div>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-white tabular-nums">{loading ? "—" : hazardsOpen}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{loading ? "—" : hazardsOpen}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             {(labels.dashboard_critical_open ?? "{n} critical").replace("{n}", String(openCriticalCount))}
           </p>
         </button>
       </div>
 
       {(showQuickHazard || showQuickAction || showQuickVisitor || showQuickAudit) && (
-        <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/80 dark:bg-slate-900/80 p-4">
-          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-3">
+        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/80 p-4">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
             {labels.dashboard_quick_actions ?? "Quick actions"}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -674,7 +674,7 @@ export function CentralDashboardLive({
                   if (canAccessVisitors) onQuickVisitorQr();
                   else if (visitorCheckInUrl) window.open(visitorCheckInUrl, "_blank", "noopener,noreferrer");
                 }}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <QrCode className="h-4 w-4 shrink-0" aria-hidden />
                 {labels.dashboard_register_visitor ?? "Register visitor"}
@@ -684,7 +684,7 @@ export function CentralDashboardLive({
               <button
                 type="button"
                 onClick={onOpenAuditInCentral}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <FileSearch className="h-4 w-4 shrink-0" aria-hidden />
                 {labels.dashboard_view_audit ?? "Audit log"}
@@ -695,7 +695,7 @@ export function CentralDashboardLive({
       )}
 
       <section className="space-y-3">
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-amber-500" aria-hidden />
           {labels.dashboard_alerts_title ?? "Active alerts"}
         </h3>
@@ -709,14 +709,14 @@ export function CentralDashboardLive({
             {criticalUnassigned.map((h) => (
               <li
                 key={h.id}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-slate-900 p-3"
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 p-3"
               >
                 <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" aria-hidden />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {labels.dashboard_critical_hazards ?? "Critical hazard unassigned"}
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{h.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{h.title}</p>
                 </div>
                 <button
                   type="button"
@@ -730,14 +730,14 @@ export function CentralDashboardLive({
             {overdueActions.slice(0, 5).map((a) => (
               <li
                 key={a.id}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 p-3"
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-gray-800 p-3"
               >
                 <Clock className="h-5 w-5 text-amber-500 shrink-0" aria-hidden />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {labels.dashboard_actions_overdue ?? "Overdue action"}
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{a.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.title}</p>
                 </div>
                 <button
                   type="button"
@@ -751,14 +751,14 @@ export function CentralDashboardLive({
             {longVisitors.map((v) => (
               <li
                 key={v.id}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-white dark:bg-slate-900 p-3"
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-white dark:bg-gray-800 p-3"
               >
                 <UserCheck className="h-5 w-5 text-violet-500 shrink-0" aria-hidden />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {labels.dashboard_long_visitors ?? "Long visit"}
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{v.visitor_name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{v.visitor_name}</p>
                 </div>
                 <button
                   type="button"
@@ -770,13 +770,13 @@ export function CentralDashboardLive({
               </li>
             ))}
             {trialAlert && (
-              <li className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 p-3">
+              <li className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-gray-800 p-3">
                 <CreditCard className="h-5 w-5 text-amber-500 shrink-0" aria-hidden />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {labels.dashboard_trial_expiring ?? "Trial expiring"}
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {trialDaysLeft != null ? `${trialDaysLeft} d` : ""}
                   </p>
                 </div>
@@ -796,17 +796,17 @@ export function CentralDashboardLive({
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               {labels.dashboard_activity_title ?? "Recent activity"}
             </h3>
-            <label className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
               <span>{labels.dashboard_activity_filter ?? "Filter"}</span>
               <select
                 value={activityFilter}
                 onChange={(e) => setActivityFilter(e.target.value as ActivityFilter)}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-sm min-h-[44px] px-2"
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[44px] px-2"
               >
                 <option value="all">{labels.dashboard_filter_all ?? "All"}</option>
                 <option value="safety">{labels.dashboard_filter_safety ?? "Safety"}</option>
@@ -817,17 +817,17 @@ export function CentralDashboardLive({
           </div>
           <ul className="space-y-2 max-h-[320px] overflow-y-auto">
             {filteredActivity.length === 0 ? (
-              <li className="text-sm text-zinc-500 dark:text-zinc-400 py-4 text-center">—</li>
+              <li className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">—</li>
             ) : (
               filteredActivity.map((row) => (
                 <li
                   key={row.id}
-                  className="flex gap-2 text-sm border-b border-zinc-100 dark:border-white/5 pb-2 last:border-0"
+                  className="flex gap-2 text-sm border-b border-gray-100 dark:border-gray-700/60 pb-2 last:border-0"
                 >
-                  <Shield className="h-4 w-4 text-zinc-400 shrink-0 mt-0.5" aria-hidden />
+                  <Shield className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <p className="text-zinc-800 dark:text-zinc-200">{formatActivityLine(row, labels, projectNameById)}</p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="text-gray-800 dark:text-gray-200">{formatActivityLine(row, labels, projectNameById)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {relativeTime(row.created_at, locale, labels)}
                     </p>
                   </div>
@@ -838,22 +838,22 @@ export function CentralDashboardLive({
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-4">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden />
               {labels.dashboard_widget_hazards ?? "Hazards"}
             </h3>
-            <p className="text-xs text-zinc-500 mb-2">{labels.dashboard_severity_open ?? "By severity (open)"}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{labels.dashboard_severity_open ?? "By severity (open)"}</p>
             <BarStack
               segments={[
                 { key: "c", pct: sevBuckets.critical, className: "bg-red-600" },
                 { key: "h", pct: sevBuckets.high, className: "bg-orange-500" },
                 { key: "m", pct: sevBuckets.medium, className: "bg-amber-400" },
-                { key: "l", pct: sevBuckets.low, className: "bg-zinc-400" },
+                { key: "l", pct: sevBuckets.low, className: "bg-gray-400" },
               ]}
               height={10}
             />
-            <p className="text-xs text-zinc-500 mt-3 mb-1">{labels.dashboard_status_all ?? "All statuses"}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-1">{labels.dashboard_status_all ?? "All statuses"}</p>
             <BarStack segments={statusHazardParts} height={8} />
             <ul className="mt-3 space-y-1">
               {topCritical.map((h) => (
@@ -861,9 +861,9 @@ export function CentralDashboardLive({
                   <button
                     type="button"
                     onClick={() => onNavigateAppSection("hazards")}
-                    className="text-left w-full flex items-center gap-2 text-xs min-h-[44px] rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 px-1"
+                    className="text-left w-full flex items-center gap-2 text-xs min-h-[44px] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 px-1"
                   >
-                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
                     <span className={`font-medium truncate ${severityTone(h.severity)}`}>{h.title}</span>
                   </button>
                 </li>
@@ -871,8 +871,8 @@ export function CentralDashboardLive({
             </ul>
           </div>
 
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-4">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4 text-amber-500" aria-hidden />
               {labels.dashboard_widget_actions ?? "Actions"}
             </h3>
@@ -880,31 +880,31 @@ export function CentralDashboardLive({
             <p className="text-xs text-rose-600 dark:text-rose-400 mt-2 font-medium">
               {(labels.dashboard_actions_overdue ?? "Overdue").replace("{n}", String(overdueActions.length))}
             </p>
-            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-3 mb-1">
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">
               {labels.dashboard_due_week ?? "Due this week"}
             </p>
             <ul className="space-y-1">
               {dueThisWeek.slice(0, 4).map((a) => (
-                <li key={a.id} className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                <li key={a.id} className="text-xs text-gray-600 dark:text-gray-400 truncate">
                   · {a.title} ({a.due_date?.slice(0, 10)})
                 </li>
               ))}
-              {dueThisWeek.length === 0 && <li className="text-xs text-zinc-500">—</li>}
+              {dueThisWeek.length === 0 && <li className="text-xs text-gray-500 dark:text-gray-400">—</li>}
             </ul>
           </div>
         </div>
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-4">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
             <UserCheck className="h-4 w-4 text-emerald-500" aria-hidden />
             {labels.dashboard_widget_visitors ?? "Visitors"}
           </h3>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {labels.dashboard_active_now ?? "Active now"}: <span className="tabular-nums text-emerald-600">{activeVisitors}</span>
           </p>
-          <p className="text-xs text-zinc-500 mt-3 mb-2">{labels.dashboard_visits_7d ?? "Last 7 days"}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-2">{labels.dashboard_visits_7d ?? "Last 7 days"}</p>
           <div className="flex items-end gap-1 h-24">
             {visitsByDay.map((n, i) => (
               <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1">
@@ -912,18 +912,18 @@ export function CentralDashboardLive({
                   className="w-full rounded-t bg-emerald-500/80 dark:bg-emerald-600/80 min-h-[4px]"
                   style={{ height: `${Math.max(8, (n / maxVis) * 100)}%` }}
                 />
-                <span className="text-[10px] text-zinc-500">{i + 1}</span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">{i + 1}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-4">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
             <Layers className="h-4 w-4 text-amber-500" aria-hidden />
             {labels.dashboard_widget_blueprints ?? "Blueprints"}
           </h3>
-          <ul className="text-sm space-y-2 text-zinc-700 dark:text-zinc-300">
+          <ul className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
             <li className="flex justify-between">
               <span>{labels.dashboard_blueprints_total ?? "Blueprints"}</span>
               <span className="font-bold tabular-nums">{blueprintCount}</span>
@@ -943,7 +943,7 @@ export function CentralDashboardLive({
           <button
             type="button"
             onClick={() => onNavigateAppSection("site")}
-            className="mt-3 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm font-medium text-zinc-700 dark:text-zinc-300"
+            className="mt-3 w-full min-h-[44px] rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300"
           >
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-4 w-4" aria-hidden />
@@ -952,50 +952,50 @@ export function CentralDashboardLive({
           </button>
         </div>
 
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-4 md:col-span-2 xl:col-span-1">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 md:col-span-2 xl:col-span-1">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
             <CreditCard className="h-4 w-4 text-violet-500" aria-hidden />
             {labels.dashboard_widget_subscription ?? "Subscription"}
           </h3>
-          <p className="text-xs text-zinc-500 mb-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
             <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 font-semibold text-amber-900 dark:text-amber-200">
               {subscription?.plan ?? "—"} · {subscription?.status ?? "—"}
             </span>
           </p>
           {subscription?.status === "trialing" && trialDaysLeft != null && (
-            <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-2">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
               {(labels.billing_trial_days_left ?? "{n}").replace("{n}", String(trialDaysLeft))}
             </p>
           )}
           <div className="space-y-2 text-xs">
             <div>
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400 mb-1">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400 mb-1">
                 <span>{labels.dashboard_usage_users ?? "Users"}</span>
                 <span>
                   {empN} / {seatsLimit != null && seatsLimit < 999000 ? seatsLimit : "—"}
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+              <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                 <div className="h-full bg-violet-500" style={{ width: `${seatPct}%` }} />
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400 mb-1">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400 mb-1">
                 <span>{labels.dashboard_usage_projects ?? "Projects"}</span>
                 <span>
                   {activeProjectsCount} / {projLimit != null && projLimit < 999000 ? projLimit : "—"}
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+              <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                 <div className="h-full bg-amber-500" style={{ width: `${projPct}%` }} />
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400 mb-1">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400 mb-1">
                 <span>{labels.dashboard_usage_storage ?? "Storage"}</span>
                 <span>0 / {storLimit != null && storLimit < 999000 ? `${storLimit} GB` : "—"}</span>
               </div>
-              <div className="h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+              <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                 <div className="h-full bg-blue-500" style={{ width: `${storPct}%` }} />
               </div>
             </div>

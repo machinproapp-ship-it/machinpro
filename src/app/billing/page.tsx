@@ -59,7 +59,7 @@ export default function BillingPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
         <p>{t.billing_loading ?? "Loading…"}</p>
       </div>
     );
@@ -67,8 +67,8 @@ export default function BillingPage() {
 
   if (!companyId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 bg-zinc-50 dark:bg-zinc-950">
-        <p className="text-zinc-700 dark:text-zinc-300 text-center">{t.billing_no_company ?? "No company"}</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 bg-gray-50 dark:bg-gray-950">
+        <p className="text-gray-700 dark:text-gray-300 text-center">{t.billing_no_company ?? "No company"}</p>
         <Link
           href="/"
           className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white"
@@ -81,17 +81,17 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-30 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <header className="sticky top-0 z-30 border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link
             href="/"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label={t.office ?? "Home"}
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <span className="text-sm font-semibold text-zinc-900 dark:text-white">
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">
             {t.billing_title ?? "Billing"}
           </span>
         </div>

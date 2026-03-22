@@ -48,16 +48,16 @@ async function authHeaders(): Promise<HeadersInit> {
 function statusBadgeClass(status: string | undefined): string {
   switch (status) {
     case "trialing":
-      return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200";
+      return "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
     case "active":
       return "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200";
     case "past_due":
       return "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200";
     case "canceled":
     case "cancelled":
-      return "bg-zinc-900 text-white dark:bg-zinc-950 dark:text-zinc-100";
+      return "bg-gray-900 text-white dark:bg-gray-950 dark:text-gray-100";
     default:
-      return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
   }
 }
 
@@ -325,7 +325,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
           <p className="p-8 text-center text-gray-500 dark:text-gray-400">{t.superadmin_loading ?? "…"}</p>
         ) : (
           <table className="w-full text-sm min-w-[900px]">
-            <thead className="bg-gray-50 dark:bg-gray-900/80 text-gray-600 dark:text-gray-300">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">{t.superadmin_col_name ?? "Name"}</th>
                 <th className="px-4 py-3 text-left font-medium">{t.superadmin_plan ?? "Plan"}</th>
@@ -344,7 +344,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                 return (
                   <tr
                     key={c.id}
-                    className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{c.name}</td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300 capitalize">
