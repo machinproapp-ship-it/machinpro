@@ -2321,12 +2321,25 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                onClick={() => setDarkMode((prev) => !(prev ?? false))}
+                onClick={() => {
+                  const root = document.documentElement;
+                  const next = !root.classList.contains("dark");
+                  try {
+                    if (next) root.classList.add("dark");
+                    else root.classList.remove("dark");
+                    localStorage.setItem("machinpro_dark_mode", next ? "1" : "0");
+                  } catch {
+                    /* ignore */
+                  }
+                  setDarkMode(next);
+                }}
                 className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1 text-xs text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 min-h-[44px]"
                 aria-pressed={darkMode === true}
-                title={t.darkMode ?? "Dark mode"}
+                title={(darkMode ?? false) ? (t.lightMode ?? "Modo claro") : (t.darkMode ?? "Modo oscuro")}
               >
-                {(darkMode ?? false) ? "☾ " + (t.darkMode ?? "Oscuro") : "☀ " + (t.darkMode ?? "Oscuro")}
+                {(darkMode ?? false)
+                  ? "☀️ " + (t.lightMode ?? "Modo claro")
+                  : "🌙 " + (t.darkMode ?? "Modo oscuro")}
               </button>
               {session && (
                 <div className="flex items-center gap-2">

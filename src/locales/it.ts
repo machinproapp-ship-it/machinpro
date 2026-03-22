@@ -18,6 +18,7 @@ export default {
   hours: "Ore",
   hoursLogged: "Ore / mese",
   darkMode: "Tema scuro",
+  lightMode: "Tema chiaro",
   tabGeneral: "Generale",
   tabRegions: "Regioni",
   language: "Lingua",

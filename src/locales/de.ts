@@ -18,6 +18,7 @@ export default {
   hours: "Stunden",
   hoursLogged: "Stunden / Monat",
   darkMode: "Dunkelmodus",
+  lightMode: "Heller Modus",
   tabGeneral: "Allgemein",
   tabRegions: "Regionen",
   language: "Sprache",
