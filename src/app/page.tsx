@@ -60,6 +60,7 @@ import {
   Settings,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
 import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
 import {
@@ -894,6 +895,9 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState<MainSection>("office");
   const [correctivePrefill, setCorrectivePrefill] = useState<CorrectiveActionsPrefill | null>(null);
   const [focusHazardId, setFocusHazardId] = useState<string | null>(null);
+  const [dashHazardCreateSig, setDashHazardCreateSig] = useState(0);
+  const [dashActionCreateSig, setDashActionCreateSig] = useState(0);
+  const [dashVisitorQrSig, setDashVisitorQrSig] = useState(0);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>(INITIAL_CUSTOM_ROLES);
@@ -2480,6 +2484,32 @@ export default function Home() {
                 complianceAlerts={complianceAlerts}
                 pendingOpenEmployeeId={pendingOpenEmployeeId}
                 onPendingOpenEmployeeHandled={clearPendingOpenEmployee}
+                companyName={(profile?.companyName ?? companyName) || null}
+                onNavigateAppSection={(s) => setActiveSection(s)}
+                onQuickNewHazard={() => {
+                  setActiveSection("hazards");
+                  setDashHazardCreateSig((n) => n + 1);
+                }}
+                onQuickNewAction={() => {
+                  setActiveSection("corrective_actions");
+                  setDashActionCreateSig((n) => n + 1);
+                }}
+                onQuickVisitorQr={() => {
+                  setActiveSection("visitors");
+                  setDashVisitorQrSig((n) => n + 1);
+                }}
+                visitorCheckInUrl={companyId ? buildVisitorCheckInUrl(companyId) : null}
+                canAccessVisitors={effectiveRole === "admin" || effectiveRole === "supervisor"}
+                canAccessHazards={
+                  effectiveRole === "admin" ||
+                  effectiveRole === "supervisor" ||
+                  effectiveRole === "worker"
+                }
+                canAccessCorrective={
+                  effectiveRole === "admin" ||
+                  effectiveRole === "supervisor" ||
+                  effectiveRole === "worker"
+                }
               />
             )}
 
@@ -2945,6 +2975,7 @@ export default function Home() {
                   companyId={companyId}
                   companyName={profile?.companyName ?? companyName}
                   projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                  openQrSignal={dashVisitorQrSig}
                 />
               )}
 
@@ -2973,6 +3004,7 @@ export default function Home() {
                     });
                     setActiveSection("corrective_actions");
                   }}
+                  openCreateSignal={dashHazardCreateSig}
                 />
               )}
 
@@ -2997,6 +3029,7 @@ export default function Home() {
                     setFocusHazardId(id);
                     setActiveSection("hazards");
                   }}
+                  openCreateSignal={dashActionCreateSig}
                 />
               )}
 

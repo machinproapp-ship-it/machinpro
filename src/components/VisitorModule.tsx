@@ -12,6 +12,8 @@ export interface VisitorModuleProps {
   companyId: string | null;
   companyName?: string | null;
   projects: { id: string; name: string }[];
+  /** Increment desde el dashboard para abrir el modal QR. */
+  openQrSignal?: number;
 }
 
 function dayInputValue(d: Date): string {
@@ -27,7 +29,8 @@ function dayBoundsUtc(dateStr: string): { start: string; end: string } {
   return { start, end };
 }
 
-export function VisitorModule({ t, companyId, companyName, projects }: VisitorModuleProps) {
+export function VisitorModule({ t, companyId, companyName, projects, openQrSignal = 0 }: VisitorModuleProps) {
+  const lastQrSig = useRef(0);
   const [filterDate, setFilterDate] = useState(() => dayInputValue(new Date()));
   const [filterProjectId, setFilterProjectId] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | VisitorStatus>("all");
@@ -73,6 +76,12 @@ export function VisitorModule({ t, companyId, companyName, projects }: VisitorMo
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!openQrSignal || openQrSignal <= lastQrSig.current) return;
+    lastQrSig.current = openQrSignal;
+    setQrOpen(true);
+  }, [openQrSignal]);
 
   useEffect(() => {
     if (!supabase || !companyId) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Plus,
@@ -58,6 +58,8 @@ export interface HazardModuleProps {
   /** Al volver desde acciones correctivas, abre el detalle de este peligro. */
   focusHazardId?: string | null;
   onFocusHazardConsumed?: () => void;
+  /** Increment from parent (p. ej. dashboard) para abrir el formulario de alta. */
+  openCreateSignal?: number;
 }
 
 type SortKey = "date" | "score" | "severity" | "status";
@@ -122,8 +124,10 @@ export function HazardModule({
   onOpenCorrectiveFromHazard,
   focusHazardId,
   onFocusHazardConsumed,
+  openCreateSignal = 0,
 }: HazardModuleProps) {
   const readOnly = userRole === "worker";
+  const lastCreateSig = useRef(0);
   const [rows, setRows] = useState<Hazard[]>([]);
   const [caByHazard, setCaByHazard] = useState<
     Record<string, { count: number; allDone: boolean }>
@@ -137,6 +141,12 @@ export function HazardModule({
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openCreateSignal || openCreateSignal <= lastCreateSig.current) return;
+    lastCreateSig.current = openCreateSignal;
+    if (!readOnly) setCreateOpen(true);
+  }, [openCreateSignal, readOnly]);
   const [detail, setDetail] = useState<Hazard | null>(null);
   const [form, setForm] = useState<HazardFormData>(() => emptyForm());
   const [formLat, setFormLat] = useState("");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, Plus, Search, X, ImagePlus, Star, ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
@@ -45,6 +45,8 @@ export interface CorrectiveActionsModuleProps {
   prefill?: CorrectiveActionsPrefill | null;
   onConsumePrefill?: () => void;
   onNavigateToHazard?: (hazardId: string) => void;
+  /** Increment desde el dashboard para abrir el alta de acción. */
+  openCreateSignal?: number;
 }
 
 type AuditRow = {
@@ -112,8 +114,10 @@ export function CorrectiveActionsModule({
   prefill,
   onConsumePrefill,
   onNavigateToHazard,
+  openCreateSignal = 0,
 }: CorrectiveActionsModuleProps) {
   const readOnly = userRole === "worker";
+  const lastCreateSig = useRef(0);
   const [rows, setRows] = useState<CorrectiveAction[]>([]);
   const [hazardTitles, setHazardTitles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -124,6 +128,13 @@ export function CorrectiveActionsModule({
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openCreateSignal || openCreateSignal <= lastCreateSig.current) return;
+    lastCreateSig.current = openCreateSignal;
+    if (!readOnly) setCreateOpen(true);
+  }, [openCreateSignal, readOnly]);
+
   const [detail, setDetail] = useState<CorrectiveAction | null>(null);
   const [form, setForm] = useState<CorrectiveActionFormData>(() => emptyForm());
   const [saving, setSaving] = useState(false);

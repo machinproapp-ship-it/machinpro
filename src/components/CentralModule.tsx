@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, type ReactNode } from 'react';
+import React, { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { Users, Briefcase, HardHat, ChevronRight, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound } from 'lucide-react';
 import type { CustomRole, RolePermissions } from '@/types/roles';
 import { ROLE_PERMISSION_KEYS, isBaseRole } from '@/types/roles';
@@ -11,6 +11,8 @@ import type { ComplianceField, ComplianceRecord, EmployeeDocument } from '@/app/
 import type { AuditLogEntry } from '@/lib/useAuditLog';
 import type { ComplianceAlert } from '@/lib/complianceWatchdog';
 import type { UserRole } from '@/types/shared';
+import type { MainSection } from '@/types/shared';
+import { CentralDashboardLive } from '@/components/CentralDashboardLive';
 
 interface Certificate {
   id: string;
@@ -206,6 +208,15 @@ interface CentralModuleProps {
   complianceAlerts?: ComplianceAlert[];
   pendingOpenEmployeeId?: string | null;
   onPendingOpenEmployeeHandled?: () => void;
+  companyName?: string | null;
+  onNavigateAppSection?: (section: MainSection) => void;
+  onQuickNewHazard?: () => void;
+  onQuickNewAction?: () => void;
+  onQuickVisitorQr?: () => void;
+  visitorCheckInUrl?: string | null;
+  canAccessVisitors?: boolean;
+  canAccessHazards?: boolean;
+  canAccessCorrective?: boolean;
 }
 
 const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
@@ -320,6 +331,15 @@ export function CentralModule({
   complianceAlerts: complianceWatchdogAlerts = [],
   pendingOpenEmployeeId = null,
   onPendingOpenEmployeeHandled,
+  companyName = null,
+  onNavigateAppSection,
+  onQuickNewHazard,
+  onQuickNewAction,
+  onQuickVisitorQr,
+  visitorCheckInUrl = null,
+  canAccessVisitors = false,
+  canAccessHazards = false,
+  canAccessCorrective = false,
 }: CentralModuleProps) {
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
@@ -498,6 +518,12 @@ export function CentralModule({
   }, [pendingOpenEmployeeId, onPendingOpenEmployeeHandled]);
 
   const safeSubcontractors = Array.isArray(subcontractors) ? subcontractors : [];
+
+  const projectNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of safeDisplayProjects) m[p.id] = p.name ?? p.id;
+    return m;
+  }, [safeDisplayProjects]);
 
   const recentEmployees = safeEmployees.slice(0, 5);
   const recentProjects = safeDisplayProjects.filter((p) => !p.archived).slice(0, 3);
@@ -703,159 +729,99 @@ export function CentralModule({
 
       {centralView === "dashboard" && (
         <>
-          {/* Briefing matutino */}
-          <section className="space-y-2 mb-2">
-            <p className="text-lg font-medium text-zinc-900 dark:text-white">
-              {getGreeting(labels)} - {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
-            </p>
-            {pendingForms > 0 && (
-              <p className="text-sm text-amber-600 dark:text-amber-400">
-                ! {pendingForms} {labels.formsPendingSignature ?? "formulario(s) pendientes de firma"}
+          {companyId && onNavigateAppSection ? (
+            <div className="space-y-6">
+              <CentralDashboardLive
+                labels={labels}
+                companyId={companyId}
+                companyName={companyName ?? undefined}
+                language={language}
+                activeProjectsCount={safeDisplayProjects.filter((p) => !p.archived).length}
+                projectNameById={projectNameById}
+                currentUserRole={currentUserRole}
+                canManageRoles={canManageRoles}
+                canAccessVisitors={canAccessVisitors}
+                canAccessHazards={canAccessHazards}
+                canAccessCorrective={canAccessCorrective}
+                onNavigateAppSection={onNavigateAppSection}
+                onOpenAuditInCentral={() => {
+                  if (canManageRoles) setCentralView("auditlog");
+                }}
+                onQuickNewHazard={onQuickNewHazard ?? (() => undefined)}
+                onQuickNewAction={onQuickNewAction ?? (() => undefined)}
+                onQuickVisitorQr={onQuickVisitorQr ?? (() => undefined)}
+                visitorCheckInUrl={visitorCheckInUrl}
+              />
+            </div>
+          ) : (
+            <section className="space-y-2 mb-2">
+              <p className="text-lg font-medium text-zinc-900 dark:text-white">
+                {getGreeting(labels)} — {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
               </p>
-            )}
-          </section>
-          {/* 4 KPI cards */}
+            </section>
+          )}
+
+          {pendingForms > 0 && (
+            <section className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/80 dark:bg-amber-950/25 px-4 py-3">
+              <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                {pendingForms} {labels.formsPendingSignature ?? ""}
+              </p>
+            </section>
+          )}
+
           <div
-            className={`grid grid-cols-1 gap-4 ${
-              canManageRoles ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" : "md:grid-cols-3"
+            className={`grid grid-cols-1 gap-3 ${
+              canManageRoles ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2"
             }`}
           >
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-amber-300 transition-all w-full overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setCentralView("personnel")}
+              className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
+            >
+              <Users className="h-4 w-4 text-blue-500 shrink-0" aria-hidden />
+              {labels.employees ?? "Personnel"}
+              <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCentralView("subcontractors")}
+              className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
+            >
+              <Briefcase className="h-4 w-4 text-purple-500 shrink-0" aria-hidden />
+              {labels.subcontractors ?? "Subcontractors"}
+              <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
+            </button>
+            {complianceWatchdogAlerts.length > 0 && (
               <button
                 type="button"
-                onClick={() => setCentralView("personnel")}
-                className="w-full cursor-pointer p-6 text-left"
+                onClick={() => setCentralView("compliance")}
+                className="min-h-[44px] rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 text-left text-sm font-medium text-amber-900 dark:text-amber-200 flex items-center gap-2"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Users className="w-5 h-5 text-blue-500" aria-hidden />
-                  </div>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">{labels.employees ?? "Empleados"}</span>
-                </div>
-                <h3 className="text-4xl font-bold text-zinc-900 dark:text-white mb-3">{safeEmployees.length}</h3>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {complianceWatchdogAlerts.length > 0 ? (
-                    <>
-                      {watchdogExpiredCount > 0 && (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                          {watchdogExpiredCount} {(labels as Record<string, string>).certExpired ?? "Vencido"}
-                        </span>
-                      )}
-                      {watchdogCriticalCount > 0 && (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                          {watchdogCriticalCount}{" "}
-                          {(labels as Record<string, string>).complianceBadgeSevenDays ?? "≤7 días"}
-                        </span>
-                      )}
-                      {watchdogWarningCount > 0 && (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200">
-                          {watchdogWarningCount}{" "}
-                          {(labels as Record<string, string>).complianceBadgeThirtyDays ?? "≤30 días"}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {expiredCerts.length > 0 && (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                          (!) {expiredCerts.length} {labels.expiredCerts ?? "certs vencidos"}
-                        </span>
-                      )}
-                      {soonCerts.length > 0 && (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                          {soonCerts.length} {labels.certsSoonExpiring ?? "pr?ximos a vencer"}
-                        </span>
-                      )}
-                      {expiredCerts.length === 0 && soonCerts.length === 0 && (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                          (ok) {labels.certsUpToDate ?? "Certificados al dia"}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{labels.viewAll ?? "Ver todo"}</p>
+                <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden />
+                {(labels as Record<string, string>).complianceWatchdog ?? "Compliance"}
+                <ChevronRight className="h-4 w-4 ml-auto opacity-60" aria-hidden />
               </button>
-              {complianceWatchdogAlerts.length > 0 && (
-                <div className="px-6 pb-4 border-t border-zinc-100 dark:border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setCentralView("compliance")}
-                    className="mt-3 w-full min-h-[44px] rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/30"
-                  >
-                    {(labels as Record<string, string>).complianceWatchdog ?? "Compliance Watchdog"}
-                  </button>
-                </div>
-              )}
-            </div>
-            <button type="button" onClick={() => setCentralView("projects")}
-              className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-zinc-200 dark:border-white/10 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-300 transition-all text-left w-full">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-amber-500/10 rounded-lg"><HardHat className="w-5 h-5 text-amber-500" /></div>
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">{labels.site ?? "Operaciones"}</span>
-              </div>
-              <h3 className="text-4xl font-bold text-zinc-900 dark:text-white mb-3">{safeDisplayProjects.filter((p) => !p.archived).length}</h3>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {overBudgetProjects.length > 0 && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{overBudgetProjects.length} {labels.overBudget ?? "sobre presupuesto"}</span>}
-                {nearBudgetProjects.length > 0 && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{nearBudgetProjects.length} {labels.nearBudget ?? "al l?mite"}</span>}
-                {urgentDeadlines.length > 0 && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{urgentDeadlines.length} {labels.urgentDeadline ?? "entrega urgente"}</span>}
-                {overBudgetProjects.length === 0 && nearBudgetProjects.length === 0 && urgentDeadlines.length === 0 && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">(ok) {labels.noIssues ?? "Sin incidencias"}</span>}
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{labels.viewAll ?? "Ver todo"}</p>
-            </button>
-            <button type="button" onClick={() => setCentralView("subcontractors")}
-              className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-zinc-200 dark:border-white/10 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-300 transition-all text-left w-full">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-purple-500/10 rounded-lg"><Briefcase className="w-5 h-5 text-purple-500" /></div>
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">{labels.subcontractors ?? "Subcontratistas"}</span>
-              </div>
-              <h3 className="text-4xl font-bold text-zinc-900 dark:text-white mb-3">{safeSubcontractors.length}</h3>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{safeSubcontractors.length > 0 ? `${safeSubcontractors.length} activos` : "Sin subcontratistas"}</span>
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{labels.viewAll ?? "Ver todo"}</p>
-            </button>
+            )}
             {canManageRoles && (
               <>
                 <button
                   type="button"
                   onClick={() => setCentralView("roles")}
-                  className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-zinc-200 dark:border-white/10 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-300 transition-all text-left w-full"
+                  className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-emerald-500/10 rounded-lg">
-                      <KeyRound className="w-5 h-5 text-emerald-500" aria-hidden />
-                    </div>
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {labels.rolesAndPermissions ?? "Roles y Permisos"}
-                    </span>
-                  </div>
-                  <h3 className="text-4xl font-bold text-zinc-900 dark:text-white mb-3">{customRoles.length}</h3>
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                      {customRoles.length} {labels.roles ?? "roles activos"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{labels.viewAll ?? "Ver todo"}</p>
+                  <KeyRound className="h-4 w-4 text-emerald-500 shrink-0" aria-hidden />
+                  {labels.rolesAndPermissions ?? "Roles"}
+                  <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
                 </button>
                 <button
                   type="button"
                   onClick={() => setCentralView("auditlog")}
-                  className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-zinc-200 dark:border-white/10 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-300 transition-all text-left w-full"
+                  className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-amber-500/10 rounded-lg">
-                      <Shield className="w-5 h-5 text-amber-600" aria-hidden />
-                    </div>
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {(labels as Record<string, string>).auditLog ?? "Audit Log"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3 line-clamp-2">
-                    {(labels as Record<string, string>).auditLogDesc ?? ""}
-                  </p>
-                  <h3 className="text-4xl font-bold text-zinc-900 dark:text-white mb-3">{auditLogs.length}</h3>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{labels.viewAll ?? "Ver todo"}</p>
+                  <Shield className="h-4 w-4 text-amber-600 shrink-0" aria-hidden />
+                  {(labels as Record<string, string>).auditLog ?? "Audit"}
+                  <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
                 </button>
               </>
             )}
