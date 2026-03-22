@@ -1321,7 +1321,8 @@ export default function Home() {
   const [clockInGpsStatus, setClockInGpsStatus] = useState<"idle" | "locating" | "ok" | "alert" | "no_gps">("idle");
   const [clockInAlertMessage, setClockInAlertMessage] = useState<string | null>(null);
 
-  const [darkMode, setDarkMode] = useState(false);
+  /** null = aún no hidratado desde localStorage (evita sobrescribir la clave antes de leerla). */
+  const [darkMode, setDarkMode] = useState<boolean | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   useEffect(() => {
@@ -1355,8 +1356,9 @@ export default function Home() {
     }
   }, []);
 
-  // Efecto 2: aplicar clase y guardar cuando cambia
+  // Efecto 2: aplicar clase en <html> y guardar solo tras hidratar (el primer render con false ejecutaba esto antes de leer localStorage y borraba "1").
   useEffect(() => {
+    if (darkMode === null) return;
     const root = document.documentElement;
     if (darkMode) {
       root.classList.add("dark");
@@ -1365,7 +1367,9 @@ export default function Home() {
     }
     try {
       localStorage.setItem("machinpro_dark_mode", darkMode ? "1" : "0");
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   }, [darkMode]);
 
   useEffect(() => {
@@ -2317,10 +2321,12 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                onClick={() => setDarkMode((prev) => !prev)}
+                onClick={() => setDarkMode((prev) => !(prev ?? false))}
                 className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1 text-xs text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 min-h-[44px]"
+                aria-pressed={darkMode === true}
+                title={t.darkMode ?? "Dark mode"}
               >
-                {darkMode ? "☾ " + (t.darkMode ?? "Oscuro") : "☀ " + (t.darkMode ?? "Oscuro")}
+                {(darkMode ?? false) ? "☾ " + (t.darkMode ?? "Oscuro") : "☀ " + (t.darkMode ?? "Oscuro")}
               </button>
               {session && (
                 <div className="flex items-center gap-2">
