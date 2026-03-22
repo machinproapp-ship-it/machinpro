@@ -28,7 +28,10 @@ export type AuditAction =
   | "action_created"
   | "action_status_changed"
   | "action_verified"
-  | "action_closed";
+  | "action_closed"
+  | "blueprint_uploaded"
+  | "pin_added"
+  | "pin_deleted";
 
 export type AuditEntityType =
   | "photo"
@@ -42,7 +45,8 @@ export type AuditEntityType =
   | "tool"
   | "request"
   | "hazard"
-  | "corrective_action";
+  | "corrective_action"
+  | "blueprint";
 
 export interface AuditEntry {
   company_id: string;

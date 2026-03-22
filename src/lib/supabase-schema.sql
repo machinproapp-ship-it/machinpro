@@ -148,3 +148,5 @@ alter table user_profiles enable row level security;
 -- Sprint AI: acciones correctivas — ejecutar src/lib/corrective_actions.sql
 
 -- Superadmin: columna is_superadmin en user_profiles — ejecutar src/lib/user_profiles_superadmin.sql
+
+-- Sprint AL-1: planos y pines — ejecutar src/lib/blueprints.sql

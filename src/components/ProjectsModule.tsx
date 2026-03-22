@@ -193,6 +193,10 @@ export interface ProjectsModuleProps {
   dailyReports?: DailyFieldReport[];
   onSaveDailyReport?: (report: DailyFieldReport) => void;
   companyId?: string;
+  /** Perfil Supabase (user_profiles.id) para planos / pines. */
+  currentUserProfileId?: string | null;
+  onOpenHazardFromBlueprint?: (hazardId: string) => void;
+  onOpenCorrectiveFromBlueprint?: (correctiveActionId: string) => void;
   projectTasks?: ProjectTask[];
   onCreateTask?: (task: Omit<ProjectTask, "id" | "createdAt">) => void;
   onUpdateTask?: (taskId: string, updates: Partial<ProjectTask>) => void;
@@ -400,6 +404,9 @@ export function ProjectsModule({
   dailyReports = [],
   onSaveDailyReport,
   companyId = "",
+  currentUserProfileId = null,
+  onOpenHazardFromBlueprint,
+  onOpenCorrectiveFromBlueprint,
   projectTasks = [],
   onCreateTask,
   onUpdateTask,
@@ -837,7 +844,11 @@ export function ProjectsModule({
                   ? t.siteTabGallery ?? "Galería"
                   : tab.id === "formularios"
                   ? (t as Record<string, string>).siteTabForms ?? "Formularios"
-                  : "Planos";
+                  : tab.id === "blueprints"
+                  ? (t as Record<string, string>).blueprints_title ??
+                    t.blueprints ??
+                    "Planos"
+                  : "";
               const badge =
                 tab.id === "galeria" && pendingObraPhotos.length > 0 && canApprove
                   ? pendingObraPhotos.length
@@ -854,14 +865,12 @@ export function ProjectsModule({
                   }`}
                 >
                   {tab.icon}
-                  {tab.id === "blueprints" ? (
+                  {tab.id === "blueprints" && unresolvedCount > 0 ? (
                     <>
-                      <span>Planos</span>
-                      {unresolvedCount > 0 && (
-                        <span className="ml-1.5 rounded-full bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 min-w-[18px] text-center inline-block">
-                          {unresolvedCount}
-                        </span>
-                      )}
+                      <span>{label}</span>
+                      <span className="ml-1.5 rounded-full bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 min-w-[18px] text-center inline-block">
+                        {unresolvedCount}
+                      </span>
                     </>
                   ) : (
                     label
@@ -1606,29 +1615,20 @@ export function ProjectsModule({
         {/* ══ TAB PLANOS ══ */}
         {activeTab === "blueprints" && selectedProject && (
           <BlueprintViewer
-            blueprints={(blueprints ?? []).filter(
-              (bp) => bp.projectId === selectedProject.id
-            )}
-            projects={[
-              {
-                id: selectedProject.id,
-                name: selectedProject.name,
-              },
-            ]}
-            currentUserEmployeeId={currentUserEmployeeId ?? ""}
-            currentUserName={currentUserName ?? ""}
-            canUpload={canEdit}
-            canAnnotate={canAnnotate}
-            onAddBlueprint={onAddBlueprint ?? (() => {})}
-            onUpdateAnnotations={onUpdateAnnotations ?? (() => {})}
-            onAddRevision={onAddRevision ?? (() => {})}
-            onMarkBlueprintNotCurrent={onMarkBlueprintNotCurrent}
-            labels={{
-              blueprints: t.blueprints ?? "Planos",
-              uploadPlan: t.uploadPlan ?? "Subir plano",
-              currentVersion: (t as Record<string, string>).currentVersion ?? "Vigente",
-              blueprintVersion: (t as Record<string, string>).blueprintVersion ?? "Versión del plano",
-            }}
+            t={t as Record<string, string>}
+            companyId={companyId || null}
+            projectId={selectedProject.id}
+            projectName={selectedProject.name}
+            userProfileId={currentUserProfileId ?? null}
+            userName={
+              currentUserDisplayName ||
+              currentUserName ||
+              (t as Record<string, string>).admin ||
+              "User"
+            }
+            userRole={currentUserRole ?? "worker"}
+            onNavigateToHazard={onOpenHazardFromBlueprint}
+            onNavigateToCorrective={onOpenCorrectiveFromBlueprint}
           />
         )}
 

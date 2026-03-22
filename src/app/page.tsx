@@ -2748,6 +2748,14 @@ export default function Home() {
                   });
                 }}
                 companyId={companyId ?? ""}
+                currentUserProfileId={profile?.id ?? null}
+                onOpenHazardFromBlueprint={(id) => {
+                  setFocusHazardId(id);
+                  setActiveSection("hazards");
+                }}
+                onOpenCorrectiveFromBlueprint={() => {
+                  setActiveSection("corrective_actions");
+                }}
                 projectTasks={projectTasks}
                 onCreateTask={(task) => {
                   setProjectTasks((prev) => [
