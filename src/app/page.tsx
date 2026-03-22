@@ -35,6 +35,7 @@ import { FormsModule } from "@/components/FormsModule";
 import { BindersModule } from "@/components/BindersModule";
 import { BillingModule } from "@/components/BillingModule";
 import { VisitorModule } from "@/components/VisitorModule";
+import { HazardModule } from "@/components/HazardModule";
 import LoginScreen from "@/components/LoginScreen";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
@@ -1767,6 +1768,7 @@ export default function Home() {
     binders: (t as Record<string, string>).binders ?? "Documentos",
     billing: (t as Record<string, string>).billing_menu ?? "Billing",
     visitors: (t as Record<string, string>).visitors_menu ?? "Visitantes",
+    hazards: (t as Record<string, string>).hazards_menu ?? "Riesgos",
     settings: t.settings,
     worker: t.worker,
     blueprints: t.blueprints ?? "Planos",
@@ -2173,6 +2175,11 @@ export default function Home() {
           canAccessBinders={perms.canViewBinders ?? false}
           canAccessBilling={effectiveRole === "admin"}
           canAccessVisitors={effectiveRole === "admin" || effectiveRole === "supervisor"}
+          canAccessHazards={
+            effectiveRole === "admin" ||
+            effectiveRole === "supervisor" ||
+            effectiveRole === "worker"
+          }
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -2892,6 +2899,24 @@ export default function Home() {
                   companyId={companyId}
                   companyName={profile?.companyName ?? companyName}
                   projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                />
+              )}
+
+            {activeSection === "hazards" &&
+              (effectiveRole === "admin" ||
+                effectiveRole === "supervisor" ||
+                effectiveRole === "worker") && (
+                <HazardModule
+                  t={t as Record<string, string>}
+                  companyId={companyId}
+                  companyName={profile?.companyName ?? companyName}
+                  userRole={effectiveRole}
+                  userName={
+                    profile?.fullName ?? profile?.email ?? user?.email ?? "User"
+                  }
+                  userProfileId={profile?.id ?? null}
+                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                  employees={(employees ?? []).map((e) => ({ id: e.id, name: e.name }))}
                 />
               )}
 

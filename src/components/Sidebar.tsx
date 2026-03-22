@@ -11,6 +11,7 @@ import {
   FolderOpen,
   CreditCard,
   UserCheck,
+  AlertTriangle,
 } from "lucide-react";
 import type { MainSection, SidebarLabels } from "@/types/shared";
 
@@ -27,6 +28,8 @@ export interface SidebarProps {
   canAccessBilling?: boolean;
   /** Admin y supervisor — registro de visitantes / QR */
   canAccessVisitors?: boolean;
+  /** Riesgos en obra — admin, supervisor y trabajador (solo lectura) */
+  canAccessHazards?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
 }
@@ -42,11 +45,13 @@ export function Sidebar({
   canAccessBinders = false,
   canAccessBilling = false,
   canAccessVisitors = false,
+  canAccessHazards = false,
   labels,
   collapsed = false,
 }: SidebarProps) {
   const billingLabel = labels.billing ?? "Billing";
   const visitorsLabel = labels.visitors ?? "Visitors";
+  const hazardsLabel = labels.hazards ?? "Hazards";
   const sidebarNavItems = [
     { id: "office" as const, icon: Building2, label: labels.office ?? "Central", show: canAccessOffice },
     { id: "warehouse" as const, icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
@@ -55,6 +60,7 @@ export function Sidebar({
     { id: "binders" as const, icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
     { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
+    { id: "hazards" as const, icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
     { id: "settings" as const, icon: Sliders, label: labels.settings ?? "Ajustes", show: true },
   ].filter((item) => item.show);
 
@@ -66,6 +72,7 @@ export function Sidebar({
     { id: "binders" as const, icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
     { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
+    { id: "hazards" as const, icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
     { id: "settings" as const, icon: Settings, label: labels.settings ?? "Ajustes", show: true },
   ];
   const visibleBottom = allBottomItems.filter((item) => item.show);
@@ -77,10 +84,12 @@ export function Sidebar({
               i.id !== "schedule" &&
               i.id !== "settings" &&
               i.id !== "billing" &&
-              i.id !== "visitors"
+              i.id !== "visitors" &&
+              i.id !== "hazards"
           ).slice(0, 3),
           ...visibleBottom.filter((i) => i.id === "schedule"),
           ...visibleBottom.filter((i) => i.id === "visitors"),
+          ...visibleBottom.filter((i) => i.id === "hazards"),
           ...visibleBottom.filter((i) => i.id === "billing"),
           ...visibleBottom.filter((i) => i.id === "settings"),
         ]
@@ -116,7 +125,9 @@ export function Sidebar({
                           ? "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
                           : item.id === "visitors"
                             ? "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300"
-                            : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
+                            : item.id === "hazards"
+                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
+                              : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
           return (
             <button
               key={item.id}
