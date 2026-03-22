@@ -29,6 +29,27 @@ const MOBILE_BAR_PRIORITY: MainSection[] = [
 
 const MOBILE_BAR_OVERFLOW_TAIL: MainSection[] = ["warehouse", "schedule", "binders", "billing", "settings"];
 
+/** Etiquetas muy cortas para la barra inferior (≤7 caracteres donde aplica). */
+const MOBILE_BAR_SHORT_LABEL: Partial<Record<MainSection, string>> = {
+  office: "Central",
+  site: "Obras",
+  visitors: "Visitas",
+  hazards: "Riesgos",
+  corrective_actions: "Acciones",
+  warehouse: "Logíst",
+  schedule: "Horario",
+  binders: "Docs",
+  billing: "Factur",
+  settings: "Ajustes",
+};
+
+function mobileBarShortLabel(id: MainSection, fullLabel: string): string {
+  const fixed = MOBILE_BAR_SHORT_LABEL[id];
+  if (fixed != null && fixed !== "") return fixed;
+  const t = fullLabel.trim();
+  return t.length > 7 ? `${t.slice(0, 6)}…` : t;
+}
+
 type BottomItem = {
   id: MainSection;
   icon: typeof Building2;
@@ -149,7 +170,7 @@ export function Sidebar({
     const order = [...MOBILE_BAR_PRIORITY, ...MOBILE_BAR_OVERFLOW_TAIL];
     const sortedVisible = order.map((id) => byId[id]).filter((x): x is BottomItem => Boolean(x));
 
-    if (sortedVisible.length <= 6) {
+    if (sortedVisible.length <= 5) {
       return { barItems: sortedVisible, overflowItems: [] as BottomItem[], showMore: false };
     }
     return {
@@ -187,8 +208,15 @@ export function Sidebar({
 
   const barColumnCount = barItems.length + (showMore ? 1 : 0);
 
-  const iconTone = (isActive: boolean) =>
-    isActive ? "text-[#f97316]" : "text-zinc-500 dark:text-zinc-400";
+  const barIconClass = (isActive: boolean) =>
+    isActive
+      ? "text-[#f97316] dark:text-orange-400"
+      : "text-zinc-500 dark:text-gray-400";
+
+  const barTextClass = (isActive: boolean) =>
+    isActive
+      ? "text-[#f97316] dark:text-orange-400"
+      : "text-zinc-600 dark:text-gray-400";
 
   return (
     <>
@@ -248,20 +276,23 @@ export function Sidebar({
         >
           {barItems.map((item) => {
             const isActive = activeSection === item.id;
+            const short = mobileBarShortLabel(item.id, item.label);
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => selectSection(item.id)}
-                className={`flex flex-col items-center justify-center gap-0.5 md:gap-1 min-h-[44px] min-w-[44px] w-full rounded-lg px-0.5 transition-colors ${
+                className={`flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] w-full rounded-lg px-0.5 py-0.5 transition-colors ${
                   isActive ? "bg-amber-500/10 dark:bg-amber-500/15" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
                 }`}
               >
-                <span className="h-6 w-6 shrink-0 flex items-center justify-center">
-                  <item.icon className={`h-6 w-6 ${iconTone(isActive)}`} aria-hidden />
+                <span className="h-[22px] w-[22px] shrink-0 flex items-center justify-center">
+                  <item.icon className={`h-[22px] w-[22px] ${barIconClass(isActive)}`} aria-hidden />
                 </span>
-                <span className="sr-only md:not-sr-only md:max-w-[5.5rem] md:truncate text-center text-[10px] md:text-xs font-medium leading-tight text-zinc-600 dark:text-zinc-300 w-full px-0.5">
-                  {item.label}
+                <span
+                  className={`max-w-[4rem] truncate text-center text-[9px] font-medium leading-tight w-full px-0.5 ${barTextClass(isActive)}`}
+                >
+                  {short}
                 </span>
               </button>
             );
@@ -273,20 +304,22 @@ export function Sidebar({
               aria-expanded={moreOpen}
               aria-haspopup="dialog"
               aria-label={moreLabel}
-              className={`flex flex-col items-center justify-center gap-0.5 md:gap-1 min-h-[44px] min-w-[44px] w-full rounded-lg px-0.5 transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] w-full rounded-lg px-0.5 py-0.5 transition-colors ${
                 overflowContainsActive || moreOpen
                   ? "bg-amber-500/10 dark:bg-amber-500/15"
                   : "hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
               }`}
             >
-              <span className="h-6 w-6 shrink-0 flex items-center justify-center">
+              <span className="h-[22px] w-[22px] shrink-0 flex items-center justify-center">
                 <MoreHorizontal
-                  className={`h-6 w-6 ${iconTone(overflowContainsActive || moreOpen)}`}
+                  className={`h-[22px] w-[22px] ${barIconClass(overflowContainsActive || moreOpen)}`}
                   aria-hidden
                 />
               </span>
-              <span className="sr-only md:not-sr-only md:max-w-[5.5rem] md:truncate text-center text-[10px] md:text-xs font-medium leading-tight text-zinc-600 dark:text-zinc-300 w-full px-0.5">
-                {moreLabel}
+              <span
+                className={`max-w-[4rem] truncate text-center text-[9px] font-medium leading-tight w-full px-0.5 ${barTextClass(overflowContainsActive || moreOpen)}`}
+              >
+                Más
               </span>
             </button>
           )}
@@ -298,7 +331,7 @@ export function Sidebar({
           <button
             type="button"
             className="absolute inset-0 bg-black/50 dark:bg-black/60"
-            aria-label={moreLabel}
+            aria-label={closeSheetLabel}
             onClick={closeMore}
           />
           <div className="absolute bottom-0 left-0 right-0 max-h-[min(70vh,28rem)] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 pb-[env(safe-area-inset-bottom,0px)]">
@@ -323,14 +356,20 @@ export function Sidebar({
                       onClick={() => selectSection(item.id)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium min-h-[48px] ${
                         isActive
-                          ? "bg-amber-500/15 text-[#f97316] dark:bg-amber-500/20"
+                          ? "bg-amber-500/15 text-[#f97316] dark:bg-amber-500/20 dark:text-orange-400"
                           : "text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
                       }`}
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                        <item.icon className={`h-5 w-5 ${isActive ? "text-[#f97316]" : "text-zinc-600 dark:text-zinc-400"}`} />
+                        <item.icon
+                          className={`h-5 w-5 ${isActive ? "text-[#f97316] dark:text-orange-400" : "text-zinc-600 dark:text-zinc-400"}`}
+                        />
                       </span>
-                      <span className="min-w-0 flex-1">{item.label}</span>
+                      <span
+                        className={`min-w-0 flex-1 ${isActive ? "text-[#f97316] dark:text-orange-400" : ""}`}
+                      >
+                        {item.label}
+                      </span>
                     </button>
                   </li>
                 );
