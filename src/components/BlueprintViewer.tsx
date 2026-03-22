@@ -12,9 +12,19 @@ import {
   File,
   StickyNote,
   History,
+  Clock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import {
+  addPendingSync,
+  cacheBlueprintData,
+  getCachedBlueprintData,
+  getCachedBlueprintRowsForProject,
+  removePendingAnnotationAddByTempId,
+  removePendingPinAddByTempId,
+} from "@/lib/offlineStorage";
 import { logAuditEvent } from "@/lib/useAuditLog";
+import { useSyncQueue, type SyncQueueResult } from "@/lib/useSyncQueue";
 import type {
   Blueprint as BlueprintRow,
   BlueprintAnnotation,
@@ -66,6 +76,14 @@ function formatBlueprintWhen(iso: string, locale: string | undefined): string {
 
 function clamp(n: number, a: number, b: number): number {
   return Math.min(b, Math.max(a, n));
+}
+
+function interpolate(str: string | undefined, vars: Record<string, string | number>): string {
+  let s = str ?? "";
+  for (const [k, v] of Object.entries(vars)) {
+    s = s.split(`{${k}}`).join(String(v));
+  }
+  return s;
 }
 
 function touchDistance(a: React.Touch, b: React.Touch): number {
@@ -240,6 +258,11 @@ export default function BlueprintViewer({
 
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  const [listFromCache, setListFromCache] = useState(false);
+  const [detailFromCache, setDetailFromCache] = useState(false);
+  const [syncToast, setSyncToast] = useState<{ kind: "ok" | "err"; n: number } | null>(null);
+  const [showJustSynced, setShowJustSynced] = useState(false);
+
   const viewportRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
@@ -297,59 +320,169 @@ export default function BlueprintViewer({
   }, []);
 
   const loadBlueprints = useCallback(async () => {
-    if (!supabase || !companyId) {
+    if (!companyId) {
       setRows([]);
       setLoading(false);
+      setListFromCache(false);
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("blueprints")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("project_id", projectId)
-      .order("name", { ascending: true })
-      .order("version", { ascending: false });
-    if (error) {
-      console.error(error);
-      setRows([]);
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("blueprints")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("project_id", projectId)
+        .order("name", { ascending: true })
+        .order("version", { ascending: false });
+      if (!error && data) {
+        const mapped = (data ?? []).map((r) => normalizeBlueprintRow(r as Record<string, unknown>));
+        setRows(mapped);
+        setListFromCache(false);
+        for (const row of mapped) {
+          await cacheBlueprintData(row.id, { blueprint: row });
+        }
+        setLoading(false);
+        return;
+      }
+      if (error) console.error(error);
+    }
+    const cached = await getCachedBlueprintRowsForProject(projectId);
+    if (cached.length > 0) {
+      setRows(cached.map((r) => normalizeBlueprintRow(r as unknown as Record<string, unknown>)));
+      setListFromCache(true);
     } else {
-      setRows((data ?? []).map((r) => normalizeBlueprintRow(r as Record<string, unknown>)));
+      setRows([]);
+      setListFromCache(false);
     }
     setLoading(false);
   }, [companyId, projectId]);
 
-  const loadPins = useCallback(
+  const refreshPinsAndAnnotations = useCallback(
     async (bpId: string) => {
-      if (!supabase || !companyId) {
-        setPins([]);
-        return;
+      if (supabase && companyId) {
+        const [pinsRes, annRes] = await Promise.all([
+          supabase.from("blueprint_pins").select("*").eq("blueprint_id", bpId),
+          supabase.from("blueprint_annotations").select("*").eq("blueprint_id", bpId),
+        ]);
+        if (!pinsRes.error && !annRes.error) {
+          setPins((pinsRes.data ?? []) as BlueprintPin[]);
+          setAnnotations((annRes.data ?? []) as BlueprintAnnotation[]);
+          setDetailFromCache(false);
+          return;
+        }
+        if (pinsRes.error) console.error(pinsRes.error);
+        if (annRes.error) console.error(annRes.error);
       }
-      const { data } = await supabase.from("blueprint_pins").select("*").eq("blueprint_id", bpId);
-      setPins((data ?? []) as BlueprintPin[]);
+      const snap = await getCachedBlueprintData(bpId);
+      if (snap) {
+        setPins(snap.pins);
+        setAnnotations(snap.annotations);
+        setDetailFromCache(true);
+      } else {
+        setPins([]);
+        setAnnotations([]);
+        setDetailFromCache(false);
+      }
     },
     [companyId]
   );
 
-  const loadAnnotations = useCallback(
-    async (bpId: string) => {
-      if (!supabase || !companyId) {
-        setAnnotations([]);
-        return;
+  const onSyncResult = useCallback(
+    (r: SyncQueueResult) => {
+      if (r.failed > 0) {
+        setSyncToast({ kind: "err", n: r.failed });
+      } else if (r.success > 0) {
+        setSyncToast({ kind: "ok", n: r.success });
+        setShowJustSynced(true);
+        window.setTimeout(() => setShowJustSynced(false), 3500);
       }
-      const { data, error } = await supabase
-        .from("blueprint_annotations")
-        .select("*")
-        .eq("blueprint_id", bpId);
-      if (error) {
-        console.error(error);
-        setAnnotations([]);
-        return;
-      }
-      setAnnotations((data ?? []) as BlueprintAnnotation[]);
+      if (selectedId) void refreshPinsAndAnnotations(selectedId);
+      void loadBlueprints();
     },
-    [companyId]
+    [selectedId, refreshPinsAndAnnotations, loadBlueprints]
   );
+
+  const { pendingCount, isSyncing, refreshPendingCount, isOnline } = useSyncQueue({
+    companyId,
+    userProfileId,
+    userName,
+    onSyncResult,
+  });
+
+  const offlineStatusBannerEl = useMemo(() => {
+    if (rows.length === 0 && !loading) return null;
+    const base =
+      "rounded-xl border px-3 py-2.5 text-sm flex flex-wrap items-center gap-2 min-h-[44px]";
+    if (isSyncing) {
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`${base} border-sky-400/80 bg-sky-50 dark:bg-sky-950/35 dark:border-sky-600/60 text-sky-950 dark:text-sky-100`}
+        >
+          <span aria-hidden>🔵</span>
+          <span>{t.offline_syncing ?? "Syncing…"}</span>
+        </div>
+      );
+    }
+    if (!isOnline) {
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`${base} border-amber-400/80 bg-amber-50 dark:bg-amber-950/35 dark:border-amber-600/60 text-amber-950 dark:text-amber-100`}
+        >
+          <span aria-hidden>🟡</span>
+          <span>{interpolate(t.offline_disconnected, { n: pendingCount })}</span>
+        </div>
+      );
+    }
+    if (pendingCount > 0) {
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`${base} border-amber-400/80 bg-amber-50 dark:bg-amber-950/35 dark:border-amber-600/60 text-amber-950 dark:text-amber-100`}
+        >
+          <span aria-hidden>🟡</span>
+          <span>{interpolate(t.offline_pending, { n: pendingCount })}</span>
+        </div>
+      );
+    }
+    if (showJustSynced) {
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`${base} border-emerald-400/80 bg-emerald-50 dark:bg-emerald-950/35 dark:border-emerald-600/60 text-emerald-950 dark:text-emerald-100`}
+        >
+          <span aria-hidden>✅</span>
+          <span>{t.offline_synced ?? "Synced"}</span>
+        </div>
+      );
+    }
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className={`${base} border-emerald-400/80 bg-emerald-50 dark:bg-emerald-950/35 dark:border-emerald-600/60 text-emerald-950 dark:text-emerald-100`}
+      >
+        <span aria-hidden>🟢</span>
+        <span>{t.offline_connected ?? "Connected"}</span>
+      </div>
+    );
+  }, [rows.length, loading, isSyncing, isOnline, pendingCount, showJustSynced, t]);
+
+  const cachedViewBannerEl =
+    !isOnline && selected && (listFromCache || detailFromCache) ? (
+      <div
+        role="note"
+        className="rounded-xl border border-amber-400/80 bg-amber-50/90 dark:bg-amber-950/40 dark:border-amber-600/60 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100"
+      >
+        {t.offline_cached_view ?? "Cached view"}
+      </div>
+    ) : null;
 
   const loadLinks = useCallback(async () => {
     if (!supabase || !companyId) return;
@@ -370,14 +503,24 @@ export default function BlueprintViewer({
   }, [loadLinks]);
 
   useEffect(() => {
-    if (selectedId) void loadPins(selectedId);
-    else setPins([]);
-  }, [selectedId, loadPins]);
+    if (selectedId) void refreshPinsAndAnnotations(selectedId);
+    else {
+      setPins([]);
+      setAnnotations([]);
+      setDetailFromCache(false);
+    }
+  }, [selectedId, refreshPinsAndAnnotations]);
 
   useEffect(() => {
-    if (selectedId) void loadAnnotations(selectedId);
-    else setAnnotations([]);
-  }, [selectedId, loadAnnotations]);
+    if (!syncToast) return;
+    const t = window.setTimeout(() => setSyncToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [syncToast]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !selected) return;
+    void cacheBlueprintData(selected.id, { blueprint: selected, pins, annotations });
+  }, [selected, pins, annotations]);
 
   useEffect(() => {
     if (rows.length === 0) {
@@ -502,7 +645,7 @@ export default function BlueprintViewer({
   };
 
   const savePin = async () => {
-    if (!supabase || !companyId || !userProfileId || !selected || !pendingPct || !formTitle.trim()) return;
+    if (!companyId || !userProfileId || !selected || !pendingPct || !formTitle.trim()) return;
     setSavingPin(true);
     try {
       const row: Record<string, unknown> = {
@@ -524,6 +667,47 @@ export default function BlueprintViewer({
         created_by: userProfileId,
         created_by_name: userName,
       };
+
+      if (!isOnline) {
+        const tempId = `offline-${crypto.randomUUID()}`;
+        const now = new Date().toISOString();
+        const pinRow: BlueprintPin = {
+          id: tempId,
+          blueprint_id: selected.id,
+          company_id: companyId,
+          project_id: projectId,
+          x_percent: pendingPct.x,
+          y_percent: pendingPct.y,
+          layer: formLayer,
+          pin_type: formType,
+          title: formTitle.trim(),
+          description: formDesc.trim() || null,
+          hazard_id: formType === "hazard" && formHazardId ? formHazardId : null,
+          corrective_action_id:
+            formType === "corrective_action" && formActionId ? formActionId : null,
+          color: defaultColorForPin(formType, "open"),
+          icon: "pin",
+          status: "open",
+          latitude: null,
+          longitude: null,
+          created_by: userProfileId,
+          created_by_name: userName,
+          created_at: now,
+        };
+        setPins((prev) => [...prev, pinRow]);
+        await addPendingSync({
+          type: "pin_add",
+          payload: { tempPinId: tempId, insert: row },
+        });
+        await refreshPendingCount();
+        setPinFormOpen(false);
+        setPendingPct(null);
+        setAddMode(false);
+        return;
+      }
+
+      if (!supabase) return;
+
       const { data, error } = await supabase.from("blueprint_pins").insert(row).select("id").single();
       if (error) throw error;
       await logAuditEvent({
@@ -539,7 +723,7 @@ export default function BlueprintViewer({
       setPinFormOpen(false);
       setPendingPct(null);
       setAddMode(false);
-      await loadPins(selected.id);
+      await refreshPinsAndAnnotations(selected.id);
     } catch (err) {
       console.error(err);
     } finally {
@@ -548,7 +732,33 @@ export default function BlueprintViewer({
   };
 
   const deletePin = async (pin: BlueprintPin) => {
-    if (!supabase || !companyId || !userProfileId || !selected) return;
+    if (!companyId || !userProfileId || !selected) return;
+
+    if (pin.id.startsWith("offline-")) {
+      await removePendingPinAddByTempId(pin.id);
+      setPins((p) => p.filter((x) => x.id !== pin.id));
+      setPinPopup(null);
+      await refreshPendingCount();
+      return;
+    }
+
+    if (!isOnline) {
+      await addPendingSync({
+        type: "pin_delete",
+        payload: {
+          blueprint_id: selected.id,
+          pinId: pin.id,
+          entityName: pin.title,
+        },
+      });
+      await refreshPendingCount();
+      setPins((p) => p.filter((x) => x.id !== pin.id));
+      setPinPopup(null);
+      return;
+    }
+
+    if (!supabase) return;
+
     const { error } = await supabase.from("blueprint_pins").delete().eq("id", pin.id);
     if (error) return;
     await logAuditEvent({
@@ -561,14 +771,14 @@ export default function BlueprintViewer({
       entity_name: pin.title,
     });
     setPinPopup(null);
-    await loadPins(selected.id);
+    await refreshPinsAndAnnotations(selected.id);
   };
 
   const canEditAnnotation = (a: BlueprintAnnotation) =>
     Boolean(userProfileId && (a.author_id === userProfileId || canEditPins));
 
   const saveNote = async () => {
-    if (!supabase || !companyId || !userProfileId || !selected || !pendingNotePct || !noteDraft.trim()) return;
+    if (!companyId || !userProfileId || !selected || !pendingNotePct || !noteDraft.trim()) return;
     const content = noteDraft.trim().slice(0, MAX_NOTE_LEN);
     if (!content) return;
     setSavingNote(true);
@@ -585,6 +795,39 @@ export default function BlueprintViewer({
         author_name: userName,
         is_resolved: false,
       };
+
+      if (!isOnline) {
+        const tempId = `offline-${crypto.randomUUID()}`;
+        const now = new Date().toISOString();
+        const annRow: BlueprintAnnotation = {
+          id: tempId,
+          blueprint_id: selected.id,
+          company_id: companyId,
+          project_id: projectId,
+          x_percent: pendingNotePct.x,
+          y_percent: pendingNotePct.y,
+          content,
+          color: noteColorChoice,
+          author_id: userProfileId,
+          author_name: userName,
+          is_resolved: false,
+          created_at: now,
+          updated_at: now,
+        };
+        setAnnotations((prev) => [...prev, annRow]);
+        await addPendingSync({
+          type: "annotation_add",
+          payload: { tempAnnotationId: tempId, insert: row },
+        });
+        await refreshPendingCount();
+        setNoteFormOpen(false);
+        setPendingNotePct(null);
+        setAddNoteMode(false);
+        return;
+      }
+
+      if (!supabase) return;
+
       const { data, error } = await supabase
         .from("blueprint_annotations")
         .insert(row)
@@ -604,7 +847,7 @@ export default function BlueprintViewer({
       setNoteFormOpen(false);
       setPendingNotePct(null);
       setAddNoteMode(false);
-      await loadAnnotations(selected.id);
+      await refreshPinsAndAnnotations(selected.id);
     } catch (err) {
       console.error(err);
     } finally {
@@ -613,8 +856,24 @@ export default function BlueprintViewer({
   };
 
   const resolveAnnotation = async (ann: BlueprintAnnotation) => {
-    if (!supabase || !companyId || !userProfileId) return;
+    if (!companyId || !userProfileId || !selected) return;
     if (!canEditAnnotation(ann) || ann.is_resolved) return;
+
+    if (!isOnline) {
+      setAnnotations((prev) =>
+        prev.map((a) => (a.id === ann.id ? { ...a, is_resolved: true } : a))
+      );
+      await addPendingSync({
+        type: "annotation_resolve",
+        payload: { blueprint_id: selected.id, annotationId: ann.id },
+      });
+      await refreshPendingCount();
+      setAnnotationPopup(null);
+      return;
+    }
+
+    if (!supabase) return;
+
     const { error } = await supabase
       .from("blueprint_annotations")
       .update({ is_resolved: true })
@@ -630,12 +889,38 @@ export default function BlueprintViewer({
       entity_name: ann.content.slice(0, 80),
     });
     setAnnotationPopup(null);
-    if (selectedId) await loadAnnotations(selectedId);
+    if (selectedId) await refreshPinsAndAnnotations(selectedId);
   };
 
   const deleteAnnotation = async (ann: BlueprintAnnotation) => {
-    if (!supabase || !companyId || !userProfileId) return;
+    if (!companyId || !userProfileId || !selected) return;
     if (!canEditAnnotation(ann)) return;
+
+    if (ann.id.startsWith("offline-")) {
+      await removePendingAnnotationAddByTempId(ann.id);
+      setAnnotations((prev) => prev.filter((a) => a.id !== ann.id));
+      setAnnotationPopup(null);
+      await refreshPendingCount();
+      return;
+    }
+
+    if (!isOnline) {
+      await addPendingSync({
+        type: "annotation_delete",
+        payload: {
+          blueprint_id: selected.id,
+          annotationId: ann.id,
+          entityName: ann.content.slice(0, 80),
+        },
+      });
+      await refreshPendingCount();
+      setAnnotations((prev) => prev.filter((a) => a.id !== ann.id));
+      setAnnotationPopup(null);
+      return;
+    }
+
+    if (!supabase) return;
+
     const { error } = await supabase.from("blueprint_annotations").delete().eq("id", ann.id);
     if (error) return;
     await logAuditEvent({
@@ -648,7 +933,7 @@ export default function BlueprintViewer({
       entity_name: ann.content.slice(0, 80),
     });
     setAnnotationPopup(null);
-    if (selectedId) await loadAnnotations(selectedId);
+    if (selectedId) await refreshPinsAndAnnotations(selectedId);
   };
 
   const submitNewVersion = async () => {
@@ -1018,6 +1303,8 @@ export default function BlueprintViewer({
           </aside>
 
           <div className="flex-1 min-w-0 space-y-3">
+            {offlineStatusBannerEl}
+            {cachedViewBannerEl}
             <div className="flex flex-wrap items-center gap-2">
               <label className="text-xs text-zinc-600 dark:text-zinc-400 flex flex-wrap items-center gap-2">
                 {t.blueprints_select ?? "Blueprint"}
@@ -1209,9 +1496,21 @@ export default function BlueprintViewer({
                           e.stopPropagation();
                           setPinPopup(pin);
                         }}
-                        aria-label={pin.title}
+                        aria-label={
+                          pin.id.startsWith("offline-")
+                            ? `${pin.title} · ${t.offline_pin_pending ?? "Pending sync"}`
+                            : pin.title
+                        }
                       >
-                        <span className="text-2xl">{pinEmoji(pin.pin_type)}</span>
+                        <span className="relative inline-flex items-end justify-center">
+                          <span className="text-2xl">{pinEmoji(pin.pin_type)}</span>
+                          {pin.id.startsWith("offline-") && (
+                            <Clock
+                              className="absolute -right-1 -top-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300 drop-shadow"
+                              aria-hidden
+                            />
+                          )}
+                        </span>
                       </button>
                     ))}
                     {notesLayerVisible &&
@@ -1224,7 +1523,11 @@ export default function BlueprintViewer({
                           <button
                             key={ann.id}
                             type="button"
-                            className="absolute z-[1] flex max-w-[min(200px,45vw)] min-h-[44px] -translate-x-1/2 -translate-y-full flex-col items-stretch rounded-lg border border-black/10 dark:border-white/10 px-2 py-1.5 text-left shadow-md transition-opacity"
+                            className={`absolute z-[1] flex max-w-[min(200px,45vw)] min-h-[44px] -translate-x-1/2 -translate-y-full flex-col items-stretch rounded-lg px-2 py-1.5 text-left shadow-md transition-opacity ${
+                              ann.id.startsWith("offline-")
+                                ? "border-2 border-dashed border-zinc-900/35 dark:border-white/35"
+                                : "border border-black/10 dark:border-white/10"
+                            }`}
                             style={{
                               left: `${num(ann.x_percent)}%`,
                               top: `${num(ann.y_percent)}%`,
@@ -1235,7 +1538,11 @@ export default function BlueprintViewer({
                               e.stopPropagation();
                               setAnnotationPopup(ann);
                             }}
-                            aria-label={preview}
+                            aria-label={
+                              ann.id.startsWith("offline-")
+                                ? `${preview} · ${t.offline_annotation_pending ?? "Pending sync"}`
+                                : preview
+                            }
                           >
                             <span
                               className={`text-[11px] font-semibold leading-snug text-zinc-900 line-clamp-3 ${
@@ -1942,6 +2249,18 @@ export default function BlueprintViewer({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {syncToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 z-[70] max-w-[min(100%-2rem,420px)] -translate-x-1/2 rounded-xl border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 shadow-lg"
+        >
+          {syncToast.kind === "ok"
+            ? `✅ ${interpolate(t.offline_sync_success, { n: syncToast.n })}`
+            : `⚠️ ${interpolate(t.offline_sync_error, { n: syncToast.n })}`}
         </div>
       )}
     </div>
