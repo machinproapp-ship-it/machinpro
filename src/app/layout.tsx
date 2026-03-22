@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
+import "@/styles/dark-safelist";
 import { ClientRoot } from "./ClientRoot";
 
 export const metadata: Metadata = {
