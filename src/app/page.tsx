@@ -34,6 +34,7 @@ import ScheduleModule from "@/components/ScheduleModule";
 import { FormsModule } from "@/components/FormsModule";
 import { BindersModule } from "@/components/BindersModule";
 import { BillingModule } from "@/components/BillingModule";
+import { VisitorModule } from "@/components/VisitorModule";
 import LoginScreen from "@/components/LoginScreen";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
@@ -1765,6 +1766,7 @@ export default function Home() {
     forms: (t as Record<string, string>).forms ?? "Formularios",
     binders: (t as Record<string, string>).binders ?? "Documentos",
     billing: (t as Record<string, string>).billing_menu ?? "Billing",
+    visitors: (t as Record<string, string>).visitors_menu ?? "Visitantes",
     settings: t.settings,
     worker: t.worker,
     blueprints: t.blueprints ?? "Planos",
@@ -2170,6 +2172,7 @@ export default function Home() {
           canAccessForms={perms.forms ?? false}
           canAccessBinders={perms.canViewBinders ?? false}
           canAccessBilling={effectiveRole === "admin"}
+          canAccessVisitors={effectiveRole === "admin" || effectiveRole === "supervisor"}
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -2881,6 +2884,16 @@ export default function Home() {
                 labels={t as Record<string, string>}
               />
             )}
+
+            {activeSection === "visitors" &&
+              (effectiveRole === "admin" || effectiveRole === "supervisor") && (
+                <VisitorModule
+                  t={t as Record<string, string>}
+                  companyId={companyId}
+                  companyName={profile?.companyName ?? companyName}
+                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                />
+              )}
 
             {activeSection === "billing" && effectiveRole === "admin" && companyId && (
               <BillingModule

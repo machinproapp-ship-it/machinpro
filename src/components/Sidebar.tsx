@@ -10,6 +10,7 @@ import {
   Settings,
   FolderOpen,
   CreditCard,
+  UserCheck,
 } from "lucide-react";
 import type { MainSection, SidebarLabels } from "@/types/shared";
 
@@ -24,6 +25,8 @@ export interface SidebarProps {
   canAccessBinders?: boolean;
   /** Solo admin — facturación / Stripe */
   canAccessBilling?: boolean;
+  /** Admin y supervisor — registro de visitantes / QR */
+  canAccessVisitors?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
 }
@@ -38,10 +41,12 @@ export function Sidebar({
   canAccessForms = false,
   canAccessBinders = false,
   canAccessBilling = false,
+  canAccessVisitors = false,
   labels,
   collapsed = false,
 }: SidebarProps) {
   const billingLabel = labels.billing ?? "Billing";
+  const visitorsLabel = labels.visitors ?? "Visitors";
   const sidebarNavItems = [
     { id: "office" as const, icon: Building2, label: labels.office ?? "Central", show: canAccessOffice },
     { id: "warehouse" as const, icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
@@ -49,6 +54,7 @@ export function Sidebar({
     { id: "schedule" as const, icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
     { id: "binders" as const, icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
+    { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
     { id: "settings" as const, icon: Sliders, label: labels.settings ?? "Ajustes", show: true },
   ].filter((item) => item.show);
 
@@ -59,14 +65,22 @@ export function Sidebar({
     { id: "schedule" as const, icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
     { id: "binders" as const, icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
+    { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
     { id: "settings" as const, icon: Settings, label: labels.settings ?? "Ajustes", show: true },
   ];
   const visibleBottom = allBottomItems.filter((item) => item.show);
   const bottomNavItems =
     visibleBottom.length > 5
       ? [
-          ...visibleBottom.filter((i) => i.id !== "schedule" && i.id !== "settings" && i.id !== "billing").slice(0, 3),
+          ...visibleBottom.filter(
+            (i) =>
+              i.id !== "schedule" &&
+              i.id !== "settings" &&
+              i.id !== "billing" &&
+              i.id !== "visitors"
+          ).slice(0, 3),
           ...visibleBottom.filter((i) => i.id === "schedule"),
+          ...visibleBottom.filter((i) => i.id === "visitors"),
           ...visibleBottom.filter((i) => i.id === "billing"),
           ...visibleBottom.filter((i) => i.id === "settings"),
         ]
@@ -100,7 +114,9 @@ export function Sidebar({
                         ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
                         : item.id === "billing"
                           ? "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
-                          : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
+                          : item.id === "visitors"
+                            ? "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300"
+                            : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
           return (
             <button
               key={item.id}

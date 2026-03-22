@@ -14,6 +14,7 @@ export type MainSection =
   | "binders"
   | "billing"
   | "pricing"
+  | "visitors"
   | "settings";
 
 export type UserRole =
@@ -55,6 +56,7 @@ export interface SidebarLabels {
   forms: string;
   binders: string;
   billing?: string;
+  visitors?: string;
   settings: string;
   operations?: string;
   payroll?: string;

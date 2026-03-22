@@ -139,3 +139,6 @@ alter table schedule_entries enable row level security;
 alter table blueprints enable row level security;
 alter table annotations enable row level security;
 alter table user_profiles enable row level security;
+
+-- Sprint AG: registro de visitantes (ver también src/lib/visitor_logs.sql para políticas completas)
+-- create table visitor_logs (...);  — ejecutar visitor_logs.sql en el editor SQL de Supabase
