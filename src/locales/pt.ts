@@ -797,6 +797,11 @@ export default {
 
   blueprints_title: "Plantas",
   blueprints_upload: "Carregar planta",
+  blueprints_upload_drop_primary: "Arraste a sua planta aqui",
+  blueprints_upload_drop_or: "ou clique para selecionar",
+  blueprints_upload_formats: "PNG, JPG, PDF",
+  blueprints_upload_remove_file: "Remover ficheiro",
+  blueprints_upload_save: "Guardar",
   blueprints_name: "Nome da planta",
   blueprints_version: "Versão",
   blueprints_add_pin: "Adicionar pin",

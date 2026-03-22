@@ -797,6 +797,11 @@ export default {
 
   blueprints_title: "Planos",
   blueprints_upload: "Subir plano",
+  blueprints_upload_drop_primary: "Arrastra tu plano aquí",
+  blueprints_upload_drop_or: "o haz clic para seleccionar",
+  blueprints_upload_formats: "PNG, JPG, PDF",
+  blueprints_upload_remove_file: "Quitar archivo",
+  blueprints_upload_save: "Guardar",
   blueprints_name: "Nombre del plano",
   blueprints_version: "Versión",
   blueprints_add_pin: "Añadir pin",

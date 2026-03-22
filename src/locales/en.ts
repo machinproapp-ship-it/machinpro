@@ -797,6 +797,11 @@ export default {
 
   blueprints_title: "Blueprints",
   blueprints_upload: "Upload blueprint",
+  blueprints_upload_drop_primary: "Drag your blueprint here",
+  blueprints_upload_drop_or: "or click to select",
+  blueprints_upload_formats: "PNG, JPG, PDF",
+  blueprints_upload_remove_file: "Remove file",
+  blueprints_upload_save: "Save",
   blueprints_name: "Blueprint name",
   blueprints_version: "Version",
   blueprints_add_pin: "Add pin",

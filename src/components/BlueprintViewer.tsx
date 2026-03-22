@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Upload, X, Layers, MousePointer2, Crosshair } from "lucide-react";
+import {
+  ZoomIn,
+  ZoomOut,
+  Upload,
+  X,
+  Layers,
+  MousePointer2,
+  Crosshair,
+  File,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
 import type {
@@ -86,6 +95,12 @@ async function pdfFirstPageToPng(file: File): Promise<{ blob: Blob; width: numbe
   return { blob, width: canvas.width, height: canvas.height };
 }
 
+const UPLOAD_ACCEPT = ["image/png", "image/jpeg", "application/pdf"] as const;
+
+function isValidBlueprintFile(f: File): boolean {
+  return UPLOAD_ACCEPT.includes(f.type as (typeof UPLOAD_ACCEPT)[number]);
+}
+
 function num(v: unknown): number {
   if (typeof v === "number") return v;
   if (typeof v === "string") return parseFloat(v);
@@ -159,6 +174,9 @@ export default function BlueprintViewer({
   const [uploadName, setUploadName] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadDragActive, setUploadDragActive] = useState(false);
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
+  const uploadDragDepthRef = useRef(0);
   const [pinPopup, setPinPopup] = useState<BlueprintPin | null>(null);
   const [hazardDetail, setHazardDetail] = useState<Hazard | null>(null);
   const [actionDetail, setActionDetail] = useState<CorrectiveAction | null>(null);
@@ -179,6 +197,19 @@ export default function BlueprintViewer({
   const pinchRef = useRef<{ dist: number; z: number } | null>(null);
 
   const selected = useMemo(() => rows.find((r) => r.id === selectedId) ?? null, [rows, selectedId]);
+
+  const closeUploadModal = useCallback(() => {
+    setUploadOpen(false);
+    setUploadFile(null);
+    setUploadName("");
+    setUploadDragActive(false);
+    uploadDragDepthRef.current = 0;
+    if (uploadFileInputRef.current) uploadFileInputRef.current.value = "";
+  }, []);
+
+  const pickUploadFile = useCallback((file: File | null | undefined) => {
+    if (file && isValidBlueprintFile(file)) setUploadFile(file);
+  }, []);
 
   const loadBlueprints = useCallback(async () => {
     if (!supabase || !companyId) {
@@ -457,9 +488,7 @@ export default function BlueprintViewer({
         entity_name: uploadName.trim(),
         new_value: { project_id: projectId, image_url: imageUrl },
       });
-      setUploadOpen(false);
-      setUploadName("");
-      setUploadFile(null);
+      closeUploadModal();
       await loadBlueprints();
       if (data?.id) setSelectedId(String(data.id));
     } catch (e) {
@@ -525,7 +554,11 @@ export default function BlueprintViewer({
         {canEditPins && (
           <button
             type="button"
-            onClick={() => setUploadOpen(true)}
+            onClick={() => {
+              uploadDragDepthRef.current = 0;
+              setUploadDragActive(false);
+              setUploadOpen(true);
+            }}
             className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 text-sm font-semibold"
           >
             <Upload className="h-4 w-4" />
@@ -701,44 +734,122 @@ export default function BlueprintViewer({
 
       {uploadOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-6 space-y-4 shadow-xl">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-5 sm:p-6 space-y-4 shadow-xl max-h-[95vh] overflow-y-auto">
+            <div className="flex justify-between items-center gap-2">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
                 {t.blueprints_upload ?? "Upload"}
               </h3>
               <button
                 type="button"
-                onClick={() => setUploadOpen(false)}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600"
+                onClick={() => closeUploadModal()}
+                className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 aria-label={t.hazards_close ?? "Close"}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <label className="block text-sm text-zinc-600 dark:text-zinc-400">
-              {t.blueprints_name ?? "Name"}
+
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="text-zinc-600 dark:text-zinc-400">{t.blueprints_name ?? "Name"}</span>
               <input
                 value={uploadName}
                 onChange={(e) => setUploadName(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
+                className="mt-1.5 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white px-3 py-2.5 min-h-[44px] text-sm"
               />
             </label>
-            <label className="block text-sm text-zinc-600 dark:text-zinc-400">
-              PNG / JPG / PDF
-              <input
-                type="file"
-                accept="image/png,image/jpeg,application/pdf"
-                className="mt-1 w-full text-sm"
-                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-              />
-            </label>
+
+            <input
+              ref={uploadFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,application/pdf"
+              className="hidden"
+              aria-hidden
+              onChange={(e) => {
+                pickUploadFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+
+            <div>
+              <button
+                type="button"
+                onClick={() => uploadFileInputRef.current?.click()}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  uploadDragDepthRef.current += 1;
+                  setUploadDragActive(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  uploadDragDepthRef.current -= 1;
+                  if (uploadDragDepthRef.current <= 0) {
+                    uploadDragDepthRef.current = 0;
+                    setUploadDragActive(false);
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  uploadDragDepthRef.current = 0;
+                  setUploadDragActive(false);
+                  const f = e.dataTransfer.files?.[0];
+                  pickUploadFile(f);
+                }}
+                className={`group flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-4 py-10 sm:py-12 text-center transition-colors min-h-[200px] touch-manipulation ${
+                  uploadDragActive
+                    ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-400"
+                    : "border-zinc-300 bg-zinc-50/80 dark:border-zinc-600 dark:bg-zinc-800/50 hover:border-amber-400/80 hover:bg-amber-50/50 dark:hover:border-amber-600/60 dark:hover:bg-amber-950/20"
+                }`}
+              >
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white dark:bg-zinc-800 shadow-sm ring-1 ring-zinc-200/80 dark:ring-zinc-600 text-amber-600 dark:text-amber-400">
+                  <Upload className="h-7 w-7" aria-hidden />
+                </span>
+                <div className="space-y-1 px-2">
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                    {t.blueprints_upload_drop_primary ?? "Arrastra tu plano aquí"}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t.blueprints_upload_drop_or ?? "o haz clic para seleccionar"}
+                  </p>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500 pt-1">
+                    {t.blueprints_upload_formats ?? "PNG, JPG, PDF"}
+                  </p>
+                </div>
+              </button>
+
+              {uploadFile && (
+                <div className="mt-3 flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/80 px-3 py-2.5 min-h-[44px]">
+                  <File className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {uploadFile.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadFile(null);
+                      if (uploadFileInputRef.current) uploadFileInputRef.current.value = "";
+                    }}
+                    className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                    aria-label={t.blueprints_upload_remove_file ?? "Quitar archivo"}
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               disabled={uploading || !uploadName.trim() || !uploadFile}
               onClick={() => void submitUpload()}
-              className="w-full min-h-[44px] rounded-xl bg-amber-600 text-white font-semibold py-3 disabled:opacity-50"
+              className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 disabled:opacity-50 disabled:pointer-events-none"
             >
-              {uploading ? (t.hazards_loading ?? "…") : (t.hazards_save ?? "Save")}
+              {uploading
+                ? (t.hazards_loading ?? "…")
+                : (t.blueprints_upload_save ?? t.hazards_save ?? "Guardar")}
             </button>
           </div>
         </div>

@@ -797,6 +797,11 @@ export default {
 
   blueprints_title: "Planimetrie",
   blueprints_upload: "Carica planimetria",
+  blueprints_upload_drop_primary: "Trascina la planimetria qui",
+  blueprints_upload_drop_or: "oppure clicca per selezionare",
+  blueprints_upload_formats: "PNG, JPG, PDF",
+  blueprints_upload_remove_file: "Rimuovi file",
+  blueprints_upload_save: "Salva",
   blueprints_name: "Nome planimetria",
   blueprints_version: "Versione",
   blueprints_add_pin: "Aggiungi pin",

@@ -783,6 +783,11 @@ export default {
 
   blueprints_title: "Plans",
   blueprints_upload: "Importer un plan",
+  blueprints_upload_drop_primary: "Glissez votre plan ici",
+  blueprints_upload_drop_or: "ou cliquez pour sélectionner",
+  blueprints_upload_formats: "PNG, JPG, PDF",
+  blueprints_upload_remove_file: "Retirer le fichier",
+  blueprints_upload_save: "Enregistrer",
   blueprints_name: "Nom du plan",
   blueprints_version: "Version",
   blueprints_add_pin: "Ajouter une épingle",

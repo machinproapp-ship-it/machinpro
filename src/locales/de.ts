@@ -797,6 +797,11 @@ export default {
 
   blueprints_title: "Pläne",
   blueprints_upload: "Plan hochladen",
+  blueprints_upload_drop_primary: "Plan hierher ziehen",
+  blueprints_upload_drop_or: "oder klicken zum Auswählen",
+  blueprints_upload_formats: "PNG, JPG, PDF",
+  blueprints_upload_remove_file: "Datei entfernen",
+  blueprints_upload_save: "Speichern",
   blueprints_name: "Planname",
   blueprints_version: "Version",
   blueprints_add_pin: "Pin hinzufügen",
