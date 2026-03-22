@@ -2223,7 +2223,7 @@ export default function Home() {
           collapsed={sidebarCollapsed}
         />
 
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-20 sm:pb-8">
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-20 lg:pb-8">
           <header className="mb-6 sm:mb-8 border-b border-gray-200 dark:border-gray-800 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="min-w-0 flex items-center">
               <div className="flex flex-col">
