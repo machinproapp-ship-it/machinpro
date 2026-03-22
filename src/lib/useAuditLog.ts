@@ -36,7 +36,10 @@ export type AuditAction =
   | "pin_deleted"
   | "annotation_added"
   | "annotation_resolved"
-  | "annotation_deleted";
+  | "annotation_deleted"
+  | "rfi_created"
+  | "rfi_submitted"
+  | "rfi_answered";
 
 export type AuditEntityType =
   | "photo"
@@ -51,7 +54,8 @@ export type AuditEntityType =
   | "request"
   | "hazard"
   | "corrective_action"
-  | "blueprint";
+  | "blueprint"
+  | "rfi";
 
 export interface AuditEntry {
   company_id: string;

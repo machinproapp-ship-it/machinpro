@@ -22,6 +22,8 @@ import {
   getRiskLevel,
   getRiskScore,
 } from "@/types/hazard";
+import { useToast } from "@/components/Toast";
+import { requestCompanyPushNotification } from "@/lib/clientCompanyPush";
 
 const CLOUDINARY_CLOUD = "dwdlmxmkt";
 const CLOUDINARY_PRESET = "i5dmd07o";
@@ -127,6 +129,7 @@ export function HazardModule({
   openCreateSignal = 0,
 }: HazardModuleProps) {
   const readOnly = userRole === "worker";
+  const { showToast } = useToast();
   const lastCreateSig = useRef(0);
   const [rows, setRows] = useState<Hazard[]>([]);
   const [caByHazard, setCaByHazard] = useState<
@@ -432,6 +435,16 @@ export function HazardModule({
       entity_name: form.title.trim(),
       new_value: { details: { payload } },
     });
+    showToast("success", t.toast_saved ?? "Saved");
+    if (payload.severity === "critical") {
+      void requestCompanyPushNotification({
+        companyId,
+        title: t.push_new_hazard ?? "Critical hazard",
+        body: form.title.trim(),
+        url: "/",
+        type: "hazard_critical",
+      });
+    }
     setCreateOpen(false);
     setForm(emptyForm());
     setFormLat("");
@@ -786,9 +799,33 @@ export function HazardModule({
 
       <div className="lg:hidden space-y-3">
         {loading ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.hazards_loading ?? "…"}</p>
+          <div className="space-y-3 py-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-24 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 animate-pulse"
+              />
+            ))}
+          </div>
         ) : sorted.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.hazards_no_results ?? "—"}</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50 py-14 px-4 text-center">
+            <AlertTriangle className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+              {t.empty_no_hazards ?? t.hazards_no_results ?? "—"}
+            </h3>
+            <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+              {t.empty_hazards_sub ?? ""}
+            </p>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+              >
+                {t.empty_add_first ?? t.hazards_new ?? "Add"}
+              </button>
+            )}
+          </div>
         ) : (
           sorted.map((h) => (
             <button
@@ -828,9 +865,33 @@ export function HazardModule({
 
       <div className="hidden lg:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.hazards_loading ?? "…"}</div>
+          <div className="p-4 space-y-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="h-10 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse"
+              />
+            ))}
+          </div>
         ) : sorted.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.hazards_no_results ?? "—"}</div>
+          <div className="flex flex-col items-center py-14 px-4 text-center">
+            <AlertTriangle className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+              {t.empty_no_hazards ?? t.hazards_no_results ?? "—"}
+            </h3>
+            <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
+              {t.empty_hazards_sub ?? ""}
+            </p>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+              >
+                {t.empty_add_first ?? t.hazards_new ?? "Add"}
+              </button>
+            )}
+          </div>
         ) : (
           <table className="w-full text-sm min-w-[1040px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">

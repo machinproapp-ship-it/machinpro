@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, Plus, Search, X, ImagePlus, Star, ExternalLink } from "lucide-react";
+import { useToast } from "@/components/Toast";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
 import type { UserRole } from "@/types/shared";
@@ -117,6 +118,7 @@ export function CorrectiveActionsModule({
   openCreateSignal = 0,
 }: CorrectiveActionsModuleProps) {
   const readOnly = userRole === "worker";
+  const { showToast } = useToast();
   const lastCreateSig = useRef(0);
   const [rows, setRows] = useState<CorrectiveAction[]>([]);
   const [hazardTitles, setHazardTitles] = useState<Record<string, string>>({});
@@ -366,6 +368,7 @@ export function CorrectiveActionsModule({
     setSaving(false);
     if (error) {
       console.error(error);
+      showToast("error", t.toast_error ?? "Error");
       return;
     }
     const id = data?.id as string;
@@ -379,6 +382,7 @@ export function CorrectiveActionsModule({
       entity_name: form.title.trim(),
       new_value: { details: payload },
     });
+    showToast("success", t.toast_saved ?? "Saved");
     setCreateOpen(false);
     setForm(emptyForm());
     void load();
@@ -407,8 +411,11 @@ export function CorrectiveActionsModule({
       .eq("id", detail.id);
     if (error) {
       console.error(error);
+      showToast("error", t.toast_error ?? "Error");
       return;
     }
+
+    showToast("success", t.toast_saved ?? "Saved");
 
     let action: "action_status_changed" | "action_verified" | "action_closed" =
       "action_status_changed";
@@ -454,10 +461,13 @@ export function CorrectiveActionsModule({
       .from("corrective_actions")
       .update({ photos: next })
       .eq("id", detail.id);
-    if (!error) {
-      setDetail({ ...detail, photos: next });
-      void load();
+    if (error) {
+      showToast("error", t.toast_error ?? "Error");
+      return;
     }
+    showToast("success", t.toast_saved ?? "Saved");
+    setDetail({ ...detail, photos: next });
+    void load();
   };
 
   if (!companyId) {
@@ -665,9 +675,33 @@ export function CorrectiveActionsModule({
 
       <div className="lg:hidden space-y-3">
         {loading ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.hazards_loading ?? "…"}</p>
+          <div className="space-y-3 py-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-24 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 animate-pulse"
+              />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t.actions_no_results ?? "—"}</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50 py-14 px-4 text-center">
+            <ClipboardCheck className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+              {t.empty_no_actions ?? t.actions_no_results ?? "—"}
+            </h3>
+            <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+              {t.empty_actions_sub ?? ""}
+            </p>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+              >
+                {t.empty_add_first ?? t.actions_new ?? "Add"}
+              </button>
+            )}
+          </div>
         ) : (
           filtered.map((r) => (
             <button
@@ -707,9 +741,33 @@ export function CorrectiveActionsModule({
 
       <div className="hidden lg:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.hazards_loading ?? "…"}</div>
+          <div className="p-4 space-y-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="h-10 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse"
+              />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.actions_no_results ?? "—"}</div>
+          <div className="flex flex-col items-center py-14 px-4 text-center">
+            <ClipboardCheck className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+              {t.empty_no_actions ?? t.actions_no_results ?? "—"}
+            </h3>
+            <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
+              {t.empty_actions_sub ?? ""}
+            </p>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+              >
+                {t.empty_add_first ?? t.actions_new ?? "Add"}
+              </button>
+            )}
+          </div>
         ) : (
           <table className="w-full text-sm min-w-[900px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">

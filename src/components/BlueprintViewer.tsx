@@ -1258,9 +1258,34 @@ export default function BlueprintViewer({
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t.hazards_loading ?? "…"}</p>
+        <div className="space-y-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+          <div className="h-6 w-48 rounded bg-gray-200 dark:bg-gray-600 animate-pulse" />
+          <div className="h-[min(50vh,320px)] w-full rounded-xl bg-gray-100 dark:bg-gray-700 animate-pulse" />
+        </div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t.blueprints_no_blueprints ?? "—"}</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50 py-14 px-4 text-center">
+          <Layers className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
+          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+            {t.blueprints_no_blueprints ?? "—"}
+          </h3>
+          <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
+            {(t as Record<string, string>).blueprints_empty_sub ?? ""}
+          </p>
+          {canEditPins && (
+            <button
+              type="button"
+              onClick={() => {
+                uploadDragDepthRef.current = 0;
+                setUploadDragActive(false);
+                setUploadOpen(true);
+              }}
+              className="mt-6 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 text-sm font-semibold"
+            >
+              <Upload className="h-4 w-4" aria-hidden />
+              {t.blueprints_upload ?? "Upload"}
+            </button>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-4">
           <aside className="lg:w-56 shrink-0 space-y-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">

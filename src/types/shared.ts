@@ -12,6 +12,7 @@ export type MainSection =
   | "site"
   | "schedule"
   | "binders"
+  | "rfi"
   | "billing"
   | "pricing"
   | "visitors"
@@ -66,6 +67,7 @@ export interface SidebarLabels {
   payroll?: string;
   centralCore?: string;
   settingsGlobal?: string;
+  rfi_menu?: string;
 }
 
 /** Employee shape for CentralModule (compatible with page Employee). */

@@ -10,6 +10,10 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const iconsDir = path.join(root, "public", "icons");
+const publicDir = path.join(root, "public");
+const logoSource = path.join(publicDir, "logo-source.png");
+const logoLegacy = path.join(publicDir, "logo.png");
+const logoPath = fs.existsSync(logoSource) ? logoSource : fs.existsSync(logoLegacy) ? logoLegacy : null;
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 
 function iconSvg(size) {
@@ -25,12 +29,24 @@ if (!fs.existsSync(iconsDir)) {
   fs.mkdirSync(iconsDir, { recursive: true });
 }
 
-await Promise.all(
-  sizes.map(async (size) => {
-    const out = path.join(iconsDir, `icon-${size}x${size}.png`);
-    await sharp(Buffer.from(iconSvg(size))).png().toFile(out);
-    console.log("✓", path.relative(root, out));
-  })
-);
+if (logoPath) {
+  console.log("Using logo:", path.relative(root, logoPath));
+  await Promise.all(
+    sizes.map(async (size) => {
+      const out = path.join(iconsDir, `icon-${size}x${size}.png`);
+      await sharp(logoPath).resize(size, size, { fit: "cover", position: "centre" }).png().toFile(out);
+      console.log("✓", path.relative(root, out));
+    })
+  );
+} else {
+  console.log("No logo-source.png / logo.png — generating default orange “M” icons.");
+  await Promise.all(
+    sizes.map(async (size) => {
+      const out = path.join(iconsDir, `icon-${size}x${size}.png`);
+      await sharp(Buffer.from(iconSvg(size))).png().toFile(out);
+      console.log("✓", path.relative(root, out));
+    })
+  );
+}
 
 console.log("Done.");

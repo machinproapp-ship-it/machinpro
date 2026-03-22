@@ -41,7 +41,8 @@ import {
   type CorrectiveActionsPrefill,
 } from "@/components/CorrectiveActionsModule";
 import { HazardModule } from "@/components/HazardModule";
-import LoginScreen from "@/components/LoginScreen";
+import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
+import { RFIModule } from "@/components/RFIModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
@@ -823,6 +824,30 @@ export default function Home() {
     }
     return (lazyLocaleT ?? TRANSLATIONS["en"]) as Record<string, string>;
   }, [language, lazyLocaleT]);
+
+  const loginDemoAccounts = useMemo((): LoginDemoAccount[] => {
+    const rawEnv = process.env.NEXT_PUBLIC_LOGIN_DEMOS;
+    if (typeof rawEnv !== "string" || !rawEnv.trim()) return [];
+    try {
+      const raw = JSON.parse(rawEnv) as unknown;
+      if (!Array.isArray(raw)) return [];
+      return raw
+        .map((x) => {
+          if (!x || typeof x !== "object") return null;
+          const o = x as Record<string, unknown>;
+          const email = typeof o.email === "string" ? o.email : "";
+          const password = typeof o.password === "string" ? o.password : "";
+          const label = typeof o.label === "string" ? o.label : email;
+          const accentClass =
+            typeof o.accentClass === "string" ? o.accentClass : "ring-2 ring-teal-400/60";
+          if (!email || !password) return null;
+          return { email, password, label, accentClass };
+        })
+        .filter((x): x is LoginDemoAccount => x !== null);
+    } catch {
+      return [];
+    }
+  }, []);
 
   const [currency, setCurrency] = useState<Currency>("CAD");
   const [measurementSystem, setMeasurementSystem] = useState<"metric" | "imperial">("metric");
@@ -2178,6 +2203,8 @@ export default function Home() {
               setSession(data.session ?? null);
             }
           }}
+          labels={t as Record<string, string>}
+          demoAccounts={loginDemoAccounts}
         />
         <InstallPWABanner labels={t} isDark={darkMode ?? false} />
       </>
@@ -2219,6 +2246,7 @@ export default function Home() {
             effectiveRole === "supervisor" ||
             effectiveRole === "worker"
           }
+          canAccessRfi={effectiveRole === "admin" || effectiveRole === "supervisor"}
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -3056,6 +3084,19 @@ export default function Home() {
                 />
               )}
 
+            {activeSection === "rfi" &&
+              (effectiveRole === "admin" || effectiveRole === "supervisor") && (
+                <RFIModule
+                  t={t as Record<string, string>}
+                  companyId={companyId}
+                  companyName={profile?.companyName ?? companyName}
+                  userRole={effectiveRole}
+                  userName={profile?.fullName ?? profile?.email ?? user?.email ?? "User"}
+                  userProfileId={profile?.id ?? null}
+                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                />
+              )}
+
             {activeSection === "billing" && effectiveRole === "admin" && companyId && (
               <BillingModule
                 t={t as Record<string, string>}
@@ -3113,6 +3154,7 @@ export default function Home() {
                 onLogoUpload={handleLogoUpload}
                 session={session}
                 onSignOut={() => void handleLogout()}
+                companyId={companyId}
               />
             )}
 

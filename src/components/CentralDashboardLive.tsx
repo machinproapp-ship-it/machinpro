@@ -567,78 +567,96 @@ export function CentralDashboardLive({
       </section>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <button
-          type="button"
-          onClick={() => onNavigateAppSection("office")}
-          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors min-h-[44px]"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-blue-500/10">
-              <Users className="h-5 w-5 text-blue-500" aria-hidden />
-            </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{labels.employees ?? "Employees"}</span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">
-            {loading ? "—" : empN}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{labels.dashboard_kpi_hint_personnel ?? ""}</p>
-        </button>
+        {loading ? (
+          <>
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm min-h-[120px] animate-pulse"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-9 w-9 rounded-lg bg-gray-200 dark:bg-gray-600" />
+                  <div className="h-4 flex-1 max-w-[120px] rounded bg-gray-200 dark:bg-gray-600" />
+                </div>
+                <div className="h-8 w-16 rounded bg-gray-200 dark:bg-gray-600" />
+                <div className="mt-3 h-3 w-3/4 max-w-[180px] rounded bg-gray-100 dark:bg-gray-700" />
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onNavigateAppSection("office")}
+              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors min-h-[44px]"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <Users className="h-5 w-5 text-blue-500" aria-hidden />
+                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{labels.employees ?? "Employees"}</span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{empN}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{labels.dashboard_kpi_hint_personnel ?? ""}</p>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigateAppSection("site")}
-          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-amber-500/10">
-              <HardHat className="h-5 w-5 text-amber-500" aria-hidden />
-            </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{labels.projects ?? "Projects"}</span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{activeProjectsCount}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            {labels.dashboard_kpi_projects_hint ?? ""}
-          </p>
-        </button>
+            <button
+              type="button"
+              onClick={() => onNavigateAppSection("site")}
+              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <HardHat className="h-5 w-5 text-amber-500" aria-hidden />
+                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{labels.projects ?? "Projects"}</span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{activeProjectsCount}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {labels.dashboard_kpi_projects_hint ?? ""}
+              </p>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => (canAccessVisitors ? onNavigateAppSection("visitors") : undefined)}
-          disabled={!canAccessVisitors}
-          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors disabled:opacity-60"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-emerald-500/10">
-              <UserCheck className="h-5 w-5 text-emerald-500" aria-hidden />
-            </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {labels.dashboard_visitors_today ?? "Visitors today"}
-            </span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{loading ? "—" : visToday}</p>
-          <div className="mt-2">
-            <TrendBadge current={visToday} previous={visYesterday} labels={labels} />
-          </div>
-        </button>
+            <button
+              type="button"
+              onClick={() => (canAccessVisitors ? onNavigateAppSection("visitors") : undefined)}
+              disabled={!canAccessVisitors}
+              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors disabled:opacity-60"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-emerald-500/10">
+                  <UserCheck className="h-5 w-5 text-emerald-500" aria-hidden />
+                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {labels.dashboard_visitors_today ?? "Visitors today"}
+                </span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{visToday}</p>
+              <div className="mt-2">
+                <TrendBadge current={visToday} previous={visYesterday} labels={labels} />
+              </div>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigateAppSection("hazards")}
-          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-red-500/10">
-              <AlertTriangle className="h-5 w-5 text-red-500" aria-hidden />
-            </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {labels.dashboard_hazards_open ?? "Open hazards"}
-            </span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{loading ? "—" : hazardsOpen}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            {(labels.dashboard_critical_open ?? "{n} critical").replace("{n}", String(openCriticalCount))}
-          </p>
-        </button>
+            <button
+              type="button"
+              onClick={() => onNavigateAppSection("hazards")}
+              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-red-500/10">
+                  <AlertTriangle className="h-5 w-5 text-red-500" aria-hidden />
+                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {labels.dashboard_hazards_open ?? "Open hazards"}
+                </span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{hazardsOpen}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {(labels.dashboard_critical_open ?? "{n} critical").replace("{n}", String(openCriticalCount))}
+              </p>
+            </button>
+          </>
+        )}
       </div>
 
       {(showQuickHazard || showQuickAction || showQuickVisitor || showQuickAudit) && (

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Sliders, Lock, Pencil, Trash2, LogOut } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Sliders, Lock, Pencil, Trash2, LogOut, Bell } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
+import { useToast } from "@/components/Toast";
+import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotifications";
 import { LANGUAGES, CURRENCY_META } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
 import type { ComplianceField, ComplianceFieldType, ComplianceTarget } from "@/app/page";
@@ -76,6 +78,7 @@ export interface SettingsModuleProps {
   onComplianceFieldsChange?: (fields: ComplianceField[]) => void;
   session?: Session | null;
   onSignOut?: () => void;
+  companyId?: string | null;
 }
 
 export function SettingsModule({
@@ -97,11 +100,56 @@ export function SettingsModule({
   onComplianceFieldsChange,
   session = null,
   onSignOut,
+  companyId = null,
 }: SettingsModuleProps) {
+  const { showToast } = useToast();
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
   const [complianceModalOpen, setComplianceModalOpen] = useState(false);
   const [editingComplianceField, setEditingComplianceField] = useState<ComplianceField | null>(null);
   const [complianceDraft, setComplianceDraft] = useState<Partial<ComplianceField>>({});
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [prefHazard, setPrefHazard] = useState(true);
+  const [prefAction, setPrefAction] = useState(true);
+  const [prefVisitor, setPrefVisitor] = useState(true);
+
+  const persistPushPref = useCallback((key: "hazard" | "action" | "visitor", on: boolean) => {
+    const map = { hazard: "machinpro_push_hazard", action: "machinpro_push_action", visitor: "machinpro_push_visitor" };
+    try {
+      localStorage.setItem(map[key], on ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    if (key === "hazard") setPrefHazard(on);
+    if (key === "action") setPrefAction(on);
+    if (key === "visitor") setPrefVisitor(on);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setPrefHazard(localStorage.getItem("machinpro_push_hazard") !== "0");
+    setPrefAction(localStorage.getItem("machinpro_push_action") !== "0");
+    setPrefVisitor(localStorage.getItem("machinpro_push_visitor") !== "0");
+  }, []);
+
+  useEffect(() => {
+    if (!session?.access_token || !companyId || typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      setPushSubscribed(false);
+      return;
+    }
+    let cancelled = false;
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => {
+        if (!cancelled) setPushSubscribed(!!sub);
+      })
+      .catch(() => {
+        if (!cancelled) setPushSubscribed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.access_token, companyId]);
 
   useEffect(() => {
     if (!autoSetupMessage) return;
@@ -130,7 +178,7 @@ export function SettingsModule({
             className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
           >
             <LogOut className="h-4 w-4" />
-            Cerrar sesión
+            {t.settings_sign_out ?? "Sign out"}
           </button>
         </div>
       )}
@@ -170,6 +218,89 @@ export function SettingsModule({
               <option value="imperial">{t.settingsImperial ?? "Imperial"}</option>
             </select>
           </div>
+
+          {session?.access_token && companyId && (
+            <section className="pt-4 border-t border-zinc-200 dark:border-slate-700 space-y-4">
+              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                <Bell className="h-4 w-4 shrink-0" aria-hidden />
+                {(t as Record<string, string>).push_section_title ?? "Push notifications"}
+              </h3>
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]">
+                <span className="text-sm text-zinc-800 dark:text-zinc-200">
+                  {(t as Record<string, string>).push_enable ?? "Enable push"}
+                </span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 rounded border-zinc-400 accent-amber-600"
+                  checked={pushSubscribed}
+                  disabled={pushBusy}
+                  onChange={async (e) => {
+                    const on = e.target.checked;
+                    if (!session?.access_token || !companyId) return;
+                    setPushBusy(true);
+                    if (on) {
+                      const r = await registerPushSubscription({
+                        accessToken: session.access_token,
+                        companyId,
+                      });
+                      if (r.ok) {
+                        setPushSubscribed(true);
+                        showToast("success", (t as Record<string, string>).push_saved ?? "Saved");
+                      } else if (r.reason === "denied") {
+                        showToast("warning", (t as Record<string, string>).push_permission_denied ?? "");
+                        setPushSubscribed(false);
+                      } else {
+                        showToast("error", (t as Record<string, string>).toast_error ?? "Error");
+                        setPushSubscribed(false);
+                      }
+                    } else {
+                      try {
+                        const reg = await navigator.serviceWorker.ready;
+                        const sub = await reg.pushManager.getSubscription();
+                        if (sub) {
+                          await unsubscribeFromPush({
+                            accessToken: session.access_token,
+                            endpoint: sub.endpoint,
+                          });
+                          await sub.unsubscribe();
+                        }
+                        setPushSubscribed(false);
+                        showToast("success", (t as Record<string, string>).push_saved ?? "Saved");
+                      } catch {
+                        showToast("error", (t as Record<string, string>).toast_error ?? "Error");
+                        setPushSubscribed(true);
+                      }
+                    }
+                    setPushBusy(false);
+                  }}
+                />
+              </label>
+              <div className="space-y-2">
+                {(
+                  [
+                    ["hazard", prefHazard, "push_type_hazard"] as const,
+                    ["action", prefAction, "push_type_action"] as const,
+                    ["visitor", prefVisitor, "push_type_visitor"] as const,
+                  ] as const
+                ).map(([key, checked, labelKey]) => (
+                  <label
+                    key={key}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]"
+                  >
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                      {(t as Record<string, string>)[labelKey] ?? labelKey}
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 rounded border-zinc-400 accent-amber-600"
+                      checked={checked}
+                      onChange={(ev) => persistPushPref(key, ev.target.checked)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
 
           {canEditSettings && (
             <>

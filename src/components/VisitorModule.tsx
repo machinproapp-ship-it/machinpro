@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Download, QrCode, Search } from "lucide-react";
+import { Download, QrCode, Search, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import type { Visitor, VisitorStatus } from "@/types/visitor";
@@ -289,9 +289,32 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.visitors_loading ?? "…"}</div>
+          <div className="p-4 space-y-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="h-12 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse"
+              />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t.visitors_no_results ?? "—"}</div>
+          <div className="flex flex-col items-center py-14 px-4 text-center">
+            <UserCheck className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+              {t.empty_no_visitors ?? t.visitors_no_results ?? "—"}
+            </h3>
+            <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
+              {t.empty_visitors_sub ?? ""}
+            </p>
+            <button
+              type="button"
+              onClick={() => setQrOpen(true)}
+              className="mt-6 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <QrCode className="h-4 w-4 shrink-0" aria-hidden />
+              {t.visitors_generate_qr ?? "QR"}
+            </button>
+          </div>
         ) : (
           <table className="w-full text-sm text-left min-w-[720px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">

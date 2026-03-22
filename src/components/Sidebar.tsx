@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   MoreHorizontal,
   X,
+  FileQuestion,
 } from "lucide-react";
 import type { MainSection, SidebarLabels } from "@/types/shared";
 
@@ -27,7 +28,14 @@ const MOBILE_BAR_PRIORITY: MainSection[] = [
   "corrective_actions",
 ];
 
-const MOBILE_BAR_OVERFLOW_TAIL: MainSection[] = ["warehouse", "schedule", "binders", "billing", "settings"];
+const MOBILE_BAR_OVERFLOW_TAIL: MainSection[] = [
+  "warehouse",
+  "schedule",
+  "binders",
+  "rfi",
+  "billing",
+  "settings",
+];
 
 /** Etiquetas muy cortas para la barra inferior (≤7 caracteres donde aplica). */
 const MOBILE_BAR_SHORT_LABEL: Partial<Record<MainSection, string>> = {
@@ -41,6 +49,7 @@ const MOBILE_BAR_SHORT_LABEL: Partial<Record<MainSection, string>> = {
   binders: "Docs",
   billing: "Factur",
   settings: "Ajustes",
+  rfi: "RFI",
 };
 
 function mobileBarShortLabel(id: MainSection, fullLabel: string): string {
@@ -74,6 +83,8 @@ export interface SidebarProps {
   canAccessHazards?: boolean;
   /** Acciones correctivas — admin, supervisor y trabajador (solo lectura para trabajador) */
   canAccessCorrectiveActions?: boolean;
+  /** RFI — admin y supervisor */
+  canAccessRfi?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
 }
@@ -91,10 +102,12 @@ export function Sidebar({
   canAccessVisitors = false,
   canAccessHazards = false,
   canAccessCorrectiveActions = false,
+  canAccessRfi = false,
   labels,
   collapsed = false,
 }: SidebarProps) {
   void canAccessForms;
+  const rfiLabel = (labels as unknown as Record<string, string>).rfi_menu ?? "RFI";
   const billingLabel = labels.billing ?? "Billing";
   const visitorsLabel = labels.visitors ?? "Visitors";
   const hazardsLabel = labels.hazards ?? "Hazards";
@@ -111,6 +124,7 @@ export function Sidebar({
     { id: "site" as const, icon: MapPin, label: labels.site ?? "Operaciones", show: canAccessSite },
     { id: "schedule" as const, icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
     { id: "binders" as const, icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
+    { id: "rfi" as const, icon: FileQuestion, label: rfiLabel, show: !!canAccessRfi },
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
     { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
     { id: "hazards" as const, icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
@@ -130,6 +144,7 @@ export function Sidebar({
       { id: "site", icon: HardHat, label: labels.site ?? "Operaciones", show: canAccessSite },
       { id: "schedule", icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
       { id: "binders", icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
+      { id: "rfi", icon: FileQuestion, label: rfiLabel, show: !!canAccessRfi },
       { id: "billing", icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
       { id: "visitors", icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
       { id: "hazards", icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
@@ -161,6 +176,8 @@ export function Sidebar({
       canAccessVisitors,
       canAccessHazards,
       canAccessCorrectiveActions,
+      rfiLabel,
+      canAccessRfi,
     ]
   );
 
@@ -239,15 +256,17 @@ export function Sidebar({
                       ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
                       : item.id === "binders"
                         ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                        : item.id === "billing"
-                          ? "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
-                          : item.id === "visitors"
-                            ? "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300"
-                            : item.id === "hazards"
-                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
-                              : item.id === "corrective_actions"
-                                ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200"
-                                : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
+                        : item.id === "rfi"
+                          ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
+                          : item.id === "billing"
+                            ? "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
+                            : item.id === "visitors"
+                              ? "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300"
+                              : item.id === "hazards"
+                                ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
+                                : item.id === "corrective_actions"
+                                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200"
+                                  : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
             return (
               <button
                 key={item.id}
