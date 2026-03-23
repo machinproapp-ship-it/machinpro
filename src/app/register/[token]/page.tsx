@@ -119,7 +119,7 @@ export default function RegisterInvitationPage() {
   const termsBase =
     (typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL
       ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
-      : "https://machin.pro") + "/terms";
+      : "https://machin.pro") + "/legal/terms";
 
   useEffect(() => {
     if (!token) {

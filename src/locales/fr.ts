@@ -1061,4 +1061,102 @@ export default {
   register_password_mismatch: "Les mots de passe ne correspondent pas.",
   register_error_generic: "Une erreur s’est produite. Réessayez.",
   register_error_password_short: "Le mot de passe doit contenir au moins 8 caractères.",
+
+  register_public_title: "Demander l’accès à MachinPro",
+  register_public_body:
+    "Les nouvelles entreprises rejoignent MachinPro sur invitation. Si vous avez reçu un lien, ouvrez-le pour terminer l’inscription.",
+  register_public_cta_landing: "En savoir plus sur la page d’accueil",
+  register_public_login: "J’ai déjà un compte",
+
+  landing_hero_title: "Gestion professionnelle de chantiers",
+  landing_hero_sub: "Tout pour piloter votre entreprise de construction au même endroit.",
+  landing_cta_start: "Commencer gratuitement 14 jours",
+  landing_cta_demo: "Voir la démo",
+  landing_features_title: "Conçu pour les équipes terrain",
+  landing_feat_projects_title: "📋 Gestion de projets",
+  landing_feat_projects_desc: "Suivi complet des chantiers, budgets, délais et avancement.",
+  landing_feat_risks_title: "⚠️ Maîtrise des risques",
+  landing_feat_risks_desc: "Risques, actions correctives et piste d’audit alignées sur la sécurité.",
+  landing_feat_visitors_title: "👷 Visiteurs",
+  landing_feat_visitors_desc: "QR pour l’enregistrement sans application pour les invités.",
+  landing_feat_blueprints_title: "📐 Plans interactifs",
+  landing_feat_blueprints_desc: "Épingles, calques et annotations pour coordonner le terrain.",
+  landing_feat_dashboard_title: "📊 Tableau de bord temps réel",
+  landing_feat_dashboard_desc: "KPI, alertes et activité pour voir l’essentiel aujourd’hui.",
+  landing_feat_billing_title: "💳 Facturation intégrée",
+  landing_feat_billing_desc: "Abonnements Stripe et tarification selon le pays.",
+  landing_pricing_title: "Tarifs transparents",
+  landing_pricing_monthly: "Mensuel",
+  landing_pricing_annual: "Annuel",
+  landing_pricing_save: "économisez 20 %",
+  landing_pricing_popular: "Le plus populaire",
+  landing_plan_starter_name: "Starter",
+  landing_plan_pro_name: "Pro",
+  landing_plan_enterprise_name: "Enterprise",
+  landing_price_suffix: "/mois",
+  landing_footer_desc:
+    "MachinPro aide les entreprises au Canada, aux États-Unis et en Europe à numériser opérations, sécurité et rapports.",
+  landing_footer_nav: "Navigation",
+  landing_footer_home: "Accueil",
+  landing_footer_features: "Fonctionnalités",
+  landing_footer_pricing: "Tarifs",
+  landing_footer_contact_link: "Contact",
+  landing_footer_legal: "Légal",
+  landing_footer_terms: "Conditions d’utilisation",
+  landing_footer_privacy: "Politique de confidentialité",
+  landing_footer_copyright: "© 2026 MachinPro · machin.pro",
+  landing_footer_contact: "Questions ? Écrivez-nous à",
+  landing_nav_features: "Fonctionnalités",
+  landing_nav_pricing: "Tarifs",
+  landing_nav_login: "Connexion",
+  landing_nav_start: "Commencer gratuitement",
+  landing_testimonials_title: "Témoignages",
+  landing_testimonials_coming: "Bientôt — soyez le premier à donner votre avis.",
+  landing_badge_mobile: "Disponible sur iOS et Android",
+  landing_testimonial_1_initial: "A",
+  landing_testimonial_1_name: "Alex M.",
+  landing_testimonial_1_company: "Entrepreneur général · ON",
+  landing_testimonial_1_text: "Témoignage d’exemple — bientôt de vraies histoires.",
+  landing_testimonial_2_initial: "R",
+  landing_testimonial_2_name: "Riley T.",
+  landing_testimonial_2_company: "Chef de chantier · TX",
+  landing_testimonial_2_text: "Témoignage d’exemple — nous collectons les retours des premiers utilisateurs.",
+  landing_testimonial_3_initial: "S",
+  landing_testimonial_3_name: "Samira K.",
+  landing_testimonial_3_company: "Directrice de projet · UK",
+  landing_testimonial_3_text: "Témoignage d’exemple — merci de nous aider à construire MachinPro.",
+  landing_social_x: "X",
+  landing_social_li: "LinkedIn",
+
+  legal_terms_title: "Conditions d’utilisation",
+  legal_privacy_title: "Politique de confidentialité",
+  legal_back_home: "Accueil",
+  legal_footer_privacy_link: "Confidentialité",
+  legal_footer_terms_link: "Conditions",
+
+  legal_terms_p1:
+    "Les présentes Conditions d’utilisation régissent l’accès à MachinPro, logiciel cloud pour le BTP. En vous inscrivant ou en utilisant le service, vous les acceptez.",
+  legal_terms_p2:
+    "MachinPro s’adresse aux entreprises. Vous déclarez être habilité à engager votre société. Vous êtes responsable de l’exactitude des données et du respect des règles applicables sur vos chantiers.",
+  legal_terms_p3:
+    "Abonnements, essais et frais sont précisés à la commande. Des taxes peuvent s’appliquer. Les prix peuvent évoluer avec le préavis requis par la loi.",
+  legal_terms_p4:
+    "Les données personnelles sont traitées conformément à notre Politique de confidentialité. Vous nous accordez une licence limitée à l’hébergement et au traitement nécessaires au service.",
+  legal_terms_p5:
+    "Le service est fourni « en l’état » dans la limite permise par la loi. Notre responsabilité est plafonnée aux sommes payées sur les douze mois précédant la réclamation (ou 50 $ CAD si aucun paiement), sauf dispositions impératives.",
+  legal_terms_p6:
+    "Droit matériel : province d’Ontario (Canada), tribunaux de Toronto, sans préjudice des protections consommateurs UE/Royaume-Uni le cas échéant.",
+
+  legal_privacy_p1:
+    "Cette Politique décrit comment MachinPro traite les données lors de l’usage du site et du SaaS, y compris pour des clients au Canada, aux États-Unis et dans l’EEE.",
+  legal_privacy_p2:
+    "Nous collectons les données de compte, d’usage, techniques et le contenu que vous importez. Bases RGPD : contrat, intérêt légitime, consentement si nécessaire.",
+  legal_privacy_p3:
+    "Des sous-traitants (hébergement, e-mail) peuvent traiter des données au Canada, aux États-Unis ou dans l’UE avec garanties appropriées (SCC, etc.).",
+  legal_privacy_p4:
+    "Conservation pendant la durée du compte et obligations légales. Droits d’accès, rectification, suppression : privacy@machin.pro.",
+  legal_privacy_p5:
+    "Cookies pour l’authentification et les préférences. Marketing soumis à consentement lorsque requis.",
+  legal_privacy_p6:
+    "Contact : privacy@machin.pro. Les utilisateurs UE/Royaume-Uni peuvent saisir l’autorité compétente.",
 } as const;

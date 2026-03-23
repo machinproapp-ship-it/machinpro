@@ -1079,4 +1079,102 @@ export default {
   register_password_mismatch: "Passwords do not match.",
   register_error_generic: "Something went wrong. Try again.",
   register_error_password_short: "Password must be at least 8 characters.",
+
+  register_public_title: "Request access to MachinPro",
+  register_public_body:
+    "New organizations join through an invitation from our team. If you already received a link, open it to complete registration.",
+  register_public_cta_landing: "Learn more on the homepage",
+  register_public_login: "I already have an account",
+
+  landing_hero_title: "Professional construction project management",
+  landing_hero_sub: "Everything your construction company needs in one place — from site to office.",
+  landing_cta_start: "Start free for 14 days",
+  landing_cta_demo: "View features",
+  landing_features_title: "Built for construction teams",
+  landing_feat_projects_title: "📋 Project management",
+  landing_feat_projects_desc: "End-to-end tracking of jobs, budgets, schedules, and field progress.",
+  landing_feat_risks_title: "⚠️ Risk control",
+  landing_feat_risks_desc: "Hazards, corrective actions, and audit trail aligned with safety workflows.",
+  landing_feat_visitors_title: "👷 Visitor check-in",
+  landing_feat_visitors_desc: "QR-based visitor logs without installing an app for guests.",
+  landing_feat_blueprints_title: "📐 Interactive plans",
+  landing_feat_blueprints_desc: "Pins, layers, and annotations on drawings for coordination in the field.",
+  landing_feat_dashboard_title: "📊 Live dashboard",
+  landing_feat_dashboard_desc: "KPIs, alerts, and activity so managers see what matters today.",
+  landing_feat_billing_title: "💳 Integrated billing",
+  landing_feat_billing_desc: "Stripe subscriptions with PPP-aware pricing by country.",
+  landing_pricing_title: "Simple, transparent pricing",
+  landing_pricing_monthly: "Monthly",
+  landing_pricing_annual: "Annual",
+  landing_pricing_save: "save 20%",
+  landing_pricing_popular: "Most popular",
+  landing_plan_starter_name: "Starter",
+  landing_plan_pro_name: "Pro",
+  landing_plan_enterprise_name: "Enterprise",
+  landing_price_suffix: "/mo",
+  landing_footer_desc:
+    "MachinPro helps contractors in Canada, the United States, and Europe digitize operations, safety, and reporting.",
+  landing_footer_nav: "Navigate",
+  landing_footer_home: "Home",
+  landing_footer_features: "Features",
+  landing_footer_pricing: "Pricing",
+  landing_footer_contact_link: "Contact",
+  landing_footer_legal: "Legal",
+  landing_footer_terms: "Terms of service",
+  landing_footer_privacy: "Privacy policy",
+  landing_footer_copyright: "© 2026 MachinPro · machin.pro",
+  landing_footer_contact: "Questions? Write to us at",
+  landing_nav_features: "Features",
+  landing_nav_pricing: "Pricing",
+  landing_nav_login: "Log in",
+  landing_nav_start: "Start free",
+  landing_testimonials_title: "What teams say",
+  landing_testimonials_coming: "Coming soon — be the first to share your experience.",
+  landing_badge_mobile: "Available on iOS and Android",
+  landing_testimonial_1_initial: "A",
+  landing_testimonial_1_name: "Alex M.",
+  landing_testimonial_1_company: "General contractor · ON",
+  landing_testimonial_1_text: "Placeholder testimonial — real stories will appear here soon.",
+  landing_testimonial_2_initial: "R",
+  landing_testimonial_2_name: "Riley T.",
+  landing_testimonial_2_company: "Site supervisor · TX",
+  landing_testimonial_2_text: "Placeholder testimonial — we are collecting feedback from early adopters.",
+  landing_testimonial_3_initial: "S",
+  landing_testimonial_3_name: "Samira K.",
+  landing_testimonial_3_company: "Project director · UK",
+  landing_testimonial_3_text: "Placeholder testimonial — thank you for helping us build MachinPro.",
+  landing_social_x: "X",
+  landing_social_li: "LinkedIn",
+
+  legal_terms_title: "Terms of service",
+  legal_privacy_title: "Privacy policy",
+  legal_back_home: "Homepage",
+  legal_footer_privacy_link: "Privacy policy",
+  legal_footer_terms_link: "Terms of service",
+
+  legal_terms_p1:
+    "These Terms of Service (“Terms”) govern access to and use of MachinPro, a cloud software service for construction operations. By registering or using the service, you agree to these Terms.",
+  legal_terms_p2:
+    "MachinPro is intended for businesses. You represent that you have authority to bind your company. You are responsible for the accuracy of data you upload and for compliance with health, safety, and employment rules that apply to your projects.",
+  legal_terms_p3:
+    "Subscriptions, trials, and fees are described at checkout or in your order. Taxes may apply based on your billing address. We may change prices with reasonable notice where required by law.",
+  legal_terms_p4:
+    "We process personal data as described in our Privacy Policy. You grant us a licence to host and process customer data solely to provide and improve the service, subject to your instructions and applicable law.",
+  legal_terms_p5:
+    "The service is provided “as is” to the fullest extent permitted by law. Our liability is limited to amounts paid by you in the twelve months before the claim (or, if none, fifty Canadian dollars), except where liability cannot be limited by law.",
+  legal_terms_p6:
+    "These Terms are governed by the laws of the Province of Ontario, Canada, excluding conflict-of-law rules. Courts in Toronto, Ontario, have exclusive jurisdiction, without prejudice to mandatory consumer protections where you reside in the EU or UK.",
+
+  legal_privacy_p1:
+    "This Privacy Policy explains how MachinPro (“we”, “us”) collects, uses, and shares information when you use our website and SaaS products. We operate with customers and users in Canada, the United States, and the European Economic Area.",
+  legal_privacy_p2:
+    "We collect account details (name, email, company), usage data, device/technical logs, and content you upload (e.g. photos, forms, site records). Legal bases under GDPR include contract, legitimate interests (security, analytics), and consent where required.",
+  legal_privacy_p3:
+    "We use processors such as hosting and email providers. Data may be processed in Canada, the United States, or the EU/EEA with appropriate safeguards (e.g. Standard Contractual Clauses) where transfers apply.",
+  legal_privacy_p4:
+    "We retain data while your account is active and as needed for legal, tax, and security obligations. You may request access, correction, or deletion subject to law; contact privacy@machin.pro.",
+  legal_privacy_p5:
+    "We use cookies and similar technologies for authentication and preferences. You can control cookies through your browser. Marketing communications are sent only with consent where required.",
+  legal_privacy_p6:
+    "If you have concerns, you may contact us at privacy@machin.pro. EU/UK users may lodge a complaint with their local supervisory authority.",
 } as const;
