@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { PlanKey } from "@/lib/stripe";
+import type { Invitation, InvitationPlan } from "@/types/invitation";
 
 export interface SuperadminModuleProps {
   t: Record<string, string>;
@@ -45,6 +46,27 @@ async function authHeaders(): Promise<HeadersInit> {
   return { Authorization: `Bearer ${token}` };
 }
 
+const INVITE_PLANS: InvitationPlan[] = ["trial", "starter", "pro", "enterprise"];
+
+function inviteDisplayStatus(inv: Invitation): "pending" | "accepted" | "expired" {
+  if (inv.status !== "pending") return inv.status;
+  if (new Date(inv.expires_at).getTime() < Date.now()) return "expired";
+  return "pending";
+}
+
+function inviteStatusBadgeClass(s: "pending" | "accepted" | "expired"): string {
+  switch (s) {
+    case "pending":
+      return "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200";
+    case "accepted":
+      return "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200";
+    case "expired":
+      return "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200";
+    default:
+      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+  }
+}
+
 function statusBadgeClass(status: string | undefined): string {
   switch (status) {
     case "trialing":
@@ -79,6 +101,17 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
     audits: Record<string, unknown>[];
   } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invPending, setInvPending] = useState(0);
+  const [invAcceptedMonth, setInvAcceptedMonth] = useState(0);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState<{
+    email: string;
+    companyName: string;
+    plan: InvitationPlan;
+    message: string;
+  }>({ email: "", companyName: "", plan: "trial", message: "" });
+  const [inviteSending, setInviteSending] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +132,22 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       if (!cRes.ok) setError(cJson.error ?? "Error");
       else setCompanies(cJson.companies ?? []);
       if (sRes.ok) setStats(sJson);
+
+      const invRes = await fetch("/api/invitations", { headers: h });
+      if (invRes.ok) {
+        const ij = (await invRes.json()) as {
+          invitations?: Invitation[];
+          pendingCount?: number;
+          acceptedThisMonth?: number;
+        };
+        setInvitations(ij.invitations ?? []);
+        setInvPending(ij.pendingCount ?? 0);
+        setInvAcceptedMonth(ij.acceptedThisMonth ?? 0);
+      } else {
+        setInvitations([]);
+        setInvPending(0);
+        setInvAcceptedMonth(0);
+      }
     } catch {
       setError(t.superadmin_error_load ?? "Error");
     } finally {
@@ -151,6 +200,82 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       }
     },
     [detailId, load, openDetail]
+  );
+
+  const sendInvite = useCallback(async () => {
+    setInviteSending(true);
+    setError(null);
+    try {
+      const h = await authHeaders();
+      const res = await fetch("/api/invitations/send", {
+        method: "POST",
+        headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteForm.email.trim(),
+          companyName: inviteForm.companyName.trim(),
+          plan: inviteForm.plan,
+          message: inviteForm.message.trim() || null,
+        }),
+      });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(j.error ?? (t as Record<string, string>).invite_error_send ?? "Error");
+        return;
+      }
+      setInviteModalOpen(false);
+      setInviteForm({ email: "", companyName: "", plan: "trial", message: "" });
+      await load();
+    } catch {
+      setError((t as Record<string, string>).invite_error_send ?? "Error");
+    } finally {
+      setInviteSending(false);
+    }
+  }, [inviteForm, load, t]);
+
+  const resendInvite = useCallback(
+    async (id: string) => {
+      setError(null);
+      try {
+        const h = await authHeaders();
+        const res = await fetch("/api/invitations/resend", {
+          method: "POST",
+          headers: { ...h, "Content-Type": "application/json" },
+          body: JSON.stringify({ invitationId: id }),
+        });
+        const j = (await res.json()) as { error?: string };
+        if (!res.ok) {
+          setError(j.error ?? "Error");
+          return;
+        }
+        await load();
+      } catch {
+        setError((t as Record<string, string>).invite_error_send ?? "Error");
+      }
+    },
+    [load, t]
+  );
+
+  const cancelInvite = useCallback(
+    async (id: string) => {
+      setError(null);
+      try {
+        const h = await authHeaders();
+        const res = await fetch("/api/invitations/cancel", {
+          method: "POST",
+          headers: { ...h, "Content-Type": "application/json" },
+          body: JSON.stringify({ invitationId: id }),
+        });
+        const j = (await res.json()) as { error?: string };
+        if (!res.ok) {
+          setError(j.error ?? "Error");
+          return;
+        }
+        await load();
+      } catch {
+        setError((t as Record<string, string>).invite_error_send ?? "Error");
+      }
+    },
+    [load, t]
   );
 
   const filtered = useMemo(() => {
@@ -258,6 +383,200 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                 <span className="w-8 text-right text-gray-900 dark:text-gray-100">{v}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {(t as Record<string, string>).invite_title ?? "Invitations"}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {((t as Record<string, string>).invite_stats_pending ?? "{n} pending").replace(
+                "{n}",
+                String(invPending)
+              )}{" "}
+              ·{" "}
+              {((t as Record<string, string>).invite_stats_accepted_month ?? "{n} accepted").replace(
+                "{n}",
+                String(invAcceptedMonth)
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setInviteModalOpen(true)}
+            className="min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 text-sm font-semibold"
+          >
+            {(t as Record<string, string>).invite_new ?? "New invitation"}
+          </button>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+          <table className="w-full text-sm min-w-[860px]">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">
+                  {(t as Record<string, string>).invite_company ?? "Company"}
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  {(t as Record<string, string>).invite_email ?? "Email"}
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  {(t as Record<string, string>).invite_plan ?? "Plan"}
+                </th>
+                <th className="px-4 py-3 text-left font-medium">{t.superadmin_status ?? "Status"}</th>
+                <th className="px-4 py-3 text-left font-medium">
+                  {(t as Record<string, string>).invite_sent_at ?? "Sent"}
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  {(t as Record<string, string>).invite_expires ?? "Expires"}
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  {(t as Record<string, string>).invite_table_actions ?? "Actions"}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {invitations.map((inv) => {
+                const disp = inviteDisplayStatus(inv);
+                const planKey = `invite_plan_${inv.plan}` as const;
+                const planLabel =
+                  (t as Record<string, string>)[planKey] ?? inv.plan;
+                const statusLabel =
+                  disp === "pending"
+                    ? ((t as Record<string, string>).invite_status_pending ?? "Pending")
+                    : disp === "accepted"
+                      ? ((t as Record<string, string>).invite_status_accepted ?? "Accepted")
+                      : ((t as Record<string, string>).invite_status_expired ?? "Expired");
+                return (
+                  <tr
+                    key={inv.id}
+                    className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                      {inv.company_name}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{inv.email}</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 capitalize">{planLabel}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${inviteStatusBadgeClass(disp)}`}
+                      >
+                        {statusLabel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
+                      {inv.created_at ? new Date(inv.created_at).toLocaleString() : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
+                      {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {inv.status === "pending" && (
+                          <button
+                            type="button"
+                            onClick={() => void resendInvite(inv.id)}
+                            className="min-h-[44px] px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium"
+                          >
+                            {(t as Record<string, string>).invite_resend ?? "Resend"}
+                          </button>
+                        )}
+                        {inv.status === "pending" && (
+                          <button
+                            type="button"
+                            onClick={() => void cancelInvite(inv.id)}
+                            className="min-h-[44px] px-3 rounded-lg border border-red-300 dark:border-red-800 text-red-800 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-medium"
+                          >
+                            {(t as Record<string, string>).invite_cancel ?? "Cancel"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {inviteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+          <div className="w-full sm:max-w-md max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
+            <div className="flex justify-between gap-2 items-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {(t as Record<string, string>).invite_new ?? "New invitation"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setInviteModalOpen(false)}
+                className="min-h-[44px] min-w-[44px] rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                aria-label={(t as Record<string, string>).invite_close ?? "Close"}
+              >
+                ×
+              </button>
+            </div>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                {(t as Record<string, string>).invite_email ?? "Email"}
+              </span>
+              <input
+                type="email"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+                className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-gray-900 dark:text-white"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                {(t as Record<string, string>).invite_company ?? "Company"}
+              </span>
+              <input
+                value={inviteForm.companyName}
+                onChange={(e) => setInviteForm((f) => ({ ...f, companyName: e.target.value }))}
+                className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-gray-900 dark:text-white"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                {(t as Record<string, string>).invite_plan ?? "Plan"}
+              </span>
+              <select
+                value={inviteForm.plan}
+                onChange={(e) =>
+                  setInviteForm((f) => ({ ...f, plan: e.target.value as InvitationPlan }))
+                }
+                className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-gray-900 dark:text-white"
+              >
+                {INVITE_PLANS.map((p) => (
+                  <option key={p} value={p}>
+                    {(t as Record<string, string>)[`invite_plan_${p}`] ?? p}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                {(t as Record<string, string>).invite_message ?? "Message"}
+              </span>
+              <textarea
+                value={inviteForm.message}
+                onChange={(e) => setInviteForm((f) => ({ ...f, message: e.target.value }))}
+                rows={3}
+                className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 text-gray-900 dark:text-white"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={inviteSending || !inviteForm.email.trim() || !inviteForm.companyName.trim()}
+              onClick={() => void sendInvite()}
+              className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-semibold text-sm"
+            >
+              {(t as Record<string, string>).invite_send ?? "Send"}
+            </button>
           </div>
         </div>
       )}
