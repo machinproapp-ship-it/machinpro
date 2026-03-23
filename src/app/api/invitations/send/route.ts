@@ -110,10 +110,12 @@ export async function POST(req: NextRequest) {
   });
 
   const resend = new Resend(resendKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
+  const replyTo = "machinpro.app@gmail.com";
   const { error: mailErr } = await resend.emails.send({
     from,
     to: email,
+    replyTo,
     subject: `Invitación a MachinPro — ${companyName}`,
     html,
   });

@@ -1099,6 +1099,9 @@ export default {
   landing_feat_dashboard_desc: "KPIs, Warnungen und Aktivität auf einen Blick.",
   landing_feat_billing_title: "💳 Integrierte Abrechnung",
   landing_feat_billing_desc: "Stripe-Abos und länderspezifische Preislogik.",
+  landing_feature_hours_title: "Zeiterfassung & Anwesenheit",
+  landing_feature_hours_desc:
+    "Digitales Ein-/Ausstempeln, Schichtkalender und erfasste Stunden pro Mitarbeitenden.",
   landing_pricing_title: "Klare Preise",
   landing_pricing_monthly: "Monatlich",
   landing_pricing_annual: "Jährlich",
@@ -1109,7 +1112,7 @@ export default {
   landing_plan_enterprise_name: "Enterprise",
   landing_price_suffix: "/Monat",
   landing_footer_desc:
-    "MachinPro unterstützt Bauunternehmen in Kanada, den USA und Europa bei Digitalisierung, Sicherheit und Reporting.",
+    "MachinPro hilft Bauunternehmen in Amerika, Europa und dem Vereinigten Königreich, ihre Abläufe zu digitalisieren.",
   landing_footer_nav: "Navigation",
   landing_footer_home: "Start",
   landing_footer_features: "Funktionen",
@@ -1159,18 +1162,18 @@ export default {
   legal_terms_p5:
     "Der Dienst wird „wie besehen“ angeboten. Haftung ist auf Zahlungen der vorangegangenen zwölf Monate begrenzt (oder 50 CAD ohne Zahlung), soweit gesetzlich zulässig.",
   legal_terms_p6:
-    "Es gilt das Recht der Provinz Ontario, Kanada; Gerichte in Toronto, vorbehaltlich zwingenden Verbraucherschutzes in EU/UK.",
+    "Es gilt das Recht der Provinz Ontario, Kanada; Gerichte in Toronto, vorbehaltlich zwingenden Verbraucherschutzes in Amerika, Europa oder dem Vereinigten Königreich.",
 
   legal_privacy_p1:
-    "Diese Erklärung beschreibt die Verarbeitung personenbezogener Daten bei Website und SaaS für Kunden in Kanada, USA und EWR.",
+    "Diese Erklärung beschreibt die Verarbeitung personenbezogener Daten bei Website und SaaS für Kunden in Amerika, Europa und dem Vereinigten Königreich.",
   legal_privacy_p2:
     "Wir erfassen Kontodaten, Nutzungsdaten, technische Logs und von Ihnen hochgeladene Inhalte. Rechtsgrundlagen DSGVO: Vertrag, berechtigtes Interesse, Einwilligung falls erforderlich.",
   legal_privacy_p3:
-    "Auftragsverarbeiter (Hosting, E-Mail) können in Kanada, USA oder EU/ EWR tätig sein; ggf. mit SCC o. Ä.",
+    "Auftragsverarbeiter (Hosting, E-Mail) können in Amerika, dem Vereinigten Königreich oder der EU/EWR tätig sein; ggf. mit SCC o. Ä.",
   legal_privacy_p4:
-    "Speicherung während des Kontos und gesetzlicher Pflichten. Rechte auf Auskunft, Berichtigung, Löschung: privacy@machin.pro.",
+    "Speicherung während des Kontos und gesetzlicher Pflichten. Rechte auf Auskunft, Berichtigung, Löschung: machinpro.app@gmail.com.",
   legal_privacy_p5:
     "Cookies für Authentifizierung und Einstellungen. Marketing nur mit Einwilligung, falls erforderlich.",
   legal_privacy_p6:
-    "Kontakt: privacy@machin.pro. Nutzer in EU/UK können sich an Aufsichtsbehörden wenden.",
+    "Kontakt: machinpro.app@gmail.com. Nutzer in EU/UK können sich an Aufsichtsbehörden wenden.",
 } as const;

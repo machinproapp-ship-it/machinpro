@@ -1103,6 +1103,9 @@ export default {
   landing_feat_dashboard_desc: "KPIs, alertas y actividad para ver lo importante hoy.",
   landing_feat_billing_title: "💳 Facturación integrada",
   landing_feat_billing_desc: "Stripe y precios con PPP según país.",
+  landing_feature_hours_title: "Control de horas y asistencia",
+  landing_feature_hours_desc:
+    "Clock-in/out digital, calendario de turnos y seguimiento de horas trabajadas por empleado.",
   landing_pricing_title: "Precios claros",
   landing_pricing_monthly: "Mensual",
   landing_pricing_annual: "Anual",
@@ -1113,7 +1116,7 @@ export default {
   landing_plan_enterprise_name: "Enterprise",
   landing_price_suffix: "/mes",
   landing_footer_desc:
-    "MachinPro ayuda a constructoras en Canadá, EE. UU. y Europa a digitalizar operaciones, seguridad e informes.",
+    "MachinPro ayuda a constructoras en América, Europa y UK a digitalizar sus operaciones.",
   landing_footer_nav: "Navegar",
   landing_footer_home: "Inicio",
   landing_footer_features: "Características",
@@ -1145,6 +1148,31 @@ export default {
   landing_testimonial_3_text: "Testimonio de ejemplo — gracias por ayudarnos a construir MachinPro.",
   landing_social_x: "X",
   landing_social_li: "LinkedIn",
+  landing_mock_dashboard: "Dashboard",
+  landing_mock_kpi_projects: "Proyectos",
+  landing_mock_kpi_employees: "Empleados",
+  landing_mock_kpi_visitors: "Visitantes",
+  landing_mock_kpi_risks: "Riesgos",
+  landing_mock_progress: "Obra Centro — 24% completado",
+  landing_mock_activity: "Actividad reciente",
+  landing_mock_act1: "Parte diario de obra — ala norte",
+  landing_mock_act2: "Check-in de visitante",
+  landing_mock_act3: "Riesgo resuelto — andamio",
+  landing_mock_rel1: "Hace 12 min",
+  landing_mock_rel2: "Hace 1 h",
+  landing_mock_rel3: "Ayer",
+  landing_price_region_badge: "💡 Precio ajustado para tu región",
+  landing_pioneers_title: "Sé de los primeros",
+  landing_pioneers_sub:
+    "MachinPro está en fase de lanzamiento. Únete ahora y obtén precio especial de fundador.",
+  landing_pioneer_price: "Precio bloqueado para siempre",
+  landing_pioneer_price_desc:
+    "Los primeros 50 clientes mantienen el precio actual sin importar futuros aumentos",
+  landing_pioneer_feedback: "Influye en el producto",
+  landing_pioneer_feedback_desc: "Tu feedback define directamente las próximas funciones que desarrollamos",
+  landing_pioneer_support: "Soporte prioritario",
+  landing_pioneer_support_desc: "Acceso directo al equipo de MachinPro para resolver cualquier duda",
+  landing_pioneer_cta: "Unirme ahora — gratis 14 días",
 
   legal_terms_title: "Términos y condiciones",
   legal_privacy_title: "Política de privacidad",
@@ -1163,18 +1191,18 @@ export default {
   legal_terms_p5:
     "El servicio se ofrece “tal cual” en la medida permitida por la ley. Nuestra responsabilidad se limita a lo abonado en los doce meses previos al reclamo (o, si no hubo pago, a cincuenta dólares canadienses), salvo donde la ley no permita limitarla.",
   legal_terms_p6:
-    "Estos Términos se rigen por las leyes de la provincia de Ontario, Canadá, sin tener en cuenta conflictos de leyes. Los tribunales de Toronto, Ontario, tendrán jurisdicción exclusiva, sin perjuicio de protecciones imperativas del consumidor en la UE o el Reino Unido.",
+    "Estos Términos se rigen por las leyes de la provincia de Ontario, Canadá, sin tener en cuenta conflictos de leyes. Los tribunales de Toronto, Ontario, tendrán jurisdicción exclusiva, sin perjuicio de protecciones imperativas del consumidor donde residas en América, Europa o el Reino Unido.",
 
   legal_privacy_p1:
-    "Esta Política de privacidad describe cómo MachinPro (“nosotros”) recopila, usa y comparte información cuando usas nuestro sitio y productos SaaS. Operamos con clientes en Canadá, EE. UU. y el Espacio Económico Europeo.",
+    "Esta Política de privacidad describe cómo MachinPro (“nosotros”) recopila, usa y comparte información cuando usas nuestro sitio y productos SaaS. Operamos con clientes y usuarios en América, Europa y el Reino Unido.",
   legal_privacy_p2:
     "Recopilamos datos de cuenta (nombre, email, empresa), datos de uso, registros técnicos y contenido que subes (fotos, formularios, registros de obra). Las bases legales bajo el RGPD incluyen contrato, interés legítimo (seguridad, analítica) y consentimiento cuando proceda.",
   legal_privacy_p3:
-    "Usamos encargados como alojamiento y email. Los datos pueden tratarse en Canadá, EE. UU. o UE/EEE con garantías adecuadas (p. ej. Cláusulas Contractuales Tipo) cuando haya transferencias.",
+    "Usamos encargados como alojamiento y email. Los datos pueden tratarse en América, el Reino Unido o la UE/EEE con garantías adecuadas (p. ej. Cláusulas Contractuales Tipo) cuando haya transferencias.",
   legal_privacy_p4:
-    "Conservamos datos mientras la cuenta esté activa y el tiempo necesario por obligaciones legales, fiscales y de seguridad. Puedes solicitar acceso, rectificación o supresión según la ley; contacto: privacy@machin.pro.",
+    "Conservamos datos mientras la cuenta esté activa y el tiempo necesario por obligaciones legales, fiscales y de seguridad. Puedes solicitar acceso, rectificación o supresión según la ley; contacto: machinpro.app@gmail.com.",
   legal_privacy_p5:
     "Usamos cookies y tecnologías similares para autenticación y preferencias. Puedes controlarlas en el navegador. Comunicaciones de marketing solo con consentimiento cuando la ley lo exija.",
   legal_privacy_p6:
-    "Si tienes dudas, escribe a privacy@machin.pro. Usuarios de la UE/Reino Unido pueden presentar reclamación ante la autoridad de protección de datos local.",
+    "Si tienes dudas, escribe a machinpro.app@gmail.com. Usuarios de la UE/Reino Unido pueden presentar reclamación ante la autoridad de protección de datos local.",
 } as const;

@@ -1099,6 +1099,9 @@ export default {
   landing_feat_dashboard_desc: "KPIs, alertas e atividade para o essencial hoje.",
   landing_feat_billing_title: "💳 Faturação integrada",
   landing_feat_billing_desc: "Subscrições Stripe e preços por país.",
+  landing_feature_hours_title: "Controlo de horas e assiduidade",
+  landing_feature_hours_desc:
+    "Clock-in/out digital, calendário de turnos e acompanhamento de horas trabalhadas por colaborador.",
   landing_pricing_title: "Preços transparentes",
   landing_pricing_monthly: "Mensal",
   landing_pricing_annual: "Anual",
@@ -1141,6 +1144,31 @@ export default {
   landing_testimonial_3_text: "Testemunho de exemplo — obrigado por ajudar a construir o MachinPro.",
   landing_social_x: "X",
   landing_social_li: "LinkedIn",
+  landing_mock_dashboard: "Painel",
+  landing_mock_kpi_projects: "Projetos",
+  landing_mock_kpi_employees: "Colaboradores",
+  landing_mock_kpi_visitors: "Visitantes",
+  landing_mock_kpi_risks: "Riscos",
+  landing_mock_progress: "Obra Centro — 24% concluída",
+  landing_mock_activity: "Atividade recente",
+  landing_mock_act1: "Relatório diário — asa norte",
+  landing_mock_act2: "Check-in de visitante",
+  landing_mock_act3: "Risco resolvido — andaime",
+  landing_mock_rel1: "Há 12 min",
+  landing_mock_rel2: "Há 1 h",
+  landing_mock_rel3: "Ontem",
+  landing_price_region_badge: "💡 Preço ajustado à sua região",
+  landing_pioneers_title: "Esteja entre os primeiros",
+  landing_pioneers_sub:
+    "O MachinPro está em lançamento. Junte-se agora e garanta o preço de fundador.",
+  landing_pioneer_price: "Preço bloqueado para sempre",
+  landing_pioneer_price_desc:
+    "Os primeiros 50 clientes mantêm o preço atual mesmo que aumentemos tarifas mais tarde.",
+  landing_pioneer_feedback: "Influencie o produto",
+  landing_pioneer_feedback_desc: "O seu feedback define diretamente as próximas funcionalidades.",
+  landing_pioneer_support: "Suporte prioritário",
+  landing_pioneer_support_desc: "Acesso direto à equipa MachinPro para qualquer dúvida.",
+  landing_pioneer_cta: "Aderir agora — 14 dias grátis",
 
   legal_terms_title: "Termos e condições",
   legal_privacy_title: "Política de privacidade",
@@ -1166,11 +1194,11 @@ export default {
   legal_privacy_p2:
     "Recolhemos dados de conta, utilização, técnicos e conteúdo carregado. Bases RGPD: contrato, interesse legítimo, consentimento quando necessário.",
   legal_privacy_p3:
-    "Subcontratados (alojamento, email) podem processar dados no Canadá, EUA ou UE com garantias adequadas (SCC, etc.).",
+    "Subcontratados (alojamento, email) podem processar dados na América, Reino Unido ou UE com garantias adequadas (SCC, etc.).",
   legal_privacy_p4:
-    "Conservação durante a conta e obrigações legais. Direitos de acesso, retificação, apagamento: privacy@machin.pro.",
+    "Conservação durante a conta e obrigações legais. Direitos de acesso, retificação, apagamento: machinpro.app@gmail.com.",
   legal_privacy_p5:
     "Cookies para autenticação e preferências. Marketing apenas com consentimento quando exigido.",
   legal_privacy_p6:
-    "Contacto: privacy@machin.pro. Utilizadores UE/Reino Unido podem recorrer à autoridade de supervisão.",
+    "Contacto: machinpro.app@gmail.com. Utilizadores UE/Reino Unido podem recorrer à autoridade de supervisão.",
 } as const;

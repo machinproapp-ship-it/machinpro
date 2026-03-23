@@ -3,8 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Apple, PlayCircle, Star } from "lucide-react";
+import { Apple, ClipboardList, Clock, PlayCircle, ShieldCheck, Star, UserPlus } from "lucide-react";
 import { useAppLocale } from "@/hooks/useAppLocale";
+import {
+  applyAnnualDiscount,
+  detectGeo,
+  formatLandingPrice,
+  getLandingPlanPrices,
+  type GeoDetect,
+  type LandingPlanPrices,
+} from "@/lib/geoTier";
 
 function useFadeIn() {
   const ref = useRef<HTMLElement | null>(null);
@@ -44,12 +52,107 @@ function FadeSection({
   );
 }
 
+function HeroDashboardMockup({ tx }: { tx: (k: string, fb: string) => string }) {
+  const kpis = [
+    { key: "landing_mock_kpi_projects", fb: "Projects", n: 2, emoji: "🏗️" },
+    { key: "landing_mock_kpi_employees", fb: "Employees", n: 4, emoji: "👷" },
+    { key: "landing_mock_kpi_visitors", fb: "Visitors", n: 0, emoji: "👤" },
+    { key: "landing_mock_kpi_risks", fb: "Risks", n: 0, emoji: "⚠️" },
+  ] as const;
+  const acts = [
+    { Icon: ClipboardList, textKey: "landing_mock_act1", timeKey: "landing_mock_rel1", fb: "", tfb: "" },
+    { Icon: UserPlus, textKey: "landing_mock_act2", timeKey: "landing_mock_rel2", fb: "", tfb: "" },
+    { Icon: ShieldCheck, textKey: "landing_mock_act3", timeKey: "landing_mock_rel3", fb: "", tfb: "" },
+  ] as const;
+
+  return (
+    <div className="w-full overflow-hidden rounded-xl border border-white/25 bg-slate-100 text-left shadow-xl dark:border-slate-600 dark:bg-slate-900">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 bg-[#0f3a45] px-3 py-2.5 dark:border-slate-700 dark:bg-[#0a3038]">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-sm font-bold text-white">
+            <span className="text-[#f97316]">Machin</span>Pro
+          </span>
+          <span className="hidden truncate text-xs font-medium text-teal-100/90 sm:inline">
+            {tx("landing_mock_dashboard", "Dashboard")}
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-red-400/90" aria-hidden />
+          <span className="h-2 w-2 rounded-full bg-amber-400/90" aria-hidden />
+          <span className="h-2 w-2 rounded-full bg-emerald-400/90" aria-hidden />
+        </div>
+      </div>
+      <div className="space-y-3 bg-slate-50 p-3 dark:bg-slate-950/80 sm:p-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {kpis.map((k) => (
+            <div
+              key={k.key}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {tx(k.key, k.fb)}
+              </p>
+              <p className="mt-1 flex items-baseline gap-1 text-lg font-bold text-[#1a4f5e] dark:text-teal-400">
+                <span>{k.n}</span>
+                <span className="text-base" aria-hidden>
+                  {k.emoji}
+                </span>
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <span className="truncate">{tx("landing_mock_progress", "Centro site — 24% complete")}</span>
+            <span className="shrink-0 text-[#f97316]">24%</span>
+          </div>
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+            <div className="h-full w-[24%] rounded-full bg-gradient-to-r from-[#f97316] to-orange-400" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {tx("landing_mock_activity", "Recent activity")}
+          </p>
+          {acts.map(({ Icon, textKey, timeKey }) => (
+            <div
+              key={textKey}
+              className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#1a4f5e]/10 text-[#1a4f5e] dark:bg-teal-900/40 dark:text-teal-300">
+                <Icon className="h-4 w-4" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-slate-800 dark:text-slate-100">{tx(textKey, "…")}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">{tx(timeKey, "…")}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type FeatureRow = { kind: "emoji" | "clock"; titleKey: string; descKey: string };
+
 export default function LandingPage() {
   const { language, setLanguage, tx } = useAppLocale();
 
   const [annual, setAnnual] = useState(false);
   const [dark, setDark] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
+  const [geoDetect, setGeoDetect] = useState<GeoDetect | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void detectGeo().then((g) => {
+      if (!cancelled) setGeoDetect(g);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setDark(typeof document !== "undefined" && document.documentElement.classList.contains("dark"));
@@ -82,52 +185,38 @@ export default function LandingPage() {
     setDark(next);
   };
 
-  const prices = useMemo(() => {
-    const m = { starter: 49, pro: 129, enterprise: 299 };
-    if (!annual) return m;
-    return {
-      starter: Math.round(m.starter * 0.8),
-      pro: Math.round(m.pro * 0.8),
-      enterprise: Math.round(m.enterprise * 0.8),
-    };
-  }, [annual]);
+  const planPrices: LandingPlanPrices | null = useMemo(() => {
+    if (!geoDetect) return null;
+    const base = getLandingPlanPrices(geoDetect.countryCode, geoDetect.tier);
+    return annual ? applyAnnualDiscount(base) : base;
+  }, [geoDetect, annual]);
 
   const scrollToId = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const features = useMemo(
-    () =>
-      [
-        {
-          titleKey: "landing_feat_projects_title",
-          descKey: "landing_feat_projects_desc",
-        },
-        {
-          titleKey: "landing_feat_risks_title",
-          descKey: "landing_feat_risks_desc",
-        },
-        {
-          titleKey: "landing_feat_visitors_title",
-          descKey: "landing_feat_visitors_desc",
-        },
-        {
-          titleKey: "landing_feat_blueprints_title",
-          descKey: "landing_feat_blueprints_desc",
-        },
-        {
-          titleKey: "landing_feat_dashboard_title",
-          descKey: "landing_feat_dashboard_desc",
-        },
-        {
-          titleKey: "landing_feat_billing_title",
-          descKey: "landing_feat_billing_desc",
-        },
-      ] as const,
+    (): FeatureRow[] => [
+      { kind: "emoji", titleKey: "landing_feat_projects_title", descKey: "landing_feat_projects_desc" },
+      { kind: "emoji", titleKey: "landing_feat_risks_title", descKey: "landing_feat_risks_desc" },
+      { kind: "emoji", titleKey: "landing_feat_visitors_title", descKey: "landing_feat_visitors_desc" },
+      { kind: "emoji", titleKey: "landing_feat_blueprints_title", descKey: "landing_feat_blueprints_desc" },
+      { kind: "emoji", titleKey: "landing_feat_dashboard_title", descKey: "landing_feat_dashboard_desc" },
+      { kind: "emoji", titleKey: "landing_feat_billing_title", descKey: "landing_feat_billing_desc" },
+      { kind: "clock", titleKey: "landing_feature_hours_title", descKey: "landing_feature_hours_desc" },
+    ],
     []
   );
 
-  const testimonials = [1, 2, 3] as const;
+  const pioneerCards = useMemo(
+    () =>
+      [
+        { emoji: "🎯", titleKey: "landing_pioneer_price", descKey: "landing_pioneer_price_desc" },
+        { emoji: "🛠️", titleKey: "landing_pioneer_feedback", descKey: "landing_pioneer_feedback_desc" },
+        { emoji: "🏆", titleKey: "landing_pioneer_support", descKey: "landing_pioneer_support_desc" },
+      ] as const,
+    []
+  );
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -277,15 +366,7 @@ export default function LandingPage() {
           </FadeSection>
           <FadeSection className="mt-12">
             <div className="relative mx-auto max-w-4xl rounded-2xl border border-white/10 bg-slate-900/40 p-2 shadow-2xl backdrop-blur">
-              <div className="overflow-hidden rounded-xl border border-white/10">
-                <Image
-                  src="/screenshots/dashboard.png"
-                  alt=""
-                  width={1200}
-                  height={750}
-                  className="h-auto w-full object-cover object-top"
-                />
-              </div>
+              <HeroDashboardMockup tx={tx} />
             </div>
           </FadeSection>
         </div>
@@ -303,10 +384,17 @@ export default function LandingPage() {
                   key={f.titleKey}
                   className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
                 >
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    {tx(f.titleKey, f.titleKey)}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  <div className="mb-2 flex items-start gap-2">
+                    {f.kind === "clock" ? (
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1a4f5e]/15 text-[#1a4f5e] dark:bg-teal-900/40 dark:text-teal-300">
+                        <Clock className="h-5 w-5" aria-hidden />
+                      </span>
+                    ) : null}
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                      {tx(f.titleKey, f.titleKey)}
+                    </h3>
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                     {tx(f.descKey, "")}
                   </p>
                 </div>
@@ -367,13 +455,22 @@ export default function LandingPage() {
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                     {tx(`landing_plan_${key}_name`, key)}
                   </h3>
-                  <p className="mt-4 flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold text-slate-900 dark:text-white">
-                      ${prices[key]}
-                    </span>
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {tx("landing_price_suffix", "/mo")}
-                    </span>
+                  <p className="mt-4 flex min-h-[3.5rem] flex-wrap items-baseline gap-1">
+                    {!planPrices ? (
+                      <span className="inline-block h-10 w-28 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
+                    ) : (
+                      <>
+                        <span className="text-4xl font-extrabold text-slate-900 dark:text-white">
+                          {formatLandingPrice(planPrices[key], planPrices.currency, language)}
+                        </span>
+                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                          {planPrices.currency}
+                        </span>
+                        <span className="w-full text-slate-500 dark:text-slate-400 sm:w-auto sm:pl-1">
+                          {tx("landing_price_suffix", "/mo")}
+                        </span>
+                      </>
+                    )}
                   </p>
                   <Link
                     href="/register"
@@ -384,46 +481,50 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+            {planPrices ? (
+              <p className="mt-6 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+                {tx("landing_price_region_badge", "Price adjusted for your region")}
+              </p>
+            ) : (
+              <div className="mx-auto mt-6 h-4 w-64 max-w-full animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+            )}
           </FadeSection>
         </div>
       </section>
 
-      <section className="bg-white dark:bg-slate-950 px-4 py-16 sm:py-24">
+      <section
+        id="pioneers"
+        className="scroll-mt-24 border-y border-teal-100/80 bg-teal-50/90 px-4 py-16 dark:border-teal-900/40 dark:bg-teal-950/25 sm:py-24"
+      >
         <div className="mx-auto max-w-6xl">
           <FadeSection>
-            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_testimonials_title", "Testimonials")}
+            <h2 className="text-center text-2xl font-bold text-[#1a4f5e] dark:text-teal-300 sm:text-3xl">
+              {tx("landing_pioneers_title", "Be among the first")}
             </h2>
-            <p className="mt-3 text-center text-sm text-slate-500 dark:text-slate-400">
-              {tx("landing_testimonials_coming", "Coming soon")}
+            <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+              {tx("landing_pioneers_sub", "")}
             </p>
             <div className="mt-10 grid gap-6 md:grid-cols-3">
-              {testimonials.map((n) => (
+              {pioneerCards.map((c) => (
                 <div
-                  key={n}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/50"
+                  key={c.titleKey}
+                  className="rounded-2xl border border-teal-200/60 bg-white/90 p-6 shadow-sm dark:border-teal-800/50 dark:bg-slate-900/70"
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1a4f5e] text-sm font-bold text-white"
-                      aria-hidden
-                    >
-                      {tx(`landing_testimonial_${n}_initial`, "?")}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {tx(`landing_testimonial_${n}_name`, "Name")}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {tx(`landing_testimonial_${n}_company`, "Company")}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {tx(`landing_testimonial_${n}_text`, "…")}
+                  <p className="text-2xl" aria-hidden>
+                    {c.emoji}
                   </p>
+                  <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
                 </div>
               ))}
+            </div>
+            <div className="mt-10 flex justify-center">
+              <Link
+                href="/register"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#f97316] px-8 py-3 text-base font-semibold text-white shadow-md hover:bg-orange-600"
+              >
+                {tx("landing_pioneer_cta", "Join now — free 14 days")}
+              </Link>
             </div>
           </FadeSection>
         </div>
@@ -433,10 +534,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl text-center">
           <p className="text-slate-600 dark:text-slate-400">{tx("landing_footer_contact", "Contact")}</p>
           <a
-            href="mailto:support@machin.pro"
+            href="mailto:machinpro.app@gmail.com"
             className="mt-2 inline-flex min-h-[44px] items-center text-lg font-semibold text-[#1a4f5e] dark:text-teal-400 hover:underline"
           >
-            support@machin.pro
+            machinpro.app@gmail.com
           </a>
         </div>
       </section>

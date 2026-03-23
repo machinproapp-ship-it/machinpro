@@ -73,6 +73,65 @@ export function getCurrencyForCountry(
 
 export type GeoDetect = { tier: GeoTier; countryCode: string | null };
 
+export type LandingPriceCurrency = "CAD" | "USD" | "GBP";
+
+export type LandingPlanPrices = {
+  currency: LandingPriceCurrency;
+  starter: number;
+  pro: number;
+  enterprise: number;
+};
+
+/**
+ * Landing page PPP: monthly base amounts; apply 20% annual discount via applyAnnualDiscount().
+ */
+export function getLandingPlanPrices(countryCode: string | null, tier: GeoTier): LandingPlanPrices {
+  const cc = (countryCode ?? "").trim().toUpperCase();
+  if (cc === "GB") {
+    return { currency: "GBP", starter: 38, pro: 100, enterprise: 233 };
+  }
+  if (tier === 1) {
+    return { currency: "CAD", starter: 49, pro: 129, enterprise: 299 };
+  }
+  if (tier === 2) {
+    return { currency: "USD", starter: 39, pro: 103, enterprise: 239 };
+  }
+  return { currency: "USD", starter: 29, pro: 77, enterprise: 179 };
+}
+
+export function applyAnnualDiscount(prices: LandingPlanPrices): LandingPlanPrices {
+  return {
+    currency: prices.currency,
+    starter: Math.round(prices.starter * 0.8),
+    pro: Math.round(prices.pro * 0.8),
+    enterprise: Math.round(prices.enterprise * 0.8),
+  };
+}
+
+export function formatLandingPrice(amount: number, currency: LandingPriceCurrency, language: string): string {
+  const tag =
+    language === "es"
+      ? "es-419"
+      : language === "pt"
+        ? "pt"
+        : language === "fr"
+          ? "fr"
+          : language === "de"
+            ? "de"
+            : language === "it"
+              ? "it"
+              : "en";
+  try {
+    return new Intl.NumberFormat(tag, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return new Intl.NumberFormat("en", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+  }
+}
+
 /**
  * Tier + código ISO del país vía ipapi.co (fallback tier 1 si falla red/CORS).
  */
