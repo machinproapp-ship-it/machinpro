@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LegalSimpleFooter } from "@/components/LegalSimpleFooter";
 import { LegalSimpleNav } from "@/components/LegalSimpleNav";
 import { useAppLocale } from "@/hooks/useAppLocale";
 
@@ -34,6 +35,7 @@ export default function LegalPrivacyPage() {
           </Link>
         </p>
       </main>
+      <LegalSimpleFooter />
     </div>
   );
 }
