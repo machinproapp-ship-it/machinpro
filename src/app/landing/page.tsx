@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Apple, ClipboardList, Clock, PlayCircle, ShieldCheck, Star, UserPlus } from "lucide-react";
+import { Apple, PlayCircle, Star } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
+import { LANGUAGES } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
 import {
   applyAnnualDiscount,
@@ -53,28 +54,25 @@ function FadeSection({
   );
 }
 
-function HeroDashboardMockup({ tx }: { tx: (k: string, fb: string) => string }) {
+function HeroDashboardMockup() {
   const kpis = [
-    { key: "landing_mock_kpi_projects", fb: "Projects", n: 2, emoji: "🏗️" },
-    { key: "landing_mock_kpi_employees", fb: "Employees", n: 4, emoji: "👷" },
-    { key: "landing_mock_kpi_visitors", fb: "Visitors", n: 0, emoji: "👤" },
-    { key: "landing_mock_kpi_risks", fb: "Risks", n: 0, emoji: "⚠️" },
+    { n: 12, emoji: "🏗️", label: "Projects" },
+    { n: 48, emoji: "👷", label: "Employees" },
+    { n: 3, emoji: "👤", label: "Visitors" },
+    { n: 2, emoji: "⚠️", label: "Risks" },
   ] as const;
   const acts = [
-    { Icon: ClipboardList, textKey: "landing_mock_act1", timeKey: "landing_mock_rel1", fb: "", tfb: "" },
-    { Icon: UserPlus, textKey: "landing_mock_act2", timeKey: "landing_mock_rel2", fb: "", tfb: "" },
-    { Icon: ShieldCheck, textKey: "landing_mock_act3", timeKey: "landing_mock_rel3", fb: "", tfb: "" },
+    { emoji: "📋", line: "Daily Report · 12 min ago" },
+    { emoji: "👤", line: "Visitor Check-in · 1h ago" },
+    { emoji: "✅", line: "Risk Resolved · Yesterday" },
   ] as const;
 
   return (
     <div className="w-full overflow-hidden rounded-xl border border-white/25 bg-slate-100 text-left shadow-xl dark:border-slate-600 dark:bg-slate-900">
       <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 bg-[#0f3a45] px-3 py-2.5 dark:border-slate-700 dark:bg-[#0a3038]">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="text-sm font-bold text-white">
-            <span className="text-[#f97316]">Machin</span>Pro
-          </span>
-          <span className="hidden truncate text-xs font-medium text-teal-100/90 sm:inline">
-            {tx("landing_mock_dashboard", "Dashboard")}
+          <span className="truncate text-sm font-bold text-white">
+            <span className="text-[#f97316]">Machin</span>Pro <span className="font-semibold text-teal-100/90">Dashboard</span>
           </span>
         </div>
         <div className="flex gap-1.5">
@@ -87,13 +85,11 @@ function HeroDashboardMockup({ tx }: { tx: (k: string, fb: string) => string }) 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {kpis.map((k) => (
             <div
-              key={k.key}
+              key={k.label}
               className="rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {tx(k.key, k.fb)}
-              </p>
-              <p className="mt-1 flex items-baseline gap-1 text-lg font-bold text-[#1a4f5e] dark:text-teal-400">
+              <span className="sr-only">{k.label}</span>
+              <p className="flex items-baseline gap-1 text-lg font-bold text-[#1a4f5e] dark:text-teal-400">
                 <span>{k.n}</span>
                 <span className="text-base" aria-hidden>
                   {k.emoji}
@@ -104,29 +100,26 @@ function HeroDashboardMockup({ tx }: { tx: (k: string, fb: string) => string }) 
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-            <span className="truncate">{tx("landing_mock_progress", "Centro site — 24% complete")}</span>
-            <span className="shrink-0 text-[#f97316]">24%</span>
+            <span className="truncate">Project Alpha — 67%</span>
+            <span className="shrink-0 text-[#f97316]">67%</span>
           </div>
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-            <div className="h-full w-[24%] rounded-full bg-gradient-to-r from-[#f97316] to-orange-400" />
+            <div className="h-full w-[67%] rounded-full bg-gradient-to-r from-[#f97316] to-orange-400" />
           </div>
         </div>
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            {tx("landing_mock_activity", "Recent activity")}
+            Recent activity
           </p>
-          {acts.map(({ Icon, textKey, timeKey }) => (
+          {acts.map((a) => (
             <div
-              key={textKey}
-              className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900"
+              key={a.line}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#1a4f5e]/10 text-[#1a4f5e] dark:bg-teal-900/40 dark:text-teal-300">
-                <Icon className="h-4 w-4" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-slate-800 dark:text-slate-100">{tx(textKey, "…")}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">{tx(timeKey, "…")}</p>
-              </div>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#1a4f5e]/10 text-lg text-[#1a4f5e] dark:bg-teal-900/40 dark:text-teal-300" aria-hidden>
+                {a.emoji}
+              </span>
+              <p className="min-w-0 flex-1 text-xs font-medium text-slate-800 dark:text-slate-100">{a.line}</p>
             </div>
           ))}
         </div>
@@ -135,10 +128,44 @@ function HeroDashboardMockup({ tx }: { tx: (k: string, fb: string) => string }) 
   );
 }
 
-type FeatureRow = { kind: "emoji" | "clock"; titleKey: string; descKey: string };
+type FeatureRow = { titleKey: string; descKey: string };
+
+function landingPlanBullets(
+  plan: "starter" | "pro" | "enterprise",
+  tx: (k: string, fb: string) => string
+): string[] {
+  const line = (s: string) => `✅ ${s}`;
+  if (plan === "starter") {
+    return [
+      line(tx("landing_plan_users", "{n} users").replace("{n}", "5")),
+      line(tx("landing_plan_projects", "{n} projects").replace("{n}", "5")),
+      line(tx("landing_plan_storage", "{n} GB storage").replace("{n}", "10")),
+      line(tx("landing_plan_modules", "All basic modules")),
+      line(tx("landing_plan_support", "Email support")),
+    ];
+  }
+  if (plan === "pro") {
+    return [
+      line(tx("landing_plan_users", "{n} users").replace("{n}", "25")),
+      line(tx("landing_plan_projects_unlimited", "Unlimited projects")),
+      line(tx("landing_plan_storage", "{n} GB storage").replace("{n}", "50")),
+      line(tx("landing_plan_audit", "Audit module")),
+      line(tx("landing_plan_blueprints", "Interactive blueprints")),
+      line(tx("landing_plan_priority_support", "Priority support")),
+    ];
+  }
+  return [
+    line(tx("landing_plan_unlimited", "Unlimited users")),
+    line(tx("landing_plan_everything_unlimited", "Everything unlimited")),
+    line(tx("landing_plan_storage", "{n} GB storage").replace("{n}", "250")),
+    line(tx("landing_plan_white_label", "White label")),
+    line(tx("landing_plan_dedicated", "Dedicated support")),
+    line(tx("landing_plan_sla", "Guaranteed SLA")),
+  ];
+}
 
 export default function LandingPage() {
-  const { language, setLanguage, tx, LANGUAGES } = useLandingLocale();
+  const { language, setLanguage, tx } = useLandingLocale();
 
   const [annual, setAnnual] = useState(false);
   const [dark, setDark] = useState(false);
@@ -225,14 +252,34 @@ export default function LandingPage() {
 
   const features = useMemo(
     (): FeatureRow[] => [
-      { kind: "emoji", titleKey: "landing_feat_projects_title", descKey: "landing_feat_projects_desc" },
-      { kind: "emoji", titleKey: "landing_feat_risks_title", descKey: "landing_feat_risks_desc" },
-      { kind: "emoji", titleKey: "landing_feat_visitors_title", descKey: "landing_feat_visitors_desc" },
-      { kind: "emoji", titleKey: "landing_feat_blueprints_title", descKey: "landing_feat_blueprints_desc" },
-      { kind: "emoji", titleKey: "landing_feat_dashboard_title", descKey: "landing_feat_dashboard_desc" },
-      { kind: "emoji", titleKey: "landing_feat_billing_title", descKey: "landing_feat_billing_desc" },
-      { kind: "clock", titleKey: "landing_feature_hours_title", descKey: "landing_feature_hours_desc" },
+      { titleKey: "landing_feat_projects_title", descKey: "landing_feat_projects_desc" },
+      { titleKey: "landing_feature_logistics", descKey: "landing_feature_logistics_desc" },
+      { titleKey: "landing_feat_risks_title", descKey: "landing_feat_risks_desc" },
+      { titleKey: "landing_feat_visitors_title", descKey: "landing_feat_visitors_desc" },
+      { titleKey: "landing_feat_blueprints_title", descKey: "landing_feat_blueprints_desc" },
+      { titleKey: "landing_feature_hours_title", descKey: "landing_feature_hours_desc" },
+      { titleKey: "landing_feat_dashboard_title", descKey: "landing_feat_dashboard_desc" },
+      { titleKey: "landing_feature_forms", descKey: "landing_feature_forms_desc" },
+      { titleKey: "landing_feature_audit", descKey: "landing_feature_audit_desc" },
+      { titleKey: "landing_feature_watchdog", descKey: "landing_feature_watchdog_desc" },
+      { titleKey: "landing_feature_rfi", descKey: "landing_feature_rfi_desc" },
+      { titleKey: "landing_feat_billing_title", descKey: "landing_feat_billing_desc" },
     ],
+    []
+  );
+
+  const comingSoonCards = useMemo(
+    () =>
+      [
+        { emoji: "🤖", titleKey: "landing_coming_soon_ai", descKey: "landing_coming_soon_ai_desc" },
+        { emoji: "📱", titleKey: "landing_coming_soon_app", descKey: "landing_coming_soon_app_desc" },
+        {
+          emoji: "🔗",
+          titleKey: "landing_coming_soon_integrations",
+          descKey: "landing_coming_soon_integrations_desc",
+        },
+        { emoji: "🌍", titleKey: "landing_coming_soon_certs", descKey: "landing_coming_soon_certs_desc" },
+      ] as const,
     []
   );
 
@@ -382,7 +429,7 @@ export default function LandingPage() {
           </FadeSection>
           <FadeSection className="mt-12">
             <div className="relative mx-auto max-w-4xl rounded-2xl border border-white/10 bg-slate-900/40 p-2 shadow-2xl backdrop-blur">
-              <HeroDashboardMockup tx={tx} />
+              <HeroDashboardMockup />
             </div>
           </FadeSection>
         </div>
@@ -400,19 +447,35 @@ export default function LandingPage() {
                   key={f.titleKey}
                   className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
                 >
-                  <div className="mb-2 flex items-start gap-2">
-                    {f.kind === "clock" ? (
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1a4f5e]/15 text-[#1a4f5e] dark:bg-teal-900/40 dark:text-teal-300">
-                        <Clock className="h-5 w-5" aria-hidden />
-                      </span>
-                    ) : null}
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                      {tx(f.titleKey, f.titleKey)}
-                    </h3>
-                  </div>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {tx(f.descKey, "")}
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{tx(f.titleKey, "")}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(f.descKey, "")}</p>
+                </div>
+              ))}
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
+        id="coming-soon"
+        className="scroll-mt-24 border-t border-slate-200 bg-slate-50/90 px-4 py-16 dark:border-slate-800 dark:bg-slate-900/40 sm:py-24"
+      >
+        <div className="mx-auto max-w-6xl">
+          <FadeSection>
+            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_coming_soon_title", "Coming soon to MachinPro")}
+            </h2>
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {comingSoonCards.map((c) => (
+                <div
+                  key={c.titleKey}
+                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
+                >
+                  <p className="text-2xl" aria-hidden>
+                    {c.emoji}
                   </p>
+                  <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
                 </div>
               ))}
             </div>
@@ -496,6 +559,13 @@ export default function LandingPage() {
                       </>
                     )}
                   </p>
+                  <ul className="mt-6 flex-1 space-y-2 text-left text-sm text-slate-600 dark:text-slate-400">
+                    {landingPlanBullets(key, tx).map((b) => (
+                      <li key={b} className="leading-snug">
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
                   <Link
                     href="/register"
                     className="mt-8 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#1a4f5e] px-4 py-3 text-center text-sm font-semibold text-white hover:bg-[#134e5e] dark:bg-teal-800 dark:hover:bg-teal-700"

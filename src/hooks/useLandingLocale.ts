@@ -76,7 +76,7 @@ export function useLandingLocale() {
 
   const tx = useCallback((k: string, fb: string) => t[k] ?? fb, [t]);
 
-  return { language, setLanguage, t, tx, LANGUAGES };
+  return { language, setLanguage, t, tx };
 }
 
 export function htmlLangForLanguage(code: Language): string {
