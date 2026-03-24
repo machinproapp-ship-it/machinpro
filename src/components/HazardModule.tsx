@@ -24,6 +24,7 @@ import {
 } from "@/types/hazard";
 import { useToast } from "@/components/Toast";
 import { requestCompanyPushNotification } from "@/lib/clientCompanyPush";
+import { FilterGrid } from "@/components/FilterGrid";
 
 const CLOUDINARY_CLOUD = "dwdlmxmkt";
 const CLOUDINARY_PRESET = "i5dmd07o";
@@ -683,8 +684,8 @@ export function HazardModule({
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row flex-wrap gap-3">
-        <label className="flex flex-col gap-1 text-sm flex-1 min-w-[140px]">
+      <FilterGrid>
+        <label className="flex flex-col gap-1 text-sm min-w-0">
           <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_project ?? "Project"}
           </span>
@@ -783,7 +784,7 @@ export function HazardModule({
             <option value="status">{t.hazards_sort_status ?? "Status"}</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm flex-1 min-w-[200px]">
+        <label className="col-span-2 flex flex-col gap-1 text-sm min-w-0 lg:col-span-4">
           <span className="text-gray-600 dark:text-gray-400">{t.hazards_search ?? "Search"}</span>
           <span className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -795,7 +796,7 @@ export function HazardModule({
             />
           </span>
         </label>
-      </div>
+      </FilterGrid>
 
       <div className="lg:hidden space-y-3">
         {loading ? (

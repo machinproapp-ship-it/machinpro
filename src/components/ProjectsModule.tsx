@@ -778,10 +778,10 @@ export function ProjectsModule({
             </div>
           </div>
 
-          {/* KPIs rápidos */}
-          <div className="flex flex-wrap gap-3">
+          {/* KPIs rápidos — grid 2×2 en móvil, 3 columnas si hay presupuesto + cierre + equipo */}
+          <div className="grid grid-cols-2 gap-3 sm:max-w-none w-full sm:w-auto auto-rows-fr md:grid-cols-3">
             {selectedProject.budgetCAD != null && (
-              <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-[90px]">
+              <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
                   <DollarSign className="h-3 w-3" /> Presupuesto
                 </p>
@@ -794,7 +794,7 @@ export function ProjectsModule({
               </div>
             )}
             {daysRemaining !== null && (
-              <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-[90px]">
+              <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
                   <Calendar className="h-3 w-3" /> Cierre
                 </p>
@@ -804,9 +804,9 @@ export function ProjectsModule({
                 <p className="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(selectedProject.estimatedEnd)}</p>
               </div>
             )}
-            <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-[90px]">
+            <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
-                <Users className="h-3 w-3" /> Equipo
+                <Users className="h-3 w-3" /> {(t as Record<string, string>).project_kpi_team ?? "Team"}
               </p>
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{assignedEmployees.length}</p>
               {pendingObraPhotos.length > 0 && canApprove && (
@@ -829,7 +829,7 @@ export function ProjectsModule({
             0
           );
         return (
-          <div className="border-b border-zinc-200 dark:border-slate-700 px-6 flex gap-0 overflow-x-auto">
+          <div className="border-b border-zinc-200 dark:border-slate-700 px-6 flex flex-nowrap gap-0 overflow-x-auto">
             {TABS.filter(
               (tab) => currentUserRole !== "worker" || tab.id !== "formularios"
             ).map((tab) => {

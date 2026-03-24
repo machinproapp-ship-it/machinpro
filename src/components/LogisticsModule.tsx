@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import React from "react";
+import React, { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import {
   Warehouse,
   Package,
@@ -22,6 +21,8 @@ import {
   RotateCcw,
   AlertTriangle,
   Shield,
+  ChevronDown,
+  Search,
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/app/page";
 
@@ -298,6 +299,26 @@ function toolStatusBadgeClass(status: ToolStatus | undefined): string {
   return "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
 }
 
+const INVENTORY_PAGE_SIZE = 20;
+
+function formatInventoryUnitOnly(item: InventoryItem, t: Record<string, string>): string {
+  const plural = (t as Record<string, string>).wh_units_plural ?? "unidades";
+  const singular = (t as Record<string, string>).wh_unit_singular ?? "unidad";
+  if (item.quantity !== 1) return item.unit;
+  if (item.unit.trim().toLowerCase() === plural.trim().toLowerCase()) return singular;
+  return item.unit;
+}
+
+function formatInventoryUnitLabel(item: InventoryItem, t: Record<string, string>): string {
+  const plural = (t as Record<string, string>).wh_units_plural ?? "unidades";
+  const singular = (t as Record<string, string>).wh_unit_singular ?? "unidad";
+  if (item.quantity !== 1) return `${item.quantity} ${item.unit}`;
+  if (item.unit.trim().toLowerCase() === plural.trim().toLowerCase()) {
+    return `${item.quantity} ${singular}`;
+  }
+  return `${item.quantity} ${item.unit}`;
+}
+
 function vehicleStatusBadgeClass(status: VehicleStatus | undefined): string {
   const s = status ?? "available";
   if (s === "available") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
@@ -362,6 +383,13 @@ export function LogisticsModule({
   const [inventoryFilter, setInventoryFilter] = useState<"all" | "consumable" | "tool" | "equipment">("all");
   const [filterProjectId, setFilterProjectId] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [inventoryListLimit, setInventoryListLimit] = useState(INVENTORY_PAGE_SIZE);
+  const [inventorySectionOpen, setInventorySectionOpen] = useState({
+    materials: true,
+    tool: true,
+    equipment: true,
+  });
   const [selectedAsset, setSelectedAsset] = useState<{ type: "tool" | "vehicle"; id: string } | null>(null);
   const [returnModalItem, setReturnModalItem] = useState<InventoryItem | null>(null);
   const [returnCondition, setReturnCondition] = useState<"good" | "damaged" | "maintenance">("good");
@@ -408,19 +436,40 @@ export function LogisticsModule({
   };
 
   const isTrackedAsset = (i: InventoryItem) => i.type === "tool" || i.type === "equipment";
-  const filteredItems = (inventoryItems ?? []).filter((i) => {
-    if (inventoryFilter === "consumable") return i.type === "consumable";
-    if (inventoryFilter === "tool") {
-      if (filterStatus !== "all") return i.type === "tool" && (i.toolStatus ?? "available") === filterStatus;
-      return i.type === "tool";
-    }
-    if (inventoryFilter === "equipment") {
-      if (filterStatus !== "all") return i.type === "equipment" && (i.toolStatus ?? "available") === filterStatus;
-      return i.type === "equipment";
-    }
-    if (inventoryFilter === "all" && filterStatus !== "all") return isTrackedAsset(i) && (i.toolStatus ?? "available") === filterStatus;
-    return true;
-  });
+  const filteredItems = useMemo(() => {
+    const base = (inventoryItems ?? []).filter((i) => {
+      if (inventoryFilter === "consumable") return i.type === "consumable";
+      if (inventoryFilter === "tool") {
+        if (filterStatus !== "all") return i.type === "tool" && (i.toolStatus ?? "available") === filterStatus;
+        return i.type === "tool";
+      }
+      if (inventoryFilter === "equipment") {
+        if (filterStatus !== "all") return i.type === "equipment" && (i.toolStatus ?? "available") === filterStatus;
+        return i.type === "equipment";
+      }
+      if (inventoryFilter === "all" && filterStatus !== "all") return isTrackedAsset(i) && (i.toolStatus ?? "available") === filterStatus;
+      return true;
+    });
+    const q = inventorySearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((i) => i.name.toLowerCase().includes(q));
+  }, [inventoryItems, inventoryFilter, filterStatus, inventorySearch]);
+
+  const flatOrderedInventory = useMemo(() => {
+    const materials = filteredItems.filter((i) => i.type === "consumable" || i.type === "material");
+    const tools = filteredItems.filter((i) => i.type === "tool");
+    const equipment = filteredItems.filter((i) => i.type === "equipment");
+    return [...materials, ...tools, ...equipment];
+  }, [filteredItems]);
+
+  const visibleInventoryItems = useMemo(
+    () => flatOrderedInventory.slice(0, inventoryListLimit),
+    [flatOrderedInventory, inventoryListLimit]
+  );
+
+  useEffect(() => {
+    setInventoryListLimit(INVENTORY_PAGE_SIZE);
+  }, [inventoryFilter, filterStatus, inventorySearch]);
 
   const filteredVehicles = (vehicles ?? []).filter((v) => {
     if (filterStatus === "all" || filterStatus === "lost") return true;
@@ -460,6 +509,28 @@ export function LogisticsModule({
   };
 
   const getStatusLabel = (key: string) => (t as Record<string, string>)[key] ?? key;
+
+  const invSections: {
+    key: keyof typeof inventorySectionOpen;
+    match: (i: InventoryItem) => boolean;
+    label: string;
+  }[] = [
+    {
+      key: "materials",
+      match: (i) => i.type === "consumable" || i.type === "material",
+      label: t.whTabMaterial ?? "Material",
+    },
+    { key: "tool", match: (i) => i.type === "tool", label: t.whTabTools ?? "Tools" },
+    {
+      key: "equipment",
+      match: (i) => i.type === "equipment",
+      label: (t as Record<string, string>).equipment ?? "Equipment",
+    },
+  ];
+
+  const invTableColSpan =
+    inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all" ? 9 : 8;
+
   const logsForAsset = (assetId: string, assetType: "tool" | "vehicle") =>
     assetUsageLogs.filter((l) => l.assetId === assetId && l.assetType === assetType);
 
@@ -579,9 +650,52 @@ export function LogisticsModule({
             )}
           </div>
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+            <div className="sticky top-0 z-20 border-b border-zinc-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm px-4 py-3">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                <input
+                  type="search"
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  placeholder={
+                    (t as Record<string, string>).wh_inventory_search ??
+                    (t as Record<string, string>).rfi_search ??
+                    "Search"
+                  }
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 py-2.5 pl-10 pr-3 text-sm min-h-[44px] text-zinc-900 dark:text-zinc-100"
+                />
+              </label>
+            </div>
             {/* Vista móvil: cards apiladas */}
             <div className="block lg:hidden space-y-3 p-4">
-              {filteredItems.map((item) => (
+              {invSections.map((section) => {
+                const secItems = visibleInventoryItems.filter(section.match);
+                if (secItems.length === 0) return null;
+                return (
+                  <div key={section.key} className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setInventorySectionOpen((o) => ({
+                          ...o,
+                          [section.key]: !o[section.key],
+                        }))
+                      }
+                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/50 px-3 py-2.5 text-left text-sm font-semibold text-zinc-800 dark:text-zinc-100 min-h-[44px]"
+                    >
+                      <span>{section.label}</span>
+                      <span className="flex items-center gap-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                        ({secItems.length})
+                        <ChevronDown
+                          className={`h-5 w-5 shrink-0 transition-transform ${
+                            inventorySectionOpen[section.key] ? "rotate-0" : "-rotate-90"
+                          }`}
+                        />
+                      </span>
+                    </button>
+                    {inventorySectionOpen[section.key] && (
+                      <div className="space-y-3">
+                        {secItems.map((item) => (
                 <div
                   key={item.id}
                   className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
@@ -621,7 +735,7 @@ export function LogisticsModule({
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span>{item.quantity} {item.unit}</span>
+                    <span>{formatInventoryUnitLabel(item, t)}</span>
                     <span>${item.purchasePriceCAD.toFixed(2)}</span>
                     {isTrackedAsset(item) && (
                       <span className="col-span-2">
@@ -636,7 +750,8 @@ export function LogisticsModule({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-slate-700 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-100 dark:border-slate-700">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                     {(!isTrackedAsset(item) || (item.toolStatus ?? "available") === "available") && (
                       <>
                         <button type="button" onClick={() => onOpenAdjust(item.id, "add")} className="flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 px-3 py-2.5 min-h-[44px] text-xs font-medium border border-emerald-200 dark:border-emerald-800/40">
@@ -658,8 +773,9 @@ export function LogisticsModule({
                         {(t as Record<string, string>).markAvailable ?? "Marcar disponible"}
                       </button>
                     )}
+                    </div>
                     {canEdit && (
-                      <>
+                      <div className="ml-auto flex shrink-0 items-center gap-0.5">
                         <button type="button" onClick={() => onEditInventory(item)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.edit}>
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -668,18 +784,20 @@ export function LogisticsModule({
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
-              ))}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {returnToast && (
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] rounded-xl bg-amber-600 text-white px-4 py-3 text-sm font-medium shadow-lg">
                   {returnToast}
                 </div>
-              )}
-              {filteredItems.length === 0 && (
-                <p className="text-center text-zinc-500 dark:text-zinc-400 text-sm py-4">No hay ítems en el inventario.</p>
               )}
             </div>
             {/* Tabla solo en desktop */}
@@ -698,8 +816,43 @@ export function LogisticsModule({
                   <th className="px-4 py-3 w-24 text-right">{t.edit ?? "Acciones"}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-slate-700">
-                {filteredItems.map((item) => (
+              {invSections.map((section) => {
+                const secItems = visibleInventoryItems.filter(section.match);
+                if (secItems.length === 0) return null;
+                return (
+                  <Fragment key={section.key}>
+                    <tbody>
+                      <tr className="bg-zinc-100/90 dark:bg-zinc-800/80">
+                        <td
+                          colSpan={invTableColSpan}
+                          className="border-b border-zinc-200 px-4 py-2 dark:border-slate-700"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setInventorySectionOpen((o) => ({
+                                ...o,
+                                [section.key]: !o[section.key],
+                              }))
+                            }
+                            className="flex w-full min-h-[44px] items-center justify-between gap-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-200"
+                          >
+                            <span>{section.label}</span>
+                            <span className="flex items-center gap-2 font-normal normal-case text-zinc-500 dark:text-zinc-400">
+                              ({secItems.length})
+                              <ChevronDown
+                                className={`h-4 w-4 shrink-0 transition-transform ${
+                                  inventorySectionOpen[section.key] ? "rotate-0" : "-rotate-90"
+                                }`}
+                              />
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                    {inventorySectionOpen[section.key] && (
+                      <tbody className="divide-y divide-zinc-200 dark:divide-slate-700">
+                        {secItems.map((item) => (
                   <tr key={item.id} className="bg-white dark:bg-slate-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -721,7 +874,7 @@ export function LogisticsModule({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{item.quantity}</td>
-                    <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{item.unit}</td>
+                    <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{formatInventoryUnitOnly(item, t)}</td>
                     <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">${item.purchasePriceCAD.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       {isTrackedAsset(item) ? (
@@ -806,12 +959,31 @@ export function LogisticsModule({
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                        ))}
+                      </tbody>
+                    )}
+                  </Fragment>
+                );
+              })}
             </table>
             </div>
+            {flatOrderedInventory.length > visibleInventoryItems.length && (
+              <div className="border-t border-zinc-200 dark:border-slate-700 px-4 py-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setInventoryListLimit((n) => n + INVENTORY_PAGE_SIZE)
+                  }
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-slate-800 py-3 text-sm font-medium text-zinc-800 dark:text-zinc-100 min-h-[44px] hover:bg-zinc-100 dark:hover:bg-slate-700"
+                >
+                  {(t as Record<string, string>).wh_load_more ?? "Load more"}
+                </button>
+              </div>
+            )}
             {filteredItems.length === 0 && (
-              <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">No hay ítems en el inventario.</p>
+              <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+                {(t as Record<string, string>).wh_inventory_empty ?? "No items in inventory."}
+              </p>
             )}
           </div>
           {/* Registro de movimientos */}
@@ -1387,7 +1559,7 @@ export function LogisticsModule({
                         {inv.map((i) => (
                           <li key={i.id} className="flex items-center gap-2">
                             {i.type === "tool" ? <Wrench className="h-4 w-4 text-zinc-400" /> : <Package className="h-4 w-4 text-zinc-400" />}
-                            {i.name} · {i.quantity} {i.unit}
+                            {i.name} · {formatInventoryUnitLabel(i, t)}
                           </li>
                         ))}
                       </ul>
@@ -1588,7 +1760,7 @@ export function LogisticsModule({
                       {supplierItems.map((i) => (
                         <li key={i.id} className="flex justify-between text-sm">
                           <span className="text-zinc-900 dark:text-zinc-100">{i.name}</span>
-                          <span className="text-zinc-500 dark:text-zinc-400">{i.quantity} {i.unit} · {i.purchasePriceCAD ?? 0} CAD</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">{formatInventoryUnitLabel(i, t)} · {i.purchasePriceCAD ?? 0} CAD</span>
                         </li>
                       ))}
                     </ul>

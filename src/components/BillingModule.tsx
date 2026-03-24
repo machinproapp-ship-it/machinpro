@@ -20,6 +20,8 @@ export interface BillingModuleProps {
   userRole: UserRole;
 }
 
+const TRIAL_TOTAL_DAYS = 14;
+
 function statusLabel(
   t: Record<string, string>,
   status: string | undefined
@@ -28,7 +30,7 @@ function statusLabel(
     case "active":
       return t.billing_status_active ?? "Active";
     case "trialing":
-      return t.billing_status_trialing ?? "Trialing";
+      return t.subscription_status_trialing ?? t.billing_status_trialing ?? "In trial";
     case "past_due":
       return t.billing_status_past_due ?? "Past due";
     case "canceled":
@@ -99,8 +101,11 @@ export function BillingModule({
   }, [companyId, t]);
 
   const trialProgress = useMemo(() => {
-    if (trialDaysLeft == null || trialDaysLeft <= 0) return 0;
-    return Math.min(100, Math.max(0, (trialDaysLeft / 14) * 100));
+    if (trialDaysLeft == null || trialDaysLeft <= 0) return 100;
+    return Math.min(
+      100,
+      Math.max(0, ((TRIAL_TOTAL_DAYS - trialDaysLeft) / TRIAL_TOTAL_DAYS) * 100)
+    );
   }, [trialDaysLeft]);
 
   const seatsLimit = subscription?.seats_limit ?? null;
@@ -231,7 +236,7 @@ export function BillingModule({
             <dd className="font-medium text-gray-900 dark:text-white mt-1">
               {subscription?.current_period_end
                 ? new Date(subscription.current_period_end).toLocaleDateString()
-                : "—"}
+                : (t.billing_no_payment_scheduled ?? "—")}
             </dd>
           </div>
         </dl>
@@ -251,7 +256,16 @@ export function BillingModule({
             </div>
             <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
               <div
-                className="h-full rounded-full bg-emerald-500"
+                className={`h-full rounded-full ${
+                  seatsLimit != null &&
+                  seatsLimit > 0 &&
+                  seatsLimit < 999000 &&
+                  employeesCount >= seatsLimit
+                    ? employeesCount > seatsLimit
+                      ? "bg-red-500"
+                      : "bg-orange-500"
+                    : "bg-emerald-500"
+                }`}
                 style={{ width: `${pct(employeesCount, seatsLimit)}%` }}
               />
             </div>

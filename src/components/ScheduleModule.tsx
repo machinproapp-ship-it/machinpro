@@ -229,6 +229,15 @@ function entryColor(entry: SchedEntry): string {
   return EVENT_COLORS[entry.eventLabel ?? "other"] ?? EVENT_COLORS.other;
 }
 
+function entryDotClass(entry: SchedEntry): string {
+  if (entry.type === "shift") return "bg-amber-500";
+  const k = entry.eventLabel ?? "other";
+  if (k === "meeting") return "bg-blue-500";
+  if (k === "vacation") return "bg-emerald-500";
+  if (k === "training") return "bg-purple-500";
+  return "bg-zinc-500";
+}
+
 // Parse "HH:mm" to decimal hours
 function timeToHours(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -733,32 +742,30 @@ export default function ScheduleModule({
 
       {scheduleSubTab === "calendar" && (
         <>
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2 mb-4 w-full">
             <button
               type="button"
               onClick={prevMonth}
-              className="rounded-lg border border-zinc-200 dark:border-slate-700 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]"
+              className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
             >
               ← {labels.previousMonth ?? "Anterior"}
             </button>
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white capitalize">
-                {monthName} {viewYear}
-              </h3>
-              <button
-                type="button"
-                onClick={goToToday}
-                className="text-xs px-2 py-1 rounded-lg border border-amber-300 dark:border-amber-600 text-amber-600 dark:text-amber-400 min-h-[44px]"
-              >
-                {labels.today ?? "Hoy"}
-              </button>
-            </div>
+            <h3 className="flex-1 min-w-0 text-center text-sm sm:text-lg font-semibold text-zinc-900 dark:text-white capitalize truncate">
+              {monthName} {viewYear}
+            </h3>
             <button
               type="button"
               onClick={nextMonth}
-              className="rounded-lg border border-zinc-200 dark:border-slate-700 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]"
+              className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
             >
               {labels.nextMonth ?? "Siguiente"} →
+            </button>
+            <button
+              type="button"
+              onClick={goToToday}
+              className="shrink-0 text-xs px-2.5 py-2 rounded-lg border border-amber-300 dark:border-amber-600 text-amber-600 dark:text-amber-400 min-h-[44px] font-medium"
+            >
+              {labels.today ?? "Hoy"}
             </button>
           </div>
 
@@ -778,8 +785,13 @@ export default function ScheduleModule({
                 const isToday = ymd === todayYmd;
                 const isSelected = selectedDay === ymd;
                 const dayEntries = entriesForDay(ymd);
-                const displayEntries = dayEntries.slice(0, 3);
-                const extraCount = dayEntries.length > 3 ? dayEntries.length - 3 : 0;
+                const useCompact = dayEntries.length > 1;
+                const displayEntries = useCompact ? dayEntries.slice(0, 1) : dayEntries.slice(0, 3);
+                const extraCount = useCompact
+                  ? Math.max(0, dayEntries.length - 1)
+                  : dayEntries.length > 3
+                    ? dayEntries.length - 3
+                    : 0;
                 return (
                   <div
                     key={ymd}
@@ -806,21 +818,36 @@ export default function ScheduleModule({
                       {day.getDate()}
                     </p>
                     <div className="flex flex-col gap-0.5 min-h-0 overflow-hidden">
-                      {displayEntries.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className={`rounded px-1 py-0.5 text-[10px] truncate ${entryColor(entry)}`}
-                          title={`${entry.startTime}–${entry.endTime} ${entry.projectCode ?? entry.eventLabel ?? ""}`}
-                        >
-                          {entry.type === "shift" && entry.projectCode && (
-                            <span className="font-mono text-xs">{entry.projectCode}</span>
-                          )}
-                          {entry.type !== "shift" && (entry.eventLabel ?? "—")}
-                          {entry.type === "shift" && !entry.projectCode && (entry.startTime + "–" + entry.endTime)}
+                      {useCompact ? (
+                        <div className="flex items-center gap-1 justify-center min-h-[1.25rem]">
+                          <span
+                            className={`h-2 w-2 rounded-full shrink-0 ${entryColor(dayEntries[0]).replace(/text-\S+/g, "").trim() || "bg-amber-500"}`}
+                            style={{ backgroundColor: "currentColor" }}
+                            aria-hidden
+                          />
+                          <span className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 tabular-nums">
+                            +{extraCount}
+                          </span>
                         </div>
-                      ))}
-                      {extraCount > 0 && (
-                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">+{extraCount}</span>
+                      ) : (
+                        <>
+                          {displayEntries.map((entry) => (
+                            <div
+                              key={entry.id}
+                              className={`rounded px-1 py-0.5 text-[10px] truncate ${entryColor(entry)}`}
+                              title={`${entry.startTime}–${entry.endTime} ${entry.projectCode ?? entry.eventLabel ?? ""}`}
+                            >
+                              {entry.type === "shift" && entry.projectCode && (
+                                <span className="font-mono text-xs">{entry.projectCode}</span>
+                              )}
+                              {entry.type !== "shift" && (entry.eventLabel ?? "—")}
+                              {entry.type === "shift" && !entry.projectCode && (entry.startTime + "–" + entry.endTime)}
+                            </div>
+                          ))}
+                          {extraCount > 0 && (
+                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">+{extraCount}</span>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -835,7 +862,7 @@ export default function ScheduleModule({
               { key: "meeting", label: "Reunión" },
               { key: "vacation", label: "Vacaciones" },
               { key: "training", label: "Formación" },
-              { key: "other", label: "Otro" },
+              { key: "other", label: (labels as Record<string, string>).common_other ?? "Other" },
             ].map(({ key, label }) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span className={`w-3 h-3 rounded border inline-block ${EVENT_COLORS[key]}`} />

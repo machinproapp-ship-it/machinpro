@@ -345,9 +345,9 @@ export function CentralDashboardLive({
           .from("audit_logs")
           .select("*")
           .eq("company_id", companyId)
-          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
           .order("created_at", { ascending: false })
-          .limit(50),
+          .limit(100),
         supabase
           .from("hazards")
           .select("*")
@@ -509,8 +509,20 @@ export function CentralDashboardLive({
       .slice(0, 3);
   }, [openHazards]);
 
+  const activityLast24h = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return activityRows.filter((r) => new Date(r.created_at).getTime() >= cutoff);
+  }, [activityRows]);
+
+  const activityPool = useMemo(() => {
+    if (activityLast24h.length > 0) return activityLast24h;
+    return activityRows;
+  }, [activityLast24h, activityRows]);
+
+  const activityPeriodIs24h = activityLast24h.length > 0;
+
   const filteredActivity = useMemo(() => {
-    const src = activityRows;
+    const src = activityPool;
     const filtered =
       activityFilter === "all"
         ? src
@@ -522,7 +534,7 @@ export function CentralDashboardLive({
             return false;
           });
     return filtered.slice(0, 10);
-  }, [activityRows, activityFilter]);
+  }, [activityPool, activityFilter]);
 
   const seatsLimit = subscription?.seats_limit;
   const projLimit = subscription?.projects_limit;
@@ -566,7 +578,7 @@ export function CentralDashboardLive({
         )}
       </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {loading ? (
           <>
             {[1, 2, 3, 4].map((i) => (
@@ -816,9 +828,16 @@ export function CentralDashboardLive({
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              {labels.dashboard_activity_title ?? "Recent activity"}
-            </h3>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                {labels.dashboard_activity_title ?? "Recent activity"}
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {activityPeriodIs24h
+                  ? (labels.dashboard_activity_period_24h ?? "Last 24 hours")
+                  : (labels.dashboard_activity_period_7d ?? "Last 7 days")}
+              </p>
+            </div>
             <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
               <span>{labels.dashboard_activity_filter ?? "Filter"}</span>
               <select
@@ -835,7 +854,9 @@ export function CentralDashboardLive({
           </div>
           <ul className="space-y-2 max-h-[320px] overflow-y-auto">
             {filteredActivity.length === 0 ? (
-              <li className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">—</li>
+              <li className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
+                {labels.dashboard_activity_empty ?? "No activity in this period."}
+              </li>
             ) : (
               filteredActivity.map((row) => (
                 <li
@@ -862,31 +883,39 @@ export function CentralDashboardLive({
               {labels.dashboard_widget_hazards ?? "Hazards"}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{labels.dashboard_severity_open ?? "By severity (open)"}</p>
-            <BarStack
-              segments={[
-                { key: "c", pct: sevBuckets.critical, className: "bg-red-600" },
-                { key: "h", pct: sevBuckets.high, className: "bg-orange-500" },
-                { key: "m", pct: sevBuckets.medium, className: "bg-amber-400" },
-                { key: "l", pct: sevBuckets.low, className: "bg-gray-400" },
-              ]}
-              height={10}
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-1">{labels.dashboard_status_all ?? "All statuses"}</p>
-            <BarStack segments={statusHazardParts} height={8} />
-            <ul className="mt-3 space-y-1">
-              {topCritical.map((h) => (
-                <li key={h.id}>
-                  <button
-                    type="button"
-                    onClick={() => onNavigateAppSection("hazards")}
-                    className="text-left w-full flex items-center gap-2 text-xs min-h-[44px] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 px-1"
-                  >
-                    <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
-                    <span className={`font-medium truncate ${severityTone(h.severity)}`}>{h.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {openHazards.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-3">
+                {labels.dashboard_hazards_empty ?? "No open hazards."}
+              </p>
+            ) : (
+              <>
+                <BarStack
+                  segments={[
+                    { key: "c", pct: sevBuckets.critical, className: "bg-red-600" },
+                    { key: "h", pct: sevBuckets.high, className: "bg-orange-500" },
+                    { key: "m", pct: sevBuckets.medium, className: "bg-amber-400" },
+                    { key: "l", pct: sevBuckets.low, className: "bg-gray-400" },
+                  ]}
+                  height={10}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-1">{labels.dashboard_status_all ?? "All statuses"}</p>
+                <BarStack segments={statusHazardParts} height={8} />
+                <ul className="mt-3 space-y-1">
+                  {topCritical.map((h) => (
+                    <li key={h.id}>
+                      <button
+                        type="button"
+                        onClick={() => onNavigateAppSection("hazards")}
+                        className="text-left w-full flex items-center gap-2 text-xs min-h-[44px] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 px-1"
+                      >
+                        <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+                        <span className={`font-medium truncate ${severityTone(h.severity)}`}>{h.title}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
 
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
@@ -923,17 +952,23 @@ export function CentralDashboardLive({
             {labels.dashboard_active_now ?? "Active now"}: <span className="tabular-nums text-emerald-600">{activeVisitors}</span>
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-2">{labels.dashboard_visits_7d ?? "Last 7 days"}</p>
-          <div className="flex items-end gap-1 h-24">
-            {visitsByDay.map((n, i) => (
-              <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1">
-                <div
-                  className="w-full rounded-t bg-emerald-500/80 dark:bg-emerald-600/80 min-h-[4px]"
-                  style={{ height: `${Math.max(8, (n / maxVis) * 100)}%` }}
-                />
-                <span className="text-[10px] text-gray-500 dark:text-gray-400">{i + 1}</span>
-              </div>
-            ))}
-          </div>
+          {activeVisitors === 0 && visitsByDay.every((n) => n === 0) ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 py-3">
+              {labels.dashboard_visitors_empty ?? "No visits in the last week."}
+            </p>
+          ) : (
+            <div className="flex items-end gap-1 h-24">
+              {visitsByDay.map((n, i) => (
+                <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1">
+                  <div
+                    className="w-full rounded-t bg-emerald-500/80 dark:bg-emerald-600/80 min-h-[4px]"
+                    style={{ height: `${Math.max(8, (n / maxVis) * 100)}%` }}
+                  />
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400">{i + 1}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
@@ -977,7 +1012,10 @@ export function CentralDashboardLive({
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
             <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 font-semibold text-amber-900 dark:text-amber-200">
-              {subscription?.plan ?? "—"} · {subscription?.status ?? "—"}
+              {subscription?.plan ?? "—"} ·{" "}
+              {subscription?.status === "trialing"
+                ? (labels.subscription_status_trialing ?? labels.billing_status_trialing ?? "trialing")
+                : (subscription?.status ?? "—")}
             </span>
           </p>
           {subscription?.status === "trialing" && trialDaysLeft != null && (

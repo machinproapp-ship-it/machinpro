@@ -40,7 +40,6 @@ const MOBILE_BAR_OVERFLOW_TAIL: MainSection[] = [
 /** Etiquetas muy cortas para la barra inferior (≤7 caracteres donde aplica). */
 const MOBILE_BAR_SHORT_LABEL: Partial<Record<MainSection, string>> = {
   office: "Central",
-  site: "Obras",
   visitors: "Visitas",
   hazards: "Riesgos",
   corrective_actions: "Acciones",
@@ -112,6 +111,7 @@ export function Sidebar({
   const visitorsLabel = labels.visitors ?? "Visitors";
   const hazardsLabel = labels.hazards ?? "Hazards";
   const actionsLabel = labels.actions ?? "Actions";
+  const operationsLabel = labels.nav_operations ?? labels.site ?? "Operations";
   const labelExtra = labels as unknown as Record<string, string>;
   const moreLabel = labelExtra.nav_more ?? "Más";
   const closeSheetLabel = labelExtra.cancel ?? "Cerrar";
@@ -141,7 +141,7 @@ export function Sidebar({
     () => [
       { id: "office", icon: Building2, label: labels.office ?? "Central", show: canAccessOffice },
       { id: "warehouse", icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
-      { id: "site", icon: HardHat, label: labels.site ?? "Operaciones", show: canAccessSite },
+      { id: "site", icon: HardHat, label: operationsLabel, show: canAccessSite },
       { id: "schedule", icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
       { id: "binders", icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
       { id: "rfi", icon: FileQuestion, label: rfiLabel, show: !!canAccessRfi },
@@ -160,6 +160,8 @@ export function Sidebar({
       labels.office,
       labels.warehouse,
       labels.site,
+      labels.nav_operations,
+      operationsLabel,
       labels.schedule,
       labels.binders,
       labels.settings,

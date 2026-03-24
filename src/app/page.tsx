@@ -1818,6 +1818,7 @@ export default function Home() {
     warehouse: t.warehouse,
     operations: (t as Record<string, string>).operations ?? "Operations",
     site: t.site,
+    nav_operations: (t as Record<string, string>).nav_operations ?? t.site,
     schedule: t.schedule,
     forms: (t as Record<string, string>).forms ?? "Formularios",
     binders: (t as Record<string, string>).binders ?? "Documentos",

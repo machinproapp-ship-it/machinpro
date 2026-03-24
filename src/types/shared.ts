@@ -68,6 +68,8 @@ export interface SidebarLabels {
   centralCore?: string;
   settingsGlobal?: string;
   rfi_menu?: string;
+  /** Bottom nav / sidebar label for Operations (site) */
+  nav_operations?: string;
 }
 
 /** Employee shape for CentralModule (compatible with page Employee). */

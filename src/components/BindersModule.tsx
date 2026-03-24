@@ -38,6 +38,18 @@ const FILE_TYPE_ICONS: Record<BinderDocument["fileType"], React.ComponentType<{ 
   other: File,
 };
 
+function defaultBinderTitle(binder: Binder, L: Record<string, string>): string {
+  const byCat: Record<string, string> = {
+    health_safety: "documents_folder_health_safety",
+    safety_data: "documents_folder_sds",
+    memos: "documents_folder_memos",
+    procedures: "documents_folder_procedures",
+    certificates: "documents_folder_certificates",
+  };
+  const k = byCat[binder.category];
+  return k ? (L[k] ?? binder.name) : binder.name;
+}
+
 export interface BindersModuleProps {
   binders: Binder[];
   documents: BinderDocument[];
@@ -176,7 +188,7 @@ export function BindersModule({
               <ArrowLeft className="h-5 w-5" />
             </button>
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex-1 truncate">
-              {selectedBinder.name}
+              {defaultBinderTitle(selectedBinder, labels as Record<string, string>)}
             </h2>
             {canManage && (
               <button

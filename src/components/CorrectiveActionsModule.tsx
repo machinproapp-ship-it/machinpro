@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, Plus, Search, X, ImagePlus, Star, ExternalLink } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { FilterGrid } from "@/components/FilterGrid";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
 import type { UserRole } from "@/types/shared";
@@ -580,8 +581,8 @@ export function CorrectiveActionsModule({
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row flex-wrap gap-3">
-        <label className="flex flex-col gap-1 text-sm flex-1 min-w-[140px]">
+      <FilterGrid>
+        <label className="flex flex-col gap-1 text-sm min-w-0">
           <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_project ?? "Project"}
           </span>
@@ -659,7 +660,7 @@ export function CorrectiveActionsModule({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm flex-1 min-w-[200px]">
+        <label className="col-span-2 flex flex-col gap-1 text-sm min-w-0 lg:col-span-4">
           <span className="text-gray-600 dark:text-gray-400">{t.hazards_search ?? "Search"}</span>
           <span className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -671,7 +672,7 @@ export function CorrectiveActionsModule({
             />
           </span>
         </label>
-      </div>
+      </FilterGrid>
 
       <div className="lg:hidden space-y-3">
         {loading ? (

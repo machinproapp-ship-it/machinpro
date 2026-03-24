@@ -62,9 +62,15 @@ export function RFIModule({
   projects,
 }: RFIModuleProps) {
   const l = (k: string, fb: string) => t[k] ?? fb;
+  const rfiCatLabel = (c: RfiCategory) =>
+    c === "other" ? l("common_other", "Other") : l(`rfi_cat_${c}`, c);
   const canEdit = userRole === "admin" || userRole === "supervisor";
 
   const [rows, setRows] = useState<Rfi[]>([]);
+  const [companyProfiles, setCompanyProfiles] = useState<{ id: string; full_name: string | null; email: string | null }[]>(
+    []
+  );
+  const [assigneeProfileId, setAssigneeProfileId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterProject, setFilterProject] = useState<string>("all");
@@ -102,6 +108,25 @@ export function RFIModule({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!supabase || !companyId) {
+      setCompanyProfiles([]);
+      return;
+    }
+    void supabase
+      .from("user_profiles")
+      .select("id,full_name,email")
+      .eq("company_id", companyId)
+      .order("full_name", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error(error);
+          return;
+        }
+        setCompanyProfiles((data ?? []) as { id: string; full_name: string | null; email: string | null }[]);
+      });
+  }, [companyId]);
 
   const nextNumber = useCallback(async (): Promise<string> => {
     if (!supabase || !companyId) return "RFI-001";
@@ -179,6 +204,7 @@ export function RFIModule({
     });
     setCreateOpen(false);
     setForm(emptyForm());
+    setAssigneeProfileId("");
     void load();
     setDetail(row);
   };
@@ -305,7 +331,7 @@ export function RFIModule({
             <option value="all">{l("rfi_filter_all", "All")}</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {l(`rfi_cat_${c}`, c)}
+                {rfiCatLabel(c)}
               </option>
             ))}
           </select>
@@ -404,8 +430,8 @@ export function RFIModule({
       </div>
 
       {createOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4 bg-black/50">
+          <div className="w-full max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4 sm:max-w-lg">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{l("rfi_new", "New")}</h3>
               <button
@@ -477,7 +503,7 @@ export function RFIModule({
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
-                      {l(`rfi_cat_${c}`, c)}
+                      {rfiCatLabel(c)}
                     </option>
                   ))}
                 </select>
@@ -499,11 +525,27 @@ export function RFIModule({
             </div>
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">{l("rfi_assigned", "")}</span>
-              <input
-                value={form.assigned_to_name}
-                onChange={(e) => setForm((f) => ({ ...f, assigned_to_name: e.target.value }))}
+              <select
+                value={assigneeProfileId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setAssigneeProfileId(id);
+                  const p = companyProfiles.find((x) => x.id === id);
+                  setForm((f) => ({
+                    ...f,
+                    assigned_to_name: p ? (p.full_name?.trim() || p.email?.split("@")[0] || "") : "",
+                    assigned_to_email: p?.email ?? "",
+                  }));
+                }}
                 className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 min-h-[44px] text-sm"
-              />
+              >
+                <option value="">{l("rfi_assignee_none", "—")}</option>
+                {companyProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name?.trim() || p.email || p.id}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">{l("rfi_assigned_email", "Email")}</span>

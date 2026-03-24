@@ -59,6 +59,17 @@ const COUNTRIES = [
   { code: "TR", flag: "🇹🇷", name: "Türkiye" },
 ];
 
+function complianceFieldDisplayName(field: ComplianceField, t: Record<string, string>): string {
+  const m: Record<string, string> = {
+    "cf-liability": "compliance_field_liability_insurance",
+    "cf-compliance": "compliance_field_provincial_compliance",
+    "cf-vehicle-inspection": "compliance_field_safety_inspection",
+    "cf-vehicle-insurance": "compliance_field_vehicle_insurance",
+  };
+  const key = m[field.id];
+  return key ? (t[key] ?? field.name) : field.name;
+}
+
 export interface SettingsModuleProps {
   labels: Record<string, string>;
   language: Language;
@@ -285,17 +296,27 @@ export function SettingsModule({
                 ).map(([key, checked, labelKey]) => (
                   <label
                     key={key}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer"
                   >
                     <span className="text-sm text-zinc-700 dark:text-zinc-300">
                       {(t as Record<string, string>)[labelKey] ?? labelKey}
                     </span>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 rounded border-zinc-400 accent-amber-600"
-                      checked={checked}
-                      onChange={(ev) => persistPushPref(key, ev.target.checked)}
-                    />
+                    <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={(ev) => persistPushPref(key, ev.target.checked)}
+                      />
+                      <span
+                        className={`relative h-7 w-12 rounded-full transition-colors ${checked ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
+                        aria-hidden
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[22px]" : ""}`}
+                        />
+                      </span>
+                    </span>
                   </label>
                 ))}
               </div>
@@ -328,7 +349,7 @@ export function SettingsModule({
                 >
                   {Object.entries(CURRENCY_META).map(([code, meta]) => (
                     <option key={code} value={code}>
-                      {meta.symbol} — {meta.label}
+                      {meta.symbol} — {code}
                     </option>
                   ))}
                 </select>
@@ -380,7 +401,9 @@ export function SettingsModule({
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{field.name}</span>
+                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {complianceFieldDisplayName(field, t as Record<string, string>)}
+                          </span>
                           {field.isDefault && (
                             <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full px-2 py-0.5">
                               {t.defaultField ?? "Por defecto"}
@@ -585,6 +608,19 @@ export function SettingsModule({
             </div>
           </div>
         </>
+      )}
+
+      {session && onSignOut && (
+        <div className="pt-6 border-t border-zinc-200 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
+          >
+            <LogOut className="h-4 w-4" />
+            {t.settings_sign_out ?? "Sign out"}
+          </button>
+        </div>
       )}
     </section>
   );

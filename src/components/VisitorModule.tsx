@@ -5,6 +5,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Download, QrCode, Search, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
+import { FilterGrid } from "@/components/FilterGrid";
 import type { Visitor, VisitorStatus } from "@/types/visitor";
 
 export interface VisitorModuleProps {
@@ -232,17 +233,17 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
         {t.visitors_active_now ?? "Active"}: <span className="tabular-nums">{activeNow}</span>
       </div>
 
-      <div className="flex flex-col lg:flex-row flex-wrap gap-3">
-        <label className="flex flex-col gap-1 text-sm min-w-[140px]">
+      <FilterGrid>
+        <label className="col-span-2 flex flex-col gap-1 text-sm min-w-0 lg:col-span-2">
           <span className="text-gray-600 dark:text-gray-400">{t.visitors_filter_date ?? "Date"}</span>
           <input
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
+            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm min-w-[160px] flex-1">
+        <label className="flex flex-col gap-1 text-sm min-w-0">
           <span className="text-gray-600 dark:text-gray-400">
             {t.visitors_filter_project ?? "Project"}
           </span>
@@ -273,7 +274,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
             <option value="checked_out">{t.visitors_status_out ?? "Out"}</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm flex-1 min-w-[200px]">
+        <label className="col-span-2 flex flex-col gap-1 text-sm min-w-0 lg:col-span-4">
           <span className="text-gray-600 dark:text-gray-400">{t.visitors_search ?? "Search"}</span>
           <span className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -285,7 +286,7 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
             />
           </span>
         </label>
-      </div>
+      </FilterGrid>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
