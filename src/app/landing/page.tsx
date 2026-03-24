@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Apple, ClipboardList, Clock, PlayCircle, ShieldCheck, Star, UserPlus } from "lucide-react";
-import { useAppLocale } from "@/hooks/useAppLocale";
+import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
+import type { Language } from "@/types/shared";
 import {
   applyAnnualDiscount,
   detectGeo,
@@ -137,7 +138,7 @@ function HeroDashboardMockup({ tx }: { tx: (k: string, fb: string) => string }) 
 type FeatureRow = { kind: "emoji" | "clock"; titleKey: string; descKey: string };
 
 export default function LandingPage() {
-  const { language, setLanguage, tx } = useAppLocale();
+  const { language, setLanguage, tx, LANGUAGES } = useLandingLocale();
 
   const [annual, setAnnual] = useState(false);
   const [dark, setDark] = useState(false);
@@ -153,6 +154,33 @@ export default function LandingPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const region = geoDetect?.region ?? "other";
+    const extra = tx(`landing_seo_extra_${region}`, "");
+    const title = tx("landing_meta_title", "");
+    const baseDesc = tx("landing_meta_description", "");
+    const desc = [baseDesc, extra].filter(Boolean).join(" ");
+    document.title = title;
+    document.documentElement.lang = htmlLangForLanguage(language);
+
+    const upsertMeta = (attr: "name" | "property", key: string, content: string) => {
+      let el = document.querySelector(`meta[${attr}="${key}"]`);
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    };
+    upsertMeta("name", "description", desc);
+    upsertMeta("property", "og:title", title);
+    upsertMeta("property", "og:description", desc);
+    upsertMeta("property", "og:type", "website");
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://machin.pro";
+    upsertMeta("property", "og:url", `${origin}/landing`);
+  }, [language, geoDetect, tx]);
 
   useEffect(() => {
     setDark(typeof document !== "undefined" && document.documentElement.classList.contains("dark"));
@@ -262,34 +290,22 @@ export default function LandingPage() {
             </button>
           </nav>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-lg border border-white/20 dark:border-slate-600 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setLanguage("es")}
-                className={`min-h-[44px] min-w-[44px] px-2 text-sm font-semibold ${
-                  language === "es"
-                    ? "bg-[#f97316] text-white"
-                    : navSolid
-                      ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-                      : "bg-white/10 text-white"
-                }`}
-              >
-                ES
-              </button>
-              <button
-                type="button"
-                onClick={() => setLanguage("en")}
-                className={`min-h-[44px] min-w-[44px] px-2 text-sm font-semibold ${
-                  language === "en"
-                    ? "bg-[#f97316] text-white"
-                    : navSolid
-                      ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-                      : "bg-white/10 text-white"
-                }`}
-              >
-                EN
-              </button>
-            </div>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className={`min-h-[44px] max-w-[11.5rem] rounded-lg border px-2 text-sm font-semibold sm:max-w-[14rem] ${
+                navSolid
+                  ? "border-slate-300 bg-white text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  : "border-white/30 bg-white/10 text-white"
+              }`}
+              aria-label={tx("landing_lang_select", "Language")}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.flag} {l.label}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={toggleDark}
@@ -469,6 +485,14 @@ export default function LandingPage() {
                         <span className="w-full text-slate-500 dark:text-slate-400 sm:w-auto sm:pl-1">
                           {tx("landing_price_suffix", "/mo")}
                         </span>
+                        {planPrices.usdEquivalent ? (
+                          <span className="w-full text-xs font-medium text-slate-500 dark:text-slate-400">
+                            {tx("landing_brl_usd_approx", "≈ {usd} USD / mo").replace(
+                              "{usd}",
+                              formatLandingPrice(planPrices.usdEquivalent[key], "USD", language)
+                            )}
+                          </span>
+                        ) : null}
                       </>
                     )}
                   </p>

@@ -23,7 +23,9 @@ function formatMoney(amount: number, currency: string): string {
         ? "en-GB"
         : currency === "MXN"
           ? "es-MX"
-          : "en-US";
+          : currency === "BRL"
+            ? "pt-BR"
+            : "en-US";
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,

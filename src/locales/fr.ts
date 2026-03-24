@@ -1162,29 +1162,84 @@ export default {
   legal_footer_privacy_link: "Confidentialité",
   legal_footer_terms_link: "Conditions",
 
-  legal_terms_p1:
-    "Les présentes Conditions d’utilisation régissent l’accès à MachinPro, logiciel cloud pour le BTP. En vous inscrivant ou en utilisant le service, vous les acceptez.",
-  legal_terms_p2:
-    "MachinPro s’adresse aux entreprises. Vous déclarez être habilité à engager votre société. Vous êtes responsable de l’exactitude des données et du respect des règles applicables sur vos chantiers.",
-  legal_terms_p3:
-    "Abonnements, essais et frais sont précisés à la commande. Des taxes peuvent s’appliquer. Les prix peuvent évoluer avec le préavis requis par la loi.",
-  legal_terms_p4:
-    "Les données personnelles sont traitées conformément à notre Politique de confidentialité. Vous nous accordez une licence limitée à l’hébergement et au traitement nécessaires au service.",
-  legal_terms_p5:
-    "Le service est fourni « en l’état » dans la limite permise par la loi. Notre responsabilité est plafonnée aux sommes payées sur les douze mois précédant la réclamation (ou 50 $ CAD si aucun paiement), sauf dispositions impératives.",
-  legal_terms_p6:
-    "Droit matériel : province d’Ontario (Canada), tribunaux de Toronto, sans préjudice des protections consommateurs en Amérique, en Europe ou au Royaume-Uni le cas échéant.",
+  legal_terms_h_identification: "1. Identification",
+  legal_terms_identification:
+    "MachinPro is a product of Canariense Inc., Ottawa, Ontario, Canada. Contact: machinpro.app@gmail.com. Website: https://machin.pro. By registering or using the service, you agree to these Terms. MachinPro is intended for businesses; you represent that you have authority to bind your company.",
+  legal_terms_h_liability: "2. Limitation de responsabilité",
+  legal_liability_disclaimer:
+    "MachinPro is a management and digital support tool. Use of this platform does NOT relieve your company of its legal responsibility for safety on the job site, compliance with local regulations (including OSHA, HSE, EU-OSHA, STPS Mexico, and other applicable frameworks), or the prevention of incidents. MachinPro does not guarantee the absence of accidents. To the fullest extent permitted by law, MachinPro’s (Canariense Inc.) maximum aggregate liability is limited to the amount of the monthly subscription fees you actually paid in the month in which the claim arose.",
+  legal_terms_h_signatures: "3. Signatures électroniques par région",
+  legal_digital_signature:
+    "Electronic signatures on MachinPro are designed to support compliance frameworks including: Canada — PIPEDA and applicable provincial Electronic Commerce Acts; United States — ESIGN Act and UETA (state law); United Kingdom — Electronic Communications Act 2000 and UK eIDAS/electronic signature regulations; European Union — Regulation (EU) No 910/2014 (eIDAS); Mexico — Ley de Firma Electrónica Avanzada. Each signature record is intended to include: device IP address, exact UTC timestamp, explicit acceptance of the applicable terms, and the version of the terms accepted.",
+  legal_terms_h_uk: "4. UK GDPR",
+  legal_uk_gdpr:
+    "For users in the United Kingdom, we comply with UK GDPR and the Data Protection Act 2018. The UK supervisory authority is the Information Commissioner’s Office (ICO): https://ico.org.uk. Canada is currently recognised for UK data transfer adequacy subject to UK government decisions; we apply appropriate safeguards where required.",
+  legal_terms_h_jurisdiction: "5. Juridiction",
+  legal_jurisdiction:
+    "These Terms are governed by the laws of the Province of Ontario, Canada, without prejudice to mandatory rights of consumers or users under the laws of the country where you are located.",
+  legal_terms_h_tax: "6. Taxes",
+  legal_tax_info:
+    "Prices are exclusive of tax unless stated otherwise. Applicable taxes may include: Canada — HST/GST/PST depending on province; European Union / United Kingdom — VAT (e.g. UK standard VAT 20% where applicable); Mexico — IVA 16% where applicable; United States — state and local sales/use tax depending on jurisdiction; South and Central America — local taxes as applicable. Stripe Tax may be used at checkout where enabled.",
+  legal_terms_h_cancel: "7. Résiliation",
+  legal_cancellation:
+    "You may cancel your subscription at any time via the billing flow or by contacting machinpro.app@gmail.com. Fees are generally non-refundable for partial billing periods unless required by law.",
 
-  legal_privacy_p1:
-    "Cette Politique décrit comment MachinPro traite les données lors de l’usage du site et du SaaS, y compris pour des clients en Amérique, en Europe et au Royaume-Uni.",
-  legal_privacy_p2:
-    "Nous collectons les données de compte, d’usage, techniques et le contenu que vous importez. Bases RGPD : contrat, intérêt légitime, consentement si nécessaire.",
-  legal_privacy_p3:
-    "Des sous-traitants (hébergement, e-mail) peuvent traiter des données en Amérique, au Royaume-Uni ou dans l’UE avec garanties appropriées (SCC, etc.).",
-  legal_privacy_p4:
-    "Conservation pendant la durée du compte et obligations légales. Droits d’accès, rectification, suppression : machinpro.app@gmail.com.",
-  legal_privacy_p5:
-    "Cookies pour l’authentification et les préférences. Marketing soumis à consentement lorsque requis.",
-  legal_privacy_p6:
-    "Contact : machinpro.app@gmail.com. Les utilisateurs UE/Royaume-Uni peuvent saisir l’autorité compétente.",
+  legal_privacy_h_intro: "Vue d’ensemble",
+  legal_privacy_intro:
+    "This Privacy Policy describes how Canariense Inc. (“we”, “us”) processes personal data for MachinPro (https://machin.pro). We operate in Canada, Europe, the United Kingdom, the United States, Mexico, and Latin America. Contact: machinpro.app@gmail.com.",
+  legal_privacy_h_gdpr: "RGPD (UE / EEE)",
+  legal_gdpr:
+    "If you are in the EU/EEA, the GDPR applies. Legal bases include contract, legitimate interests (security, service improvement), and consent where required. You have rights of access, rectification, erasure, restriction, portability, and objection, and the right to lodge a complaint with your supervisory authority. For GDPR requests, contact our data protection contact at machinpro.app@gmail.com.",
+  legal_privacy_h_uk: "UK GDPR",
+  legal_privacy_h_pipeda: "PIPEDA (Canada)",
+  legal_pipeda:
+    "For Canadian users, we comply with PIPEDA. Canariense Inc., Ottawa, Ontario, is responsible for personal information under our control. You may request access to or correction of your information by writing to machinpro.app@gmail.com.",
+  legal_privacy_h_mx: "LFPDPPP (Mexique)",
+  legal_lfpdppp:
+    "For users in Mexico, we respect the Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP). This privacy notice is available at https://machin.pro/legal/privacy. ARCO rights (access, rectification, cancellation, opposition) may be exercised by contacting machinpro.app@gmail.com.",
+  legal_privacy_h_ccpa: "CCPA / CPRA (Californie)",
+  legal_ccpa:
+    "California residents: we do not sell personal information as “sale” is defined under the CCPA/CPRA. You may request deletion or disclosure of certain personal information subject to exceptions; contact machinpro.app@gmail.com.",
+  legal_privacy_h_latam: "Amérique latine",
+  legal_latam_privacy:
+    "For other Latin American users, we apply privacy practices aligned with internationally recognised standards, including PIPEDA-inspired transparency and security measures, while respecting local law where applicable.",
+  legal_privacy_h_providers: "Sous-traitants et infrastructure",
+  legal_providers:
+    "We use trusted providers including: Supabase (hosting on AWS), Stripe (payments, PCI DSS Level 1), Cloudinary (media), Resend (email via AWS SES), Vercel (application hosting), and ipapi.co (approximate country detection from IP; we do not store IP lookups from ipapi beyond normal server logs unless needed for security). Sub-processors may change; material changes will be reflected in this policy.",
+
+  cookie_banner_text: "Cookies et confidentialité",
+  cookie_accept_all: "Tout accepter",
+  cookie_essential_only: "Essentiels uniquement",
+  cookie_view_policy: "Voir la politique",
+  cookie_gdpr_text:
+    "Nous respectons le RGPD de l’UE. Base juridique pour les cookies essentiels : exécution du contrat (art. 6(1)(b) RGPD).",
+  cookie_uk_gdpr_text:
+    "Nous respectons le UK GDPR (Data Protection Act 2018). Autorité : ICO (ico.org.uk).",
+  cookie_pipeda_text:
+    "Nous respectons la LPRPDE (Canada) et les lois étatiques américaines applicables.",
+  cookie_lfpdppp_text:
+    "Nous respectons la LFPDPPP du Mexique. Vos données sont protégées par le droit mexicain.",
+  cookie_ccpa_text:
+    "Californie : nous ne vendons pas vos données ; droits CCPA/CPRA selon les cas.",
+  cookie_latam_text:
+    "Vos données sont traitées avec des garanties alignées sur les standards canadiens (LPRPDE).",
+
+  register_tax_id: "Numéro fiscal (facultatif)",
+  register_tax_id_mx: "RFC (facultatif)",
+  register_tax_id_eu: "Numéro de TVA / CIF (facultatif)",
+  register_tax_id_ca: "Numéro d’entreprise (BN) (facultatif)",
+  register_tax_id_us: "EIN (facultatif)",
+  register_tax_id_latam: "Numéro fiscal local (facultatif)",
+
+  landing_meta_title: "MachinPro — Logiciel de gestion de chantier",
+  landing_meta_description:
+    "Digitalisez projets, sécurité, visiteurs, plans et facturation au même endroit.",
+  landing_seo_extra_northam: "Chantiers, équipes et sécurité alignée OSHA.",
+  landing_seo_extra_uk: "Construction sites, santé et sécurité, conformité type HSE.",
+  landing_seo_extra_eu: "Chantiers, équipes et sécurité alignée EU-OSHA.",
+  landing_seo_extra_latam_norte: "Obra, trabajadores y cumplimiento normativo local (p. ej. STPS).",
+  landing_seo_extra_latam_sur: "Obra, trabajadores y normativa local de SST.",
+  landing_seo_extra_other: "Opérations de construction, équipes et documentation sécurité.",
+  landing_lang_select: "Langue",
+  landing_brl_usd_approx: "≈ {usd} USD / mois",
 } as const;

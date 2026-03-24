@@ -5,13 +5,14 @@ import { LegalSimpleFooter } from "@/components/LegalSimpleFooter";
 import { LegalSimpleNav } from "@/components/LegalSimpleNav";
 import { useAppLocale } from "@/hooks/useAppLocale";
 
-const KEYS = [
-  "legal_terms_p1",
-  "legal_terms_p2",
-  "legal_terms_p3",
-  "legal_terms_p4",
-  "legal_terms_p5",
-  "legal_terms_p6",
+const SECTIONS = [
+  { titleKey: "legal_terms_h_identification", bodyKey: "legal_terms_identification" },
+  { titleKey: "legal_terms_h_liability", bodyKey: "legal_liability_disclaimer" },
+  { titleKey: "legal_terms_h_signatures", bodyKey: "legal_digital_signature" },
+  { titleKey: "legal_terms_h_uk", bodyKey: "legal_uk_gdpr" },
+  { titleKey: "legal_terms_h_jurisdiction", bodyKey: "legal_jurisdiction" },
+  { titleKey: "legal_terms_h_tax", bodyKey: "legal_tax_info" },
+  { titleKey: "legal_terms_h_cancel", bodyKey: "legal_cancellation" },
 ] as const;
 
 export default function LegalTermsPage() {
@@ -24,9 +25,14 @@ export default function LegalTermsPage() {
         <h1 className="text-3xl font-bold text-[#1a4f5e] dark:text-teal-400">
           {tx("legal_terms_title", "Terms of service")}
         </h1>
-        <div className="mt-8 space-y-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-          {KEYS.map((k) => (
-            <p key={k}>{tx(k, "")}</p>
+        <div className="mt-10 space-y-10">
+          {SECTIONS.map(({ titleKey, bodyKey }) => (
+            <section key={bodyKey}>
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{tx(titleKey, "")}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
+                {tx(bodyKey, "")}
+              </p>
+            </section>
           ))}
         </div>
         <p className="mt-10 text-sm">

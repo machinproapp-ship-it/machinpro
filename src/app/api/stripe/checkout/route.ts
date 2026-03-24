@@ -83,6 +83,10 @@ export async function POST(req: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${base}/billing?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/billing?canceled=1`,
+      automatic_tax: { enabled: true },
+      tax_id_collection: { enabled: true },
+      billing_address_collection: "required",
+      customer_update: { address: "auto", name: "auto" },
       subscription_data: {
         trial_period_days: 14,
         metadata: {

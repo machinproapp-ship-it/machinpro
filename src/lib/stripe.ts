@@ -58,6 +58,8 @@ export function getPriceForTier(
       return Math.round(adjustedCad * CAD_TO_GBP);
     case "MXN":
       return Math.round(adjustedCad * CAD_TO_MXN);
+    case "BRL":
+      return Math.round(adjustedCad * CAD_TO_USD * 5.5);
     default:
       return Math.round(adjustedCad);
   }

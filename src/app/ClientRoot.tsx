@@ -3,6 +3,7 @@
 import { AuthProvider } from "@/lib/AuthContext";
 import { ToastProvider } from "@/components/Toast";
 import { SplashScreenOverlay } from "@/components/SplashScreen";
+import { CookieConsent } from "@/components/CookieConsent";
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export function ClientRoot({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         <SplashScreenOverlay />
         {children}
+        <CookieConsent />
       </AuthProvider>
     </ToastProvider>
   );

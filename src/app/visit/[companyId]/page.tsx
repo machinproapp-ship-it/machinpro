@@ -12,6 +12,16 @@ import type { VisitorFormData } from "@/types/visitor";
 
 const PHOTO_MAX_BYTES = 400_000;
 
+async function fetchClientIp(): Promise<string | null> {
+  try {
+    const r = await fetch("https://api.ipify.org?format=json");
+    const j = (await r.json()) as { ip?: string };
+    return typeof j.ip === "string" ? j.ip : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function VisitorCheckInPage() {
   const params = useParams();
   const companyId = typeof params.companyId === "string" ? params.companyId : "";
@@ -204,6 +214,10 @@ export default function VisitorCheckInPage() {
     const project_name =
       projects.find((p) => p.id === form.project_id)?.name ?? (form.project_name || null);
 
+    const ip_address = await fetchClientIp();
+    const user_agent = typeof navigator !== "undefined" ? navigator.userAgent : null;
+    const consent_timestamp = new Date().toISOString();
+
     const { data, error } = await supabase
       .from("visitor_logs")
       .insert({
@@ -222,6 +236,10 @@ export default function VisitorCheckInPage() {
         signature_data,
         photo_url: form.photo_url || null,
         status: "checked_in",
+        ip_address,
+        user_agent,
+        terms_version: "v1.0",
+        consent_timestamp,
       })
       .select("id, visitor_name, check_in")
       .single();

@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     country?: string;
     phone?: string;
     termsAccepted?: boolean;
+    taxId?: string | null;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -67,6 +68,8 @@ export async function POST(req: NextRequest) {
   const country = typeof body.country === "string" ? body.country.trim().toUpperCase() : "";
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const termsAccepted = body.termsAccepted === true;
+  const taxIdRaw = typeof body.taxId === "string" ? body.taxId.trim().slice(0, 120) : "";
+  const taxIdNorm = taxIdRaw || null;
 
   if (!token || !email || !password || !companyName || !fullName || !country) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -139,6 +142,8 @@ export async function POST(req: NextRequest) {
       .insert({
         name: companyName,
         country: countryCfg.code,
+        country_code: country,
+        tax_id: taxIdNorm,
         language: lang,
         currency: countryCfg.currency,
         plan: companyPlanColumn(inv.plan),

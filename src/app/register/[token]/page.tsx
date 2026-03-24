@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { COUNTRY_CONFIG } from "@/lib/countryConfig";
+import { registerTaxLabelKey } from "@/lib/registerTaxField";
 import { ALL_TRANSLATIONS, loadLocale, isLazyLocale, type Language } from "@/lib/i18n";
 import type { InvitationPlan } from "@/types/invitation";
 
@@ -107,6 +108,7 @@ export default function RegisterInvitationPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [country, setCountry] = useState("CA");
   const [phone, setPhone] = useState("");
+  const [taxId, setTaxId] = useState("");
   const [terms, setTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -181,6 +183,7 @@ export default function RegisterInvitationPage() {
           fullName,
           country,
           phone,
+          taxId: taxId.trim() || null,
           termsAccepted: terms,
         }),
       });
@@ -250,7 +253,7 @@ export default function RegisterInvitationPage() {
           <div className="space-y-4 text-center">
             <p className="text-sm text-red-600 dark:text-red-400">{invalidMessage}</p>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              <a href="mailto:support@machin.pro" className="font-medium text-amber-700 dark:text-amber-400 underline">
+              <a href="mailto:machinpro.app@gmail.com" className="font-medium text-amber-700 dark:text-amber-400 underline">
                 {l("register_contact_support", "Contact support")}
               </a>
             </p>
@@ -356,6 +359,18 @@ export default function RegisterInvitationPage() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                 autoComplete="tel"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                {l(registerTaxLabelKey(country), l("register_tax_id", "Tax ID (optional)"))}
+              </label>
+              <input
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                autoComplete="off"
               />
             </div>
 
