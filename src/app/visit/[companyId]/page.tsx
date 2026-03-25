@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useVisitorPublicT } from "@/lib/visitorPublicLocale";
@@ -24,6 +24,7 @@ async function fetchClientIp(): Promise<string | null> {
 
 export default function VisitorCheckInPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const companyId = typeof params.companyId === "string" ? params.companyId : "";
   const t = useVisitorPublicT();
 
@@ -109,6 +110,16 @@ export default function VisitorCheckInPage() {
       cancelled = true;
     };
   }, [companyId]);
+
+  useEffect(() => {
+    const pid = searchParams.get("project");
+    if (!pid || projects.length === 0) return;
+    const p = projects.find((x) => x.id === pid);
+    if (!p) return;
+    setForm((prev) =>
+      prev.project_id === pid ? prev : { ...prev, project_id: p.id, project_name: p.name }
+    );
+  }, [searchParams, projects]);
 
   const initCanvas = useCallback(() => {
     const c = canvasRef.current;

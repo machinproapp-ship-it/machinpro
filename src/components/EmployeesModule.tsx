@@ -15,6 +15,7 @@ import {
   FileText,
   Pencil,
   X,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
@@ -27,6 +28,10 @@ export interface EmployeesModuleProps {
   customRoles: CustomRole[];
   projects: { id: string; name: string; archived?: boolean }[];
   canManageEmployees: boolean;
+  /** admin o permiso canManageEmployees — botón invitar / nuevo */
+  showNewEmployeeButton?: boolean;
+  /** Perfil Supabase: permite cambiar propia foto */
+  currentUserProfileId?: string | null;
   cloudinaryCloudName?: string;
   cloudinaryUploadPreset?: string;
   /** user_profiles.id → legacy employees.id (compliance targetId) */
@@ -192,6 +197,8 @@ export function EmployeesModule({
   customRoles,
   projects,
   canManageEmployees,
+  showNewEmployeeButton = false,
+  currentUserProfileId = null,
   cloudinaryCloudName = "",
   cloudinaryUploadPreset = "",
   userProfileToEmployeeId = {},
@@ -370,8 +377,19 @@ export function EmployeesModule({
   };
 
   const saveProfile = async () => {
-    if (!supabase || !selected || !canManageEmployees) return;
+    if (!supabase || !selected) return;
+    const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
+    if (!canManageEmployees && !isSelf) return;
     setSaving(true);
+    if (isSelf && !canManageEmployees) {
+      const { error } = await supabase
+        .from("user_profiles")
+        .update({ avatar_url: draft.avatar_url ?? selected.avatar_url ?? null })
+        .eq("id", selected.id);
+      setSaving(false);
+      if (!error) void load();
+      return;
+    }
     const inherit = draft.use_role_permissions !== false;
     const payload = {
       full_name: draft.full_name ?? selected.full_name,
@@ -457,6 +475,16 @@ export function EmployeesModule({
     void loadAssignments();
   };
 
+  const confirmDeleteMsg = (t as Record<string, string>).common_confirm_delete ?? "";
+
+  const deactivateProfile = async (id: string) => {
+    if (!supabase || !canManageEmployees) return;
+    if (typeof window !== "undefined" && !window.confirm(confirmDeleteMsg)) return;
+    await supabase.from("user_profiles").update({ profile_status: "inactive" }).eq("id", id);
+    if (selectedId === id) setSelectedId(null);
+    void load();
+  };
+
   const openInviteMailto = () => {
     const subj = encodeURIComponent((t as Record<string, string>).employees_invite ?? "");
     const body = encodeURIComponent(inviteEmail.trim());
@@ -487,7 +515,7 @@ export function EmployeesModule({
           className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
         >
           <ChevronLeft className="h-4 w-4" />
-          {t.cancel ?? ""}
+          {tl.nav_back ?? tl.back ?? t.cancel ?? ""}
         </button>
 
         <div className="flex flex-wrap items-center gap-4">
@@ -506,7 +534,7 @@ export function EmployeesModule({
             <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{name}</h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">{roleLabel(selected)}</p>
           </div>
-          {canManageEmployees && (
+          {(canManageEmployees || selected.id === currentUserProfileId) && (
             <label className="ml-auto cursor-pointer min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm">
               <Camera className="h-4 w-4" />
               <input
@@ -842,7 +870,10 @@ export function EmployeesModule({
               <option value="invited">{tl.employees_status_invited ?? ""}</option>
             </select>
           </div>
-          {canManageEmployees && (
+          {(canManageEmployees ||
+            (currentUserProfileId != null &&
+              selected.id === currentUserProfileId &&
+              (draft.avatar_url ?? "") !== (selected.avatar_url ?? ""))) && (
             <button
               type="button"
               onClick={() => void saveProfile()}
@@ -990,6 +1021,19 @@ export function EmployeesModule({
           <Users className="h-5 w-5" />
           {t.employees_title ?? ""}
         </h2>
+        {showNewEmployeeButton && (
+          <button
+            type="button"
+            onClick={() => {
+              setInviteEmail("");
+              setInviteOpen(true);
+            }}
+            className="min-h-[44px] inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
+          >
+            <UserPlus className="h-4 w-4" />
+            {tl.employees_new ?? ""}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -1035,11 +1079,11 @@ export function EmployeesModule({
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-slate-700 rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
           {filtered.map((r) => (
-            <li key={r.id}>
+            <li key={r.id} className="flex items-stretch">
               <button
                 type="button"
                 onClick={() => setSelectedId(r.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800 min-h-[56px]"
+                className="min-w-0 flex flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800 min-h-[56px]"
               >
                 <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-sm font-medium shrink-0">
                   {r.avatar_url ? (
@@ -1058,12 +1102,65 @@ export function EmployeesModule({
                   {r.profile_status ?? "active"}
                 </span>
               </button>
+              {canManageEmployees && (
+                <div className="flex shrink-0 items-center gap-0.5 border-l border-zinc-200 dark:border-slate-700 px-1">
+                  <button
+                    type="button"
+                    aria-label={tl.common_edit ?? "Edit"}
+                    onClick={() => setSelectedId(r.id)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={tl.common_delete ?? "Delete"}
+                    onClick={() => void deactivateProfile(r.id)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
       )}
       {!loading && filtered.length === 0 && (
         <p className="text-sm text-zinc-500 text-center py-8">{tl.employees_empty ?? ""}</p>
+      )}
+
+      {inviteOpen && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => setInviteOpen(false)} />
+          <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md rounded-xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+            <p className="text-sm font-medium">{t.employees_invite ?? ""}</p>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 min-h-[44px]"
+              placeholder={t.email ?? ""}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                className="min-h-[44px] px-4 rounded-lg border"
+                onClick={() => setInviteOpen(false)}
+              >
+                {t.cancel ?? ""}
+              </button>
+              <button
+                type="button"
+                disabled={!inviteEmail.includes("@")}
+                className="min-h-[44px] px-4 rounded-lg bg-amber-600 text-white disabled:opacity-50"
+                onClick={() => openInviteMailto()}
+              >
+                {tl.employees_invite_send ?? ""}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </section>
   );

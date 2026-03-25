@@ -35,7 +35,6 @@ import ScheduleModule from "@/components/ScheduleModule";
 import { FormsModule } from "@/components/FormsModule";
 import { BindersModule } from "@/components/BindersModule";
 import { BillingModule } from "@/components/BillingModule";
-import { VisitorModule } from "@/components/VisitorModule";
 import {
   CorrectiveActionsModule,
   type CorrectiveActionsPrefill,
@@ -970,6 +969,7 @@ export default function Home() {
   const [dashHazardCreateSig, setDashHazardCreateSig] = useState(0);
   const [dashActionCreateSig, setDashActionCreateSig] = useState(0);
   const [dashVisitorQrSig, setDashVisitorQrSig] = useState(0);
+  const [dashVisitorTabSig, setDashVisitorTabSig] = useState(0);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>(INITIAL_CUSTOM_ROLES);
@@ -1783,6 +1783,24 @@ export default function Home() {
       )
     : projects ?? [];
 
+  const navigateToSiteVisitorsTab = useCallback(
+    (opts?: { openQr?: boolean }) => {
+      if (!perms.site) return;
+      const vp = visibleProjects ?? [];
+      const first = vp.find((p) => !p.archived)?.id ?? vp[0]?.id ?? null;
+      if (first) setSiteSelectedProjectId(first);
+      setActiveSection("site");
+      if (opts?.openQr) setDashVisitorQrSig((n) => n + 1);
+      else setDashVisitorTabSig((n) => n + 1);
+    },
+    [perms.site, visibleProjects]
+  );
+
+  useEffect(() => {
+    if (activeSection !== "visitors") return;
+    navigateToSiteVisitorsTab({ openQr: false });
+  }, [activeSection, navigateToSiteVisitorsTab]);
+
   const handleClockIn = useCallback(() => {
     const code = clockInProjectCode.trim().toUpperCase();
     const matchedProject = code
@@ -2500,7 +2518,6 @@ export default function Home() {
           canAccessForms={perms.forms ?? false}
           canAccessBinders={perms.canViewBinders ?? false}
           canAccessBilling={effectiveRole === "admin"}
-          canAccessVisitors={effectiveRole === "admin" || effectiveRole === "supervisor"}
           canAccessHazards={
             effectiveRole === "admin" ||
             effectiveRole === "supervisor" ||
@@ -2862,7 +2879,8 @@ export default function Home() {
                   setEditInventoryDraft({ name: item.name, type: item.type, quantity: item.quantity, unit: item.unit, purchasePriceCAD: item.purchasePriceCAD, assignedToProjectId: item.assignedToProjectId, assignedToEmployeeId: item.assignedToEmployeeId });
                 }}
                 onDeleteInventory={(id) => {
-                  if (typeof window !== "undefined" && window.confirm("¿Eliminar este ítem?")) {
+                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
+                  if (typeof window !== "undefined" && window.confirm(msg)) {
                     setInventoryItems((prev) => {
                       const next = prev.filter((i) => i.id !== id);
                       try { localStorage.setItem("machinpro_inventory", JSON.stringify(next)); } catch {}
@@ -2872,13 +2890,25 @@ export default function Home() {
                 }}
                 onAddFleet={() => { setVehicleFormOpen(true); setEditingVehicleId(null); setVehicleDraft({}); }}
                 onEditFleet={(v) => { setEditingVehicleId(v.id); setVehicleDraft({ ...v }); setVehicleFormOpen(true); }}
-                onDeleteFleet={(id) => { if (typeof window !== "undefined" && window.confirm("¿Eliminar vehículo?")) setVehicles((prev) => prev.filter((v) => v.id !== id)); }}
+                onDeleteFleet={(id) => {
+                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
+                  if (typeof window !== "undefined" && window.confirm(msg))
+                    setVehicles((prev) => prev.filter((v) => v.id !== id));
+                }}
                 onAddRental={() => { setRentalFormOpen(true); setEditingRentalId(null); setRentalDraft({}); }}
                 onEditRental={(r) => { setEditingRentalId(r.id); setRentalDraft({ ...r }); setRentalFormOpen(true); }}
-                onDeleteRental={(id) => { if (typeof window !== "undefined" && window.confirm("¿Eliminar alquiler?")) setRentals((prev) => prev.filter((r) => r.id !== id)); }}
+                onDeleteRental={(id) => {
+                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
+                  if (typeof window !== "undefined" && window.confirm(msg))
+                    setRentals((prev) => prev.filter((r) => r.id !== id));
+                }}
                 onAddSupplier={() => { setSupplierFormOpen(true); setEditingSupplierId(null); setSupplierDraft({}); }}
                 onEditSupplier={(s) => { setEditingSupplierId(s.id); setSupplierDraft({ ...s }); setSupplierFormOpen(true); }}
-                onDeleteSupplier={(id) => { if (typeof window !== "undefined" && window.confirm("¿Eliminar proveedor?")) setSuppliers((prev) => prev.filter((s) => s.id !== id)); }}
+                onDeleteSupplier={(id) => {
+                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
+                  if (typeof window !== "undefined" && window.confirm(msg))
+                    setSuppliers((prev) => prev.filter((s) => s.id !== id));
+                }}
                 canEdit={rolePerms.canEditLogistics}
                 onUpdateItemStatus={(id, status) => {
                   setInventoryItems((prev) => {
@@ -2939,7 +2969,11 @@ export default function Home() {
                 labels={t as Record<string, string>}
                 customRoles={customRoles}
                 projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
-                canManageEmployees={rolePerms.canManageEmployees}
+                canManageEmployees={!!rolePerms.canManageEmployees}
+                showNewEmployeeButton={
+                  effectiveRole === "admin" || !!rolePerms.canManageEmployees
+                }
+                currentUserProfileId={profile?.id ?? null}
                 cloudinaryCloudName={
                   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
                 }
@@ -3156,6 +3190,11 @@ export default function Home() {
                 }}
                 canViewAttendancePanel={!!rolePerms.canViewAttendance}
                 canUseProjectTimeclock={!!rolePerms.canViewTimeclock}
+                visitorOpenQrSignal={dashVisitorQrSig}
+                visitorTabSignal={dashVisitorTabSig}
+                showProjectVisitorsTab={
+                  effectiveRole === "admin" || effectiveRole === "supervisor"
+                }
                 onCreateForm={(projectId, form) => {
                   const newForm = {
                     ...form,
@@ -3344,17 +3383,6 @@ export default function Home() {
                 labels={t as Record<string, string>}
               />
             )}
-
-            {activeSection === "visitors" &&
-              (effectiveRole === "admin" || effectiveRole === "supervisor") && (
-                <VisitorModule
-                  t={t as Record<string, string>}
-                  companyId={companyId}
-                  companyName={profile?.companyName ?? companyName}
-                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
-                  openQrSignal={dashVisitorQrSig}
-                />
-              )}
 
             {activeSection === "hazards" &&
               (effectiveRole === "admin" ||

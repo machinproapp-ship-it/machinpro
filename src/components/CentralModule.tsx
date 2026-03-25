@@ -213,6 +213,8 @@ interface CentralModuleProps {
   onQuickNewHazard?: () => void;
   onQuickNewAction?: () => void;
   onQuickVisitorQr?: () => void;
+  /** Solo pestaña Visitantes en Operaciones (sin forzar modal QR). */
+  onNavigateToOperationsVisitors?: () => void;
   visitorCheckInUrl?: string | null;
   canAccessVisitors?: boolean;
   canAccessHazards?: boolean;
@@ -343,6 +345,7 @@ export function CentralModule({
   onQuickNewHazard,
   onQuickNewAction,
   onQuickVisitorQr,
+  onNavigateToOperationsVisitors,
   visitorCheckInUrl = null,
   canAccessVisitors = false,
   canAccessHazards = false,
@@ -787,6 +790,7 @@ export function CentralModule({
                 onQuickNewHazard={onQuickNewHazard ?? (() => undefined)}
                 onQuickNewAction={onQuickNewAction ?? (() => undefined)}
                 onQuickVisitorQr={onQuickVisitorQr ?? (() => undefined)}
+                onNavigateToOperationsVisitors={onNavigateToOperationsVisitors}
                 visitorCheckInUrl={visitorCheckInUrl}
                 canAccessEmployees={canAccessEmployees}
               />

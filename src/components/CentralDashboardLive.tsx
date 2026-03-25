@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
-  HardHat,
   UserCheck,
   AlertTriangle,
   ClipboardCheck,
@@ -248,6 +247,8 @@ export interface CentralDashboardLiveProps {
   onQuickNewHazard: () => void;
   onQuickNewAction: () => void;
   onQuickVisitorQr: () => void;
+  /** Abre Operaciones en un proyecto y la pestaña Visitantes (sustituye la sección Visitantes del sidebar). */
+  onNavigateToOperationsVisitors?: () => void;
   /** For workers: public check-in page */
   visitorCheckInUrl: string | null;
   /** When true, KPI "Employees" opens the employees module */
@@ -278,6 +279,7 @@ export function CentralDashboardLive({
   onQuickNewHazard,
   onQuickNewAction,
   onQuickVisitorQr,
+  onNavigateToOperationsVisitors,
   visitorCheckInUrl,
   canAccessEmployees = false,
   canAccessSubcontractors = false,
@@ -686,7 +688,7 @@ export function CentralDashboardLive({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {loading ? (
           <>
-            {Array.from({ length: canManageRoles ? 7 : 5 }, (_, i) => (
+            {Array.from({ length: canManageRoles ? 4 : 2 }, (_, i) => (
               <div
                 key={i}
                 className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 min-h-[88px] animate-pulse"
@@ -728,38 +730,6 @@ export function CentralDashboardLive({
               }
               value={subcontractorsCount}
               onClick={() => onNavigateAppSection(canAccessSubcontractors ? "subcontractors" : "office")}
-            />
-            <UnifiedDashCard
-              icon={<HardHat className="h-5 w-5 text-amber-500" aria-hidden />}
-              iconWrapClassName="bg-amber-500/10"
-              label={labels.projects ?? ""}
-              value={activeProjectsCount}
-              subContent={
-                (labels.dashboard_kpi_projects_hint ?? "").trim() ? (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{labels.dashboard_kpi_projects_hint}</p>
-                ) : undefined
-              }
-              onClick={() => onNavigateAppSection("site")}
-            />
-            <UnifiedDashCard
-              icon={<UserCheck className="h-5 w-5 text-emerald-500" aria-hidden />}
-              iconWrapClassName="bg-emerald-500/10"
-              label={labels.dashboard_visitors_today ?? ""}
-              value={visToday}
-              subContent={<TrendBadge current={visToday} previous={visYesterday} labels={labels} />}
-              onClick={() => onNavigateAppSection("visitors")}
-            />
-            <UnifiedDashCard
-              icon={<AlertTriangle className="h-5 w-5 text-red-500" aria-hidden />}
-              iconWrapClassName="bg-red-500/10"
-              label={labels.dashboard_hazards_open ?? ""}
-              value={hazardsOpen}
-              subContent={
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {(labels.dashboard_critical_open ?? "{n} critical").replace("{n}", String(openCriticalCount))}
-                </p>
-              }
-              onClick={() => onNavigateAppSection("hazards")}
             />
             {canManageRoles ? (
               <>
@@ -830,8 +800,9 @@ export function CentralDashboardLive({
               <button
                 type="button"
                 onClick={() => {
-                  if (canAccessVisitors) onQuickVisitorQr();
-                  else if (visitorCheckInUrl) window.open(visitorCheckInUrl, "_blank", "noopener,noreferrer");
+                  if (canAccessVisitors) {
+                    onQuickVisitorQr();
+                  } else if (visitorCheckInUrl) window.open(visitorCheckInUrl, "_blank", "noopener,noreferrer");
                 }}
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
@@ -921,7 +892,9 @@ export function CentralDashboardLive({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onNavigateAppSection("visitors")}
+                  onClick={() =>
+                    onNavigateToOperationsVisitors ? onNavigateToOperationsVisitors() : onNavigateAppSection("site")
+                  }
                   className="min-h-[44px] px-3 rounded-lg border border-violet-300 dark:border-violet-800 text-sm font-semibold text-violet-800 dark:text-violet-200"
                 >
                   {labels.viewAll ?? "View"}

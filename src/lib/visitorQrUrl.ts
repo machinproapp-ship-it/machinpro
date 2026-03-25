@@ -5,12 +5,21 @@ export function getVisitorQrBaseUrl(): string {
   return "https://machinpro-iota.vercel.app";
 }
 
-export function buildVisitorCheckInUrl(companyId: string): string {
+export function buildVisitorCheckInUrl(companyId: string, projectId?: string | null): string {
+  let path: string;
   if (typeof window !== "undefined") {
     const { hostname, origin } = window.location;
     if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return `${origin}/visit/${companyId}`;
+      path = `${origin}/visit/${companyId}`;
+    } else {
+      path = `${getVisitorQrBaseUrl()}/visit/${companyId}`;
     }
+  } else {
+    path = `${getVisitorQrBaseUrl()}/visit/${companyId}`;
   }
-  return `${getVisitorQrBaseUrl()}/visit/${companyId}`;
+  if (projectId) {
+    const sep = path.includes("?") ? "&" : "?";
+    path = `${path}${sep}project=${encodeURIComponent(projectId)}`;
+  }
+  return path;
 }

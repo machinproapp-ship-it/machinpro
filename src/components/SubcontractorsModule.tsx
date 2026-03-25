@@ -14,6 +14,8 @@ import {
   Star,
   X,
   UserPlus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole } from "@/types/roles";
@@ -369,6 +371,19 @@ export function SubcontractorsModule({
     void load();
   };
 
+  const deleteSubcontractor = async (id: string) => {
+    const lx = t as Record<string, string>;
+    if (!supabase || !canManage) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(lx.common_confirm_delete ?? lx.confirmDeleteSubcontractor ?? "")
+    )
+      return;
+    await supabase.from("subcontractors").delete().eq("id", id);
+    if (selectedId === id) setSelectedId(null);
+    void load();
+  };
+
   const defaultInviteRoles = useMemo(() => {
     if (inviteRoleOptions?.length) return inviteRoleOptions;
     const fromCustom = customRoles.slice(0, 6).map((r) => ({ id: r.id, label: r.name }));
@@ -399,7 +414,7 @@ export function SubcontractorsModule({
           className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm"
         >
           <ChevronLeft className="h-4 w-4" />
-          {t.cancel ?? ""}
+          {tl.nav_back ?? t.cancel ?? ""}
         </button>
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{selected.name}</h2>
         <p className="text-sm text-zinc-500">
@@ -742,22 +757,46 @@ export function SubcontractorsModule({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filtered.map((s) => (
-            <button
+            <div
               key={s.id}
-              type="button"
-              onClick={() => setSelectedId(s.id)}
-              className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 text-left hover:border-amber-400/60 min-h-[44px]"
+              className="flex flex-col rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden hover:border-amber-400/60"
             >
-              <p className="font-semibold text-zinc-900 dark:text-white">{s.name}</p>
-              <p className="text-xs text-zinc-500">{s.company_name ?? "—"}</p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{s.trade ?? "—"}</p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5">{s.status}</span>
-                <span className="text-zinc-500">
-                  {tl.subcontractors_project_count ?? ""}: {projCounts[s.id] ?? 0}
-                </span>
-              </div>
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectedId(s.id)}
+                className="flex-1 p-4 text-left min-h-[44px]"
+              >
+                <p className="font-semibold text-zinc-900 dark:text-white">{s.name}</p>
+                <p className="text-xs text-zinc-500">{s.company_name ?? "—"}</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{s.trade ?? "—"}</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5">{s.status}</span>
+                  <span className="text-zinc-500">
+                    {tl.subcontractors_project_count ?? ""}: {projCounts[s.id] ?? 0}
+                  </span>
+                </div>
+              </button>
+              {canManage && (
+                <div className="flex justify-end gap-0.5 border-t border-zinc-200 dark:border-slate-700 px-2 py-2">
+                  <button
+                    type="button"
+                    aria-label={tl.common_edit ?? ""}
+                    onClick={() => setSelectedId(s.id)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={tl.common_delete ?? ""}
+                    onClick={() => void deleteSubcontractor(s.id)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -776,11 +815,20 @@ export function SubcontractorsModule({
             className="fixed z-[71] inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:inset-auto sm:left-1/2 sm:top-8 sm:-translate-x-1/2 sm:w-full sm:max-w-xl sm:rounded-xl shadow-xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+            <button
+              type="button"
+              className="mb-3 inline-flex min-h-[44px] items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300"
+              onClick={() => !savingModal && setModalOpen(false)}
+              disabled={savingModal}
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.nav_back ?? t.cancel ?? ""}
+            </button>
+            <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold">{tl.subcontractors_modal_title ?? ""}</h3>
               <button
                 type="button"
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
                 onClick={() => setModalOpen(false)}
                 disabled={savingModal}
               >

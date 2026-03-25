@@ -7,6 +7,7 @@ import {
   PackagePlus,
   MapPin,
   Users,
+  UserCheck,
   Image as ImageIcon,
   Info,
   Camera,
@@ -54,6 +55,7 @@ import type { ProjectTask, TaskPriority } from "@/types/projectTask";
 import { getTemplatesForCountry } from "@/lib/safetyChecklistTemplates";
 import { generateSafetyChecklistPdf } from "@/lib/generateSafetyChecklistReport";
 import { DailyFieldReportView } from "@/components/DailyFieldReportView";
+import { VisitorModule } from "@/components/VisitorModule";
 
 export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 
@@ -205,6 +207,11 @@ export interface ProjectsModuleProps {
   /** Sprint AV: GPS timeclock + attendance */
   canViewAttendancePanel?: boolean;
   canUseProjectTimeclock?: boolean;
+  /** Desde Central: abrir pestaña Visitantes + modal QR */
+  visitorOpenQrSignal?: number;
+  /** Solo cambiar a la pestaña (p. ej. alerta visita larga), sin abrir modal QR */
+  visitorTabSignal?: number;
+  showProjectVisitorsTab?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -349,7 +356,8 @@ type TabId =
   | "inventario"
   | "galeria"
   | "blueprints"
-  | "formularios";
+  | "formularios"
+  | "visitantes";
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "general", icon: <Info className="h-4 w-4" /> },
@@ -358,6 +366,7 @@ const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "galeria", icon: <ImageIcon className="h-4 w-4" /> },
   { id: "blueprints", icon: <FileText className="h-4 w-4" /> },
   { id: "formularios", icon: <ClipboardList className="h-4 w-4" /> },
+  { id: "visitantes", icon: <UserCheck className="h-4 w-4" /> },
 ];
 
 // ─── Componente principal ──────────────────────────────────────────────────────
@@ -417,8 +426,12 @@ export function ProjectsModule({
   onDeleteTask,
   canViewAttendancePanel = false,
   canUseProjectTimeclock = false,
+  visitorOpenQrSignal = 0,
+  visitorTabSignal = 0,
+  showProjectVisitorsTab = true,
 }: ProjectsModuleProps) {
   const [activeTab, setActiveTab] = useState<TabId>("general");
+  const lastVisitorNavSig = useRef(0);
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -524,6 +537,21 @@ export function ProjectsModule({
       setActiveTab("general");
     }
   }, [currentUserRole, activeTab]);
+
+  useEffect(() => {
+    if (!showProjectVisitorsTab && activeTab === "visitantes") {
+      setActiveTab("general");
+    }
+  }, [showProjectVisitorsTab, activeTab]);
+
+  useEffect(() => {
+    const tab = visitorTabSignal ?? 0;
+    const qr = visitorOpenQrSignal ?? 0;
+    const mx = Math.max(tab, qr);
+    if (!mx || mx <= lastVisitorNavSig.current) return;
+    lastVisitorNavSig.current = mx;
+    if (selectedProjectId) setActiveTab("visitantes");
+  }, [visitorTabSignal, visitorOpenQrSignal, selectedProjectId]);
 
   useEffect(() => {
     if (!openSafetyChecklistId) {
@@ -842,7 +870,9 @@ export function ProjectsModule({
         return (
           <div className="border-b border-zinc-200 dark:border-slate-700 px-6 flex flex-nowrap gap-0 overflow-x-auto">
             {TABS.filter(
-              (tab) => currentUserRole !== "worker" || tab.id !== "formularios"
+              (tab) =>
+                (currentUserRole !== "worker" || tab.id !== "formularios") &&
+                (showProjectVisitorsTab || tab.id !== "visitantes")
             ).map((tab) => {
               const label =
                 tab.id === "general"
@@ -859,6 +889,10 @@ export function ProjectsModule({
                   ? (t as Record<string, string>).blueprints_title ??
                     t.blueprints ??
                     "Planos"
+                  : tab.id === "visitantes"
+                  ? (t as Record<string, string>).siteTabVisitors ||
+                    (t as Record<string, string>).visitors_menu ||
+                    ""
                   : "";
               const badge =
                 tab.id === "galeria" && pendingObraPhotos.length > 0 && canApprove
@@ -2598,6 +2632,20 @@ export function ProjectsModule({
                 />
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "visitantes" && selectedProject && showProjectVisitorsTab && (
+          <div className="space-y-4">
+            <VisitorModule
+              t={t as Record<string, string>}
+              companyId={companyId || null}
+              companyName={companyName}
+              projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+              openQrSignal={visitorOpenQrSignal}
+              lockedProjectId={selectedProject.id}
+              lockedProjectName={selectedProject.name}
+            />
           </div>
         )}
       </div>

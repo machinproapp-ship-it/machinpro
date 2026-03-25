@@ -11,7 +11,6 @@ import {
   Settings,
   FolderOpen,
   CreditCard,
-  UserCheck,
   AlertTriangle,
   ClipboardCheck,
   MoreHorizontal,
@@ -42,7 +41,6 @@ const MOBILE_BAR_OVERFLOW_TAIL: MainSection[] = [
 /** Etiquetas muy cortas para la barra inferior (≤7 caracteres donde aplica). */
 const MOBILE_BAR_SHORT_LABEL: Partial<Record<MainSection, string>> = {
   office: "Central",
-  visitors: "Visitas",
   hazards: "Riesgos",
   corrective_actions: "Acciones",
   warehouse: "Logíst",
@@ -78,8 +76,6 @@ export interface SidebarProps {
   canAccessBinders?: boolean;
   /** Solo admin — facturación / Stripe */
   canAccessBilling?: boolean;
-  /** Admin y supervisor — registro de visitantes / QR */
-  canAccessVisitors?: boolean;
   /** Riesgos en obra — admin, supervisor y trabajador (solo lectura) */
   canAccessHazards?: boolean;
   /** Acciones correctivas — admin, supervisor y trabajador (solo lectura para trabajador) */
@@ -100,7 +96,6 @@ export function Sidebar({
   canAccessForms = false,
   canAccessBinders = false,
   canAccessBilling = false,
-  canAccessVisitors = false,
   canAccessHazards = false,
   canAccessCorrectiveActions = false,
   canAccessRfi = false,
@@ -127,7 +122,6 @@ export function Sidebar({
     { id: "binders" as const, icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
     { id: "rfi" as const, icon: FileQuestion, label: rfiLabel, show: !!canAccessRfi },
     { id: "billing" as const, icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
-    { id: "visitors" as const, icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
     { id: "hazards" as const, icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
     {
       id: "corrective_actions" as const,
@@ -147,7 +141,6 @@ export function Sidebar({
       { id: "binders", icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
       { id: "rfi", icon: FileQuestion, label: rfiLabel, show: !!canAccessRfi },
       { id: "billing", icon: CreditCard, label: billingLabel, show: !!canAccessBilling },
-      { id: "visitors", icon: UserCheck, label: visitorsLabel, show: !!canAccessVisitors },
       { id: "hazards", icon: AlertTriangle, label: hazardsLabel, show: !!canAccessHazards },
       {
         id: "corrective_actions",
@@ -167,7 +160,6 @@ export function Sidebar({
       labels.binders,
       labels.settings,
       billingLabel,
-      visitorsLabel,
       hazardsLabel,
       actionsLabel,
       canAccessOffice,
@@ -176,7 +168,6 @@ export function Sidebar({
       canAccessSchedule,
       canAccessBinders,
       canAccessBilling,
-      canAccessVisitors,
       canAccessHazards,
       canAccessCorrectiveActions,
       rfiLabel,
@@ -261,11 +252,9 @@ export function Sidebar({
                             ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
                             : item.id === "rfi"
                               ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
-                              : item.id === "billing"
+                                : item.id === "billing"
                                 ? "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
-                                : item.id === "visitors"
-                                  ? "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300"
-                                  : item.id === "hazards"
+                                : item.id === "hazards"
                                     ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
                                     : item.id === "corrective_actions"
                                       ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200"

@@ -15,6 +15,9 @@ export interface VisitorModuleProps {
   projects: { id: string; name: string }[];
   /** Increment desde el dashboard para abrir el modal QR. */
   openQrSignal?: number;
+  /** Cuando está definido: solo visitas de ese proyecto, QR con ?project=, sin selector de obra. */
+  lockedProjectId?: string | null;
+  lockedProjectName?: string | null;
 }
 
 function dayInputValue(d: Date): string {
@@ -30,10 +33,20 @@ function dayBoundsUtc(dateStr: string): { start: string; end: string } {
   return { start, end };
 }
 
-export function VisitorModule({ t, companyId, companyName, projects, openQrSignal = 0 }: VisitorModuleProps) {
+export function VisitorModule({
+  t,
+  companyId,
+  companyName,
+  projects,
+  openQrSignal = 0,
+  lockedProjectId = null,
+  lockedProjectName = null,
+}: VisitorModuleProps) {
   const lastQrSig = useRef(0);
   const [filterDate, setFilterDate] = useState(() => dayInputValue(new Date()));
-  const [filterProjectId, setFilterProjectId] = useState<string>("all");
+  const [filterProjectId, setFilterProjectId] = useState<string>(
+    lockedProjectId && lockedProjectId.trim() ? lockedProjectId : "all"
+  );
   const [filterStatus, setFilterStatus] = useState<"all" | VisitorStatus>("all");
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Visitor[]>([]);
@@ -77,6 +90,12 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (lockedProjectId && lockedProjectId.trim()) {
+      setFilterProjectId(lockedProjectId);
+    }
+  }, [lockedProjectId]);
 
   useEffect(() => {
     if (!openQrSignal || openQrSignal <= lastQrSig.current) return;
@@ -123,7 +142,9 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
     [rows]
   );
 
-  const checkInUrl = companyId ? buildVisitorCheckInUrl(companyId) : "";
+  const checkInUrl = companyId
+    ? buildVisitorCheckInUrl(companyId, lockedProjectId && lockedProjectId.trim() ? lockedProjectId : null)
+    : "";
 
   const manualCheckout = async (id: string) => {
     if (!supabase || !companyId) return;
@@ -167,7 +188,9 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
     });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `visitors-${filterDate}.csv`;
+    const slug =
+      lockedProjectId && lockedProjectId.trim() ? `project-${lockedProjectId.slice(0, 8)}` : "all";
+    a.download = `visitors-${slug}-${filterDate}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -178,7 +201,8 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
     const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `machinpro-visit-qr-${companyId?.slice(0, 8) ?? "qr"}.png`;
+    const qslug = lockedProjectId ? `${companyId?.slice(0, 8) ?? "qr"}-${lockedProjectId.slice(0, 6)}` : (companyId?.slice(0, 8) ?? "qr");
+    a.download = `machinpro-visit-qr-${qslug}.png`;
     a.click();
   };
 
@@ -198,15 +222,24 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
     );
   }
 
+  const lx = t as Record<string, string>;
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            {t.visitors_title ?? "Visitors"}
+            {lockedProjectName?.trim()
+              ? `${t.visitors_title ?? ""} — ${lockedProjectName.trim()}`
+              : (t.visitors_title ?? "")}
           </h2>
           {companyName ? (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{companyName}</p>
+          ) : null}
+          {lockedProjectId && lockedProjectName?.trim() ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {lx.visitors_filter_project ?? ""}: {lockedProjectName.trim()}
+            </p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -243,23 +276,25 @@ export function VisitorModule({ t, companyId, companyName, projects, openQrSigna
             className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm min-w-0">
-          <span className="text-gray-600 dark:text-gray-400">
-            {t.visitors_filter_project ?? "Project"}
-          </span>
-          <select
-            value={filterProjectId}
-            onChange={(e) => setFilterProjectId(e.target.value)}
-            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
-          >
-            <option value="all">{t.visitors_filter_all ?? "All"}</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!lockedProjectId ? (
+          <label className="flex flex-col gap-1 text-sm min-w-0">
+            <span className="text-gray-600 dark:text-gray-400">
+              {t.visitors_filter_project ?? "Project"}
+            </span>
+            <select
+              value={filterProjectId}
+              onChange={(e) => setFilterProjectId(e.target.value)}
+              className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
+            >
+              <option value="all">{t.visitors_filter_all ?? "All"}</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
           <span className="text-gray-600 dark:text-gray-400">
             {t.visitors_filter_status ?? "Status"}
