@@ -37,6 +37,7 @@ export default {
   settings: "Configurações",
   schedule: "Agenda",
   worker: "Trabalhador",
+  employees_display_anonymous: "Colaborador",
   admin: "Administrador",
   logistic: "Logística",
   personnel: "Funcionários",

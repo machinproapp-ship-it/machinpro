@@ -84,17 +84,18 @@ function emailLocalPart(email: string | null | undefined): string {
   return e.slice(0, at).trim() || e;
 }
 
-/** full_name → display_name → local@ → email completo → id corto (nunca "—"). */
-function employeeDisplayLabel(r: ProfileRow): string {
+/** full_name → display_name → local del email → "Empleado xxxx" (nunca UUID completo ni email entero como nombre). */
+function employeeDisplayLabel(r: ProfileRow, labels?: Record<string, string>): string {
   const fn = (r.full_name ?? "").trim();
   const dn = (r.display_name ?? "").trim();
   const em = (r.email ?? "").trim();
   const local = emailLocalPart(em);
+  const anonPrefix = (labels?.employees_display_anonymous ?? labels?.worker ?? "").trim() || "Employee";
+  const idFrag = r.id.replace(/-/g, "").slice(0, 4).toLowerCase();
   if (fn) return fn;
   if (dn) return dn;
   if (local) return local;
-  if (em) return em;
-  return r.id.replace(/-/g, "").slice(0, 8) || "…";
+  return `${anonPrefix} ${idFrag}`.trim();
 }
 
 function initialsFromPersonName(name: string): string {
@@ -405,7 +406,7 @@ export function EmployeesModule({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const label = employeeDisplayLabel(r).toLowerCase();
+      const label = employeeDisplayLabel(r, t as Record<string, string>).toLowerCase();
       const em = (r.email ?? "").toLowerCase();
       if (q && !label.includes(q) && !em.includes(q) && !r.id.toLowerCase().includes(q)) return false;
 
@@ -420,7 +421,7 @@ export function EmployeesModule({
       if (statusFilter !== "all" && st !== statusFilter) return false;
       return true;
     });
-  }, [rows, search, roleFilter, statusFilter]);
+  }, [rows, search, roleFilter, statusFilter, t]);
 
   const vacationsForSelected = useMemo(() => {
     if (!selectedId) return [];
@@ -713,7 +714,7 @@ export function EmployeesModule({
   }
 
   if (selected) {
-    const name = employeeDisplayLabel(selected);
+    const name = employeeDisplayLabel(selected, t as Record<string, string>);
     const emailShown = (selected.email ?? "").trim() || emailLocalPart(selected.email);
     const inheritPerms = draft.use_role_permissions !== false;
     const tl = t as Record<string, string>;
@@ -748,7 +749,7 @@ export function EmployeesModule({
           onClick={() => setSelectedId(null)}
           className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
         >
-          {tl.nav_back ?? tl.back ?? t.cancel ?? ""}
+          {tl.nav_back ?? "← Atrás"}
         </button>
 
         <div className="flex flex-wrap items-center gap-4">
@@ -1444,7 +1445,7 @@ export function EmployeesModule({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-zinc-900 dark:text-white truncate">{employeeDisplayLabel(r)}</p>
+                  <p className="font-medium text-zinc-900 dark:text-white truncate">{employeeDisplayLabel(r, tl)}</p>
                   <p className="text-xs text-zinc-500 truncate">
                     {(() => {
                       const em = (r.email ?? "").trim();
@@ -1475,7 +1476,7 @@ export function EmployeesModule({
                   <button
                     type="button"
                     aria-label={tl.common_delete ?? ""}
-                    onClick={() => void deactivateProfile(r.id, employeeDisplayLabel(r))}
+                    onClick={() => void deactivateProfile(r.id, employeeDisplayLabel(r, tl))}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                   >
                     <Trash2 className="h-4 w-4" aria-hidden />

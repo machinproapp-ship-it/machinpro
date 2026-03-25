@@ -37,6 +37,7 @@ export default {
   settings: "Impostazioni",
   schedule: "Orario",
   worker: "Operaio",
+  employees_display_anonymous: "Dipendente",
   admin: "Amministratore",
   logistic: "Logistica",
   personnel: "Personale",

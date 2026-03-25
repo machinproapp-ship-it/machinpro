@@ -37,6 +37,7 @@ export default {
   settings: "Ajustes",
   schedule: "Horario",
   worker: "Trabajador",
+  employees_display_anonymous: "Empleado",
   admin: "Administrador",
   logistic: "Logística",
   personnel: "Empleados",

@@ -37,6 +37,7 @@ export default {
   settings: "Paramètres",
   schedule: "Planning",
   worker: "Ouvrier",
+  employees_display_anonymous: "Employé",
   admin: "Administrateur",
   logistic: "Logistique",
   personnel: "Personnel",
