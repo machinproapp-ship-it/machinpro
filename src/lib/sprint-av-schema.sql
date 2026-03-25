@@ -166,3 +166,50 @@ CREATE POLICY "Admin actualiza solicitudes vacaciones"
   USING (company_id IN (
     SELECT company_id FROM user_profiles WHERE id = auth.uid()
   ));
+
+-- ─── Employee projects & documents (Sprint AV-3) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS employee_projects (
+  user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, project_id),
+  assigned_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE employee_projects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Empresa gestiona employee_projects" ON employee_projects;
+CREATE POLICY "Empresa gestiona employee_projects"
+  ON employee_projects FOR ALL
+  USING (company_id IN (
+    SELECT company_id FROM user_profiles WHERE id = auth.uid()
+  ));
+
+CREATE TABLE IF NOT EXISTS employee_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  file_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE employee_documents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Empresa ve employee_documents" ON employee_documents;
+CREATE POLICY "Empresa ve employee_documents"
+  ON employee_documents FOR ALL
+  USING (company_id IN (
+    SELECT company_id FROM user_profiles WHERE id = auth.uid()
+  ));
+
+-- Subcontractor extended profile (Sprint AV-3)
+ALTER TABLE subcontractors
+  ADD COLUMN IF NOT EXISTS gst_hst TEXT,
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT,
+  ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT,
+  ADD COLUMN IF NOT EXISTS notes TEXT,
+  ADD COLUMN IF NOT EXISTS rating INTEGER,
+  ADD COLUMN IF NOT EXISTS work_history JSONB DEFAULT '[]'::jsonb;
+
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS use_role_permissions BOOLEAN DEFAULT true;

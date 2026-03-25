@@ -2938,10 +2938,19 @@ export default function Home() {
                 companyId={companyId}
                 labels={t as Record<string, string>}
                 customRoles={customRoles}
-                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
                 canManageEmployees={rolePerms.canManageEmployees}
-                cloudinaryCloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ""}
-                cloudinaryUploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ""}
+                cloudinaryCloudName={
+                  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
+                }
+                cloudinaryUploadPreset={
+                  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET?.trim() || "i5dmd07o"
+                }
+                userProfileToEmployeeId={userToEmployeeMap}
+                complianceFields={complianceFields}
+                complianceRecords={complianceRecords}
+                onComplianceRecordsChange={setComplianceRecords}
+                vacationRequests={vacationRequests}
               />
             )}
 
@@ -2949,8 +2958,9 @@ export default function Home() {
               <SubcontractorsModule
                 companyId={companyId}
                 labels={t as Record<string, string>}
-                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
                 canManage={rolePerms.canManageSubcontractors}
+                customRoles={customRoles}
               />
             )}
 

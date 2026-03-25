@@ -12,25 +12,36 @@ import {
   FolderKanban,
   Palmtree,
   UserPlus,
+  FileText,
+  Pencil,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
-import { ROLE_PERMISSION_KEYS, ROLE_PERMISSION_LABELS } from "@/types/roles";
+import { ROLE_PERMISSION_KEYS } from "@/types/roles";
+import type { ComplianceField, ComplianceRecord, VacationRequestRow } from "@/app/page";
 
 export interface EmployeesModuleProps {
   companyId: string | null;
   labels: Record<string, string>;
   customRoles: CustomRole[];
-  projects: { id: string; name: string }[];
+  projects: { id: string; name: string; archived?: boolean }[];
   canManageEmployees: boolean;
   cloudinaryCloudName?: string;
   cloudinaryUploadPreset?: string;
+  /** user_profiles.id → legacy employees.id (compliance targetId) */
+  userProfileToEmployeeId?: Record<string, string>;
+  complianceFields?: ComplianceField[];
+  complianceRecords?: ComplianceRecord[];
+  onComplianceRecordsChange?: (records: ComplianceRecord[]) => void;
+  vacationRequests?: VacationRequestRow[];
 }
 
 type ProfileRow = {
   id: string;
   full_name?: string | null;
   display_name?: string | null;
+  email?: string | null;
   role?: string | null;
   company_id?: string | null;
   employee_id?: string | null;
@@ -42,16 +53,138 @@ type ProfileRow = {
   emergency_contact_relation?: string | null;
   custom_role_id?: string | null;
   custom_permissions?: Partial<RolePermissions> | null;
+  use_role_permissions?: boolean | null;
   profile_status?: string | null;
   created_at?: string | null;
 };
 
-function initials(name: string): string {
+type EmployeeDocRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  file_url?: string | null;
+  created_at?: string | null;
+};
+
+function emailLocalPart(email: string | null | undefined): string {
+  const e = (email ?? "").trim();
+  if (!e) return "";
+  const at = e.indexOf("@");
+  if (at <= 0) return e;
+  return e.slice(0, at).trim() || e;
+}
+
+function initialsFromDisplay(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
   if (p.length === 0) return "?";
   if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
+
+function permLabel(key: keyof RolePermissions, t: Record<string, string>): string {
+  const lx = t as Record<string, string>;
+  const map: Record<keyof RolePermissions, string> = {
+    canViewCentral: lx.permViewCentral ?? "",
+    canEditCentral: lx.permEditCentral ?? "",
+    canViewLogistics: lx.permViewLogistics ?? "",
+    canEditLogistics: lx.permEditLogistics ?? "",
+    canViewProjects: lx.permViewProjects ?? "",
+    canViewOnlyAssignedProjects: lx.permOnlyAssigned ?? "",
+    canEditProjects: lx.permEditProjects ?? "",
+    canViewSchedule: lx.permViewSchedule ?? "",
+    canWriteSchedule: lx.permWriteSchedule ?? "",
+    canViewBlueprints: lx.permViewBlueprints ?? "",
+    canAnnotateBlueprints: lx.permAnnotate ?? "",
+    canViewSettings: lx.permViewSettings ?? "",
+    canEditSettings: lx.permEditSettings ?? "",
+    canManageRoles: lx.permManageRoles ?? "",
+    canManageEmployees: lx.permManageEmployees ?? "",
+    canViewForms: lx.permViewForms ?? "",
+    canManageForms: lx.permManageForms ?? "",
+    canViewBinders: lx.permViewBinders ?? "",
+    canManageBinders: lx.permManageBinders ?? "",
+    canManageSubcontractors: lx.permManageSubcontractors ?? "",
+    canApproveVacations: lx.permApproveVacations ?? "",
+    canViewAttendance: lx.permViewAttendance ?? "",
+    canViewTimeclock: lx.permViewTimeclock ?? "",
+    canManageTimeclock: lx.permManageTimeclock ?? "",
+  };
+  return map[key] || String(key);
+}
+
+function emptyPermissions(): RolePermissions {
+  return {
+    canViewCentral: false,
+    canEditCentral: false,
+    canViewLogistics: false,
+    canEditLogistics: false,
+    canViewProjects: false,
+    canViewOnlyAssignedProjects: false,
+    canEditProjects: false,
+    canViewSchedule: false,
+    canWriteSchedule: false,
+    canViewBlueprints: false,
+    canAnnotateBlueprints: false,
+    canViewSettings: false,
+    canEditSettings: false,
+    canManageRoles: false,
+    canManageEmployees: false,
+    canViewForms: false,
+    canManageForms: false,
+    canViewBinders: false,
+    canManageBinders: false,
+    canManageSubcontractors: false,
+    canApproveVacations: false,
+    canViewAttendance: false,
+    canViewTimeclock: false,
+    canManageTimeclock: false,
+  };
+}
+
+function mergePerm(base: RolePermissions, partial?: Partial<RolePermissions> | null): RolePermissions {
+  return { ...base, ...(partial ?? {}) };
+}
+
+function complianceTone(
+  status: ComplianceRecord["status"],
+  t: Record<string, string>
+): { cls: string; label: string } {
+  if (status === "valid")
+    return {
+      cls: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
+      label: t.valid ?? "",
+    };
+  if (status === "expiring")
+    return {
+      cls: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200",
+      label: t.expiring ?? "",
+    };
+  if (status === "expired")
+    return { cls: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200", label: t.expired ?? "" };
+  return {
+    cls: "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300",
+    label: t.missing ?? "",
+  };
+}
+
+function recordStatusFromInputs(
+  expiryDate: string | undefined,
+  alertDaysBefore: number,
+  fieldType: string
+): ComplianceRecord["status"] {
+  if (fieldType === "date" && expiryDate) {
+    const d = new Date(expiryDate);
+    const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
+    if (days < 0) return "expired";
+    if (days <= alertDaysBefore) return "expiring";
+    return "valid";
+  }
+  if (expiryDate || fieldType === "document") return "valid";
+  return "missing";
+}
+
+const YEAR_START = new Date(new Date().getFullYear(), 0, 1);
+const YEAR_END = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59);
 
 export function EmployeesModule({
   companyId,
@@ -61,6 +194,11 @@ export function EmployeesModule({
   canManageEmployees,
   cloudinaryCloudName = "",
   cloudinaryUploadPreset = "",
+  userProfileToEmployeeId = {},
+  complianceFields = [],
+  complianceRecords = [],
+  onComplianceRecordsChange,
+  vacationRequests = [],
 }: EmployeesModuleProps) {
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +208,21 @@ export function EmployeesModule({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Partial<ProfileRow>>({});
+  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
+  const [employeeDocs, setEmployeeDocs] = useState<EmployeeDocRow[]>([]);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [complianceEdit, setComplianceEdit] = useState<{
+    field: ComplianceField;
+    expiryDate: string;
+    documentUrl: string;
+    value: string;
+  } | null>(null);
+
+  const activeProjects = useMemo(
+    () => projects.filter((p) => !p.archived),
+    [projects]
+  );
 
   const load = useCallback(async () => {
     if (!supabase || !companyId) {
@@ -102,27 +255,124 @@ export function EmployeesModule({
   );
 
   useEffect(() => {
-    if (selected) setDraft({ ...selected });
+    if (selected) {
+      const inherit =
+        selected.use_role_permissions != null
+          ? selected.use_role_permissions
+          : selected.custom_permissions == null;
+      setDraft({
+        ...selected,
+        use_role_permissions: inherit,
+        custom_permissions: inherit ? {} : (selected.custom_permissions ?? {}) as Partial<RolePermissions>,
+      });
+    }
   }, [selected]);
+
+  const loadAssignments = useCallback(async () => {
+    if (!supabase || !companyId || !selectedId) {
+      setAssignedProjectIds([]);
+      setEmployeeDocs([]);
+      return;
+    }
+    const { data: pj } = await supabase
+      .from("employee_projects")
+      .select("project_id")
+      .eq("user_id", selectedId)
+      .eq("company_id", companyId);
+    if (pj) {
+      setAssignedProjectIds((pj as { project_id: string }[]).map((r) => r.project_id));
+    } else {
+      setAssignedProjectIds([]);
+    }
+    const { data: docs } = await supabase
+      .from("employee_documents")
+      .select("*")
+      .eq("user_id", selectedId)
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+    setEmployeeDocs((docs ?? []) as EmployeeDocRow[]);
+  }, [companyId, selectedId]);
+
+  useEffect(() => {
+    void loadAssignments();
+  }, [loadAssignments]);
+
+  const complianceTargetId = (profileId: string) =>
+    userProfileToEmployeeId[profileId] ?? profileId;
+
+  const displayName = (r: ProfileRow) => {
+    const n = (r.full_name || r.display_name || "").trim();
+    if (n) return n;
+    const fromEmail = emailLocalPart(r.email);
+    if (fromEmail) return fromEmail;
+    return "";
+  };
+
+  const displayNameOrDash = (r: ProfileRow) => {
+    const n = displayName(r);
+    return n || ((t as Record<string, string>).employees_no_name ?? "—");
+  };
+
+  const roleLabel = (r: ProfileRow) => {
+    const cr = r.custom_role_id ? customRoles.find((x) => x.id === r.custom_role_id) : undefined;
+    return cr?.name ?? r.role ?? "—";
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const name = (r.full_name || r.display_name || "").toLowerCase();
-      if (q && !name.includes(q) && !r.id.toLowerCase().includes(q)) return false;
-      if (roleFilter !== "all" && (r.role ?? "") !== roleFilter) return false;
+      const name = displayName(r).toLowerCase();
+      const em = (r.email ?? "").toLowerCase();
+      if (q && !name.includes(q) && !em.includes(q) && !r.id.toLowerCase().includes(q)) return false;
+
+      if (roleFilter !== "all") {
+        if (roleFilter.startsWith("custom:")) {
+          const rid = roleFilter.slice(7);
+          if ((r.custom_role_id ?? "") !== rid) return false;
+        } else if ((r.role ?? "") !== roleFilter) return false;
+      }
+
       const st = r.profile_status ?? "active";
       if (statusFilter !== "all" && st !== statusFilter) return false;
       return true;
     });
   }, [rows, search, roleFilter, statusFilter]);
 
-  const displayName = (r: ProfileRow) =>
-    (r.full_name || r.display_name || "").trim() || (t.employees_anonymous ?? "Member");
+  const vacationsForSelected = useMemo(() => {
+    if (!selectedId) return [];
+    return vacationRequests.filter((v) => v.user_id === selectedId);
+  }, [vacationRequests, selectedId]);
+
+  const vacationStats = useMemo(() => {
+    const yStart = YEAR_START.toISOString().slice(0, 10);
+    const yEnd = YEAR_END.toISOString().slice(0, 10);
+    let used = 0;
+    let pending = 0;
+    for (const v of vacationsForSelected) {
+      const overlapsYear = v.start_date <= yEnd && v.end_date >= yStart;
+      if (!overlapsYear) continue;
+      if (v.status === "approved") used += v.total_days;
+      else if (v.status === "pending") pending += v.total_days;
+    }
+    return { used, pending };
+  }, [vacationsForSelected]);
+
+  const selectedRolePermissions = useMemo((): RolePermissions => {
+    const rid = draft.custom_role_id ?? selected?.custom_role_id;
+    const role = rid ? customRoles.find((x) => x.id === rid) : undefined;
+    return role?.permissions ?? emptyPermissions();
+  }, [draft.custom_role_id, selected?.custom_role_id, customRoles]);
+
+  const effectivePermissionValue = (key: keyof RolePermissions): boolean => {
+    const inherit = draft.use_role_permissions !== false;
+    if (inherit) return Boolean(selectedRolePermissions[key]);
+    return Boolean((draft.custom_permissions ?? {})[key]);
+  };
 
   const saveProfile = async () => {
     if (!supabase || !selected || !canManageEmployees) return;
     setSaving(true);
+    const inherit = draft.use_role_permissions !== false;
     const payload = {
       full_name: draft.full_name ?? selected.full_name,
       phone: draft.phone ?? null,
@@ -132,7 +382,8 @@ export function EmployeesModule({
       emergency_contact_phone: draft.emergency_contact_phone ?? null,
       emergency_contact_relation: draft.emergency_contact_relation ?? null,
       custom_role_id: draft.custom_role_id ?? null,
-      custom_permissions: draft.custom_permissions ?? null,
+      use_role_permissions: inherit,
+      custom_permissions: inherit ? null : (draft.custom_permissions ?? {}) as Record<string, unknown>,
       profile_status: draft.profile_status ?? "active",
     };
     const { error } = await supabase.from("user_profiles").update(payload).eq("id", selected.id);
@@ -156,23 +407,78 @@ export function EmployeesModule({
     }
   };
 
+  const uploadEmployeeDoc = async (file: File) => {
+    if (!supabase || !cloudinaryCloudName || !cloudinaryUploadPreset || !selected || !companyId || !canManageEmployees)
+      return;
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", cloudinaryUploadPreset);
+    fd.append("folder", "machinpro/employee-docs");
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryCloudName}/raw/upload`, {
+      method: "POST",
+      body: fd,
+    });
+    const data = (await res.json()) as { secure_url?: string; error?: { message?: string } };
+    if (!data.secure_url) return;
+    const name = file.name || "document";
+    const { error } = await supabase.from("employee_documents").insert({
+      company_id: companyId,
+      user_id: selected.id,
+      name,
+      file_url: data.secure_url,
+    });
+    if (!error) void loadAssignments();
+  };
+
   const togglePermission = (key: keyof RolePermissions) => {
-    if (!canManageEmployees) return;
+    if (!canManageEmployees || draft.use_role_permissions !== false) return;
     const base = (draft.custom_permissions ?? {}) as Partial<RolePermissions>;
     const next = { ...base, [key]: !base[key] };
     setDraft((d) => ({ ...d, custom_permissions: next }));
   };
 
+  const toggleProject = async (projectId: string) => {
+    if (!supabase || !selected || !companyId || !canManageEmployees) return;
+    const on = assignedProjectIds.includes(projectId);
+    if (on) {
+      await supabase
+        .from("employee_projects")
+        .delete()
+        .eq("user_id", selected.id)
+        .eq("project_id", projectId)
+        .eq("company_id", companyId);
+    } else {
+      await supabase.from("employee_projects").insert({
+        user_id: selected.id,
+        project_id: projectId,
+        company_id: companyId,
+      });
+    }
+    void loadAssignments();
+  };
+
+  const openInviteMailto = () => {
+    const subj = encodeURIComponent((t as Record<string, string>).employees_invite ?? "");
+    const body = encodeURIComponent(inviteEmail.trim());
+    window.location.href = `mailto:${encodeURIComponent(inviteEmail.trim())}?subject=${subj}&body=${body}`;
+    setInviteOpen(false);
+    setInviteEmail("");
+  };
+
   if (!companyId) {
     return (
       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        {(t as Record<string, string>).employees_no_company ?? "No company selected."}
+        {(t as Record<string, string>).employees_no_company ?? ""}
       </p>
     );
   }
 
   if (selected) {
-    const name = displayName(selected);
+    const name = displayNameOrDash(selected);
+    const emailShown = (selected.email ?? "").trim() || emailLocalPart(selected.email);
+    const inheritPerms = draft.use_role_permissions !== false;
+    const tl = t as Record<string, string>;
+
     return (
       <div className="space-y-4 max-w-3xl">
         <button
@@ -181,7 +487,7 @@ export function EmployeesModule({
           className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
         >
           <ChevronLeft className="h-4 w-4" />
-          {t.cancel ?? "Back"}
+          {t.cancel ?? ""}
         </button>
 
         <div className="flex flex-wrap items-center gap-4">
@@ -193,12 +499,12 @@ export function EmployeesModule({
                 className="h-full w-full object-cover"
               />
             ) : (
-              initials(name)
+              initialsFromDisplay(name)
             )}
           </div>
           <div>
             <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{name}</h2>
-            <p className="text-sm text-zinc-500">{selected.role}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{roleLabel(selected)}</p>
           </div>
           {canManageEmployees && (
             <label className="ml-auto cursor-pointer min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm">
@@ -213,7 +519,7 @@ export function EmployeesModule({
                   if (f) void uploadAvatar(f);
                 }}
               />
-              {(t as Record<string, string>).employees_change_photo ?? "Change photo"}
+              {tl.employees_change_photo ?? ""}
             </label>
           )}
         </div>
@@ -221,11 +527,11 @@ export function EmployeesModule({
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
             <Users className="h-4 w-4" />
-            {(t as Record<string, string>).employees_basic_info ?? "Basic information"}
+            {tl.employees_basic_info ?? ""}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="block text-sm">
-              <span className="text-zinc-500">{t.personnel ?? "Name"}</span>
+              <span className="text-zinc-500">{t.personnel ?? ""}</span>
               <input
                 value={draft.full_name ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
@@ -235,7 +541,7 @@ export function EmployeesModule({
             </label>
             <label className="block text-sm">
               <span className="text-zinc-500 flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {t.phone ?? "Phone"}
+                <Phone className="h-3 w-3" /> {t.phone ?? ""}
               </span>
               <input
                 value={draft.phone ?? ""}
@@ -244,16 +550,16 @@ export function EmployeesModule({
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
             </label>
-            <p className="text-sm sm:col-span-2">
+            <div className="text-sm sm:col-span-2">
               <span className="text-zinc-500 flex items-center gap-1">
-                <Mail className="h-3 w-3" /> {t.email ?? "Email"}
+                <Mail className="h-3 w-3" /> {t.email ?? ""}
               </span>
-              <span className="block mt-1 text-zinc-800 dark:text-zinc-100">
-                {(t as Record<string, string>).employees_email_hint ?? "Managed via account / invitation."}
+              <span className="block mt-1 text-zinc-800 dark:text-zinc-100 break-all">
+                {emailShown || (tl.employees_email_unknown ?? "")}
               </span>
-            </p>
+            </div>
             <p className="text-sm">
-              <span className="text-zinc-500">{(t as Record<string, string>).employees_joined ?? "Joined"}</span>
+              <span className="text-zinc-500">{tl.employees_joined ?? ""}</span>
               <span className="block mt-1">
                 {selected.created_at ? new Date(selected.created_at).toLocaleDateString() : "—"}
               </span>
@@ -261,7 +567,7 @@ export function EmployeesModule({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-100 dark:border-slate-700">
             <label className="block text-sm">
-              <span className="text-zinc-500">{t.employees_emergency_contact ?? "Emergency contact"}</span>
+              <span className="text-zinc-500">{t.employees_emergency_contact ?? ""}</span>
               <input
                 value={draft.emergency_contact_name ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, emergency_contact_name: e.target.value }))}
@@ -270,7 +576,7 @@ export function EmployeesModule({
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-500">{t.phone ?? "Phone"}</span>
+              <span className="text-zinc-500">{t.phone ?? ""}</span>
               <input
                 value={draft.emergency_contact_phone ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, emergency_contact_phone: e.target.value }))}
@@ -279,7 +585,7 @@ export function EmployeesModule({
               />
             </label>
             <label className="block text-sm">
-              <span className="text-zinc-500">{t.employees_emergency_relation ?? "Relation"}</span>
+              <span className="text-zinc-500">{t.employees_emergency_relation ?? ""}</span>
               <input
                 value={draft.emergency_contact_relation ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, emergency_contact_relation: e.target.value }))}
@@ -293,10 +599,10 @@ export function EmployeesModule({
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            {(t as Record<string, string>).employees_role_permissions ?? "Role & permissions"}
+            {tl.employees_role_permissions ?? ""}
           </h3>
           <label className="block text-sm max-w-md">
-            <span className="text-zinc-500">{(t as Record<string, string>).employees_role ?? "Role"}</span>
+            <span className="text-zinc-500">{tl.employees_role ?? ""}</span>
             <select
               value={draft.custom_role_id ?? ""}
               onChange={(e) => setDraft((d) => ({ ...d, custom_role_id: e.target.value || null }))}
@@ -311,15 +617,39 @@ export function EmployeesModule({
               ))}
             </select>
           </label>
+
+          <label className="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
+            <span className="text-sm text-zinc-700 dark:text-zinc-200">
+              {tl.employees_use_role_permissions ?? ""}
+            </span>
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-zinc-300"
+              checked={inheritPerms}
+              disabled={!canManageEmployees}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setDraft((d) => ({
+                  ...d,
+                  use_role_permissions: on,
+                  custom_permissions: on ? {} : mergePerm(selectedRolePermissions, d.custom_permissions),
+                }));
+              }}
+            />
+          </label>
+
           <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
             {ROLE_PERMISSION_KEYS.map((key) => (
-              <label key={key} className="flex items-center justify-between gap-3 text-sm py-1">
-                <span className="text-zinc-600 dark:text-zinc-300">{ROLE_PERMISSION_LABELS[key]}</span>
+              <label
+                key={key}
+                className={`flex items-center justify-between gap-3 text-sm py-1 ${inheritPerms ? "opacity-80" : ""}`}
+              >
+                <span className="text-zinc-600 dark:text-zinc-300">{permLabel(key, t as Record<string, string>)}</span>
                 <input
                   type="checkbox"
-                  checked={Boolean((draft.custom_permissions ?? {})[key])}
+                  checked={effectivePermissionValue(key)}
                   onChange={() => togglePermission(key)}
-                  disabled={!canManageEmployees}
+                  disabled={!canManageEmployees || inheritPerms}
                   className="h-5 w-5 rounded border-zinc-300"
                 />
               </label>
@@ -330,15 +660,23 @@ export function EmployeesModule({
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-2">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
             <FolderKanban className="h-4 w-4" />
-            {(t as Record<string, string>).employees_projects ?? "Assigned projects"}
+            {tl.employees_projects ?? ""}
           </h3>
-          <p className="text-xs text-zinc-500">
-            {(t as Record<string, string>).employees_projects_hint ?? "Link `employee_id` in profile to project rosters in Operations."}
-          </p>
-          <ul className="text-sm space-y-1">
-            {projects.slice(0, 12).map((p) => (
-              <li key={p.id} className="text-zinc-700 dark:text-zinc-200">
-                · {p.name}
+          <ul className="text-sm space-y-2 max-h-56 overflow-y-auto">
+            {activeProjects.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2">
+                <span className="text-zinc-700 dark:text-zinc-200 truncate">· {p.name}</span>
+                {canManageEmployees && (
+                  <button
+                    type="button"
+                    onClick={() => void toggleProject(p.id)}
+                    className="min-h-[44px] shrink-0 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 text-sm"
+                  >
+                    {assignedProjectIds.includes(p.id)
+                      ? (tl.employees_project_unassign ?? "")
+                      : (tl.employees_project_assign ?? "")}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -347,9 +685,10 @@ export function EmployeesModule({
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
             <Palmtree className="h-4 w-4" />
-            {t.employees_vacation_days_allowed ?? "Annual vacation days"}
+            {tl.employees_vacations_section ?? t.employees_vacation_days_allowed ?? ""}
           </h3>
           <label className="block text-sm max-w-xs">
+            <span className="text-xs text-zinc-500">{t.employees_vacation_days_allowed ?? ""}</span>
             <input
               type="number"
               min={0}
@@ -364,23 +703,143 @@ export function EmployeesModule({
               className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
             />
           </label>
-          <p className="text-xs text-zinc-500">
-            {t.employees_vacation_used ?? "Used this year"}: — · {t.employees_vacation_pending ?? "Pending"}: —
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            {t.employees_vacation_used ?? ""}:{" "}
+            <span className="font-medium tabular-nums">{vacationStats.used}</span>
+            {" · "}
+            {t.employees_vacation_pending ?? ""}:{" "}
+            <span className="font-medium tabular-nums">{vacationStats.pending}</span>
           </p>
+          <div>
+            <p className="text-xs font-semibold text-zinc-500 mb-2">{tl.employees_vacation_history ?? ""}</p>
+            <ul className="space-y-2 text-sm max-h-40 overflow-y-auto">
+              {vacationsForSelected.length === 0 ? (
+                <li className="text-zinc-500 italic">{tl.employees_vacation_none ?? ""}</li>
+              ) : (
+                vacationsForSelected.map((v) => (
+                  <li
+                    key={v.id}
+                    className="flex flex-wrap justify-between gap-2 border-b border-zinc-100 dark:border-slate-800 pb-2"
+                  >
+                    <span>
+                      {v.start_date} → {v.end_date}
+                    </span>
+                    <span className="tabular-nums">{v.total_days}d</span>
+                    <span className="text-xs rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5">
+                      {v.status}
+                    </span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </section>
+
+        {complianceFields.filter((f) => f.target.includes("employee")).length > 0 && (
+          <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              {t.compliance ?? ""}
+            </h3>
+            <ul className="space-y-2">
+              {complianceFields
+                .filter((f) => f.target.includes("employee"))
+                .map((field) => {
+                  const tid = complianceTargetId(selected.id);
+                  const rec = complianceRecords.find(
+                    (r) => r.fieldId === field.id && r.targetType === "employee" && r.targetId === tid
+                  );
+                  const tone = complianceTone(rec?.status ?? "missing", t as Record<string, string>);
+                  return (
+                    <li
+                      key={field.id}
+                      className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 dark:border-slate-800 pb-2"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{field.name}</p>
+                        {rec?.expiryDate && (
+                          <p className="text-xs text-zinc-500">
+                            {tl.expiresOn ?? ""}: {rec.expiryDate}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs rounded-full px-2 py-0.5 ${tone.cls}`}>{tone.label}</span>
+                        {canManageEmployees && onComplianceRecordsChange && (
+                          <button
+                            type="button"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600"
+                            onClick={() =>
+                              setComplianceEdit({
+                                field,
+                                expiryDate: rec?.expiryDate ?? "",
+                                documentUrl: rec?.documentUrl ?? "",
+                                value: rec?.value ?? "",
+                              })
+                            }
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+          </section>
+        )}
+
+        <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            {tl.employeeDocs ?? ""}
+          </h3>
+          <ul className="space-y-2 text-sm">
+            {employeeDocs.map((d) => (
+              <li key={d.id}>
+                {d.file_url ? (
+                  <a
+                    href={d.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-amber-600 dark:text-amber-400 underline break-all"
+                  >
+                    {d.name}
+                  </a>
+                ) : (
+                  d.name
+                )}
+              </li>
+            ))}
+          </ul>
+          {canManageEmployees && (
+            <label className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm cursor-pointer">
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void uploadEmployeeDoc(f);
+                }}
+              />
+              {tl.employees_upload_document ?? ""}
+            </label>
+          )}
         </section>
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 flex flex-wrap gap-3 items-center">
           <div>
-            <span className="text-xs text-zinc-500">{(t as Record<string, string>).employees_status ?? "Status"}</span>
+            <span className="text-xs text-zinc-500">{tl.employees_status ?? ""}</span>
             <select
               value={draft.profile_status ?? "active"}
               onChange={(e) => setDraft((d) => ({ ...d, profile_status: e.target.value }))}
               disabled={!canManageEmployees}
               className="block mt-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
             >
-              <option value="active">{(t as Record<string, string>).employees_status_active ?? "Active"}</option>
-              <option value="inactive">{(t as Record<string, string>).employees_status_inactive ?? "Inactive"}</option>
-              <option value="invited">{(t as Record<string, string>).employees_status_invited ?? "Invited"}</option>
+              <option value="active">{tl.employees_status_active ?? ""}</option>
+              <option value="inactive">{tl.employees_status_inactive ?? ""}</option>
+              <option value="invited">{tl.employees_status_invited ?? ""}</option>
             </select>
           </div>
           {canManageEmployees && (
@@ -390,76 +849,189 @@ export function EmployeesModule({
               disabled={saving}
               className="min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
             >
-              {saving ? "…" : (t.accept ?? "Save")}
+              {saving ? "…" : (t.accept ?? "")}
             </button>
           )}
           {canManageEmployees && (
             <button
               type="button"
               className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm"
+              onClick={() => {
+                setInviteEmail((selected.email ?? "").trim());
+                setInviteOpen(true);
+              }}
             >
               <UserPlus className="h-4 w-4" />
-              {t.employees_invite ?? "Invite"}
+              {t.employees_invite ?? ""}
             </button>
           )}
         </section>
+
+        {complianceEdit && onComplianceRecordsChange && (
+          <>
+            <div
+              className="fixed inset-0 z-[60] bg-black/50"
+              aria-hidden
+              onClick={() => setComplianceEdit(null)}
+            />
+            <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-auto sm:top-24 sm:right-4 sm:bottom-auto max-w-md rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+              <div className="flex justify-between items-center">
+                <h4 className="font-semibold text-sm">{complianceEdit.field.name}</h4>
+                <button
+                  type="button"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  onClick={() => setComplianceEdit(null)}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <label className="block text-xs">
+                {tl.expiresOn ?? ""}
+                <input
+                  type="date"
+                  value={complianceEdit.expiryDate.slice(0, 10)}
+                  onChange={(e) =>
+                    setComplianceEdit((c) => (c ? { ...c, expiryDate: e.target.value } : c))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 min-h-[44px]"
+                />
+              </label>
+              <label className="block text-xs">
+                {tl.documentUrl ?? "URL"}
+                <input
+                  value={complianceEdit.documentUrl}
+                  onChange={(e) =>
+                    setComplianceEdit((c) => (c ? { ...c, documentUrl: e.target.value } : c))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 min-h-[44px]"
+                />
+              </label>
+              <button
+                type="button"
+                className="w-full min-h-[44px] rounded-lg bg-amber-600 text-white text-sm font-medium"
+                onClick={() => {
+                  const tid = complianceTargetId(selected.id);
+                  const f = complianceEdit.field;
+                  const status = recordStatusFromInputs(
+                    complianceEdit.expiryDate,
+                    f.alertDaysBefore,
+                    f.fieldType
+                  );
+                  const existing = complianceRecords.find(
+                    (r) => r.fieldId === f.id && r.targetType === "employee" && r.targetId === tid
+                  );
+                  const next: ComplianceRecord = {
+                    id: existing?.id ?? `cr-${Date.now()}`,
+                    fieldId: f.id,
+                    targetType: "employee",
+                    targetId: tid,
+                    value: complianceEdit.value,
+                    expiryDate: complianceEdit.expiryDate || undefined,
+                    documentUrl: complianceEdit.documentUrl || undefined,
+                    status,
+                    updatedAt: new Date().toISOString(),
+                  };
+                  const rest = complianceRecords.filter(
+                    (r) =>
+                      !(r.fieldId === f.id && r.targetType === "employee" && r.targetId === tid)
+                  );
+                  onComplianceRecordsChange([...rest, next]);
+                  setComplianceEdit(null);
+                }}
+              >
+                {t.accept ?? ""}
+              </button>
+            </div>
+          </>
+        )}
+
+        {inviteOpen && (
+          <>
+            <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => setInviteOpen(false)} />
+            <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md rounded-xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+              <p className="text-sm font-medium">{t.employees_invite ?? ""}</p>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 min-h-[44px]"
+                placeholder={t.email ?? ""}
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  className="min-h-[44px] px-4 rounded-lg border"
+                  onClick={() => setInviteOpen(false)}
+                >
+                  {t.cancel ?? ""}
+                </button>
+                <button
+                  type="button"
+                  disabled={!inviteEmail.includes("@")}
+                  className="min-h-[44px] px-4 rounded-lg bg-amber-600 text-white disabled:opacity-50"
+                  onClick={() => openInviteMailto()}
+                >
+                  {tl.employees_invite_send ?? ""}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
+
+  const tl = t as Record<string, string>;
 
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Users className="h-5 w-5" />
-          {t.employees_title ?? "Employees"}
+          {t.employees_title ?? ""}
         </h2>
-        {canManageEmployees && (
-          <button
-            type="button"
-            className="min-h-[44px] inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
-          >
-            <UserPlus className="h-4 w-4" />
-            {t.employees_new ?? "New employee"}
-          </button>
-        )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={(t as Record<string, string>).employees_search ?? "Search"}
+            placeholder={tl.employees_search ?? ""}
             className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 pl-10 pr-3 py-2.5 text-sm min-h-[44px]"
           />
         </div>
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px]"
+          className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2.5 text-sm min-h-[44px]"
         >
-          <option value="all">{t.whFilterAll ?? "All"}</option>
+          <option value="all">{t.whFilterAll ?? ""}</option>
           <option value="admin">admin</option>
           <option value="supervisor">supervisor</option>
           <option value="worker">worker</option>
           <option value="logistic">logistic</option>
+          {customRoles.map((r) => (
+            <option key={r.id} value={`custom:${r.id}`}>
+              {r.name}
+            </option>
+          ))}
         </select>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px]"
+          className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2.5 text-sm min-h-[44px]"
         >
-          <option value="all">{t.whFilterAll ?? "All"}</option>
-          <option value="active">{(t as Record<string, string>).employees_status_active ?? "Active"}</option>
-          <option value="inactive">{(t as Record<string, string>).employees_status_inactive ?? "Inactive"}</option>
-          <option value="invited">{(t as Record<string, string>).employees_status_invited ?? "Invited"}</option>
+          <option value="all">{t.whFilterAll ?? ""}</option>
+          <option value="active">{tl.employees_status_active ?? ""}</option>
+          <option value="inactive">{tl.employees_status_inactive ?? ""}</option>
+          <option value="invited">{tl.employees_status_invited ?? ""}</option>
         </select>
       </div>
 
       {loading ? (
-        <p className="text-sm text-zinc-500">{t.loading ?? "Loading…"}</p>
+        <p className="text-sm text-zinc-500">{t.loading ?? ""}</p>
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-slate-700 rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
           {filtered.map((r) => (
@@ -473,14 +1045,16 @@ export function EmployeesModule({
                   {r.avatar_url ? (
                     <img src={r.avatar_url} alt="" className="h-full w-full object-cover rounded-full" />
                   ) : (
-                    initials(displayName(r))
+                    initialsFromDisplay(displayNameOrDash(r))
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-zinc-900 dark:text-white truncate">{displayName(r)}</p>
-                  <p className="text-xs text-zinc-500 truncate">{r.role}</p>
+                  <p className="font-medium text-zinc-900 dark:text-white truncate">{displayNameOrDash(r)}</p>
+                  <p className="text-xs text-zinc-500 truncate">
+                    {(r.email ?? "").trim() || emailLocalPart(r.email) || "—"} · {roleLabel(r)}
+                  </p>
                 </div>
-                <span className="text-xs rounded-full px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                <span className="text-xs rounded-full px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0">
                   {r.profile_status ?? "active"}
                 </span>
               </button>
@@ -489,9 +1063,7 @@ export function EmployeesModule({
         </ul>
       )}
       {!loading && filtered.length === 0 && (
-        <p className="text-sm text-zinc-500 text-center py-8">
-          {(t as Record<string, string>).employees_empty ?? "No employees found."}
-        </p>
+        <p className="text-sm text-zinc-500 text-center py-8">{tl.employees_empty ?? ""}</p>
       )}
     </section>
   );
