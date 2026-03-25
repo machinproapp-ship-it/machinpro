@@ -221,6 +221,10 @@ interface CentralModuleProps {
   canAccessCorrective?: boolean;
   canAccessEmployees?: boolean;
   canAccessSubcontractors?: boolean;
+  currentUserId?: string | null;
+  canViewAttendance?: boolean;
+  onQuickNewRfi?: () => void;
+  onQuickNewSubcontractor?: () => void;
 }
 
 const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
@@ -352,6 +356,10 @@ export function CentralModule({
   canAccessCorrective = false,
   canAccessEmployees = false,
   canAccessSubcontractors = false,
+  currentUserId = null,
+  canViewAttendance = false,
+  onQuickNewRfi,
+  onQuickNewSubcontractor,
 }: CentralModuleProps) {
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
@@ -793,6 +801,11 @@ export function CentralModule({
                 onNavigateToOperationsVisitors={onNavigateToOperationsVisitors}
                 visitorCheckInUrl={visitorCheckInUrl}
                 canAccessEmployees={canAccessEmployees}
+                currentUserId={currentUserId}
+                canViewAttendance={canViewAttendance}
+                onQuickNewEmployee={onAddEmployee}
+                onQuickNewRfi={onQuickNewRfi}
+                onQuickNewSubcontractor={onQuickNewSubcontractor}
               />
             </div>
           ) : (
@@ -816,7 +829,7 @@ export function CentralModule({
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-white/10">
             <h3 className="font-semibold text-zinc-900 dark:text-white">
-              {(labels as Record<string, string>).auditLog ?? "Audit Log"}
+              {(labels as Record<string, string>).auditLog ?? ""}
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
               {(labels as Record<string, string>).auditLogDesc ?? ""}

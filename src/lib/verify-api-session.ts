@@ -68,6 +68,44 @@ export async function verifyCanManageEmployees(
   return null;
 }
 
+/** Misma empresa + permiso de gestionar roles (personalización del dashboard Central). */
+export async function verifyCanManageRoles(
+  req: NextRequest,
+  companyId: string
+): Promise<{ userId: string } | null> {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!token || !companyId) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  const supabase = createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin
+    .from("user_profiles")
+    .select("company_id, role, use_role_permissions, custom_permissions")
+    .eq("id", user.id)
+    .maybeSingle();
+  const row = data as {
+    company_id?: string | null;
+    role?: string | null;
+    use_role_permissions?: boolean | null;
+    custom_permissions?: Partial<RolePermissions> | null;
+  } | null;
+  if (!row || row.company_id !== companyId) return null;
+  if (row.role === "admin") return { userId: user.id };
+  const inherit = row.use_role_permissions !== false;
+  if (!inherit && row.custom_permissions?.canManageRoles === true) return { userId: user.id };
+  return null;
+}
+
 /** JWT válido y perfil con `is_superadmin = true` (service role). */
 export async function verifySuperadminAccess(
   req: NextRequest

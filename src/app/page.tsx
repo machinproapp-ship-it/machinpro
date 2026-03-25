@@ -2845,6 +2845,10 @@ export default function Home() {
                   effectiveRole === "supervisor" ||
                   effectiveRole === "worker"
                 }
+                currentUserId={user?.id ?? null}
+                canViewAttendance={!!rolePerms.canViewAttendance}
+                onQuickNewRfi={() => setActiveSection("rfi")}
+                onQuickNewSubcontractor={() => setActiveSection("subcontractors")}
               />
             )}
 
