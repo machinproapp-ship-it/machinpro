@@ -459,7 +459,6 @@ export function CentralDashboardLive({
         noteRes,
         audits,
         critUn,
-        allProfs,
         vacRows,
         timeRows,
       ] = await Promise.all([
@@ -516,11 +515,6 @@ export function CentralDashboardLive({
           .is("assigned_to", null)
           .in("status", ["open", "in_progress"])
           .limit(20),
-        supabase
-          .from("user_profiles")
-          .select("id, full_name, display_name, email")
-          .eq("company_id", companyId)
-          .order("created_at", { ascending: false }),
         supabase
           .from("vacation_requests")
           .select("user_id, start_date, end_date")
@@ -615,24 +609,40 @@ export function CentralDashboardLive({
         });
       }
 
-      let profRows =
-        (allProfs.data ?? []) as {
-          id: string;
-          full_name?: string | null;
-          display_name?: string | null;
-          email?: string | null;
-        }[];
-      if (allProfs.error) {
-        console.error("[CentralDashboardLive] user_profiles list", allProfs.error);
+      type ProfLite = {
+        id: string;
+        full_name?: string | null;
+        display_name?: string | null;
+        email?: string | null;
+      };
+      let profRows: ProfLite[] = [];
+      const { data: rpcCompanyProfs, error: rpcCompanyErr } = await supabase.rpc("get_company_profiles", {
+        p_company_id: companyId,
+      });
+      if (rpcCompanyErr) {
+        console.error("[CentralDashboardLive] get_company_profiles", rpcCompanyErr);
       }
-      if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
-        const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
-          p_company_id: companyId,
-        });
-        if (rpcErr) {
-          console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
-        } else if (rpcRows?.length) {
-          profRows = rpcRows as typeof profRows;
+      if (Array.isArray(rpcCompanyProfs) && rpcCompanyProfs.length > 0) {
+        profRows = rpcCompanyProfs as ProfLite[];
+      } else {
+        const direct = await supabase
+          .from("user_profiles")
+          .select("id, full_name, display_name, email")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false });
+        if (direct.error) {
+          console.error("[CentralDashboardLive] user_profiles list", direct.error);
+        }
+        profRows = (direct.data ?? []) as ProfLite[];
+        if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
+          const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
+            p_company_id: companyId,
+          });
+          if (rpcErr) {
+            console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
+          } else if (rpcRows?.length) {
+            profRows = rpcRows as ProfLite[];
+          }
         }
       }
 

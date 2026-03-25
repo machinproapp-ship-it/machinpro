@@ -411,9 +411,8 @@ export function SubcontractorsModule({
         <button
           type="button"
           onClick={() => setSelectedId(null)}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm"
+          className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
         >
-          <ChevronLeft className="h-4 w-4" />
           {tl.nav_back ?? t.cancel ?? ""}
         </button>
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{selected.name}</h2>

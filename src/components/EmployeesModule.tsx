@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
   Search,
-  ChevronLeft,
   Mail,
   Phone,
   Camera,
@@ -594,11 +593,21 @@ export function EmployeesModule({
   };
 
   const submitCreateEmployee = async () => {
-    if (!supabase || !companyId || !canManageEmployees) return;
+    const lx = t as Record<string, string>;
+    if (!companyId || !canManageEmployees) {
+      console.warn("[EmployeesModule] create blocked: missing companyId or permission");
+      setCreateError(lx.employees_create_error ?? "");
+      return;
+    }
+    if (!supabase) {
+      console.error("[EmployeesModule] create: Supabase client is null (check env)");
+      setCreateError(lx.employees_create_error ?? "");
+      return;
+    }
     const name = createForm.fullName.trim();
     const mail = createForm.email.trim().toLowerCase();
     if (!name || !mail.includes("@")) {
-      setCreateError((t as Record<string, string>).employees_create_validation ?? "");
+      setCreateError(lx.employees_create_validation ?? "");
       return;
     }
     setCreateError(null);
@@ -607,7 +616,8 @@ export function EmployeesModule({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) {
-        setCreateError((t as Record<string, string>).employees_create_error ?? "");
+        console.error("[EmployeesModule] create: no session access_token");
+        setCreateError(lx.employees_create_error ?? "");
         return;
       }
       const payT = createForm.payType;
@@ -642,10 +652,23 @@ export function EmployeesModule({
               : null,
         }),
       });
-      const j = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        setCreateError(j.error ?? (t as Record<string, string>).employees_create_error ?? "");
+      const rawText = await res.text();
+      let j: { error?: string; warning?: string; id?: string } = {};
+      try {
+        j = rawText ? (JSON.parse(rawText) as typeof j) : {};
+      } catch (parseErr) {
+        console.error("[EmployeesModule] create: response is not JSON", res.status, rawText?.slice(0, 200), parseErr);
+        setCreateError(lx.employees_create_error ?? "");
         return;
+      }
+      console.log("[EmployeesModule] POST /api/employees/create", res.status, j);
+      if (!res.ok) {
+        console.error("[EmployeesModule] create failed:", j.error ?? res.status);
+        setCreateError(j.error ?? lx.employees_create_error ?? "");
+        return;
+      }
+      if (j.warning) {
+        console.warn("[EmployeesModule] create: extended fields warning:", j.warning);
       }
       setCreateOpen(false);
       setCreateForm({
@@ -665,6 +688,9 @@ export function EmployeesModule({
         vacationDaysAnnual: "",
       });
       void load();
+    } catch (e) {
+      console.error("[EmployeesModule] create employee exception:", e);
+      setCreateError((t as Record<string, string>).employees_create_error ?? "");
     } finally {
       setCreateSaving(false);
     }
@@ -720,9 +746,8 @@ export function EmployeesModule({
         <button
           type="button"
           onClick={() => setSelectedId(null)}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
+          className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
         >
-          <ChevronLeft className="h-4 w-4" />
           {tl.nav_back ?? tl.back ?? t.cancel ?? ""}
         </button>
 
@@ -1472,7 +1497,12 @@ export function EmployeesModule({
             aria-hidden
             onClick={() => !createSaving && setCreateOpen(false)}
           />
-          <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+          <div
+            className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
               {tl.employees_create_modal_title ?? ""}
             </h3>
