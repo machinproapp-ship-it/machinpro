@@ -44,6 +44,7 @@ import {
   type PhotoReportSortBy,
 } from "@/lib/generatePhotoReport";
 import BlueprintViewer from "@/components/BlueprintViewer";
+import { ProjectTimeclockSection } from "@/components/ProjectTimeclockSection";
 import type { ToolStatus, ResourceRequest } from "@/components/LogisticsModule";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import type { UserRole } from "@/types/shared";
@@ -201,6 +202,9 @@ export interface ProjectsModuleProps {
   onCreateTask?: (task: Omit<ProjectTask, "id" | "createdAt">) => void;
   onUpdateTask?: (taskId: string, updates: Partial<ProjectTask>) => void;
   onDeleteTask?: (taskId: string) => void;
+  /** Sprint AV: GPS timeclock + attendance */
+  canViewAttendancePanel?: boolean;
+  canUseProjectTimeclock?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -411,6 +415,8 @@ export function ProjectsModule({
   onCreateTask,
   onUpdateTask,
   onDeleteTask,
+  canViewAttendancePanel = false,
+  canUseProjectTimeclock = false,
 }: ProjectsModuleProps) {
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
@@ -554,6 +560,11 @@ export function ProjectsModule({
   const assignedEmployees = (allEmployees ?? []).filter((e) =>
     (selectedProject?.assignedEmployeeIds ?? []).includes(e.id)
   );
+
+  const userAssignedToProject =
+    !!currentUserEmployeeId &&
+    !!selectedProject &&
+    (selectedProject.assignedEmployeeIds ?? []).includes(currentUserEmployeeId);
 
   const projectInventory = (inventoryItems ?? []).filter(
     (i) => i.assignedToProjectId === selectedProjectId
@@ -942,6 +953,19 @@ export function ProjectsModule({
                 <InfoRow label="Presupuesto consumido" value={`$${selectedProject.spentCAD.toLocaleString("en-US")} CAD (${progress}%)`} />
               )}
             </div>
+
+            {companyId &&
+              (canViewAttendancePanel || (canUseProjectTimeclock && userAssignedToProject)) && (
+                <ProjectTimeclockSection
+                  companyId={companyId}
+                  projectId={selectedProject.id}
+                  userProfileId={currentUserProfileId}
+                  labels={t}
+                  assignedEmployeeNames={assignedEmployees.map((e) => ({ id: e.id, name: e.name }))}
+                  canClock={canUseProjectTimeclock && userAssignedToProject}
+                  canViewAttendance={canViewAttendancePanel}
+                />
+              )}
 
             {selectedProject.budgetCAD != null && (
               <div>

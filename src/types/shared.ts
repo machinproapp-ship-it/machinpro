@@ -18,7 +18,9 @@ export type MainSection =
   | "visitors"
   | "hazards"
   | "corrective_actions"
-  | "settings";
+  | "settings"
+  | "employees"
+  | "subcontractors";
 
 export type UserRole =
   | "admin"

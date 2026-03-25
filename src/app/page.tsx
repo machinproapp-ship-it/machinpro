@@ -43,6 +43,8 @@ import {
 import { HazardModule } from "@/components/HazardModule";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
 import { RFIModule } from "@/components/RFIModule";
+import { EmployeesModule } from "@/components/EmployeesModule";
+import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
@@ -225,6 +227,18 @@ export interface ScheduleEntry {
   createdBy: string;
   eventLabel?: string;
 }
+
+export type VacationRequestRow = {
+  id: string;
+  company_id: string;
+  user_id: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  status: "pending" | "approved" | "rejected";
+  notes?: string | null;
+  admin_comment?: string | null;
+};
 
 // Compliance Builder (Sprint P)
 export type ComplianceTarget = "employee" | "subcontractor" | "vehicle";
@@ -547,6 +561,11 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canManageForms: true,
       canViewBinders: true,
       canManageBinders: true,
+      canManageSubcontractors: true,
+      canApproveVacations: true,
+      canViewAttendance: true,
+      canViewTimeclock: true,
+      canManageTimeclock: true,
     },
   },
   {
@@ -574,6 +593,11 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canManageForms: true,
       canViewBinders: true,
       canManageBinders: false,
+      canManageSubcontractors: false,
+      canApproveVacations: true,
+      canViewAttendance: true,
+      canViewTimeclock: true,
+      canManageTimeclock: false,
     },
   },
   {
@@ -600,6 +624,11 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canManageForms: false,
       canViewBinders: true,
       canManageBinders: false,
+      canManageSubcontractors: false,
+      canApproveVacations: false,
+      canViewAttendance: false,
+      canViewTimeclock: true,
+      canManageTimeclock: false,
     },
     createdAt: "2026-01-01T00:00:00Z",
   },
@@ -628,6 +657,11 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canManageForms: false,
       canViewBinders: true,
       canManageBinders: false,
+      canManageSubcontractors: false,
+      canApproveVacations: false,
+      canViewAttendance: false,
+      canViewTimeclock: false,
+      canManageTimeclock: false,
     },
   },
 ];
@@ -645,6 +679,12 @@ interface ModulePermissions {
   canEditSettings?: boolean;
   canViewBinders?: boolean;
   canManageBinders?: boolean;
+  canAccessEmployees?: boolean;
+  canAccessSubcontractors?: boolean;
+  canApproveVacations?: boolean;
+  canViewAttendance?: boolean;
+  canViewTimeclock?: boolean;
+  canManageTimeclock?: boolean;
 }
 
 function permissionsToModule(p: RolePermissions): ModulePermissions {
@@ -660,6 +700,12 @@ function permissionsToModule(p: RolePermissions): ModulePermissions {
     canEditSettings: p.canEditSettings,
     canViewBinders: p.canViewBinders,
     canManageBinders: p.canManageBinders,
+    canAccessEmployees: p.canManageEmployees,
+    canAccessSubcontractors: p.canManageSubcontractors,
+    canApproveVacations: p.canApproveVacations,
+    canViewAttendance: p.canViewAttendance,
+    canViewTimeclock: p.canViewTimeclock,
+    canManageTimeclock: p.canManageTimeclock,
   };
 }
 
@@ -932,6 +978,12 @@ export default function Home() {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>(INITIAL_SCHEDULE);
   const [clockEntries, setClockEntries] = useState<ClockEntry[]>([]);
+  /** Fichajes desde `time_entries` (Supabase); se fusionan con fichajes locales. */
+  const [dbClockEntries, setDbClockEntries] = useState<ClockEntry[]>([]);
+  const [vacationRequests, setVacationRequests] = useState<VacationRequestRow[]>([]);
+  /** user_profiles.id → employees.id */
+  const [userToEmployeeMap, setUserToEmployeeMap] = useState<Record<string, string>>({});
+  const userIdToEmployeeIdRef = useRef<Map<string, string>>(new Map());
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>(() => {
     if (typeof window === "undefined") return INITIAL_FORM_TEMPLATES;
@@ -957,6 +1009,85 @@ export default function Home() {
   });
   const [binders, setBinders] = useState<Binder[]>(INITIAL_BINDERS);
   const [binderDocuments, setBinderDocuments] = useState<BinderDocument[]>([]);
+
+  const displayClockEntries = useMemo(() => {
+    const map = new Map<string, ClockEntry>();
+    for (const c of clockEntries) {
+      map.set(`${c.employeeId}|${c.date}`, c);
+    }
+    for (const d of dbClockEntries) {
+      map.set(`${d.employeeId}|${d.date}`, d);
+    }
+    return Array.from(map.values());
+  }, [dbClockEntries, clockEntries]);
+
+  useEffect(() => {
+    if (!supabase || !session || !companyId) {
+      setDbClockEntries([]);
+      setVacationRequests([]);
+      setUserToEmployeeMap({});
+      userIdToEmployeeIdRef.current = new Map();
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data: profiles } = await supabase
+        .from("user_profiles")
+        .select("id, employee_id")
+        .eq("company_id", companyId);
+      if (cancelled) return;
+      const userToEmp = new Map<string, string>();
+      const o: Record<string, string> = {};
+      for (const p of profiles ?? []) {
+        const row = p as { id: string; employee_id: string | null };
+        if (row.employee_id) {
+          userToEmp.set(row.id, row.employee_id);
+          o[row.id] = row.employee_id;
+        }
+      }
+      userIdToEmployeeIdRef.current = userToEmp;
+      setUserToEmployeeMap(o);
+      const { data: rows } = await supabase
+        .from("time_entries")
+        .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
+        .eq("company_id", companyId)
+        .order("clock_in_at", { ascending: false })
+        .limit(500);
+      if (cancelled || !rows) return;
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const mapped: ClockEntry[] = (rows as Record<string, unknown>[]).map((row) => {
+        const userId = String(row.user_id);
+        const inD = new Date(String(row.clock_in_at));
+        const dateStr = `${inD.getFullYear()}-${pad(inD.getMonth() + 1)}-${pad(inD.getDate())}`;
+        const clockIn = `${pad(inD.getHours())}:${pad(inD.getMinutes())}`;
+        let clockOut: string | undefined;
+        if (row.clock_out_at) {
+          const outD = new Date(String(row.clock_out_at));
+          clockOut = `${pad(outD.getHours())}:${pad(outD.getMinutes())}`;
+        }
+        const empId = userToEmp.get(userId) ?? userId;
+        return {
+          id: String(row.id),
+          employeeId: empId,
+          projectId: row.project_id != null ? String(row.project_id) : undefined,
+          date: dateStr,
+          clockIn,
+          clockOut,
+        };
+      });
+      setDbClockEntries(mapped);
+      const { data: vac } = await supabase
+        .from("vacation_requests")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (!cancelled && vac) setVacationRequests(vac as VacationRequestRow[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, companyId]);
 
   useEffect(() => {
     if (!supabase || !session) return;
@@ -1723,7 +1854,7 @@ export default function Home() {
 
   const handleClockOut = useCallback(() => {
     const todayYmd = new Date().toISOString().split("T")[0];
-    const openEntry = (clockEntries ?? []).find(
+    const openEntry = displayClockEntries.find(
       (e) =>
         e.employeeId === (currentUserEmployeeId ?? "") &&
         e.date === todayYmd &&
@@ -1731,16 +1862,48 @@ export default function Home() {
     );
     if (!openEntry) return;
 
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(openEntry.id);
+
     const applyClockOut = (lat?: number, lng?: number) => {
+      const outTime = new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      if (isUuid && supabase) {
+        void (async () => {
+          const { data: row } = await supabase
+            .from("time_entries")
+            .select("clock_in_at")
+            .eq("id", openEntry.id)
+            .maybeSingle();
+          const clockInAt = row && typeof (row as { clock_in_at?: string }).clock_in_at === "string"
+            ? new Date((row as { clock_in_at: string }).clock_in_at).getTime()
+            : Date.now();
+          const mins = Math.max(0, Math.round((Date.now() - clockInAt) / 60_000));
+          await supabase
+            .from("time_entries")
+            .update({
+              clock_out_at: new Date().toISOString(),
+              clock_out_lat: lat ?? null,
+              clock_out_lng: lng ?? null,
+              status: "completed",
+              total_minutes: mins,
+            })
+            .eq("id", openEntry.id);
+          setDbClockEntries((prev) =>
+            prev.map((e) => (e.id === openEntry.id ? { ...e, clockOut: outTime } : e))
+          );
+          setClockInGpsStatus("ok");
+        })();
+        return;
+      }
       setClockEntries((prev) =>
         prev.map((e) =>
           e.id === openEntry.id
             ? {
                 ...e,
-                clockOut: new Date().toLocaleTimeString("en-GB", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
+                clockOut: outTime,
                 locationLat: lat ?? e.locationLat,
                 locationLng: lng ?? e.locationLng,
               }
@@ -1766,7 +1929,7 @@ export default function Home() {
       },
       { timeout: 8000, maximumAge: 60000 }
     );
-  }, [clockEntries, currentUserEmployeeId]);
+  }, [displayClockEntries, currentUserEmployeeId, supabase]);
 
   const handleAddScheduleEntry = (entry: Omit<ScheduleEntry, "id">) => {
     setScheduleEntries((prev) => [...prev, { ...entry, id: `se${Date.now()}` }]);
@@ -1781,6 +1944,107 @@ export default function Home() {
       prev.map((e) => (e.id === id ? { ...entry, id } : e))
     );
   };
+
+  const handleApproveVacation = useCallback(
+    async (id: string, comment: string) => {
+      if (!supabase || !user?.id) return;
+      const req = vacationRequests.find((v) => v.id === id);
+      if (!req || req.status !== "pending") return;
+      const { error } = await supabase
+        .from("vacation_requests")
+        .update({
+          status: "approved",
+          admin_comment: comment || null,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) return;
+      setVacationRequests((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, status: "approved" as const } : v))
+      );
+      const empId = userIdToEmployeeIdRef.current.get(req.user_id) ?? req.user_id;
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const newEntries: ScheduleEntry[] = [];
+      const start = new Date(req.start_date + "T12:00:00");
+      const end = new Date(req.end_date + "T12:00:00");
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const ymd = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        newEntries.push({
+          id: `se${Date.now()}-${ymd}-${Math.random().toString(36).slice(2, 7)}`,
+          type: "event",
+          employeeIds: [empId],
+          date: ymd,
+          startTime: "00:00",
+          endTime: "23:59",
+          notes:
+            (t as Record<string, string>).schedule_vacation_calendar_note ?? "Vacaciones aprobadas",
+          eventLabel: "vacation",
+          createdBy: user.id,
+        });
+      }
+      if (newEntries.length) {
+        setScheduleEntries((prev) => [...prev, ...newEntries]);
+      }
+    },
+    [supabase, user?.id, vacationRequests, t]
+  );
+
+  const handleRejectVacation = useCallback(
+    async (id: string, comment: string) => {
+      if (!supabase || !user?.id) return;
+      const { error } = await supabase
+        .from("vacation_requests")
+        .update({
+          status: "rejected",
+          admin_comment: comment || null,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) return;
+      setVacationRequests((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, status: "rejected" as const } : v))
+      );
+    },
+    [supabase, user?.id]
+  );
+
+  const handleCreateVacationRequest = useCallback(
+    async (start: string, end: string, notes: string) => {
+      if (!supabase || !companyId || !user?.id) return;
+      const d0 = new Date(start + "T12:00:00");
+      const d1 = new Date(end + "T12:00:00");
+      if (d1 < d0) return;
+      const totalDays = Math.floor((d1.getTime() - d0.getTime()) / 86400000) + 1;
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .insert({
+          company_id: companyId,
+          user_id: user.id,
+          start_date: start,
+          end_date: end,
+          total_days: totalDays,
+          notes: notes || null,
+          status: "pending",
+        })
+        .select("*")
+        .single();
+      if (error || !data) return;
+      setVacationRequests((prev) => [data as VacationRequestRow, ...prev]);
+    },
+    [supabase, companyId, user?.id]
+  );
+
+  const vacationEmployeeNames = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const req of vacationRequests) {
+      const eid = userToEmployeeMap[req.user_id];
+      const name = eid ? employees.find((e) => e.id === eid)?.name : undefined;
+      out[req.user_id] = name ?? "—";
+    }
+    return out;
+  }, [vacationRequests, userToEmployeeMap, employees]);
 
   const handleAddBlueprint = (bp: Blueprint) => {
     setBlueprints((prev) => [...prev, bp]);
@@ -2248,6 +2512,8 @@ export default function Home() {
             effectiveRole === "worker"
           }
           canAccessRfi={effectiveRole === "admin" || effectiveRole === "supervisor"}
+          canAccessEmployees={!!perms.canAccessEmployees}
+          canAccessSubcontractors={!!perms.canAccessSubcontractors}
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -2492,7 +2758,7 @@ export default function Home() {
                   const baseIds = ["role-admin", "role-supervisor", "role-worker", "role-logistic"];
                   if (!baseIds.includes(id)) setCustomRoles((prev) => prev.filter((r) => r.id !== id));
                 }}
-                clockEntries={clockEntries}
+                clockEntries={displayClockEntries}
                 formInstances={formInstances}
                 language={language}
                 complianceFields={complianceFields}
@@ -2551,6 +2817,7 @@ export default function Home() {
                   setDashVisitorQrSig((n) => n + 1);
                 }}
                 visitorCheckInUrl={companyId ? buildVisitorCheckInUrl(companyId) : null}
+                canAccessEmployees={!!perms.canAccessEmployees}
                 canAccessVisitors={effectiveRole === "admin" || effectiveRole === "supervisor"}
                 canAccessHazards={
                   effectiveRole === "admin" ||
@@ -2664,6 +2931,27 @@ export default function Home() {
                 onMarkResourceItemReady={handleMarkResourceItemReady}
                 cloudinaryCloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ""}
                 cloudinaryUploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ""}
+              />
+            )}
+
+            {activeSection === "employees" && !!perms.canAccessEmployees && (
+              <EmployeesModule
+                companyId={companyId}
+                labels={t as Record<string, string>}
+                customRoles={customRoles}
+                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                canManageEmployees={rolePerms.canManageEmployees}
+                cloudinaryCloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ""}
+                cloudinaryUploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ""}
+              />
+            )}
+
+            {activeSection === "subcontractors" && !!perms.canAccessSubcontractors && (
+              <SubcontractorsModule
+                companyId={companyId}
+                labels={t as Record<string, string>}
+                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                canManage={rolePerms.canManageSubcontractors}
               />
             )}
 
@@ -2857,6 +3145,8 @@ export default function Home() {
                 onDeleteTask={(taskId) => {
                   setProjectTasks((prev) => prev.filter((t) => t.id !== taskId));
                 }}
+                canViewAttendancePanel={!!rolePerms.canViewAttendance}
+                canUseProjectTimeclock={!!rolePerms.canViewTimeclock}
                 onCreateForm={(projectId, form) => {
                   const newForm = {
                     ...form,
@@ -2892,9 +3182,22 @@ export default function Home() {
                   location: p.location,
                 }))}
                 currentUserEmployeeId={currentUserEmployeeId ?? undefined}
-                canWrite={perms.canWriteSchedule ?? false}
+                canWrite={
+                  effectiveRole === "admin" ||
+                  effectiveRole === "supervisor" ||
+                  (perms.canWriteSchedule ?? false)
+                }
                 canClockIn={effectiveRole !== "admin"}
                 viewAll={effectiveRole === "admin" || effectiveRole === "supervisor"}
+                canApproveVacations={
+                  effectiveRole === "admin" || !!perms.canApproveVacations
+                }
+                canRequestVacation={!!session && !!companyId}
+                vacationRequests={vacationRequests}
+                vacationEmployeeNames={vacationEmployeeNames}
+                onApproveVacation={handleApproveVacation}
+                onRejectVacation={handleRejectVacation}
+                onRequestVacation={handleCreateVacationRequest}
                 labels={{
                   schedule: t.schedule ?? "Horario",
                   shift: (t as Record<string, string>).shift ?? "Turno",
@@ -2955,11 +3258,24 @@ export default function Home() {
                   hours: t.hours ?? "Horas",
                   outsideZone: (t as Record<string, string>).outsideZone ?? "Fuera de zona",
                   pendingCertsAtClockIn: (t as Record<string, string>).pendingCertsAtClockIn ?? "Certs pendientes al fichar",
+                  days: (t as Record<string, string>).days ?? "días",
+                  schedule_event_company: (t as Record<string, string>).schedule_event_company,
+                  schedule_day_off_collective: (t as Record<string, string>).schedule_day_off_collective,
+                  schedule_personal_leave: (t as Record<string, string>).schedule_personal_leave,
+                  schedule_event_type: (t as Record<string, string>).schedule_event_type,
+                  schedule_vacation_request: (t as Record<string, string>).schedule_vacation_request,
+                  schedule_vacation_pending_list: (t as Record<string, string>).schedule_vacation_pending_list,
+                  schedule_vacation_comment: (t as Record<string, string>).schedule_vacation_comment,
+                  schedule_vacation_calendar_note: (t as Record<string, string>).schedule_vacation_calendar_note,
+                  schedule_legend_meeting: (t as Record<string, string>).schedule_legend_meeting,
+                  schedule_legend_training: (t as Record<string, string>).schedule_legend_training,
+                  employees_request_vacation: (t as Record<string, string>).employees_request_vacation,
+                  common_other: (t as Record<string, string>).common_other,
                 }}
                 onAddEntry={handleAddScheduleEntry}
                 onUpdateEntry={handleUpdateScheduleEntry}
                 onDeleteEntry={handleDeleteScheduleEntry}
-                clockEntries={clockEntries}
+                clockEntries={displayClockEntries}
                 clockInProjectCode={clockInProjectCode}
                 setClockInProjectCode={setClockInProjectCode}
                 gpsStatus={clockInGpsStatus}

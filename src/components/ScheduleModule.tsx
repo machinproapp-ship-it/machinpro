@@ -155,7 +155,35 @@ export interface ScheduleModuleProps {
     hours?: string;
     outsideZone?: string;
     pendingCertsAtClockIn?: string;
+    days?: string;
+    schedule_event_company?: string;
+    schedule_day_off_collective?: string;
+    schedule_personal_leave?: string;
+    schedule_event_type?: string;
+    schedule_vacation_request?: string;
+    schedule_vacation_pending_list?: string;
+    schedule_vacation_comment?: string;
+    schedule_vacation_calendar_note?: string;
+    schedule_legend_meeting?: string;
+    schedule_legend_training?: string;
+    employees_request_vacation?: string;
+    common_other?: string;
   };
+  canApproveVacations?: boolean;
+  canRequestVacation?: boolean;
+  vacationRequests?: Array<{
+    id: string;
+    user_id: string;
+    start_date: string;
+    end_date: string;
+    total_days: number;
+    status: "pending" | "approved" | "rejected";
+    notes?: string | null;
+  }>;
+  vacationEmployeeNames?: Record<string, string>;
+  onApproveVacation?: (id: string, comment: string) => void | Promise<void>;
+  onRejectVacation?: (id: string, comment: string) => void | Promise<void>;
+  onRequestVacation?: (start: string, end: string, notes: string) => void | Promise<void>;
   onAddEntry?: (entry: Omit<SchedEntry, "id">) => void;
   onUpdateEntry?: (id: string, entry: Omit<SchedEntry, "id">) => void;
   onDeleteEntry?: (id: string) => void;
@@ -221,6 +249,9 @@ const EVENT_COLORS: Record<string, string> = {
   meeting: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-100",
   vacation: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100",
   training: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-100",
+  company_event: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-100",
+  collective_off: "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100",
+  personal_leave: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-100",
   other: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-200",
 };
 
@@ -235,6 +266,9 @@ function entryDotClass(entry: SchedEntry): string {
   if (k === "meeting") return "bg-blue-500";
   if (k === "vacation") return "bg-emerald-500";
   if (k === "training") return "bg-purple-500";
+  if (k === "company_event") return "bg-pink-500";
+  if (k === "collective_off") return "bg-slate-500";
+  if (k === "personal_leave") return "bg-cyan-500";
   return "bg-zinc-500";
 }
 
@@ -550,6 +584,13 @@ export default function ScheduleModule({
   canClockIn = false,
   viewAll,
   labels,
+  canApproveVacations = false,
+  canRequestVacation = false,
+  vacationRequests = [],
+  vacationEmployeeNames = {},
+  onApproveVacation,
+  onRejectVacation,
+  onRequestVacation,
   onAddEntry,
   onUpdateEntry,
   onDeleteEntry,
@@ -607,6 +648,10 @@ export default function ScheduleModule({
   const [fEnd, setFEnd] = useState("16:00");
   const [fNotes, setFNotes] = useState("");
   const [fLabel, setFLabel] = useState("meeting");
+  const [vacReqStart, setVacReqStart] = useState("");
+  const [vacReqEnd, setVacReqEnd] = useState("");
+  const [vacReqNote, setVacReqNote] = useState("");
+  const [vacAdminComment, setVacAdminComment] = useState<Record<string, string>>({});
 
   const calendarDays = useMemo(
     () => getCalendarDays(viewYear, viewMonth),
@@ -742,6 +787,108 @@ export default function ScheduleModule({
 
       {scheduleSubTab === "calendar" && (
         <>
+          {((onRequestVacation && canRequestVacation) ||
+            (canApproveVacations && vacationRequests.some((v) => v.status === "pending"))) && (
+            <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
+              {onRequestVacation && canRequestVacation && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                    {(labels as Record<string, string>).schedule_vacation_request ?? "Solicitud de vacaciones"}
+                  </h4>
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                    <input
+                      type="date"
+                      value={vacReqStart}
+                      onChange={(e) => setVacReqStart(e.target.value)}
+                      className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                      aria-label={(labels as Record<string, string>).date ?? "Fecha inicio"}
+                    />
+                    <input
+                      type="date"
+                      value={vacReqEnd}
+                      onChange={(e) => setVacReqEnd(e.target.value)}
+                      className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                      aria-label={(labels as Record<string, string>).date ?? "Fecha fin"}
+                    />
+                    <input
+                      type="text"
+                      value={vacReqNote}
+                      onChange={(e) => setVacReqNote(e.target.value)}
+                      placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Nota (opcional)"}
+                      className="flex-1 min-w-[200px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!vacReqStart || !vacReqEnd) return;
+                        void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote);
+                        setVacReqNote("");
+                      }}
+                      className="rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium min-h-[44px] min-w-[44px]"
+                    >
+                      {(labels as Record<string, string>).employees_request_vacation ?? "Solicitar vacaciones"}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {canApproveVacations && vacationRequests.filter((v) => v.status === "pending").length > 0 && (
+                <div className="space-y-2 border-t border-zinc-200 dark:border-slate-700 pt-4">
+                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                    {(labels as Record<string, string>).schedule_vacation_pending_list ?? "Solicitudes pendientes"}
+                  </h4>
+                  <ul className="space-y-3">
+                    {vacationRequests
+                      .filter((v) => v.status === "pending")
+                      .map((v) => (
+                        <li
+                          key={v.id}
+                          className="rounded-lg border border-zinc-200 dark:border-slate-700 p-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+                        >
+                          <div className="min-w-0 text-sm">
+                            <p className="font-medium text-zinc-900 dark:text-white">
+                              {vacationEmployeeNames[v.user_id] ?? "—"}
+                            </p>
+                            <p className="text-zinc-600 dark:text-zinc-400">
+                              {v.start_date} → {v.end_date} · {v.total_days}{" "}
+                              {(labels as Record<string, string>).days ?? "días"}
+                            </p>
+                            {v.notes ? (
+                              <p className="text-xs text-zinc-500 mt-1">{v.notes}</p>
+                            ) : null}
+                            <input
+                              type="text"
+                              value={vacAdminComment[v.id] ?? ""}
+                              onChange={(e) =>
+                                setVacAdminComment((prev) => ({ ...prev, [v.id]: e.target.value }))
+                              }
+                              placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Comentario"}
+                              className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-xs min-h-[44px]"
+                            />
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => void onApproveVacation?.(v.id, vacAdminComment[v.id] ?? "")}
+                              className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                            >
+                              {labels.approve ?? "Aprobar"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void onRejectVacation?.(v.id, vacAdminComment[v.id] ?? "")}
+                              className="rounded-lg bg-red-600 hover:bg-red-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                            >
+                              {labels.reject ?? "Rechazar"}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-nowrap items-center gap-2 mb-4 w-full">
             <button
               type="button"
@@ -858,11 +1005,14 @@ export default function ScheduleModule({
 
           <div className="flex flex-wrap gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             {[
-              { key: "shift", label: "Turno en proyecto" },
-              { key: "meeting", label: "Reunión" },
-              { key: "vacation", label: "Vacaciones" },
-              { key: "training", label: "Formación" },
-              { key: "other", label: (labels as Record<string, string>).common_other ?? "Other" },
+              { key: "shift", label: labels.shift ?? "Turno" },
+              { key: "meeting", label: (labels as Record<string, string>).schedule_legend_meeting ?? "Reunión" },
+              { key: "company_event", label: (labels as Record<string, string>).schedule_event_company ?? "Evento empresa" },
+              { key: "collective_off", label: (labels as Record<string, string>).schedule_day_off_collective ?? "Día libre colectivo" },
+              { key: "vacation", label: (labels as Record<string, string>).schedule_vacation_request ?? "Vacaciones" },
+              { key: "personal_leave", label: (labels as Record<string, string>).schedule_personal_leave ?? "Día libre individual" },
+              { key: "training", label: (labels as Record<string, string>).schedule_legend_training ?? "Formación" },
+              { key: "other", label: (labels as Record<string, string>).common_other ?? "Otro" },
             ].map(({ key, label }) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span className={`w-3 h-3 rounded border inline-block ${EVENT_COLORS[key]}`} />
@@ -1142,17 +1292,32 @@ export default function ScheduleModule({
               {fType === "event" && (
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Tipo de evento
+                    {(labels as Record<string, string>).schedule_event_type ?? "Tipo de evento"}
                   </label>
                   <select
                     value={fLabel}
                     onChange={(e) => setFLabel(e.target.value)}
                     className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                   >
-                    <option value="meeting">Reunión</option>
-                    <option value="vacation">Vacaciones</option>
-                    <option value="training">Formación</option>
-                    <option value="other">Otro</option>
+                    <option value="meeting">
+                      {(labels as Record<string, string>).schedule_legend_meeting ?? "Reunión"}
+                    </option>
+                    <option value="company_event">
+                      {(labels as Record<string, string>).schedule_event_company ?? "Evento de empresa"}
+                    </option>
+                    <option value="collective_off">
+                      {(labels as Record<string, string>).schedule_day_off_collective ?? "Día libre colectivo"}
+                    </option>
+                    <option value="vacation">
+                      {(labels as Record<string, string>).schedule_vacation_request ?? "Vacaciones"}
+                    </option>
+                    <option value="personal_leave">
+                      {(labels as Record<string, string>).schedule_personal_leave ?? "Día libre individual"}
+                    </option>
+                    <option value="training">
+                      {(labels as Record<string, string>).schedule_legend_training ?? "Formación"}
+                    </option>
+                    <option value="other">{(labels as Record<string, string>).common_other ?? "Otro"}</option>
                   </select>
                 </div>
               )}

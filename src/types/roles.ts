@@ -18,6 +18,11 @@ export interface RolePermissions {
   canManageForms: boolean;
   canViewBinders: boolean;
   canManageBinders: boolean;
+  canManageSubcontractors: boolean;
+  canApproveVacations: boolean;
+  canViewAttendance: boolean;
+  canViewTimeclock: boolean;
+  canManageTimeclock: boolean;
 }
 
 export interface CustomRole {
@@ -48,6 +53,11 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canManageForms",
   "canViewBinders",
   "canManageBinders",
+  "canManageSubcontractors",
+  "canApproveVacations",
+  "canViewAttendance",
+  "canViewTimeclock",
+  "canManageTimeclock",
 ];
 
 export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
@@ -70,6 +80,11 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageForms: "Gestionar Formularios",
   canViewBinders: "Ver Documentos",
   canManageBinders: "Gestionar Documentos",
+  canManageSubcontractors: "Gestionar Subcontratistas",
+  canApproveVacations: "Aprobar vacaciones",
+  canViewAttendance: "Ver panel asistencia",
+  canViewTimeclock: "Ver fichajes",
+  canManageTimeclock: "Gestionar fichajes",
 };
 
 const BASE_ROLE_IDS = ["role-admin", "role-supervisor", "role-worker", "role-logistic"];

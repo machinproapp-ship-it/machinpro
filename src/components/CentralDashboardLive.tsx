@@ -85,8 +85,13 @@ function activityBucket(action: string, entityType: string): ActivityFilter | "o
   return "other";
 }
 
-function formatActivityLine(row: AuditLogEntry, labels: Record<string, string>, projectNames: Record<string, string>): string {
-  const who = row.user_name ?? labels.dashboard_activity_user ?? "—";
+function formatActivityLine(
+  row: AuditLogEntry,
+  labels: Record<string, string>,
+  projectNames: Record<string, string>,
+  resolveWho: (userId: string, storedName?: string | null) => string
+): string {
+  const who = resolveWho(row.user_id, row.user_name ?? null);
   const ent = row.entity_name ?? "";
   const nv = row.new_value as Record<string, unknown> | undefined;
   const pid = typeof nv?.project_id === "string" ? nv.project_id : null;
@@ -195,6 +200,8 @@ export interface CentralDashboardLiveProps {
   onQuickVisitorQr: () => void;
   /** For workers: public check-in page */
   visitorCheckInUrl: string | null;
+  /** When true, KPI "Employees" opens the employees module */
+  canAccessEmployees?: boolean;
 }
 
 export function CentralDashboardLive({
@@ -215,6 +222,7 @@ export function CentralDashboardLive({
   onQuickNewAction,
   onQuickVisitorQr,
   visitorCheckInUrl,
+  canAccessEmployees = false,
 }: CentralDashboardLiveProps) {
   const labels = labelsProp;
   const localeMap: Record<string, string> = {
@@ -254,6 +262,7 @@ export function CentralDashboardLive({
   const [overdueActions, setOverdueActions] = useState<CorrectiveAction[]>([]);
   const [longVisitors, setLongVisitors] = useState<{ id: string; visitor_name: string; check_in: string }[]>([]);
   const [activityRows, setActivityRows] = useState<AuditLogEntry[]>([]);
+  const [userNameById, setUserNameById] = useState<Record<string, string>>({});
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
@@ -279,6 +288,7 @@ export function CentralDashboardLive({
       setOverdueActions([]);
       setLongVisitors([]);
       setActivityRows([]);
+      setUserNameById({});
       setLoading(false);
       return;
     }
@@ -370,7 +380,24 @@ export function CentralDashboardLive({
       setBlueprintCount(bpCt.count ?? 0);
       setPinCount(pinCt.count ?? 0);
       setNoteCount(noteRes.error ? 0 : noteRes.count ?? 0);
-      setActivityRows((audits.data ?? []) as AuditLogEntry[]);
+      const auditRows = (audits.data ?? []) as AuditLogEntry[];
+      setActivityRows(auditRows);
+      const userIds = [...new Set(auditRows.map((r) => r.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("user_profiles")
+          .select("id, full_name, display_name")
+          .in("id", userIds);
+        const map: Record<string, string> = {};
+        for (const p of profs ?? []) {
+          const pr = p as { id: string; full_name?: string | null; display_name?: string | null };
+          const nm = (pr.full_name || pr.display_name || "").trim();
+          if (nm) map[pr.id] = nm;
+        }
+        setUserNameById(map);
+      } else {
+        setUserNameById({});
+      }
       setCriticalUnassigned((critUn.data ?? []) as Hazard[]);
 
       const ca = (caList.data ?? []) as CorrectiveAction[];
@@ -536,6 +563,21 @@ export function CentralDashboardLive({
     return filtered.slice(0, 10);
   }, [activityPool, activityFilter]);
 
+  const resolveActivityWho = useCallback(
+    (userId: string, storedName?: string | null) => {
+      const fromDb = userNameById[userId]?.trim();
+      if (fromDb) return fromDb;
+      const s = (storedName ?? "").trim();
+      if (s && !s.includes("@")) return s;
+      if (s.includes("@")) {
+        const local = s.split("@")[0]?.trim();
+        return local || (labels.dashboard_activity_user ?? "—");
+      }
+      return labels.dashboard_activity_user ?? "—";
+    },
+    [userNameById, labels]
+  );
+
   const seatsLimit = subscription?.seats_limit;
   const projLimit = subscription?.projects_limit;
   const storLimit = subscription?.storage_limit_gb;
@@ -599,7 +641,7 @@ export function CentralDashboardLive({
           <>
             <button
               type="button"
-              onClick={() => onNavigateAppSection("office")}
+              onClick={() => onNavigateAppSection(canAccessEmployees ? "employees" : "office")}
               className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors min-h-[44px]"
             >
               <div className="flex items-center gap-3 mb-2">
@@ -865,7 +907,9 @@ export function CentralDashboardLive({
                 >
                   <Shield className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <p className="text-gray-800 dark:text-gray-200">{formatActivityLine(row, labels, projectNameById)}</p>
+                    <p className="text-gray-800 dark:text-gray-200">
+                      {formatActivityLine(row, labels, projectNameById, resolveActivityWho)}
+                    </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {relativeTime(row.created_at, locale, labels)}
                     </p>

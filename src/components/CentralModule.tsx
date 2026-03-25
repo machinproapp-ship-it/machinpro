@@ -217,6 +217,7 @@ interface CentralModuleProps {
   canAccessVisitors?: boolean;
   canAccessHazards?: boolean;
   canAccessCorrective?: boolean;
+  canAccessEmployees?: boolean;
 }
 
 const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
@@ -239,6 +240,11 @@ const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
   canManageForms: false,
   canViewBinders: false,
   canManageBinders: false,
+  canManageSubcontractors: false,
+  canApproveVacations: false,
+  canViewAttendance: false,
+  canViewTimeclock: false,
+  canManageTimeclock: false,
 };
 
 function computeComplianceRecordStatus(
@@ -340,6 +346,7 @@ export function CentralModule({
   canAccessVisitors = false,
   canAccessHazards = false,
   canAccessCorrective = false,
+  canAccessEmployees = false,
 }: CentralModuleProps) {
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
@@ -399,10 +406,16 @@ export function CentralModule({
       canManageForms: false,
       canViewBinders: false,
       canManageBinders: false,
+      canManageSubcontractors: false,
+      canApproveVacations: false,
+      canViewAttendance: false,
+      canViewTimeclock: false,
+      canManageTimeclock: false,
     },
   });
 
   const permLabel = (key: keyof RolePermissions): string => {
+    const lx = labels as Record<string, string>;
     const map: Record<keyof RolePermissions, string> = {
       canViewCentral: labels.permViewCentral ?? "Ver Central",
       canEditCentral: labels.permEditCentral ?? "Editar Central",
@@ -421,8 +434,13 @@ export function CentralModule({
       canManageEmployees: labels.permManageEmployees ?? "Gestionar Empleados",
       canViewForms: labels.permViewForms ?? "Ver Formularios",
       canManageForms: labels.permManageForms ?? "Gestionar Formularios",
-      canViewBinders: (labels as Record<string, string>).permViewBinders ?? "Ver Documentos",
-      canManageBinders: (labels as Record<string, string>).permManageBinders ?? "Gestionar Documentos",
+      canViewBinders: lx.permViewBinders ?? "Ver Documentos",
+      canManageBinders: lx.permManageBinders ?? "Gestionar Documentos",
+      canManageSubcontractors: lx.permManageSubcontractors ?? "Gestionar Subcontratistas",
+      canApproveVacations: lx.permApproveVacations ?? "Aprobar vacaciones",
+      canViewAttendance: lx.permViewAttendance ?? "Ver panel asistencia",
+      canViewTimeclock: lx.permViewTimeclock ?? "Ver fichajes",
+      canManageTimeclock: lx.permManageTimeclock ?? "Gestionar fichajes",
     };
     return map[key];
   };
@@ -452,6 +470,11 @@ export function CentralModule({
         canManageForms: false,
         canViewBinders: false,
         canManageBinders: false,
+        canManageSubcontractors: false,
+        canApproveVacations: false,
+        canViewAttendance: false,
+        canViewTimeclock: false,
+        canManageTimeclock: false,
       },
     });
     setRoleModalOpen(true);
@@ -751,6 +774,7 @@ export function CentralModule({
                 onQuickNewAction={onQuickNewAction ?? (() => undefined)}
                 onQuickVisitorQr={onQuickVisitorQr ?? (() => undefined)}
                 visitorCheckInUrl={visitorCheckInUrl}
+                canAccessEmployees={canAccessEmployees}
               />
             </div>
           ) : (
@@ -2375,7 +2399,7 @@ export function CentralModule({
                 <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{labels.roleModules ?? "M?dulos"}</h4>
                 <table className="w-full text-sm">
                   <tbody>
-                    {ROLE_PERMISSION_KEYS.filter((k) => !["canViewSettings", "canEditSettings", "canManageRoles", "canManageEmployees", "canViewForms", "canManageForms"].includes(k)).map((key) => (
+                    {ROLE_PERMISSION_KEYS.filter((k) => !["canViewSettings", "canEditSettings", "canManageRoles", "canManageEmployees", "canViewForms", "canManageForms", "canManageSubcontractors", "canApproveVacations", "canViewAttendance", "canViewTimeclock", "canManageTimeclock"].includes(k)).map((key) => (
                       <tr key={key} className="border-b border-zinc-100 dark:border-white/5">
                         <td className="py-2.5 pr-4 text-zinc-700 dark:text-zinc-300">{permLabel(key)}</td>
                         <td className="py-2.5 w-14 text-right">
@@ -2398,7 +2422,7 @@ export function CentralModule({
                 <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{labels.roleAdmin2 ?? "Administraci?n"}</h4>
                 <table className="w-full text-sm">
                   <tbody>
-                    {(["canViewSettings", "canEditSettings", "canManageRoles", "canManageEmployees", "canViewForms", "canManageForms"] as const).map((key) => (
+                    {(["canViewSettings", "canEditSettings", "canManageRoles", "canManageEmployees", "canViewForms", "canManageForms", "canManageSubcontractors", "canApproveVacations", "canViewAttendance", "canViewTimeclock", "canManageTimeclock"] as const).map((key) => (
                       <tr key={key} className="border-b border-zinc-100 dark:border-white/5">
                         <td className="py-2.5 pr-4 text-zinc-700 dark:text-zinc-300">{permLabel(key)}</td>
                         <td className="py-2.5 w-14 text-right">
