@@ -390,15 +390,15 @@ export function CentralDashboardLive({
   }, [customizeOpen, resolvedConfig]);
 
   const persistConfig = useCallback(
-    async (next: ResolvedDashboardConfig) => {
-      if (!companyId || !canManageRoles) return;
+    async (next: ResolvedDashboardConfig): Promise<boolean> => {
+      if (!companyId || !canManageRoles) return false;
       setSavingConfig(true);
       try {
         const payload = buildDashboardConfigPayload(next);
-        if (!supabase) return;
+        if (!supabase) return false;
         const { data: sess } = await supabase.auth.getSession();
         const token = sess.session?.access_token;
-        if (!token) return;
+        if (!token) return false;
         const res = await fetch("/api/dashboard-config", {
           method: "PATCH",
           headers: {
@@ -407,8 +407,9 @@ export function CentralDashboardLive({
           },
           body: JSON.stringify({ companyId, dashboard_config: payload }),
         });
-        if (!res.ok) return;
+        if (!res.ok) return false;
         setResolvedConfig(next);
+        return true;
       } finally {
         setSavingConfig(false);
       }
@@ -813,15 +814,17 @@ export function CentralDashboardLive({
   );
 
   const moveWidget = useCallback(
-    (id: DashboardWidgetId, dir: -1 | 1) => {
+    async (id: DashboardWidgetId, dir: -1 | 1) => {
       const order = [...resolvedConfig.orderedWidgets];
       const i = order.indexOf(id);
       const j = i + dir;
       if (i < 0 || j < 0 || j >= order.length) return;
       [order[i], order[j]] = [order[j], order[i]];
       const next = { ...resolvedConfig, orderedWidgets: order };
+      const prev = resolvedConfig;
       setResolvedConfig(next);
-      void persistConfig(next);
+      const ok = await persistConfig(next);
+      if (!ok) setResolvedConfig(prev);
     },
     [resolvedConfig, persistConfig]
   );
@@ -831,7 +834,7 @@ export function CentralDashboardLive({
     setDragWidget(id);
   };
 
-  const onDropWidget = (overId: DashboardWidgetId) => {
+  const onDropWidget = async (overId: DashboardWidgetId) => {
     if (!canManageRoles || !useDnD || !dragWidget || dragWidget === overId) {
       setDragWidget(null);
       return;
@@ -846,8 +849,10 @@ export function CentralDashboardLive({
     order.splice(from, 1);
     order.splice(to, 0, dragWidget);
     const next = { ...resolvedConfig, orderedWidgets: order };
+    const prev = resolvedConfig;
     setResolvedConfig(next);
-    void persistConfig(next);
+    const ok = await persistConfig(next);
+    if (!ok) setResolvedConfig(prev);
     setDragWidget(null);
   };
 
@@ -872,9 +877,8 @@ export function CentralDashboardLive({
   };
 
   const saveCustomize = async () => {
-    setResolvedConfig(draftConfig);
-    setCustomizeOpen(false);
-    await persistConfig(draftConfig);
+    const ok = await persistConfig(draftConfig);
+    if (ok) setCustomizeOpen(false);
   };
 
   const renderQuickAccessButtons = (quickKeys: QuickAccessKey[]) => (
