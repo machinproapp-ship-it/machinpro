@@ -25,6 +25,15 @@ export async function POST(req: NextRequest) {
     phone?: string | null;
     customRoleId?: string | null;
     profileStatus?: string | null;
+    emergencyContactName?: string | null;
+    emergencyContactPhone?: string | null;
+    emergencyContactRelation?: string | null;
+    payType?: string | null;
+    payAmount?: number | null;
+    payCurrency?: string | null;
+    payPeriod?: string | null;
+    vacationPolicyEnabled?: boolean;
+    vacationDaysAnnual?: number | null;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -44,6 +53,28 @@ export async function POST(req: NextRequest) {
     typeof body.profileStatus === "string" && body.profileStatus.trim()
       ? body.profileStatus.trim()
       : "active";
+
+  const emergencyName =
+    typeof body.emergencyContactName === "string" ? body.emergencyContactName.trim() || null : null;
+  const emergencyPhone =
+    typeof body.emergencyContactPhone === "string" ? body.emergencyContactPhone.trim() || null : null;
+  const emergencyRelation =
+    typeof body.emergencyContactRelation === "string" ? body.emergencyContactRelation.trim() || null : null;
+  const rawPayType = typeof body.payType === "string" ? body.payType.trim() : "";
+  const payType = rawPayType === "fixed" || rawPayType === "hourly" ? rawPayType : null;
+  const payAmount =
+    typeof body.payAmount === "number" && !Number.isNaN(body.payAmount) ? body.payAmount : null;
+  const payCurrency =
+    typeof body.payCurrency === "string" && body.payCurrency.trim() ? body.payCurrency.trim() : null;
+  const payPeriod =
+    typeof body.payPeriod === "string" && ["monthly", "biweekly", "weekly"].includes(body.payPeriod)
+      ? body.payPeriod
+      : null;
+  const vacationPolicyEnabled = body.vacationPolicyEnabled === true;
+  const vacationDaysAnnual =
+    typeof body.vacationDaysAnnual === "number" && !Number.isNaN(body.vacationDaysAnnual)
+      ? body.vacationDaysAnnual
+      : null;
 
   if (!companyId || !fullName || !email) {
     return NextResponse.json({ error: "Missing companyId, fullName or email" }, { status: 400 });
@@ -79,6 +110,7 @@ export async function POST(req: NextRequest) {
 
     const baseRole = baseRoleFromCustomRoleId(customRoleId);
 
+    const effectivePayType = payType;
     const { error: profErr } = await admin.from("user_profiles").upsert(
       {
         id: userId,
@@ -91,6 +123,15 @@ export async function POST(req: NextRequest) {
         custom_role_id: customRoleId,
         profile_status: profileStatus,
         use_role_permissions: true,
+        emergency_contact_name: emergencyName,
+        emergency_contact_phone: emergencyPhone,
+        emergency_contact_relation: emergencyRelation,
+        pay_type: effectivePayType,
+        pay_amount: effectivePayType ? payAmount : null,
+        pay_currency: effectivePayType ? payCurrency : null,
+        pay_period: effectivePayType ? payPeriod : null,
+        vacation_policy_enabled: vacationPolicyEnabled,
+        vacation_days_allowed: vacationPolicyEnabled ? vacationDaysAnnual : null,
       },
       { onConflict: "id" }
     );

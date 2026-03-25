@@ -215,7 +215,7 @@ export type { Subcontractor } from "@/types/subcontractor";
 // Turno o evento en el calendario
 export interface ScheduleEntry {
   id: string;
-  type: "shift" | "event";
+  type: "shift" | "event" | "vacation";
   employeeIds: string[];
   projectId?: string;
   projectCode?: string;
@@ -1083,6 +1083,31 @@ export default function Home() {
         .order("created_at", { ascending: false })
         .limit(200);
       if (!cancelled && vac) setVacationRequests(vac as VacationRequestRow[]);
+      const { data: schedVac, error: schedErr } = await supabase
+        .from("schedule_entries")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("type", "vacation");
+      if (!cancelled && !schedErr && schedVac?.length) {
+        const mapped: ScheduleEntry[] = (schedVac as Record<string, unknown>[]).map((row) => {
+          const st = String(row.start_time ?? "00:00");
+          const et = String(row.end_time ?? "23:59");
+          return {
+            id: String(row.id),
+            type: "vacation" as const,
+            employeeIds: Array.isArray(row.employee_ids) ? (row.employee_ids as string[]) : [],
+            projectId: row.project_id != null ? String(row.project_id) : undefined,
+            projectCode: row.project_code != null ? String(row.project_code) : undefined,
+            date: String(row.date).slice(0, 10),
+            startTime: st.length >= 5 ? st.slice(0, 5) : st,
+            endTime: et.length >= 5 ? et.slice(0, 5) : et,
+            notes: row.notes != null ? String(row.notes) : undefined,
+            eventLabel: "vacation",
+            createdBy: row.created_by != null ? String(row.created_by) : "",
+          };
+        });
+        setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mapped]);
+      }
     })();
     return () => {
       cancelled = true;
@@ -1984,28 +2009,49 @@ export default function Home() {
       const empId = userIdToEmployeeIdRef.current.get(req.user_id) ?? req.user_id;
       const pad = (n: number) => String(n).padStart(2, "0");
       const newEntries: ScheduleEntry[] = [];
+      const noteTxt =
+        (t as Record<string, string>).schedule_vacation_calendar_note ?? "";
+      const rowsToInsert: Record<string, unknown>[] = [];
       const start = new Date(req.start_date + "T12:00:00");
       const end = new Date(req.end_date + "T12:00:00");
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const ymd = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const entryId = crypto.randomUUID();
         newEntries.push({
-          id: `se${Date.now()}-${ymd}-${Math.random().toString(36).slice(2, 7)}`,
-          type: "event",
+          id: entryId,
+          type: "vacation",
           employeeIds: [empId],
           date: ymd,
           startTime: "00:00",
           endTime: "23:59",
-          notes:
-            (t as Record<string, string>).schedule_vacation_calendar_note ?? "Vacaciones aprobadas",
+          notes: noteTxt,
           eventLabel: "vacation",
           createdBy: user.id,
         });
+        if (companyId) {
+          rowsToInsert.push({
+            id: entryId,
+            company_id: companyId,
+            type: "vacation",
+            employee_ids: [empId],
+            date: ymd,
+            start_time: "00:00:00",
+            end_time: "23:59:00",
+            notes: noteTxt || null,
+            event_label: "vacation",
+            created_by: user.id,
+          });
+        }
       }
       if (newEntries.length) {
         setScheduleEntries((prev) => [...prev, ...newEntries]);
       }
+      if (companyId && rowsToInsert.length) {
+        const { error: insErr } = await supabase.from("schedule_entries").insert(rowsToInsert);
+        if (insErr) console.error("schedule_entries vacation insert", insErr);
+      }
     },
-    [supabase, user?.id, vacationRequests, t]
+    [supabase, user?.id, vacationRequests, t, companyId]
   );
 
   const handleRejectVacation = useCallback(

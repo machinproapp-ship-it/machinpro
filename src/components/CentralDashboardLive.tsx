@@ -518,9 +518,9 @@ export function CentralDashboardLive({
           .limit(20),
         supabase
           .from("user_profiles")
-          .select("id, full_name, display_name")
+          .select("id, full_name, display_name, email")
           .eq("company_id", companyId)
-          .order("full_name", { ascending: true }),
+          .order("created_at", { ascending: false }),
         supabase
           .from("vacation_requests")
           .select("user_id, start_date, end_date")
@@ -615,10 +615,34 @@ export function CentralDashboardLive({
         });
       }
 
+      let profRows =
+        (allProfs.data ?? []) as {
+          id: string;
+          full_name?: string | null;
+          display_name?: string | null;
+          email?: string | null;
+        }[];
+      if (allProfs.error) {
+        console.error("[CentralDashboardLive] user_profiles list", allProfs.error);
+      }
+      if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
+        const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
+          p_company_id: companyId,
+        });
+        if (rpcErr) {
+          console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
+        } else if (rpcRows?.length) {
+          profRows = rpcRows as typeof profRows;
+        }
+      }
+
       const tclock: TimeclockRow[] = [];
-      for (const p of allProfs.data ?? []) {
-        const pr = p as { id: string; full_name?: string | null; display_name?: string | null };
-        const name = (pr.full_name || pr.display_name || "").trim() || pr.id.slice(0, 8);
+      for (const p of profRows) {
+        const pr = p;
+        const name =
+          (pr.full_name || pr.display_name || "").trim() ||
+          (pr.email ?? "").trim().split("@")[0]?.trim() ||
+          pr.id.slice(0, 8);
         if (offToday.has(pr.id)) {
           tclock.push({ userId: pr.id, name, status: "off" });
           continue;

@@ -62,6 +62,11 @@ type ProfileRow = {
   use_role_permissions?: boolean | null;
   profile_status?: string | null;
   created_at?: string | null;
+  pay_type?: string | null;
+  pay_amount?: number | null;
+  pay_currency?: string | null;
+  pay_period?: string | null;
+  vacation_policy_enabled?: boolean | null;
 };
 
 type EmployeeDocRow = {
@@ -227,6 +232,8 @@ function recordStatusFromInputs(
 const YEAR_START = new Date(new Date().getFullYear(), 0, 1);
 const YEAR_END = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59);
 
+const PAY_CURRENCIES = ["CAD", "USD", "EUR", "GBP", "MXN", "BRL", "ARS", "COP", "CLP", "PEN"] as const;
+
 export function EmployeesModule({
   companyId,
   labels: t,
@@ -264,6 +271,15 @@ export function EmployeesModule({
     phone: "",
     customRoleId: "role-worker",
     profileStatus: "active",
+    emergencyName: "",
+    emergencyPhone: "",
+    emergencyRelation: "",
+    payType: "unspecified" as "unspecified" | "fixed" | "hourly",
+    payAmount: "",
+    payCurrency: "CAD",
+    payPeriod: "monthly" as "monthly" | "biweekly" | "weekly",
+    manageVacations: false,
+    vacationDaysAnnual: "",
   });
   const [complianceEdit, setComplianceEdit] = useState<{
     field: ComplianceField;
@@ -328,8 +344,13 @@ export function EmployeesModule({
         selected.use_role_permissions != null
           ? selected.use_role_permissions
           : selected.custom_permissions == null;
+      const pt = (selected.pay_type ?? "").trim();
       setDraft({
         ...selected,
+        pay_type: pt === "" ? "unspecified" : pt,
+        pay_currency: selected.pay_currency ?? "CAD",
+        pay_period: selected.pay_period ?? "monthly",
+        vacation_policy_enabled: selected.vacation_policy_enabled ?? Boolean(selected.vacation_days_allowed),
         use_role_permissions: inherit,
         custom_permissions: inherit ? {} : (selected.custom_permissions ?? {}) as Partial<RolePermissions>,
       });
@@ -373,10 +394,10 @@ export function EmployeesModule({
     if (cr?.name) return cr.name;
     const lx = t as Record<string, string>;
     const roleMap: Record<string, string> = {
-      admin: lx.admin ?? "admin",
-      supervisor: lx.supervisor ?? "supervisor",
-      worker: lx.worker ?? "worker",
-      logistic: lx.logistic ?? "logistic",
+      admin: lx.admin ?? "",
+      supervisor: lx.supervisor ?? "",
+      worker: lx.worker ?? "",
+      logistic: lx.logistic ?? "",
     };
     const base = (r.role ?? "").trim();
     return roleMap[base] ?? base ?? lx.personnel ?? "";
@@ -436,23 +457,42 @@ export function EmployeesModule({
   const saveProfile = async () => {
     if (!supabase || !selected) return;
     const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
+    const workerSelf = isSelf && !canManageEmployees;
     if (!canManageEmployees && !isSelf) return;
     setSaving(true);
-    if (isSelf && !canManageEmployees) {
+    if (workerSelf) {
       const { error } = await supabase
         .from("user_profiles")
-        .update({ avatar_url: draft.avatar_url ?? selected.avatar_url ?? null })
+        .update({
+          full_name: draft.full_name ?? selected.full_name,
+          phone: draft.phone ?? null,
+          avatar_url: draft.avatar_url ?? selected.avatar_url ?? null,
+          emergency_contact_name: draft.emergency_contact_name ?? null,
+          emergency_contact_phone: draft.emergency_contact_phone ?? null,
+          emergency_contact_relation: draft.emergency_contact_relation ?? null,
+        })
         .eq("id", selected.id);
       setSaving(false);
       if (!error) void load();
       return;
     }
     const inherit = draft.use_role_permissions !== false;
+    const payType = draft.pay_type ?? "unspecified";
+    const payAmountRaw = draft.pay_amount;
+    const payAmount =
+      payType === "unspecified"
+        ? null
+        : typeof payAmountRaw === "number" && !Number.isNaN(payAmountRaw)
+          ? payAmountRaw
+          : payAmountRaw != null
+            ? Number(payAmountRaw)
+            : null;
     const payload = {
       full_name: draft.full_name ?? selected.full_name,
       phone: draft.phone ?? null,
       avatar_url: draft.avatar_url ?? selected.avatar_url,
-      vacation_days_allowed: draft.vacation_days_allowed ?? null,
+      vacation_policy_enabled: Boolean(draft.vacation_policy_enabled),
+      vacation_days_allowed: draft.vacation_policy_enabled ? draft.vacation_days_allowed ?? null : null,
       emergency_contact_name: draft.emergency_contact_name ?? null,
       emergency_contact_phone: draft.emergency_contact_phone ?? null,
       emergency_contact_relation: draft.emergency_contact_relation ?? null,
@@ -460,6 +500,13 @@ export function EmployeesModule({
       use_role_permissions: inherit,
       custom_permissions: inherit ? null : (draft.custom_permissions ?? {}) as Record<string, unknown>,
       profile_status: draft.profile_status ?? "active",
+      pay_type: payType === "unspecified" ? null : payType,
+      pay_amount:
+        payType === "unspecified" || payAmount == null || Number.isNaN(payAmount as number) ? null : payAmount,
+      pay_currency:
+        payType === "unspecified" ? null : (draft.pay_currency ?? selected.pay_currency ?? "CAD") || null,
+      pay_period:
+        payType === "unspecified" ? null : (draft.pay_period ?? selected.pay_period ?? "monthly") || null,
     };
     const { error } = await supabase.from("user_profiles").update(payload).eq("id", selected.id);
     setSaving(false);
@@ -563,6 +610,11 @@ export function EmployeesModule({
         setCreateError((t as Record<string, string>).employees_create_error ?? "");
         return;
       }
+      const payT = createForm.payType;
+      const payAmt =
+        payT === "unspecified" || createForm.payAmount.trim() === ""
+          ? null
+          : parseFloat(createForm.payAmount.replace(",", "."));
       const res = await fetch("/api/employees/create", {
         method: "POST",
         headers: {
@@ -576,6 +628,18 @@ export function EmployeesModule({
           phone: createForm.phone.trim() || null,
           customRoleId: createForm.customRoleId,
           profileStatus: createForm.profileStatus,
+          emergencyContactName: createForm.emergencyName.trim() || null,
+          emergencyContactPhone: createForm.emergencyPhone.trim() || null,
+          emergencyContactRelation: createForm.emergencyRelation.trim() || null,
+          payType: payT,
+          payAmount: payAmt != null && !Number.isNaN(payAmt) ? payAmt : null,
+          payCurrency: payT === "unspecified" ? null : createForm.payCurrency,
+          payPeriod: payT === "unspecified" ? null : createForm.payPeriod,
+          vacationPolicyEnabled: createForm.manageVacations,
+          vacationDaysAnnual:
+            createForm.manageVacations && createForm.vacationDaysAnnual.trim() !== ""
+              ? parseInt(createForm.vacationDaysAnnual, 10)
+              : null,
         }),
       });
       const j = (await res.json()) as { error?: string };
@@ -590,6 +654,15 @@ export function EmployeesModule({
         phone: "",
         customRoleId: customRoles.find((c) => c.id === "role-worker")?.id ?? "role-worker",
         profileStatus: "active",
+        emergencyName: "",
+        emergencyPhone: "",
+        emergencyRelation: "",
+        payType: "unspecified",
+        payAmount: "",
+        payCurrency: "CAD",
+        payPeriod: "monthly",
+        manageVacations: false,
+        vacationDaysAnnual: "",
       });
       void load();
     } finally {
@@ -618,6 +691,29 @@ export function EmployeesModule({
     const emailShown = (selected.email ?? "").trim() || emailLocalPart(selected.email);
     const inheritPerms = draft.use_role_permissions !== false;
     const tl = t as Record<string, string>;
+    const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
+    const workerSelf = isSelf && !canManageEmployees;
+    const canEditBasicFields = canManageEmployees || isSelf;
+
+    const formatPayReadOnly = (sel: ProfileRow): string => {
+      const pt = (sel.pay_type ?? "unspecified").trim();
+      if (!pt || pt === "unspecified") return tl.employees_pay_type_unspecified ?? "";
+      const cur = sel.pay_currency ?? "";
+      const amt = sel.pay_amount != null ? String(sel.pay_amount) : tl.common_dash ?? "";
+      const per =
+        sel.pay_period === "monthly"
+          ? tl.pay_period_monthly ?? ""
+          : sel.pay_period === "biweekly"
+            ? tl.pay_period_biweekly ?? ""
+            : sel.pay_period === "weekly"
+              ? tl.pay_period_weekly ?? ""
+              : "";
+      if (pt === "fixed")
+        return `${tl.employees_fixed_salary ?? ""}: ${amt} ${cur}${per ? ` · ${per}` : ""}`;
+      if (pt === "hourly")
+        return `${tl.employees_hourly_rate ?? ""}: ${amt} ${cur}${per ? ` · ${per}` : ""}`;
+      return tl.common_dash ?? "";
+    };
 
     return (
       <div className="space-y-4 max-w-3xl">
@@ -675,7 +771,7 @@ export function EmployeesModule({
               <input
                 value={draft.full_name ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
-                disabled={!canManageEmployees}
+                disabled={!canEditBasicFields}
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
             </label>
@@ -686,7 +782,7 @@ export function EmployeesModule({
               <input
                 value={draft.phone ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
-                disabled={!canManageEmployees}
+                disabled={!canEditBasicFields}
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
             </label>
@@ -699,9 +795,9 @@ export function EmployeesModule({
               </span>
             </div>
             <p className="text-sm">
-              <span className="text-zinc-500">{tl.employees_joined ?? ""}</span>
+              <span className="text-zinc-500">{tl.employees_start_date ?? tl.employees_joined ?? ""}</span>
               <span className="block mt-1">
-                {selected.created_at ? new Date(selected.created_at).toLocaleDateString() : "—"}
+                {selected.created_at ? new Date(selected.created_at).toLocaleDateString() : tl.common_dash ?? ""}
               </span>
             </p>
           </div>
@@ -711,7 +807,7 @@ export function EmployeesModule({
               <input
                 value={draft.emergency_contact_name ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, emergency_contact_name: e.target.value }))}
-                disabled={!canManageEmployees}
+                disabled={!canEditBasicFields}
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
             </label>
@@ -720,7 +816,7 @@ export function EmployeesModule({
               <input
                 value={draft.emergency_contact_phone ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, emergency_contact_phone: e.target.value }))}
-                disabled={!canManageEmployees}
+                disabled={!canEditBasicFields}
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
             </label>
@@ -729,11 +825,94 @@ export function EmployeesModule({
               <input
                 value={draft.emergency_contact_relation ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, emergency_contact_relation: e.target.value }))}
-                disabled={!canManageEmployees}
+                disabled={!canEditBasicFields}
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
             </label>
           </div>
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{tl.employees_payment_section ?? ""}</h3>
+          {workerSelf ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap">{formatPayReadOnly(selected)}</p>
+          ) : null}
+          {canManageEmployees && !workerSelf ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-zinc-500">{tl.employees_payment_type ?? ""}</span>
+                <select
+                  value={draft.pay_type ?? "unspecified"}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      pay_type: e.target.value,
+                      pay_amount:
+                        e.target.value === "unspecified" ? null : d.pay_amount ?? selected.pay_amount ?? null,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                >
+                  <option value="unspecified">{tl.employees_pay_type_unspecified ?? ""}</option>
+                  <option value="fixed">{tl.employees_fixed_salary ?? ""}</option>
+                  <option value="hourly">{tl.employees_hourly_rate ?? ""}</option>
+                </select>
+              </label>
+              {(draft.pay_type ?? "") !== "" && draft.pay_type !== "unspecified" ? (
+                <>
+                  <label className="block text-sm">
+                    <span className="text-zinc-500">
+                      {draft.pay_type === "fixed" ? tl.employees_fixed_salary ?? "" : tl.employees_hourly_rate ?? ""}
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={draft.pay_amount ?? ""}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          pay_amount: e.target.value === "" ? null : parseFloat(e.target.value),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-zinc-500">{tl.employees_currency ?? ""}</span>
+                    <select
+                      value={draft.pay_currency ?? "CAD"}
+                      onChange={(e) => setDraft((d) => ({ ...d, pay_currency: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    >
+                      {PAY_CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm sm:col-span-2">
+                    <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
+                    <select
+                      value={draft.pay_period ?? "monthly"}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          pay_period: e.target.value as ProfileRow["pay_period"],
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    >
+                      <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
+                      <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
+                      <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
+                    </select>
+                  </label>
+                </>
+              ) : null}
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
@@ -742,7 +921,7 @@ export function EmployeesModule({
             {tl.employees_role_permissions ?? ""}
           </h3>
           <label className="block text-sm max-w-md">
-            <span className="text-zinc-500">{tl.employees_role ?? ""}</span>
+            <span className="text-zinc-500">{tl.employees_assigned_role ?? tl.employees_role ?? ""}</span>
             <select
               value={draft.custom_role_id ?? ""}
               onChange={(e) => setDraft((d) => ({ ...d, custom_role_id: e.target.value || null }))}
@@ -800,7 +979,7 @@ export function EmployeesModule({
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-2">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
             <FolderKanban className="h-4 w-4" />
-            {tl.employees_projects ?? ""}
+            {tl.employees_assigned_projects ?? tl.employees_projects ?? ""}
           </h3>
           <ul className="text-sm space-y-2 max-h-56 overflow-y-auto">
             {activeProjects.map((p) => (
@@ -825,8 +1004,25 @@ export function EmployeesModule({
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
             <Palmtree className="h-4 w-4" />
-            {tl.employees_vacations_section ?? t.employees_vacation_days_allowed ?? ""}
+            {tl.employees_vacation_absences ?? tl.employees_vacations_section ?? t.employees_vacation_days_allowed ?? ""}
           </h3>
+          {canManageEmployees && !workerSelf ? (
+            <label className="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
+              <span className="text-sm text-zinc-700 dark:text-zinc-200">{tl.employees_manage_vacations ?? ""}</span>
+              <input
+                type="checkbox"
+                className="h-5 w-5 rounded border-zinc-300"
+                checked={Boolean(draft.vacation_policy_enabled)}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    vacation_policy_enabled: e.target.checked,
+                    vacation_days_allowed: e.target.checked ? d.vacation_days_allowed : null,
+                  }))
+                }
+              />
+            </label>
+          ) : null}
           <label className="block text-sm max-w-xs">
             <span className="text-xs text-zinc-500">{t.employees_vacation_days_allowed ?? ""}</span>
             <input
@@ -839,7 +1035,7 @@ export function EmployeesModule({
                   vacation_days_allowed: e.target.value === "" ? null : parseInt(e.target.value, 10),
                 }))
               }
-              disabled={!canManageEmployees}
+              disabled={!canManageEmployees || workerSelf || !draft.vacation_policy_enabled}
               className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
             />
           </label>
@@ -851,10 +1047,10 @@ export function EmployeesModule({
             <span className="font-medium tabular-nums">{vacationStats.pending}</span>
           </p>
           <div>
-            <p className="text-xs font-semibold text-zinc-500 mb-2">{tl.employees_vacation_history ?? ""}</p>
+            <p className="text-xs font-semibold text-zinc-500 mb-2">{tl.employees_request_history ?? tl.employees_vacation_history ?? ""}</p>
             <ul className="space-y-2 text-sm max-h-40 overflow-y-auto">
               {vacationsForSelected.length === 0 ? (
-                <li className="text-zinc-500 italic">{tl.employees_vacation_none ?? ""}</li>
+                <li className="text-zinc-500 italic">{tl.employees_no_requests ?? tl.employees_vacation_none ?? ""}</li>
               ) : (
                 vacationsForSelected.map((v) => (
                   <li
@@ -879,7 +1075,7 @@ export function EmployeesModule({
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
             <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              {t.compliance ?? ""}
+              {tl.employees_compliance ?? t.compliance ?? ""}
             </h3>
             <ul className="space-y-2">
               {complianceFields
@@ -970,7 +1166,7 @@ export function EmployeesModule({
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 flex flex-wrap gap-3 items-center">
           <div>
-            <span className="text-xs text-zinc-500">{tl.employees_status ?? ""}</span>
+            <span className="text-xs text-zinc-500">{tl.common_status ?? tl.employees_status ?? ""}</span>
             <select
               value={draft.profile_status ?? "active"}
               onChange={(e) => setDraft((d) => ({ ...d, profile_status: e.target.value }))}
@@ -982,10 +1178,7 @@ export function EmployeesModule({
               <option value="invited">{tl.employees_status_invited ?? ""}</option>
             </select>
           </div>
-          {(canManageEmployees ||
-            (currentUserProfileId != null &&
-              selected.id === currentUserProfileId &&
-              (draft.avatar_url ?? "") !== (selected.avatar_url ?? ""))) && (
+          {(canManageEmployees || workerSelf) && (
             <button
               type="button"
               onClick={() => void saveProfile()}
@@ -1040,7 +1233,7 @@ export function EmployeesModule({
                 />
               </label>
               <label className="block text-xs">
-                {tl.documentUrl ?? "URL"}
+                {tl.documentUrl ?? ""}
                 <input
                   value={complianceEdit.documentUrl}
                   onChange={(e) =>
@@ -1148,6 +1341,15 @@ export function EmployeesModule({
                     customRoles[0]?.id ??
                     "role-worker",
                   profileStatus: "active",
+                  emergencyName: "",
+                  emergencyPhone: "",
+                  emergencyRelation: "",
+                  payType: "unspecified",
+                  payAmount: "",
+                  payCurrency: "CAD",
+                  payPeriod: "monthly",
+                  manageVacations: false,
+                  vacationDaysAnnual: "",
                 });
                 setCreateOpen(true);
               }}
@@ -1155,17 +1357,6 @@ export function EmployeesModule({
             >
               <Plus className="h-4 w-4" />
               {tl.employees_new ?? ""}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setInviteEmail("");
-                setInviteOpen(true);
-              }}
-              className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100"
-            >
-              <UserPlus className="h-4 w-4" />
-              {tl.employees_invite_action ?? tl.employees_invite ?? ""}
             </button>
           </div>
         )}
@@ -1187,10 +1378,10 @@ export function EmployeesModule({
           className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2.5 text-sm min-h-[44px]"
         >
           <option value="all">{t.whFilterAll ?? ""}</option>
-          <option value="admin">admin</option>
-          <option value="supervisor">supervisor</option>
-          <option value="worker">worker</option>
-          <option value="logistic">logistic</option>
+          <option value="admin">{tl.admin ?? ""}</option>
+          <option value="supervisor">{tl.supervisor ?? ""}</option>
+          <option value="worker">{tl.worker ?? ""}</option>
+          <option value="logistic">{tl.logistic ?? ""}</option>
           {customRoles.map((r) => (
             <option key={r.id} value={`custom:${r.id}`}>
               {r.name}
@@ -1239,7 +1430,11 @@ export function EmployeesModule({
                   </p>
                 </div>
                 <span className="text-xs rounded-full px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0">
-                  {r.profile_status ?? "active"}
+                  {r.profile_status === "inactive"
+                    ? tl.common_inactive ?? ""
+                    : r.profile_status === "invited"
+                      ? tl.employees_status_invited ?? ""
+                      : tl.common_active ?? ""}
                 </span>
               </button>
               {canManageEmployees && (
@@ -1254,7 +1449,7 @@ export function EmployeesModule({
                   </button>
                   <button
                     type="button"
-                    aria-label={tl.common_delete ?? "Delete"}
+                    aria-label={tl.common_delete ?? ""}
                     onClick={() => void deactivateProfile(r.id, employeeDisplayLabel(r))}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                   >
@@ -1318,6 +1513,128 @@ export function EmployeesModule({
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
             </label>
+            <p className="text-xs font-semibold text-zinc-500 pt-2 border-t border-zinc-200 dark:border-slate-700">
+              {tl.employees_section_emergency ?? ""}
+            </p>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{t.employees_emergency_contact ?? ""}</span>
+              <input
+                value={createForm.emergencyName}
+                onChange={(e) => setCreateForm((f) => ({ ...f, emergencyName: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.employees_emergency_phone ?? t.phone ?? ""}</span>
+              <input
+                type="tel"
+                value={createForm.emergencyPhone}
+                onChange={(e) => setCreateForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{t.employees_emergency_relation ?? ""}</span>
+              <input
+                value={createForm.emergencyRelation}
+                onChange={(e) => setCreateForm((f) => ({ ...f, emergencyRelation: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              />
+            </label>
+            <p className="text-xs font-semibold text-zinc-500 pt-2 border-t border-zinc-200 dark:border-slate-700">
+              {tl.employees_section_pay ?? ""}
+            </p>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.employees_payment_type ?? ""}</span>
+              <select
+                value={createForm.payType}
+                onChange={(e) =>
+                  setCreateForm((f) => ({
+                    ...f,
+                    payType: e.target.value as typeof f.payType,
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              >
+                <option value="unspecified">{tl.employees_pay_type_unspecified ?? ""}</option>
+                <option value="fixed">{tl.employees_fixed_salary ?? ""}</option>
+                <option value="hourly">{tl.employees_hourly_rate ?? ""}</option>
+              </select>
+            </label>
+            {createForm.payType !== "unspecified" ? (
+              <>
+                <label className="block text-sm">
+                  <span className="text-zinc-500">
+                    {createForm.payType === "fixed"
+                      ? tl.employees_fixed_salary ?? ""
+                      : tl.employees_hourly_rate ?? ""}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={createForm.payAmount}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, payAmount: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-zinc-500">{tl.employees_currency ?? ""}</span>
+                  <select
+                    value={createForm.payCurrency}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, payCurrency: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                  >
+                    {PAY_CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
+                  <select
+                    value={createForm.payPeriod}
+                    onChange={(e) =>
+                      setCreateForm((f) => ({
+                        ...f,
+                        payPeriod: e.target.value as typeof f.payPeriod,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                  >
+                    <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
+                    <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
+                    <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
+                  </select>
+                </label>
+              </>
+            ) : null}
+            <p className="text-xs font-semibold text-zinc-500 pt-2 border-t border-zinc-200 dark:border-slate-700">
+              {tl.employees_section_vacation ?? ""}
+            </p>
+            <label className="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
+              <span className="text-sm text-zinc-700 dark:text-zinc-200">{tl.employees_manage_vacations ?? ""}</span>
+              <input
+                type="checkbox"
+                className="h-5 w-5 rounded border-zinc-300"
+                checked={createForm.manageVacations}
+                onChange={(e) => setCreateForm((f) => ({ ...f, manageVacations: e.target.checked }))}
+              />
+            </label>
+            {createForm.manageVacations ? (
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.employees_vacation_days_annual ?? t.employees_vacation_days_allowed ?? ""}</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={createForm.vacationDaysAnnual}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, vacationDaysAnnual: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                />
+              </label>
+            ) : null}
             <label className="block text-sm">
               <span className="text-zinc-500">{tl.employees_role ?? ""}</span>
               <select

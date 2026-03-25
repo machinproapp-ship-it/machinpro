@@ -31,7 +31,7 @@ export interface SchedProject {
 
 export interface SchedEntry {
   id: string;
-  type: "shift" | "event";
+  type: "shift" | "event" | "vacation";
   employeeIds: string[];
   projectId?: string;
   projectCode?: string;
@@ -257,11 +257,13 @@ const EVENT_COLORS: Record<string, string> = {
 
 function entryColor(entry: SchedEntry): string {
   if (entry.type === "shift") return EVENT_COLORS.shift;
+  if (entry.type === "vacation") return EVENT_COLORS.vacation;
   return EVENT_COLORS[entry.eventLabel ?? "other"] ?? EVENT_COLORS.other;
 }
 
 function entryDotClass(entry: SchedEntry): string {
   if (entry.type === "shift") return "bg-amber-500";
+  if (entry.type === "vacation") return "bg-emerald-500";
   const k = entry.eventLabel ?? "other";
   if (k === "meeting") return "bg-blue-500";
   if (k === "vacation") return "bg-emerald-500";
@@ -698,7 +700,8 @@ export default function ScheduleModule({
   };
 
   const openEditForm = (entry: SchedEntry) => {
-    setFType(entry.type);
+    if (entry.type === "vacation") return;
+    setFType(entry.type === "event" ? "event" : "shift");
     setFEmployeeIds([...entry.employeeIds]);
     setFProjectId(entry.projectId ?? "");
     setFDate(entry.date);
@@ -1089,7 +1092,7 @@ export default function ScheduleModule({
                               </p>
                             )}
                           </div>
-                          {canWrite && (
+                          {canWrite && entry.type !== "vacation" && (
                             <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
