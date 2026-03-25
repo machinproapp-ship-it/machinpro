@@ -218,6 +218,7 @@ export default {
   createRole: "Rolle erstellen",
   editRole: "Rolle bearbeiten",
   roleName: "Rollenname",
+  rolesAndPermissions: "Rollen & Berechtigungen",
   roleColor: "Badge-Farbe",
   rolePermissions: "Berechtigungen",
   roleModules: "Module",

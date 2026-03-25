@@ -32,8 +32,6 @@ const MOBILE_BAR_PRIORITY: MainSection[] = [
 
 const MOBILE_BAR_OVERFLOW_TAIL: MainSection[] = [
   "warehouse",
-  "employees",
-  "subcontractors",
   "schedule",
   "binders",
   "rfi",
@@ -88,8 +86,6 @@ export interface SidebarProps {
   canAccessCorrectiveActions?: boolean;
   /** RFI — admin y supervisor */
   canAccessRfi?: boolean;
-  canAccessEmployees?: boolean;
-  canAccessSubcontractors?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
 }
@@ -108,8 +104,6 @@ export function Sidebar({
   canAccessHazards = false,
   canAccessCorrectiveActions = false,
   canAccessRfi = false,
-  canAccessEmployees = false,
-  canAccessSubcontractors = false,
   labels,
   collapsed = false,
 }: SidebarProps) {
@@ -123,16 +117,11 @@ export function Sidebar({
   const labelExtra = labels as unknown as Record<string, string>;
   const moreLabel = labelExtra.nav_more ?? "Más";
   const closeSheetLabel = labelExtra.cancel ?? "Cerrar";
-  const employeesNavLabel = labelExtra.employees_title ?? labelExtra.employees ?? "Employees";
-  const subcontractorsNavLabel = labelExtra.subcontractors_title ?? labelExtra.subcontractors ?? "Subcontractors";
-
   const [moreOpen, setMoreOpen] = useState(false);
 
   const sidebarNavItems = [
     { id: "office" as const, icon: Building2, label: labels.office ?? "Central", show: canAccessOffice },
     { id: "warehouse" as const, icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
-    { id: "employees" as const, icon: Users, label: employeesNavLabel, show: !!canAccessEmployees },
-    { id: "subcontractors" as const, icon: Briefcase, label: subcontractorsNavLabel, show: !!canAccessSubcontractors },
     { id: "site" as const, icon: MapPin, label: labels.site ?? "Operaciones", show: canAccessSite },
     { id: "schedule" as const, icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
     { id: "binders" as const, icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
@@ -153,8 +142,6 @@ export function Sidebar({
     () => [
       { id: "office", icon: Building2, label: labels.office ?? "Central", show: canAccessOffice },
       { id: "warehouse", icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
-      { id: "employees", icon: Users, label: employeesNavLabel, show: !!canAccessEmployees },
-      { id: "subcontractors", icon: Briefcase, label: subcontractorsNavLabel, show: !!canAccessSubcontractors },
       { id: "site", icon: HardHat, label: operationsLabel, show: canAccessSite },
       { id: "schedule", icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
       { id: "binders", icon: FolderOpen, label: labels.binders ?? "Documentos", show: !!canAccessBinders },
@@ -185,8 +172,6 @@ export function Sidebar({
       actionsLabel,
       canAccessOffice,
       canAccessWarehouse,
-      canAccessEmployees,
-      canAccessSubcontractors,
       canAccessSite,
       canAccessSchedule,
       canAccessBinders,
@@ -268,12 +253,8 @@ export function Sidebar({
                 ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
                 : item.id === "warehouse"
                   ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                  : item.id === "employees"
-                    ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200"
-                    : item.id === "subcontractors"
-                      ? "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200"
-                      : item.id === "site"
-                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                  : item.id === "site"
+                    ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
                         : item.id === "schedule"
                           ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
                           : item.id === "binders"

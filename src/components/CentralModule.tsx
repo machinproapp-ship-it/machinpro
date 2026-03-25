@@ -218,6 +218,7 @@ interface CentralModuleProps {
   canAccessHazards?: boolean;
   canAccessCorrective?: boolean;
   canAccessEmployees?: boolean;
+  canAccessSubcontractors?: boolean;
 }
 
 const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
@@ -347,6 +348,7 @@ export function CentralModule({
   canAccessHazards = false,
   canAccessCorrective = false,
   canAccessEmployees = false,
+  canAccessSubcontractors = false,
 }: CentralModuleProps) {
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
@@ -770,6 +772,18 @@ export function CentralModule({
                 onOpenAuditInCentral={() => {
                   if (canManageRoles) setCentralView("auditlog");
                 }}
+                onOpenRolesInCentral={() => {
+                  if (canManageRoles) setCentralView("roles");
+                }}
+                customRolesCount={customRoles.length}
+                subcontractorsCount={safeSubcontractors.length}
+                canAccessSubcontractors={canAccessSubcontractors}
+                complianceWatchdogCount={complianceWatchdogAlerts.length}
+                onOpenComplianceInCentral={
+                  complianceWatchdogAlerts.length > 0
+                    ? () => setCentralView("compliance")
+                    : undefined
+                }
                 onQuickNewHazard={onQuickNewHazard ?? (() => undefined)}
                 onQuickNewAction={onQuickNewAction ?? (() => undefined)}
                 onQuickVisitorQr={onQuickVisitorQr ?? (() => undefined)}
@@ -792,64 +806,6 @@ export function CentralModule({
               </p>
             </section>
           )}
-
-          <div
-            className={`grid grid-cols-1 gap-3 ${
-              canManageRoles ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => setCentralView("personnel")}
-              className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
-            >
-              <Users className="h-4 w-4 text-blue-500 shrink-0" aria-hidden />
-              {labels.employees ?? "Personnel"}
-              <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCentralView("subcontractors")}
-              className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
-            >
-              <Briefcase className="h-4 w-4 text-purple-500 shrink-0" aria-hidden />
-              {labels.subcontractors ?? "Subcontractors"}
-              <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
-            </button>
-            {complianceWatchdogAlerts.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setCentralView("compliance")}
-                className="min-h-[44px] rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 text-left text-sm font-medium text-amber-900 dark:text-amber-200 flex items-center gap-2"
-              >
-                <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden />
-                {(labels as Record<string, string>).complianceWatchdog ?? "Compliance"}
-                <ChevronRight className="h-4 w-4 ml-auto opacity-60" aria-hidden />
-              </button>
-            )}
-            {canManageRoles && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setCentralView("roles")}
-                  className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
-                >
-                  <KeyRound className="h-4 w-4 text-emerald-500 shrink-0" aria-hidden />
-                  {labels.rolesAndPermissions ?? "Roles"}
-                  <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCentralView("auditlog")}
-                  className="min-h-[44px] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-amber-400/60 flex items-center gap-2"
-                >
-                  <Shield className="h-4 w-4 text-amber-600 shrink-0" aria-hidden />
-                  {(labels as Record<string, string>).auditLog ?? "Audit"}
-                  <ChevronRight className="h-4 w-4 ml-auto text-zinc-400" aria-hidden />
-                </button>
-              </>
-            )}
-          </div>
         </>
       )}
       {centralView === "auditlog" && canManageRoles && (

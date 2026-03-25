@@ -21,6 +21,9 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Briefcase,
+  KeyRound,
+  ShieldAlert,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
@@ -181,6 +184,49 @@ function BarStack({
   );
 }
 
+/** Unified Central KPI card (same pattern as former small dashboard links). */
+function UnifiedDashCard({
+  icon,
+  iconWrapClassName,
+  label,
+  value,
+  subContent,
+  onClick,
+  disabled,
+  ariaLabel,
+}: {
+  icon: React.ReactNode;
+  iconWrapClassName: string;
+  label: string;
+  value: React.ReactNode;
+  subContent?: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  ariaLabel?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel ?? label}
+      className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left shadow-sm hover:border-amber-400/60 dark:hover:border-amber-500/50 transition-colors disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+    >
+      <div className="flex items-start gap-3 w-full">
+        <div className={`shrink-0 p-2 rounded-lg ${iconWrapClassName}`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{label}</span>
+            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0 ml-auto" aria-hidden />
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums mt-1">{value}</p>
+          {subContent ? <div className="mt-1">{subContent}</div> : null}
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export interface CentralDashboardLiveProps {
   labels: Record<string, string>;
   companyId: string | null;
@@ -202,6 +248,13 @@ export interface CentralDashboardLiveProps {
   visitorCheckInUrl: string | null;
   /** When true, KPI "Employees" opens the employees module */
   canAccessEmployees?: boolean;
+  canAccessSubcontractors?: boolean;
+  subcontractorsCount: number;
+  onOpenRolesInCentral: () => void;
+  /** Number of custom roles (for KPI card). */
+  customRolesCount: number;
+  complianceWatchdogCount?: number;
+  onOpenComplianceInCentral?: () => void;
 }
 
 export function CentralDashboardLive({
@@ -223,6 +276,12 @@ export function CentralDashboardLive({
   onQuickVisitorQr,
   visitorCheckInUrl,
   canAccessEmployees = false,
+  canAccessSubcontractors = false,
+  subcontractorsCount,
+  onOpenRolesInCentral,
+  customRolesCount,
+  complianceWatchdogCount = 0,
+  onOpenComplianceInCentral,
 }: CentralDashboardLiveProps) {
   const labels = labelsProp;
   const localeMap: Record<string, string> = {
@@ -620,98 +679,122 @@ export function CentralDashboardLive({
         )}
       </section>
 
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {loading ? (
           <>
-            {[1, 2, 3, 4].map((i) => (
+            {Array.from({ length: canManageRoles ? 7 : 5 }, (_, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm min-h-[120px] animate-pulse"
+                className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 min-h-[88px] animate-pulse"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="h-9 w-9 rounded-lg bg-gray-200 dark:bg-gray-600" />
-                  <div className="h-4 flex-1 max-w-[120px] rounded bg-gray-200 dark:bg-gray-600" />
+                <div className="flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-gray-200 dark:bg-gray-600 shrink-0" />
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="h-4 max-w-[120px] rounded bg-gray-200 dark:bg-gray-600" />
+                    <div className="h-7 w-14 rounded bg-gray-200 dark:bg-gray-600" />
+                  </div>
                 </div>
-                <div className="h-8 w-16 rounded bg-gray-200 dark:bg-gray-600" />
-                <div className="mt-3 h-3 w-3/4 max-w-[180px] rounded bg-gray-100 dark:bg-gray-700" />
               </div>
             ))}
           </>
         ) : (
           <>
-            <button
-              type="button"
+            <UnifiedDashCard
+              icon={<Users className="h-5 w-5 text-blue-500" aria-hidden />}
+              iconWrapClassName="bg-blue-500/10"
+              label={
+                (labels as Record<string, string>).employees_title ??
+                labels.personnel ??
+                labels.employees ??
+                ""
+              }
+              value={empN}
+              subContent={
+                (labels.dashboard_kpi_hint_personnel ?? "").trim() ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{labels.dashboard_kpi_hint_personnel}</p>
+                ) : undefined
+              }
               onClick={() => onNavigateAppSection(canAccessEmployees ? "employees" : "office")}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors min-h-[44px]"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Users className="h-5 w-5 text-blue-500" aria-hidden />
-                </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{labels.employees ?? "Employees"}</span>
-              </div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{empN}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{labels.dashboard_kpi_hint_personnel ?? ""}</p>
-            </button>
-
-            <button
-              type="button"
+            />
+            <UnifiedDashCard
+              icon={<Briefcase className="h-5 w-5 text-violet-500" aria-hidden />}
+              iconWrapClassName="bg-violet-500/10"
+              label={
+                (labels as Record<string, string>).subcontractors_title ?? labels.subcontractors ?? ""
+              }
+              value={subcontractorsCount}
+              onClick={() => onNavigateAppSection(canAccessSubcontractors ? "subcontractors" : "office")}
+            />
+            <UnifiedDashCard
+              icon={<HardHat className="h-5 w-5 text-amber-500" aria-hidden />}
+              iconWrapClassName="bg-amber-500/10"
+              label={labels.projects ?? ""}
+              value={activeProjectsCount}
+              subContent={
+                (labels.dashboard_kpi_projects_hint ?? "").trim() ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{labels.dashboard_kpi_projects_hint}</p>
+                ) : undefined
+              }
               onClick={() => onNavigateAppSection("site")}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-amber-500/10">
-                  <HardHat className="h-5 w-5 text-amber-500" aria-hidden />
-                </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{labels.projects ?? "Projects"}</span>
-              </div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{activeProjectsCount}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {labels.dashboard_kpi_projects_hint ?? ""}
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => (canAccessVisitors ? onNavigateAppSection("visitors") : undefined)}
-              disabled={!canAccessVisitors}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors disabled:opacity-60"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <UserCheck className="h-5 w-5 text-emerald-500" aria-hidden />
-                </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {labels.dashboard_visitors_today ?? "Visitors today"}
-                </span>
-              </div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{visToday}</p>
-              <div className="mt-2">
-                <TrendBadge current={visToday} previous={visYesterday} labels={labels} />
-              </div>
-            </button>
-
-            <button
-              type="button"
+            />
+            <UnifiedDashCard
+              icon={<UserCheck className="h-5 w-5 text-emerald-500" aria-hidden />}
+              iconWrapClassName="bg-emerald-500/10"
+              label={labels.dashboard_visitors_today ?? ""}
+              value={visToday}
+              subContent={<TrendBadge current={visToday} previous={visYesterday} labels={labels} />}
+              onClick={() => onNavigateAppSection("visitors")}
+            />
+            <UnifiedDashCard
+              icon={<AlertTriangle className="h-5 w-5 text-red-500" aria-hidden />}
+              iconWrapClassName="bg-red-500/10"
+              label={labels.dashboard_hazards_open ?? ""}
+              value={hazardsOpen}
+              subContent={
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {(labels.dashboard_critical_open ?? "{n} critical").replace("{n}", String(openCriticalCount))}
+                </p>
+              }
               onClick={() => onNavigateAppSection("hazards")}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-left shadow-sm hover:border-amber-400/60 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-red-500/10">
-                  <AlertTriangle className="h-5 w-5 text-red-500" aria-hidden />
-                </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {labels.dashboard_hazards_open ?? "Open hazards"}
-                </span>
-              </div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{hazardsOpen}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {(labels.dashboard_critical_open ?? "{n} critical").replace("{n}", String(openCriticalCount))}
-              </p>
-            </button>
+            />
+            {canManageRoles ? (
+              <>
+                <UnifiedDashCard
+                  icon={<KeyRound className="h-5 w-5 text-emerald-500" aria-hidden />}
+                  iconWrapClassName="bg-emerald-500/10"
+                  label={labels.rolesAndPermissions ?? ""}
+                  value={customRolesCount}
+                  onClick={onOpenRolesInCentral}
+                />
+                <UnifiedDashCard
+                  icon={<FileSearch className="h-5 w-5 text-amber-600" aria-hidden />}
+                  iconWrapClassName="bg-amber-500/10"
+                  label={labels.auditLog ?? ""}
+                  value={activityRows.length}
+                  onClick={onOpenAuditInCentral}
+                />
+              </>
+            ) : null}
           </>
         )}
       </div>
+
+      {complianceWatchdogCount > 0 && onOpenComplianceInCentral ? (
+        <button
+          type="button"
+          onClick={onOpenComplianceInCentral}
+          className="w-full min-h-[44px] rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 text-left text-sm font-medium text-amber-900 dark:text-amber-200 hover:border-amber-400 dark:hover:border-amber-600 flex items-center gap-2 transition-colors"
+        >
+          <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden />
+          <span className="flex-1 min-w-0">
+            {(labels as Record<string, string>).complianceWatchdog ?? "Compliance"}
+            {complianceWatchdogCount > 0 ? (
+              <span className="ml-2 tabular-nums opacity-90">({complianceWatchdogCount})</span>
+            ) : null}
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+        </button>
+      ) : null}
 
       {(showQuickHazard || showQuickAction || showQuickVisitor || showQuickAudit) && (
         <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/80 p-4">

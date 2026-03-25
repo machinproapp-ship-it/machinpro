@@ -2512,8 +2512,6 @@ export default function Home() {
             effectiveRole === "worker"
           }
           canAccessRfi={effectiveRole === "admin" || effectiveRole === "supervisor"}
-          canAccessEmployees={!!perms.canAccessEmployees}
-          canAccessSubcontractors={!!perms.canAccessSubcontractors}
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -2818,6 +2816,7 @@ export default function Home() {
                 }}
                 visitorCheckInUrl={companyId ? buildVisitorCheckInUrl(companyId) : null}
                 canAccessEmployees={!!perms.canAccessEmployees}
+                canAccessSubcontractors={!!perms.canAccessSubcontractors}
                 canAccessVisitors={effectiveRole === "admin" || effectiveRole === "supervisor"}
                 canAccessHazards={
                   effectiveRole === "admin" ||
