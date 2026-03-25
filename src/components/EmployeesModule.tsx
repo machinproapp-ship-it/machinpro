@@ -12,6 +12,7 @@ import {
   FolderKanban,
   Palmtree,
   UserPlus,
+  Plus,
   FileText,
   Pencil,
   X,
@@ -79,11 +80,46 @@ function emailLocalPart(email: string | null | undefined): string {
   return e.slice(0, at).trim() || e;
 }
 
-function initialsFromDisplay(name: string): string {
+/** full_name → display_name → local@ → email completo → id corto (nunca "—"). */
+function employeeDisplayLabel(r: ProfileRow): string {
+  const fn = (r.full_name ?? "").trim();
+  const dn = (r.display_name ?? "").trim();
+  const em = (r.email ?? "").trim();
+  const local = emailLocalPart(em);
+  if (fn) return fn;
+  if (dn) return dn;
+  if (local) return local;
+  if (em) return em;
+  return r.id.replace(/-/g, "").slice(0, 8) || "…";
+}
+
+function initialsFromPersonName(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
   if (p.length === 0) return "?";
-  if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
-  return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+  if (p.length === 1) {
+    const w = p[0]!;
+    return w.length >= 2 ? w.slice(0, 2).toUpperCase() : w.slice(0, 1).toUpperCase();
+  }
+  return (p[0]![0]! + p[p.length - 1]![0]!).toUpperCase();
+}
+
+function initialsFromEmailLocal(local: string): string {
+  const s = local.trim();
+  if (!s) return "?";
+  const parts = s.split(/[._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  if (s.length >= 2) return (s[0]! + s[s.length - 1]!).toUpperCase();
+  return s.slice(0, 2).toUpperCase();
+}
+
+function employeeInitials(r: ProfileRow): string {
+  const fn = (r.full_name ?? "").trim();
+  const dn = (r.display_name ?? "").trim();
+  const fromName = fn || dn;
+  if (fromName) return initialsFromPersonName(fromName);
+  const em = (r.email ?? "").trim();
+  if (em) return initialsFromEmailLocal(emailLocalPart(em) || em);
+  return r.id.replace(/-/g, "").slice(0, 2).toUpperCase() || "?";
 }
 
 function permLabel(key: keyof RolePermissions, t: Record<string, string>): string {
@@ -219,6 +255,16 @@ export function EmployeesModule({
   const [employeeDocs, setEmployeeDocs] = useState<EmployeeDocRow[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createForm, setCreateForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    customRoleId: "role-worker",
+    profileStatus: "active",
+  });
   const [complianceEdit, setComplianceEdit] = useState<{
     field: ComplianceField;
     expiryDate: string;
@@ -255,6 +301,21 @@ export function EmployeesModule({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!createOpen || customRoles.length === 0) return;
+    setCreateForm((f) =>
+      f.customRoleId && customRoles.some((c) => c.id === f.customRoleId)
+        ? f
+        : {
+            ...f,
+            customRoleId:
+              customRoles.find((c) => c.id === "role-worker")?.id ??
+              customRoles[0]?.id ??
+              "role-worker",
+          }
+    );
+  }, [createOpen, customRoles]);
 
   const selected = useMemo(
     () => rows.find((r) => r.id === selectedId) ?? null,
@@ -307,30 +368,26 @@ export function EmployeesModule({
   const complianceTargetId = (profileId: string) =>
     userProfileToEmployeeId[profileId] ?? profileId;
 
-  const displayName = (r: ProfileRow) => {
-    const n = (r.full_name || r.display_name || "").trim();
-    if (n) return n;
-    const fromEmail = emailLocalPart(r.email);
-    if (fromEmail) return fromEmail;
-    return "";
-  };
-
-  const displayNameOrDash = (r: ProfileRow) => {
-    const n = displayName(r);
-    return n || ((t as Record<string, string>).employees_no_name ?? "—");
-  };
-
   const roleLabel = (r: ProfileRow) => {
     const cr = r.custom_role_id ? customRoles.find((x) => x.id === r.custom_role_id) : undefined;
-    return cr?.name ?? r.role ?? "—";
+    if (cr?.name) return cr.name;
+    const lx = t as Record<string, string>;
+    const roleMap: Record<string, string> = {
+      admin: lx.admin ?? "admin",
+      supervisor: lx.supervisor ?? "supervisor",
+      worker: lx.worker ?? "worker",
+      logistic: lx.logistic ?? "logistic",
+    };
+    const base = (r.role ?? "").trim();
+    return roleMap[base] ?? base ?? lx.personnel ?? "";
   };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const name = displayName(r).toLowerCase();
+      const label = employeeDisplayLabel(r).toLowerCase();
       const em = (r.email ?? "").toLowerCase();
-      if (q && !name.includes(q) && !em.includes(q) && !r.id.toLowerCase().includes(q)) return false;
+      if (q && !label.includes(q) && !em.includes(q) && !r.id.toLowerCase().includes(q)) return false;
 
       if (roleFilter !== "all") {
         if (roleFilter.startsWith("custom:")) {
@@ -477,12 +534,67 @@ export function EmployeesModule({
 
   const confirmDeleteMsg = (t as Record<string, string>).common_confirm_delete ?? "";
 
-  const deactivateProfile = async (id: string) => {
+  const deactivateProfile = async (id: string, displayNameForConfirm: string) => {
     if (!supabase || !canManageEmployees) return;
-    if (typeof window !== "undefined" && !window.confirm(confirmDeleteMsg)) return;
+    const lx = t as Record<string, string>;
+    const named =
+      (lx.employees_confirm_deactivate?.replace(/\{name\}/g, displayNameForConfirm) ?? "").trim() ||
+      confirmDeleteMsg;
+    if (typeof window !== "undefined" && !window.confirm(named)) return;
     await supabase.from("user_profiles").update({ profile_status: "inactive" }).eq("id", id);
     if (selectedId === id) setSelectedId(null);
     void load();
+  };
+
+  const submitCreateEmployee = async () => {
+    if (!supabase || !companyId || !canManageEmployees) return;
+    const name = createForm.fullName.trim();
+    const mail = createForm.email.trim().toLowerCase();
+    if (!name || !mail.includes("@")) {
+      setCreateError((t as Record<string, string>).employees_create_validation ?? "");
+      return;
+    }
+    setCreateError(null);
+    setCreateSaving(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        setCreateError((t as Record<string, string>).employees_create_error ?? "");
+        return;
+      }
+      const res = await fetch("/api/employees/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          companyId,
+          fullName: name,
+          email: mail,
+          phone: createForm.phone.trim() || null,
+          customRoleId: createForm.customRoleId,
+          profileStatus: createForm.profileStatus,
+        }),
+      });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setCreateError(j.error ?? (t as Record<string, string>).employees_create_error ?? "");
+        return;
+      }
+      setCreateOpen(false);
+      setCreateForm({
+        fullName: "",
+        email: "",
+        phone: "",
+        customRoleId: customRoles.find((c) => c.id === "role-worker")?.id ?? "role-worker",
+        profileStatus: "active",
+      });
+      void load();
+    } finally {
+      setCreateSaving(false);
+    }
   };
 
   const openInviteMailto = () => {
@@ -502,7 +614,7 @@ export function EmployeesModule({
   }
 
   if (selected) {
-    const name = displayNameOrDash(selected);
+    const name = employeeDisplayLabel(selected);
     const emailShown = (selected.email ?? "").trim() || emailLocalPart(selected.email);
     const inheritPerms = draft.use_role_permissions !== false;
     const tl = t as Record<string, string>;
@@ -527,7 +639,7 @@ export function EmployeesModule({
                 className="h-full w-full object-cover"
               />
             ) : (
-              initialsFromDisplay(name)
+              employeeInitials(selected)
             )}
           </div>
           <div>
@@ -1021,18 +1133,41 @@ export function EmployeesModule({
           <Users className="h-5 w-5" />
           {t.employees_title ?? ""}
         </h2>
-        {showNewEmployeeButton && (
-          <button
-            type="button"
-            onClick={() => {
-              setInviteEmail("");
-              setInviteOpen(true);
-            }}
-            className="min-h-[44px] inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
-          >
-            <UserPlus className="h-4 w-4" />
-            {tl.employees_new ?? ""}
-          </button>
+        {showNewEmployeeButton && canManageEmployees && (
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setCreateError(null);
+                setCreateForm({
+                  fullName: "",
+                  email: "",
+                  phone: "",
+                  customRoleId:
+                    customRoles.find((c) => c.id === "role-worker")?.id ??
+                    customRoles[0]?.id ??
+                    "role-worker",
+                  profileStatus: "active",
+                });
+                setCreateOpen(true);
+              }}
+              className="min-h-[44px] inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              {tl.employees_new ?? ""}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInviteEmail("");
+                setInviteOpen(true);
+              }}
+              className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100"
+            >
+              <UserPlus className="h-4 w-4" />
+              {tl.employees_invite_action ?? tl.employees_invite ?? ""}
+            </button>
+          </div>
         )}
       </div>
 
@@ -1089,13 +1224,18 @@ export function EmployeesModule({
                   {r.avatar_url ? (
                     <img src={r.avatar_url} alt="" className="h-full w-full object-cover rounded-full" />
                   ) : (
-                    initialsFromDisplay(displayNameOrDash(r))
+                    employeeInitials(r)
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-zinc-900 dark:text-white truncate">{displayNameOrDash(r)}</p>
+                  <p className="font-medium text-zinc-900 dark:text-white truncate">{employeeDisplayLabel(r)}</p>
                   <p className="text-xs text-zinc-500 truncate">
-                    {(r.email ?? "").trim() || emailLocalPart(r.email) || "—"} · {roleLabel(r)}
+                    {(() => {
+                      const em = (r.email ?? "").trim();
+                      const rl = roleLabel(r);
+                      if (em) return `${em} · ${rl}`;
+                      return rl;
+                    })()}
                   </p>
                 </div>
                 <span className="text-xs rounded-full px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0">
@@ -1115,7 +1255,7 @@ export function EmployeesModule({
                   <button
                     type="button"
                     aria-label={tl.common_delete ?? "Delete"}
-                    onClick={() => void deactivateProfile(r.id)}
+                    onClick={() => void deactivateProfile(r.id, employeeDisplayLabel(r))}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                   >
                     <Trash2 className="h-4 w-4" aria-hidden />
@@ -1128,6 +1268,102 @@ export function EmployeesModule({
       )}
       {!loading && filtered.length === 0 && (
         <p className="text-sm text-zinc-500 text-center py-8">{tl.employees_empty ?? ""}</p>
+      )}
+
+      {createOpen && canManageEmployees && (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/50"
+            aria-hidden
+            onClick={() => !createSaving && setCreateOpen(false)}
+          />
+          <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+              {tl.employees_create_modal_title ?? ""}
+            </h3>
+            {createError && (
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+                {createError}
+              </p>
+            )}
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.employees_full_name ?? t.personnel ?? ""} *</span>
+              <input
+                value={createForm.fullName}
+                onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                autoComplete="name"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-zinc-500 flex items-center gap-1">
+                <Mail className="h-3 w-3" /> {t.email ?? ""} *
+              </span>
+              <input
+                type="email"
+                value={createForm.email}
+                onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                autoComplete="email"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-zinc-500 flex items-center gap-1">
+                <Phone className="h-3 w-3" /> {t.phone ?? ""}
+              </span>
+              <input
+                type="tel"
+                value={createForm.phone}
+                onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.employees_role ?? ""}</span>
+              <select
+                value={createForm.customRoleId}
+                onChange={(e) => setCreateForm((f) => ({ ...f, customRoleId: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              >
+                {customRoles.map((cr) => (
+                  <option key={cr.id} value={cr.id}>
+                    {cr.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.employees_status ?? ""}</span>
+              <select
+                value={createForm.profileStatus}
+                onChange={(e) => setCreateForm((f) => ({ ...f, profileStatus: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              >
+                <option value="active">{tl.employees_status_active ?? ""}</option>
+                <option value="inactive">{tl.employees_status_inactive ?? ""}</option>
+                <option value="invited">{tl.employees_status_invited ?? ""}</option>
+              </select>
+            </label>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                className="min-h-[44px] px-4 rounded-lg border border-zinc-300 dark:border-zinc-600"
+                disabled={createSaving}
+                onClick={() => setCreateOpen(false)}
+              >
+                {t.cancel ?? ""}
+              </button>
+              <button
+                type="button"
+                className="min-h-[44px] px-4 rounded-lg bg-amber-600 text-white disabled:opacity-50"
+                disabled={createSaving}
+                onClick={() => void submitCreateEmployee()}
+              >
+                {createSaving ? "…" : tl.employees_create_submit ?? t.save ?? ""}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {inviteOpen && (
