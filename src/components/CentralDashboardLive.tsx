@@ -107,6 +107,15 @@ function activityBucket(action: string, entityType: string): ActivityFilter | "o
   return "other";
 }
 
+function formatDurationFromMs(ms: number, labels: Record<string, string>): string {
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const tmpl = labels.dashboard_duration_h_m ?? "{h}h {m}min";
+  return tmpl.replace("{h}", String(h)).replace("{m}", String(m));
+}
+
 function formatActivityLine(
   row: AuditLogEntry,
   labels: Record<string, string>,
@@ -114,13 +123,20 @@ function formatActivityLine(
   resolveWho: (userId: string, storedName?: string | null) => string
 ): string {
   const who = resolveWho(row.user_id, row.user_name ?? null);
+  const action = (row.action ?? "").trim();
   const ent = row.entity_name ?? "";
   const nv = row.new_value as Record<string, unknown> | undefined;
   const pid = typeof nv?.project_id === "string" ? nv.project_id : null;
   const pfx = pid && projectNames[pid] ? ` · ${projectNames[pid]}` : "";
   const dash = labels.common_dash ?? "—";
+  const byActionKey = labels[`audit_action_${action}`];
+  if (byActionKey) return `${who} ${byActionKey}${pfx}`;
+
   const fill = (s: string) => s.replace(/\{who\}/g, who).replace(/\{name\}/g, ent || dash);
-  const generic = (labels.dashboard_audit_generic ?? "").replace(/\{who\}/g, who).replace(/\{action\}/g, row.action);
+  const humanAction = action.replace(/_/g, " ");
+  const generic = (labels.dashboard_audit_generic ?? "{who} · {action}")
+    .replace(/\{who\}/g, who)
+    .replace(/\{action\}/g, humanAction);
   const m: Record<string, string> = {
     hazard_created: fill(labels.dashboard_audit_hazard_created ?? "") + pfx,
     hazard_status_changed: fill(labels.dashboard_audit_hazard_status ?? ""),
@@ -262,8 +278,10 @@ export interface CentralDashboardLiveProps {
 type TimeclockRow = {
   userId: string;
   name: string;
-  status: "in" | "out" | "off";
+  status: "in" | "out" | "off" | "done";
   clockInTime?: string;
+  clockOutTime?: string;
+  durationLabel?: string;
 };
 
 export function CentralDashboardLive({
@@ -546,13 +564,21 @@ export function CentralDashboardLive({
       if (userIds.length > 0) {
         const { data: profs } = await supabase
           .from("user_profiles")
-          .select("id, full_name, display_name")
+          .select("id, full_name, display_name, email")
           .in("id", userIds);
         const map: Record<string, string> = {};
         for (const p of profs ?? []) {
-          const pr = p as { id: string; full_name?: string | null; display_name?: string | null };
+          const pr = p as {
+            id: string;
+            full_name?: string | null;
+            display_name?: string | null;
+            email?: string | null;
+          };
           const nm = (pr.full_name || pr.display_name || "").trim();
-          if (nm) map[pr.id] = nm;
+          const em = (pr.email ?? "").trim();
+          const local = em.includes("@") ? em.split("@")[0]!.trim() : "";
+          const disp = nm || local;
+          if (disp) map[pr.id] = disp;
         }
         setUserNameById(map);
       } else {
@@ -646,23 +672,40 @@ export function CentralDashboardLive({
         }
       }
 
+      const anon =
+        (labels.employees_display_anonymous ?? labels.worker ?? "Employee").trim() || "Employee";
       const tclock: TimeclockRow[] = [];
       for (const p of profRows) {
         const pr = p;
         const name =
           (pr.full_name || pr.display_name || "").trim() ||
           (pr.email ?? "").trim().split("@")[0]?.trim() ||
-          pr.id.slice(0, 8);
+          `${anon} ${pr.id.replace(/-/g, "").slice(0, 4)}`;
         if (offToday.has(pr.id)) {
           tclock.push({ userId: pr.id, name, status: "off" });
           continue;
         }
         const entries = entriesByUser.get(pr.id) ?? [];
         const active = entries.find((e) => e.clock_out_at == null);
+        const completed = entries.filter((e) => e.clock_out_at != null);
+        const lastDone =
+          completed.length > 0
+            ? completed.reduce((a, b) =>
+                new Date(b.clock_out_at!).getTime() > new Date(a.clock_out_at!).getTime() ? b : a
+              )
+            : null;
         if (active) {
           const dt = new Date(active.clock_in_at);
           const clockInTime = dt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-          tclock.push({ userId: pr.id, name, status: "in", clockInTime });
+          const durationLabel = formatDurationFromMs(Date.now() - dt.getTime(), labels);
+          tclock.push({ userId: pr.id, name, status: "in", clockInTime, durationLabel });
+        } else if (lastDone) {
+          const dtIn = new Date(lastDone.clock_in_at);
+          const dtOut = new Date(lastDone.clock_out_at!);
+          const clockInTime = dtIn.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+          const clockOutTime = dtOut.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+          const durationLabel = formatDurationFromMs(dtOut.getTime() - dtIn.getTime(), labels);
+          tclock.push({ userId: pr.id, name, status: "done", clockInTime, clockOutTime, durationLabel });
         } else {
           tclock.push({ userId: pr.id, name, status: "out" });
         }
@@ -673,7 +716,7 @@ export function CentralDashboardLive({
     } finally {
       setLoading(false);
     }
-  }, [companyId, todayIso, locale]);
+  }, [companyId, todayIso, locale, labels]);
 
   useEffect(() => {
     void loadAll();
@@ -803,13 +846,12 @@ export function CentralDashboardLive({
       const fromDb = userNameById[userId]?.trim();
       if (fromDb) return fromDb;
       const s = (storedName ?? "").trim();
-      const dash = labels.common_dash ?? "";
       if (s && !s.includes("@")) return s;
       if (s.includes("@")) {
         const local = s.split("@")[0]?.trim();
-        return local || (labels.dashboard_activity_user ?? "");
+        if (local) return local;
       }
-      return labels.dashboard_activity_user ?? "";
+      return labels.dashboard_activity_unknown_user ?? labels.common_dash ?? "—";
     },
     [userNameById, labels]
   );
@@ -1099,21 +1141,36 @@ export function CentralDashboardLive({
                 {timeclockRows.map((r) => (
                   <li
                     key={r.userId}
-                    className={`flex flex-wrap items-center justify-between gap-2 text-sm rounded-lg px-2 py-2 ${
+                    className={`flex flex-wrap items-center justify-between gap-2 text-sm rounded-lg px-2 py-2 min-h-[44px] ${
                       r.status === "in"
                         ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200"
-                        : r.status === "off"
-                          ? "bg-gray-100 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400"
-                          : "bg-red-50 dark:bg-red-950/20 text-red-900 dark:text-red-200"
+                        : r.status === "done"
+                          ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-200"
+                          : r.status === "off"
+                            ? "bg-gray-100 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400"
+                            : "bg-red-50 dark:bg-red-950/20 text-red-900 dark:text-red-200"
                     }`}
                   >
-                    <span className="font-medium truncate">{r.name}</span>
-                    <span className="text-xs shrink-0">
-                      {r.status === "in"
-                        ? `${L("dashboard_clocked_in")}${r.clockInTime ? ` · ${r.clockInTime}` : ""}`
-                        : r.status === "off"
-                          ? L("dashboard_day_off")
-                          : L("dashboard_not_clocked_in")}
+                    <span className="flex items-center gap-2 font-medium truncate min-w-0">
+                      <span aria-hidden className="shrink-0 text-base">
+                        {r.status === "in"
+                          ? "🟢"
+                          : r.status === "done"
+                            ? "⚫"
+                            : r.status === "off"
+                              ? "⚪"
+                              : "🔴"}
+                      </span>
+                      {r.name}
+                    </span>
+                    <span className="text-xs shrink-0 text-right max-w-[65%]">
+                      {r.status === "in" && r.clockInTime
+                        ? `${r.clockInTime}${r.durationLabel ? ` · ${r.durationLabel}` : ""}`
+                        : r.status === "done" && r.clockInTime && r.clockOutTime
+                          ? `${r.clockInTime} → ${r.clockOutTime}${r.durationLabel ? ` · ${r.durationLabel}` : ""}`
+                          : r.status === "off"
+                            ? L("dashboard_day_off")
+                            : L("dashboard_not_clocked_in")}
                     </span>
                   </li>
                 ))}
@@ -1422,10 +1479,9 @@ export function CentralDashboardLive({
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
               <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 font-semibold text-amber-900 dark:text-amber-200">
-                {subscription?.plan ?? (labels.common_dash ?? "")} ·{" "}
                 {subscription?.status === "trialing"
                   ? L("subscription_status_trialing")
-                  : subscription?.status ?? (labels.common_dash ?? "")}
+                  : `${subscription?.plan ?? (labels.common_dash ?? "")} · ${subscription?.status ?? (labels.common_dash ?? "")}`}
               </span>
             </p>
             {subscription?.status === "trialing" && trialDaysLeft != null && (

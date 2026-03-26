@@ -406,15 +406,33 @@ export function SubcontractorsModule({
 
   if (selected) {
     const history = parseWorkHistory(selected.work_history);
+    console.log("[SubcontractorsModule] detail view render", { selectedId: selected.id });
+    const backLabel = ((tl?.nav_back ?? "Atrás").replace(/^\s*←\s*/, "").trim() || "Atrás").trim();
     return (
       <div className="space-y-4 max-w-3xl">
-        <button
-          type="button"
-          style={{ minHeight: "44px", marginBottom: "16px" }}
-          onClick={() => setSelectedId(null)}
+        <div
+          className="border-b border-zinc-200 dark:border-white/10"
+          style={{
+            marginBottom: "16px",
+            paddingBottom: "16px",
+          }}
         >
-          ← Atrás
-        </button>
+          <button
+            type="button"
+            className="border border-zinc-300 bg-transparent text-inherit dark:border-white/20"
+            style={{
+              minHeight: "44px",
+              minWidth: "44px",
+              padding: "8px 16px",
+              cursor: "pointer",
+              borderRadius: "8px",
+              fontSize: "14px",
+            }}
+            onClick={() => setSelectedId(null)}
+          >
+            ← {backLabel}
+          </button>
+        </div>
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{selected.name}</h2>
         <p className="text-sm text-zinc-500">
           {selected.company_name ?? "—"} · {selected.trade ?? "—"}

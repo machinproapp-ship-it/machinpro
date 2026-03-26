@@ -90,8 +90,16 @@ function emailLocalPart(email: string | null | undefined): string {
   return e.slice(0, at).trim() || e;
 }
 
-/** full_name → display_name → local del email → "Empleado xxxx" (nunca UUID completo ni email entero como nombre). */
-function employeeDisplayLabel(r: ProfileRow, labels?: Record<string, string>): string {
+/** full_name → display_name → email local → "Tú" (self) → anonymous+4chars (nunca UUID largo ni email entero). */
+function employeeDisplayLabel(
+  r: ProfileRow,
+  labels?: Record<string, string>,
+  selfProfileId?: string | null
+): string {
+  if (selfProfileId && r.id === selfProfileId) {
+    const you = (labels?.common_you ?? "").trim();
+    if (you) return you;
+  }
   const fn = (r.full_name ?? "").trim();
   const dn = (r.display_name ?? "").trim();
   const em = (r.email ?? "").trim();
@@ -425,7 +433,7 @@ export function EmployeesModule({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const label = employeeDisplayLabel(r, t as Record<string, string>).toLowerCase();
+      const label = employeeDisplayLabel(r, t as Record<string, string>, currentUserProfileId ?? null).toLowerCase();
       const em = (r.email ?? "").toLowerCase();
       if (q && !label.includes(q) && !em.includes(q) && !r.id.toLowerCase().includes(q)) return false;
 
@@ -440,7 +448,7 @@ export function EmployeesModule({
       if (statusFilter !== "all" && st !== statusFilter) return false;
       return true;
     });
-  }, [rows, search, roleFilter, statusFilter, t]);
+  }, [rows, search, roleFilter, statusFilter, t, currentUserProfileId]);
 
   const vacationsForSelected = useMemo(() => {
     if (!selectedId) return [];
@@ -733,13 +741,25 @@ export function EmployeesModule({
   }
 
   if (selected) {
-    const name = employeeDisplayLabel(selected, t as Record<string, string>);
+    const tl = t as Record<string, string>;
+    console.log("[EmployeesModule] profile view render", { selectedId: selected.id });
+    const name = employeeDisplayLabel(selected, t as Record<string, string>, currentUserProfileId ?? null);
     const emailShown = (selected.email ?? "").trim() || emailLocalPart(selected.email);
     const inheritPerms = draft.use_role_permissions !== false;
-    const tl = t as Record<string, string>;
     const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
     const workerSelf = isSelf && !canManageEmployees;
     const canEditBasicFields = canManageEmployees || isSelf;
+
+    const complianceFieldLabel = (field: ComplianceField): string => {
+      const m: Record<string, string> = {
+        "cf-liability": "compliance_field_liability_insurance",
+        "cf-compliance": "compliance_field_provincial_compliance",
+        "cf-vehicle-inspection": "compliance_field_safety_inspection",
+        "cf-vehicle-insurance": "compliance_field_vehicle_insurance",
+      };
+      const lk = m[field.id];
+      return lk ? (tl[lk] ?? field.name) : field.name;
+    };
 
     const formatPayReadOnly = (sel: ProfileRow): string => {
       const pt = (sel.pay_type ?? "unspecified").trim().toLowerCase();
@@ -762,15 +782,33 @@ export function EmployeesModule({
       return tl.common_dash ?? "";
     };
 
+    const backLabel = ((tl?.nav_back ?? "Atrás").replace(/^\s*←\s*/, "").trim() || "Atrás").trim();
+
     return (
       <div className="space-y-4 max-w-3xl">
-        <button
-          type="button"
-          style={{ minHeight: "44px", marginBottom: "16px" }}
-          onClick={() => setSelectedId(null)}
+        <div
+          className="border-b border-zinc-200 dark:border-white/10"
+          style={{
+            marginBottom: "16px",
+            paddingBottom: "16px",
+          }}
         >
-          ← Atrás
-        </button>
+          <button
+            type="button"
+            className="border border-zinc-300 bg-transparent text-inherit dark:border-white/20"
+            style={{
+              minHeight: "44px",
+              minWidth: "44px",
+              padding: "8px 16px",
+              cursor: "pointer",
+              borderRadius: "8px",
+              fontSize: "14px",
+            }}
+            onClick={() => setSelectedId(null)}
+          >
+            ← {backLabel}
+          </button>
+        </div>
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-lg font-semibold overflow-hidden">
@@ -837,7 +875,7 @@ export function EmployeesModule({
                 <Mail className="h-3 w-3" /> {t.email ?? ""}
               </span>
               <span className="block mt-1 text-zinc-800 dark:text-zinc-100 break-all">
-                {emailShown || (tl.employees_email_unknown ?? "")}
+                {emailShown || (tl.employees_no_email ?? tl.employees_email_unknown ?? "")}
               </span>
             </div>
             <p className="text-sm">
@@ -1138,7 +1176,7 @@ export function EmployeesModule({
                       className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 dark:border-slate-800 pb-2"
                     >
                       <div>
-                        <p className="text-sm font-medium">{field.name}</p>
+                        <p className="text-sm font-medium">{complianceFieldLabel(field)}</p>
                         {rec?.expiryDate && (
                           <p className="text-xs text-zinc-500">
                             {tl.expiresOn ?? ""}: {rec.expiryDate}
@@ -1231,7 +1269,7 @@ export function EmployeesModule({
               disabled={saving}
               className="min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
             >
-              {saving ? "…" : (t.accept ?? "")}
+              {saving ? "…" : (tl.employees_save_changes ?? t.save ?? "")}
             </button>
           )}
           {canManageEmployees && (
@@ -1258,7 +1296,7 @@ export function EmployeesModule({
             />
             <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-auto sm:top-24 sm:right-4 sm:bottom-auto max-w-md rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
               <div className="flex justify-between items-center">
-                <h4 className="font-semibold text-sm">{complianceEdit.field.name}</h4>
+                <h4 className="font-semibold text-sm">{complianceFieldLabel(complianceEdit.field)}</h4>
                 <button
                   type="button"
                   className="min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -1321,7 +1359,7 @@ export function EmployeesModule({
                   setComplianceEdit(null);
                 }}
               >
-                {t.accept ?? ""}
+                {tl.employees_save_changes ?? t.save ?? ""}
               </button>
             </div>
           </>
@@ -1465,7 +1503,9 @@ export function EmployeesModule({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-zinc-900 dark:text-white truncate">{employeeDisplayLabel(r, tl)}</p>
+                  <p className="font-medium text-zinc-900 dark:text-white truncate">
+                    {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
+                  </p>
                   <p className="text-xs text-zinc-500 truncate">
                     {(() => {
                       const em = (r.email ?? "").trim();
@@ -1496,7 +1536,7 @@ export function EmployeesModule({
                   <button
                     type="button"
                     aria-label={tl.common_delete ?? ""}
-                    onClick={() => void deactivateProfile(r.id, employeeDisplayLabel(r, tl))}
+                    onClick={() => void deactivateProfile(r.id, employeeDisplayLabel(r, tl, currentUserProfileId ?? null))}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                   >
                     <Trash2 className="h-4 w-4" aria-hidden />
