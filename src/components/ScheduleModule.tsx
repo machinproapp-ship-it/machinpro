@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Calendar,
   ChevronLeft,
@@ -18,6 +18,8 @@ export interface SchedEmployee {
   id: string;
   name: string;
   role: string;
+  /** admin | supervisor | worker | logistic | custom:<roleId> */
+  scheduleRoleKey?: string;
 }
 
 export interface SchedProject {
@@ -168,7 +170,18 @@ export interface ScheduleModuleProps {
     schedule_legend_training?: string;
     employees_request_vacation?: string;
     common_other?: string;
+    schedule_select_all?: string;
+    schedule_deselect_all?: string;
+    schedule_filter_by_role?: string;
+    schedule_pick_employees?: string;
+    schedule_pick_employees_error?: string;
+    admin?: string;
+    supervisor?: string;
+    worker?: string;
+    logistic?: string;
+    whFilterAll?: string;
   };
+  customRoles?: { id: string; name: string }[];
   canApproveVacations?: boolean;
   canRequestVacation?: boolean;
   vacationRequests?: Array<{
@@ -604,6 +617,7 @@ export default function ScheduleModule({
   onDismissClockInAlert,
   onClockIn,
   onClockOut,
+  customRoles = [],
 }: ScheduleModuleProps) {
   const today = new Date();
   const todayYmd = toYMD(today);
@@ -685,6 +699,35 @@ export default function ScheduleModule({
     setFEmployeeIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+
+  const roleChips = useMemo(() => {
+    const l = labels as Record<string, string>;
+    const chips: { key: string; label: string }[] = [
+      { key: "all", label: l.whFilterAll ?? "Todos" },
+      { key: "admin", label: l.admin ?? "" },
+      { key: "supervisor", label: l.supervisor ?? "" },
+      { key: "worker", label: l.worker ?? "" },
+      { key: "logistic", label: l.logistic ?? "" },
+    ];
+    for (const r of customRoles) {
+      chips.push({ key: `custom:${r.id}`, label: r.name });
+    }
+    return chips;
+  }, [labels, customRoles]);
+
+  const selectEmployeesByRoleChip = useCallback(
+    (key: string) => {
+      if (key === "all") {
+        setFEmployeeIds(employees.map((e) => e.id));
+        return;
+      }
+      const ids = employees
+        .filter((e) => (e.scheduleRoleKey ?? "") === key)
+        .map((e) => e.id);
+      setFEmployeeIds(ids);
+    },
+    [employees]
+  );
 
   const resetForm = () => {
     setFType("shift");
@@ -1348,9 +1391,40 @@ export default function ScheduleModule({
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Empleados *
+                  {(labels as Record<string, string>).schedule_pick_employees ?? "Empleados"} *
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setFEmployeeIds(employees.map((e) => e.id))}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
+                  >
+                    {(labels as Record<string, string>).schedule_select_all ?? ""}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFEmployeeIds([])}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
+                  >
+                    {(labels as Record<string, string>).schedule_deselect_all ?? ""}
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-500 mb-1">
+                  {(labels as Record<string, string>).schedule_filter_by_role ?? ""}
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {roleChips.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => selectEmployeesByRoleChip(c.key)}
+                      className="rounded-full border border-zinc-200 dark:border-slate-600 px-3 py-1.5 text-xs font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
                   {employees.map((emp) => (
                     <button
                       key={emp.id}
@@ -1371,7 +1445,7 @@ export default function ScheduleModule({
                 </div>
                 {fEmployeeIds.length === 0 && (
                   <p className="text-xs text-red-500 mt-1">
-                    Selecciona al menos un empleado
+                    {(labels as Record<string, string>).schedule_pick_employees_error ?? ""}
                   </p>
                 )}
               </div>

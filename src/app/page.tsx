@@ -192,6 +192,17 @@ export interface Employee {
   useRolePermissions?: boolean;
 }
 
+function scheduleRoleKeyForEmployee(e: Employee, customRoles: CustomRole[]): string {
+  if (e.customRoleId) return `custom:${e.customRoleId}`;
+  const norm = (e.role ?? "").trim().toLowerCase();
+  const byName = customRoles.find((r) => r.name.trim().toLowerCase() === norm);
+  if (byName) return `custom:${byName.id}`;
+  if (norm.includes("admin")) return "admin";
+  if (norm.includes("supervisor") || norm.includes("supervisora")) return "supervisor";
+  if (norm.includes("logist") || norm.includes("almacén") || norm.includes("warehouse")) return "logistic";
+  return "worker";
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -3044,6 +3055,7 @@ export default function Home() {
                 labels={t as Record<string, string>}
                 projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
                 canManage={rolePerms.canManageSubcontractors}
+                canDeleteSubcontractor={effectiveRole === "admin" || !!rolePerms.canManageSubcontractors}
                 customRoles={customRoles}
               />
             )}
@@ -3270,7 +3282,13 @@ export default function Home() {
             {activeSection === "schedule" && (perms.canAccessSchedule !== false) && (
               <ScheduleModule
                 entries={scheduleEntries}
-                employees={employees.map((e) => ({ id: e.id, name: e.name, role: e.role }))}
+                employees={employees.map((e) => ({
+                  id: e.id,
+                  name: e.name,
+                  role: e.role,
+                  scheduleRoleKey: scheduleRoleKeyForEmployee(e, customRoles),
+                }))}
+                customRoles={customRoles.map((r) => ({ id: r.id, name: r.name }))}
                 projects={projects.map((p) => ({
                   id: p.id,
                   name: p.name,
@@ -3369,6 +3387,16 @@ export default function Home() {
                   schedule_legend_training: (t as Record<string, string>).schedule_legend_training,
                   employees_request_vacation: (t as Record<string, string>).employees_request_vacation,
                   common_other: (t as Record<string, string>).common_other,
+                  schedule_select_all: (t as Record<string, string>).schedule_select_all,
+                  schedule_deselect_all: (t as Record<string, string>).schedule_deselect_all,
+                  schedule_filter_by_role: (t as Record<string, string>).schedule_filter_by_role,
+                  schedule_pick_employees: (t as Record<string, string>).schedule_pick_employees,
+                  schedule_pick_employees_error: (t as Record<string, string>).schedule_pick_employees_error,
+                  admin: (t as Record<string, string>).admin,
+                  supervisor: (t as Record<string, string>).supervisor,
+                  worker: (t as Record<string, string>).worker,
+                  logistic: (t as Record<string, string>).logistic,
+                  whFilterAll: (t as Record<string, string>).whFilterAll,
                 }}
                 onAddEntry={handleAddScheduleEntry}
                 onUpdateEntry={handleUpdateScheduleEntry}

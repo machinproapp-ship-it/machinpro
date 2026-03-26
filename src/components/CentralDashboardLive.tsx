@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Users,
   UserCheck,
@@ -182,6 +182,19 @@ function BarStack({
   );
 }
 
+const PROF_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function WidgetSkeleton({ lines = 4 }: { lines?: number }) {
+  return (
+    <div className="animate-pulse space-y-3 pe-14" aria-hidden>
+      <div className="h-4 max-w-[40%] rounded bg-gray-200 dark:bg-gray-600" />
+      {Array.from({ length: lines }, (_, i) => (
+        <div key={i} className="h-10 rounded-lg bg-gray-100 dark:bg-gray-700/80" />
+      ))}
+    </div>
+  );
+}
+
 function UnifiedDashCard({
   icon,
   iconWrapClassName,
@@ -359,7 +372,13 @@ export function CentralDashboardLive({
   const [userNameById, setUserNameById] = useState<Record<string, string>>({});
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [loading, setLoading] = useState(true);
+  const [secondaryMetricsReady, setSecondaryMetricsReady] = useState(true);
   const [tick, setTick] = useState(0);
+  const profRowsCacheRef = useRef<{
+    companyId: string;
+    at: number;
+    rows: { id: string; full_name?: string | null; display_name?: string | null; email?: string | null }[];
+  } | null>(null);
   const [timeclockRows, setTimeclockRows] = useState<TimeclockRow[]>([]);
   const [resolvedConfig, setResolvedConfig] = useState<ResolvedDashboardConfig>(() => parseDashboardConfig(null));
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -368,7 +387,7 @@ export function CentralDashboardLive({
   const [useDnD, setUseDnD] = useState(false);
   const [dragWidget, setDragWidget] = useState<DashboardWidgetId | null>(null);
 
-  const { subscription, trialDaysLeft } = useSubscription(companyId);
+  const { subscription, trialDaysLeft, loading: subscriptionLoading } = useSubscription(companyId);
 
   const todayIso = localTodayYmd();
 
@@ -454,13 +473,24 @@ export function CentralDashboardLive({
       setActivityRows([]);
       setUserNameById({});
       setTimeclockRows([]);
+      setSecondaryMetricsReady(true);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setSecondaryMetricsReady(false);
     const { start: tStart, end: tEnd } = startEndLocalDay(0);
     const { start: yStart, end: yEnd } = startEndLocalDay(-1);
     const eightH = hoursAgoIso(8);
+
+    const dayKeys: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dayKeys.push(d.toISOString().slice(0, 10));
+    }
+    const weekStart = `${dayKeys[0]}T00:00:00.000Z`;
+    const weekEnd = `${dayKeys[6]}T23:59:59.999Z`;
 
     try {
       const [
@@ -472,13 +502,11 @@ export function CentralDashboardLive({
         vYest,
         vActive,
         vLong,
-        bpCt,
-        pinCt,
-        noteRes,
         audits,
         critUn,
         vacRows,
         timeRows,
+        weekVis,
       ] = await Promise.all([
         supabase.from("user_profiles").select("id", { count: "exact", head: true }).eq("company_id", companyId),
         supabase
@@ -511,13 +539,6 @@ export function CentralDashboardLive({
           .eq("company_id", companyId)
           .is("check_out", null)
           .lt("check_in", eightH),
-        supabase.from("blueprints").select("id", { count: "exact", head: true }).eq("company_id", companyId),
-        supabase.from("blueprint_pins").select("id", { count: "exact", head: true }).eq("company_id", companyId),
-        supabase
-          .from("blueprint_annotations")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .eq("is_resolved", false),
         supabase
           .from("audit_logs")
           .select("*")
@@ -544,6 +565,12 @@ export function CentralDashboardLive({
           .eq("company_id", companyId)
           .gte("clock_in_at", tStart)
           .lte("clock_in_at", tEnd),
+        supabase
+          .from("visitor_logs")
+          .select("check_in")
+          .eq("company_id", companyId)
+          .gte("check_in", weekStart)
+          .lte("check_in", weekEnd),
       ]);
 
       setEmpCount(profToday.count ?? 0);
@@ -555,9 +582,6 @@ export function CentralDashboardLive({
       setActionRows((caList.data ?? []) as CorrectiveAction[]);
       setActiveVisitors(vActive.count ?? 0);
       setLongVisitors((vLong.data ?? []) as { id: string; visitor_name: string; check_in: string }[]);
-      setBlueprintCount(bpCt.count ?? 0);
-      setPinCount(pinCt.count ?? 0);
-      setNoteCount(noteRes.error ? 0 : noteRes.count ?? 0);
       const auditRows = (audits.data ?? []) as AuditLogEntry[];
       setActivityRows(auditRows);
       const userIds = [...new Set(auditRows.map((r) => r.user_id).filter(Boolean))];
@@ -594,22 +618,8 @@ export function CentralDashboardLive({
       });
       setOverdueActions(overdue.slice(0, 15));
 
-      const dayKeys: string[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        dayKeys.push(d.toISOString().slice(0, 10));
-      }
-      const weekStart = `${dayKeys[0]}T00:00:00.000Z`;
-      const weekEnd = `${dayKeys[6]}T23:59:59.999Z`;
-      const { data: weekVis } = await supabase
-        .from("visitor_logs")
-        .select("check_in")
-        .eq("company_id", companyId)
-        .gte("check_in", weekStart)
-        .lte("check_in", weekEnd);
       const counts = [0, 0, 0, 0, 0, 0, 0];
-      for (const row of weekVis ?? []) {
+      for (const row of weekVis.data ?? []) {
         const day = (row as { check_in: string }).check_in.slice(0, 10);
         const idx = dayKeys.indexOf(day);
         if (idx >= 0) counts[idx]++;
@@ -642,34 +652,45 @@ export function CentralDashboardLive({
         email?: string | null;
       };
       let profRows: ProfLite[] = [];
-      const { data: rpcCompanyProfs, error: rpcCompanyErr } = await supabase.rpc("get_company_profiles", {
-        p_company_id: companyId,
-      });
-      if (rpcCompanyErr) {
-        console.error("[CentralDashboardLive] get_company_profiles", rpcCompanyErr);
-      }
-      if (Array.isArray(rpcCompanyProfs) && rpcCompanyProfs.length > 0) {
-        profRows = rpcCompanyProfs as ProfLite[];
+      const cached = profRowsCacheRef.current;
+      const useCache =
+        cached &&
+        cached.companyId === companyId &&
+        Date.now() - cached.at < PROF_CACHE_TTL_MS &&
+        cached.rows.length > 0;
+      if (useCache) {
+        profRows = cached!.rows as ProfLite[];
       } else {
-        const direct = await supabase
-          .from("user_profiles")
-          .select("id, full_name, display_name, email")
-          .eq("company_id", companyId)
-          .order("created_at", { ascending: false });
-        if (direct.error) {
-          console.error("[CentralDashboardLive] user_profiles list", direct.error);
+        const { data: rpcCompanyProfs, error: rpcCompanyErr } = await supabase.rpc("get_company_profiles", {
+          p_company_id: companyId,
+        });
+        if (rpcCompanyErr) {
+          console.error("[CentralDashboardLive] get_company_profiles", rpcCompanyErr);
         }
-        profRows = (direct.data ?? []) as ProfLite[];
-        if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
-          const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
-            p_company_id: companyId,
-          });
-          if (rpcErr) {
-            console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
-          } else if (rpcRows?.length) {
-            profRows = rpcRows as ProfLite[];
+        if (Array.isArray(rpcCompanyProfs) && rpcCompanyProfs.length > 0) {
+          profRows = rpcCompanyProfs as ProfLite[];
+        } else {
+          const direct = await supabase
+            .from("user_profiles")
+            .select("id, full_name, display_name, email")
+            .eq("company_id", companyId)
+            .order("created_at", { ascending: false });
+          if (direct.error) {
+            console.error("[CentralDashboardLive] user_profiles list", direct.error);
+          }
+          profRows = (direct.data ?? []) as ProfLite[];
+          if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
+            const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
+              p_company_id: companyId,
+            });
+            if (rpcErr) {
+              console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
+            } else if (rpcRows?.length) {
+              profRows = rpcRows as ProfLite[];
+            }
           }
         }
+        profRowsCacheRef.current = { companyId, at: Date.now(), rows: profRows };
       }
 
       const anon =
@@ -716,6 +737,28 @@ export function CentralDashboardLive({
     } finally {
       setLoading(false);
     }
+
+    void (async () => {
+      try {
+        if (!supabase || !companyId) return;
+        const [bpCt, pinCt, noteRes] = await Promise.all([
+          supabase.from("blueprints").select("id", { count: "exact", head: true }).eq("company_id", companyId),
+          supabase.from("blueprint_pins").select("id", { count: "exact", head: true }).eq("company_id", companyId),
+          supabase
+            .from("blueprint_annotations")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId)
+            .eq("is_resolved", false),
+        ]);
+        setBlueprintCount(bpCt.count ?? 0);
+        setPinCount(pinCt.count ?? 0);
+        setNoteCount(noteRes.error ? 0 : noteRes.count ?? 0);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setSecondaryMetricsReady(true);
+      }
+    })();
   }, [companyId, todayIso, locale, labels]);
 
   useEffect(() => {
@@ -1129,7 +1172,16 @@ export function CentralDashboardLive({
       case "timeclock":
         return widgetChrome(
           id,
-          <>
+          loading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-blue-500" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.timeclock)}
+              </h3>
+              <WidgetSkeleton lines={5} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <Clock className="h-4 w-4 text-blue-500" aria-hidden />
               {L(WIDGET_LABEL_KEYS.timeclock)}
@@ -1176,12 +1228,22 @@ export function CentralDashboardLive({
                 ))}
               </ul>
             )}
-          </>
+            </>
+          )
         );
       case "activity":
         return widgetChrome(
           id,
-          <>
+          loading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-gray-400" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.activity)}
+              </h3>
+              <WidgetSkeleton lines={6} />
+            </>
+          ) : (
+            <>
             <div className="flex flex-wrap items-center justify-between gap-2 pe-14">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1227,11 +1289,21 @@ export function CentralDashboardLive({
               )}
             </ul>
           </>
+          )
         );
       case "alerts":
         return widgetChrome(
           id,
-          <>
+          loading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.alerts)}
+              </h3>
+              <WidgetSkeleton lines={4} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
               {L(WIDGET_LABEL_KEYS.alerts)}
@@ -1337,11 +1409,21 @@ export function CentralDashboardLive({
               </ul>
             )}
           </>
+          )
         );
       case "hazards":
         return widgetChrome(
           id,
-          <>
+          loading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.hazards)}
+              </h3>
+              <WidgetSkeleton lines={5} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden />
               {L(WIDGET_LABEL_KEYS.hazards)}
@@ -1379,11 +1461,21 @@ export function CentralDashboardLive({
               </>
             )}
           </>
+          )
         );
       case "actions":
         return widgetChrome(
           id,
-          <>
+          loading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-amber-500" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.actions)}
+              </h3>
+              <WidgetSkeleton lines={4} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4 text-amber-500" aria-hidden />
               {L(WIDGET_LABEL_KEYS.actions)}
@@ -1402,11 +1494,21 @@ export function CentralDashboardLive({
               {dueThisWeek.length === 0 && <li className="text-xs text-gray-500 dark:text-gray-400">{labels.common_dash ?? ""}</li>}
             </ul>
           </>
+          )
         );
       case "visitors":
         return widgetChrome(
           id,
-          <>
+          loading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-emerald-500" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.visitors)}
+              </h3>
+              <WidgetSkeleton lines={4} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
               <UserCheck className="h-4 w-4 text-emerald-500" aria-hidden />
               {L(WIDGET_LABEL_KEYS.visitors)}
@@ -1431,11 +1533,21 @@ export function CentralDashboardLive({
               </div>
             )}
           </>
+          )
         );
       case "blueprints":
         return widgetChrome(
           id,
-          <>
+          loading || !secondaryMetricsReady ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-amber-500" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.blueprints)}
+              </h3>
+              <WidgetSkeleton lines={3} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
               <Layers className="h-4 w-4 text-amber-500" aria-hidden />
               {L(WIDGET_LABEL_KEYS.blueprints)}
@@ -1468,11 +1580,21 @@ export function CentralDashboardLive({
               </span>
             </button>
           </>
+          )
         );
       case "subscription":
         return widgetChrome(
           id,
-          <>
+          loading || subscriptionLoading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-violet-500" aria-hidden />
+                {L(WIDGET_LABEL_KEYS.subscription)}
+              </h3>
+              <WidgetSkeleton lines={5} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-violet-500" aria-hidden />
               {L(WIDGET_LABEL_KEYS.subscription)}
@@ -1525,14 +1647,22 @@ export function CentralDashboardLive({
               </div>
             </div>
           </>
+          )
         );
       case "quickaccess":
         return widgetChrome(
           id,
-          <>
+          loading ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{L(WIDGET_LABEL_KEYS.quickaccess)}</h3>
+              <WidgetSkeleton lines={2} />
+            </>
+          ) : (
+            <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{L(WIDGET_LABEL_KEYS.quickaccess)}</h3>
             {renderQuickAccessButtons(resolvedConfig.quickAccess)}
           </>
+          )
         );
       default:
         return null;

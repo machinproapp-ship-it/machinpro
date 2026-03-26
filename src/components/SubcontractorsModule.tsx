@@ -14,8 +14,6 @@ import {
   Star,
   X,
   UserPlus,
-  Pencil,
-  Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole } from "@/types/roles";
@@ -25,6 +23,7 @@ export interface SubcontractorsModuleProps {
   labels: Record<string, string>;
   projects: { id: string; name: string; archived?: boolean }[];
   canManage: boolean;
+  canDeleteSubcontractor?: boolean;
   customRoles?: CustomRole[];
   /** Subcontractors only: limited app roles (e.g. worker / custom) */
   inviteRoleOptions?: { id: string; label: string }[];
@@ -167,9 +166,11 @@ export function SubcontractorsModule({
   labels: t,
   projects,
   canManage,
+  canDeleteSubcontractor: canDeleteSubProp,
   customRoles = [],
   inviteRoleOptions,
 }: SubcontractorsModuleProps) {
+  const canDeleteSub = canDeleteSubProp !== undefined ? canDeleteSubProp : canManage;
   const [list, setList] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -201,6 +202,18 @@ export function SubcontractorsModule({
   const [formEmergencyPhone, setFormEmergencyPhone] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formRating, setFormRating] = useState(3);
+
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [ddName, setDdName] = useState("");
+  const [ddCompany, setDdCompany] = useState("");
+  const [ddTrade, setDdTrade] = useState("");
+  const [ddGst, setDdGst] = useState("");
+  const [ddAddress, setDdAddress] = useState("");
+  const [ddStatus, setDdStatus] = useState("active");
+  const [ddNotes, setDdNotes] = useState("");
+  const [ddRating, setDdRating] = useState(3);
+  const [ddEmName, setDdEmName] = useState("");
+  const [ddEmPhone, setDdEmPhone] = useState("");
 
   const activeProjects = useMemo(() => projects.filter((p) => !p.archived), [projects]);
 
@@ -235,6 +248,21 @@ export function SubcontractorsModule({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const s = list.find((x) => x.id === selectedId);
+    if (!s) return;
+    setDdName(s.name);
+    setDdCompany(s.company_name ?? "");
+    setDdTrade(s.trade ?? "");
+    setDdGst(s.gst_hst ?? "");
+    setDdAddress(s.address ?? "");
+    setDdStatus(s.status ?? "active");
+    setDdNotes(s.notes ?? "");
+    setDdRating(typeof s.rating === "number" ? s.rating : 3);
+    setDdEmName(s.emergency_contact_name ?? "");
+    setDdEmPhone(s.emergency_contact_phone ?? "");
+  }, [selectedId, list]);
 
   const loadDetail = useCallback(async (sid: string) => {
     if (!supabase) return;
@@ -371,17 +399,43 @@ export function SubcontractorsModule({
     void load();
   };
 
-  const deleteSubcontractor = async (id: string) => {
+  const deleteSubcontractor = async (id: string, displayName: string) => {
     const lx = t as Record<string, string>;
-    if (!supabase || !canManage) return;
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(lx.common_confirm_delete ?? lx.confirmDeleteSubcontractor ?? "")
-    )
-      return;
+    if (!supabase || !canDeleteSub) return;
+    const msg =
+      (lx.subcontractors_delete_confirm?.replace(/\{name\}/g, displayName) ?? "").trim() ||
+      lx.common_confirm_delete ||
+      "";
+    if (typeof window !== "undefined" && !window.confirm(msg)) return;
     await supabase.from("subcontractors").delete().eq("id", id);
     if (selectedId === id) setSelectedId(null);
     void load();
+  };
+
+  const saveSubcontractorDetail = async () => {
+    if (!supabase || !canManage || !selectedId) return;
+    setDetailSaving(true);
+    try {
+      const { error } = await supabase
+        .from("subcontractors")
+        .update({
+          name: ddName.trim(),
+          company_name: ddCompany.trim() || null,
+          trade: ddTrade.trim() || null,
+          gst_hst: ddGst.trim() || null,
+          address: ddAddress.trim() || null,
+          status: ddStatus,
+          notes: ddNotes.trim() || null,
+          rating: ddRating,
+          emergency_contact_name: ddEmName.trim() || null,
+          emergency_contact_phone: ddEmPhone.trim() || null,
+        })
+        .eq("id", selectedId);
+      if (error) console.error(error);
+      else void load();
+    } finally {
+      setDetailSaving(false);
+    }
   };
 
   const defaultInviteRoles = useMemo(() => {
@@ -407,69 +461,161 @@ export function SubcontractorsModule({
   if (selected) {
     const history = parseWorkHistory(selected.work_history);
     console.log("[SubcontractorsModule] detail view render", { selectedId: selected.id });
-    const backLabel = ((tl?.nav_back ?? "Atrás").replace(/^\s*←\s*/, "").trim() || "Atrás").trim();
-    return (
-      <div className="space-y-4 max-w-3xl">
-        <div
-          className="border-b border-zinc-200 dark:border-white/10"
+    const backBtn = (
+      <div style={{ marginBottom: "16px" }}>
+        <button
+          type="button"
+          onClick={() => setSelectedId(null)}
           style={{
-            marginBottom: "16px",
-            paddingBottom: "16px",
+            minHeight: "44px",
+            minWidth: "44px",
+            padding: "8px 16px",
+            cursor: "pointer",
+            background: "transparent",
+            border: "1px solid rgba(128,128,128,0.3)",
+            borderRadius: "8px",
+            color: "inherit",
+            fontSize: "14px",
           }}
         >
-          <button
-            type="button"
-            className="border border-zinc-300 bg-transparent text-inherit dark:border-white/20"
-            style={{
-              minHeight: "44px",
-              minWidth: "44px",
-              padding: "8px 16px",
-              cursor: "pointer",
-              borderRadius: "8px",
-              fontSize: "14px",
-            }}
-            onClick={() => setSelectedId(null)}
-          >
-            ← {backLabel}
-          </button>
-        </div>
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{selected.name}</h2>
-        <p className="text-sm text-zinc-500">
-          {selected.company_name ?? "—"} · {selected.trade ?? "—"}
-        </p>
-        {(selected.rating ?? 0) > 0 && (
-          <div className="flex items-center gap-1 text-amber-500">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Star
-                key={i}
-                className={`h-5 w-5 ${i < (selected.rating ?? 0) ? "fill-current" : "text-zinc-300 dark:text-zinc-600"}`}
+          ← {tl?.nav_back ?? "Atrás"}
+        </button>
+      </div>
+    );
+    return (
+      <div className="space-y-4 max-w-3xl">
+        {backBtn}
+        {canManage ? (
+          <div className="space-y-3">
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.subcontractors_field_name ?? ""}</span>
+              <input
+                value={ddName}
+                onChange={(e) => setDdName(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               />
-            ))}
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.subcontractors_field_company ?? ""}</span>
+                <input
+                  value={ddCompany}
+                  onChange={(e) => setDdCompany(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.subcontractors_field_trade ?? ""}</span>
+                <input
+                  value={ddTrade}
+                  onChange={(e) => setDdTrade(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                />
+              </label>
+            </div>
+            <StarRow value={ddRating} onChange={setDdRating} disabled={!canManage} labels={t} />
           </div>
+        ) : (
+          <>
+            <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{selected.name}</h2>
+            <p className="text-sm text-zinc-500">
+              {selected.company_name ?? "—"} · {selected.trade ?? "—"}
+            </p>
+            {(selected.rating ?? 0) > 0 && (
+              <div className="flex items-center gap-1 text-amber-500">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-5 w-5 ${i < (selected.rating ?? 0) ? "fill-current" : "text-zinc-300 dark:text-zinc-600"}`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-2 text-sm">
           <h3 className="text-sm font-semibold">{tl.subcontractors_profile_section ?? ""}</h3>
-          {selected.gst_hst && (
-            <p>
-              <span className="text-zinc-500">{tl.subcontractors_gst_hst ?? ""}:</span> {selected.gst_hst}
-            </p>
-          )}
-          {selected.address && (
-            <p>
-              <span className="text-zinc-500">{tl.subcontractors_address ?? ""}:</span> {selected.address}
-            </p>
-          )}
-          {(selected.emergency_contact_name || selected.emergency_contact_phone) && (
-            <p>
-              <span className="text-zinc-500">{tl.subcontractors_emergency ?? ""}:</span>{" "}
-              {selected.emergency_contact_name} {selected.emergency_contact_phone}
-            </p>
-          )}
-          {selected.notes && (
-            <p>
-              <span className="text-zinc-500">{tl.subcontractors_notes ?? ""}:</span> {selected.notes}
-            </p>
+          {canManage ? (
+            <div className="space-y-3">
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.subcontractors_gst_hst ?? ""}</span>
+                <input
+                  value={ddGst}
+                  onChange={(e) => setDdGst(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.subcontractors_address ?? ""}</span>
+                <input
+                  value={ddAddress}
+                  onChange={(e) => setDdAddress(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.subcontractors_emergency ?? ""}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                  <input
+                    value={ddEmName}
+                    onChange={(e) => setDdEmName(e.target.value)}
+                    placeholder={tl.subcontractors_emergency ?? ""}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                  />
+                  <input
+                    value={ddEmPhone}
+                    onChange={(e) => setDdEmPhone(e.target.value)}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                  />
+                </div>
+              </label>
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.subcontractors_notes ?? ""}</span>
+                <textarea
+                  value={ddNotes}
+                  onChange={(e) => setDdNotes(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm resize-none"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-zinc-500">{tl.subcontractors_field_status ?? tl.status ?? ""}</span>
+                <select
+                  value={ddStatus}
+                  onChange={(e) => setDdStatus(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                >
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                  <option value="pending">pending</option>
+                </select>
+              </label>
+            </div>
+          ) : (
+            <>
+              {selected.gst_hst && (
+                <p>
+                  <span className="text-zinc-500">{tl.subcontractors_gst_hst ?? ""}:</span> {selected.gst_hst}
+                </p>
+              )}
+              {selected.address && (
+                <p>
+                  <span className="text-zinc-500">{tl.subcontractors_address ?? ""}:</span> {selected.address}
+                </p>
+              )}
+              {(selected.emergency_contact_name || selected.emergency_contact_phone) && (
+                <p>
+                  <span className="text-zinc-500">{tl.subcontractors_emergency ?? ""}:</span>{" "}
+                  {selected.emergency_contact_name} {selected.emergency_contact_phone}
+                </p>
+              )}
+              {selected.notes && (
+                <p>
+                  <span className="text-zinc-500">{tl.subcontractors_notes ?? ""}:</span> {selected.notes}
+                </p>
+              )}
+            </>
           )}
         </section>
 
@@ -598,6 +744,28 @@ export function SubcontractorsModule({
             )}
           </ul>
         </section>
+
+        {canManage && (
+          <div className="flex flex-wrap gap-3 items-center">
+            <button
+              type="button"
+              disabled={detailSaving || !ddName.trim()}
+              onClick={() => void saveSubcontractorDetail()}
+              className="min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium"
+            >
+              {detailSaving ? "…" : (tl.employees_save_changes ?? t.save ?? "")}
+            </button>
+            {canDeleteSub && (
+              <button
+                type="button"
+                className="min-h-[44px] rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 text-sm font-medium"
+                onClick={() => void deleteSubcontractor(selected.id, ddName.trim() || selected.name)}
+              >
+                {tl.subcontractors_delete_action ?? tl.common_delete ?? ""}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <button
@@ -774,46 +942,22 @@ export function SubcontractorsModule({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filtered.map((s) => (
-            <div
+            <button
               key={s.id}
-              className="flex flex-col rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden hover:border-amber-400/60"
+              type="button"
+              onClick={() => setSelectedId(s.id)}
+              className="flex flex-col rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden hover:border-amber-400/60 p-4 text-left min-h-[44px] cursor-pointer bg-white dark:bg-slate-900"
             >
-              <button
-                type="button"
-                onClick={() => setSelectedId(s.id)}
-                className="flex-1 p-4 text-left min-h-[44px]"
-              >
-                <p className="font-semibold text-zinc-900 dark:text-white">{s.name}</p>
-                <p className="text-xs text-zinc-500">{s.company_name ?? "—"}</p>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{s.trade ?? "—"}</p>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                  <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5">{s.status}</span>
-                  <span className="text-zinc-500">
-                    {tl.subcontractors_project_count ?? ""}: {projCounts[s.id] ?? 0}
-                  </span>
-                </div>
-              </button>
-              {canManage && (
-                <div className="flex justify-end gap-0.5 border-t border-zinc-200 dark:border-slate-700 px-2 py-2">
-                  <button
-                    type="button"
-                    aria-label={tl.common_edit ?? ""}
-                    onClick={() => setSelectedId(s.id)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={tl.common_delete ?? ""}
-                    onClick={() => void deleteSubcontractor(s.id)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </div>
-              )}
-            </div>
+              <p className="font-semibold text-zinc-900 dark:text-white">{s.name}</p>
+              <p className="text-xs text-zinc-500">{s.company_name ?? "—"}</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{s.trade ?? "—"}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5">{s.status}</span>
+                <span className="text-zinc-500">
+                  {tl.subcontractors_project_count ?? ""}: {projCounts[s.id] ?? 0}
+                </span>
+              </div>
+            </button>
           ))}
         </div>
       )}

@@ -15,7 +15,6 @@ import {
   FileText,
   Pencil,
   X,
-  Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
@@ -28,6 +27,8 @@ export interface EmployeesModuleProps {
   customRoles: CustomRole[];
   projects: { id: string; name: string; archived?: boolean }[];
   canManageEmployees: boolean;
+  /** admin o permiso canManageEmployees — eliminar empleado */
+  canDeleteEmployee?: boolean;
   /** admin o permiso canManageEmployees — botón invitar / nuevo */
   showNewEmployeeButton?: boolean;
   /** Perfil Supabase: permite cambiar propia foto */
@@ -109,7 +110,10 @@ function employeeDisplayLabel(
   if (fn) return fn;
   if (dn) return dn;
   if (local) return local;
-  return `${anonPrefix} ${idFrag}`.trim();
+  if (anonPrefix && idFrag) return `${anonPrefix} ${idFrag}`.trim();
+  const none = (labels?.common_no_name ?? "").trim();
+  if (none) return none;
+  return "—";
 }
 
 function initialsFromPersonName(name: string): string {
@@ -254,6 +258,7 @@ export function EmployeesModule({
   customRoles,
   projects,
   canManageEmployees,
+  canDeleteEmployee: canDeleteEmployeeProp,
   showNewEmployeeButton = false,
   currentUserProfileId = null,
   cloudinaryCloudName = "",
@@ -264,6 +269,7 @@ export function EmployeesModule({
   onComplianceRecordsChange,
   vacationRequests = [],
 }: EmployeesModuleProps) {
+  const canDelete = canDeleteEmployeeProp !== undefined ? canDeleteEmployeeProp : canManageEmployees;
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -609,9 +615,10 @@ export function EmployeesModule({
   const confirmDeleteMsg = (t as Record<string, string>).common_confirm_delete ?? "";
 
   const deactivateProfile = async (id: string, displayNameForConfirm: string) => {
-    if (!supabase || !canManageEmployees) return;
+    if (!supabase || !canDelete) return;
     const lx = t as Record<string, string>;
     const named =
+      (lx.employees_delete_confirm?.replace(/\{name\}/g, displayNameForConfirm) ?? "").trim() ||
       (lx.employees_confirm_deactivate?.replace(/\{name\}/g, displayNameForConfirm) ?? "").trim() ||
       confirmDeleteMsg;
     if (typeof window !== "undefined" && !window.confirm(named)) return;
@@ -742,7 +749,7 @@ export function EmployeesModule({
 
   if (selected) {
     const tl = t as Record<string, string>;
-    console.log("[EmployeesModule] profile view render", { selectedId: selected.id });
+    console.log("PERFIL EMPLEADO RENDER", selectedId);
     const name = employeeDisplayLabel(selected, t as Record<string, string>, currentUserProfileId ?? null);
     const emailShown = (selected.email ?? "").trim() || emailLocalPart(selected.email);
     const inheritPerms = draft.use_role_permissions !== false;
@@ -782,33 +789,31 @@ export function EmployeesModule({
       return tl.common_dash ?? "";
     };
 
-    const backLabel = ((tl?.nav_back ?? "Atrás").replace(/^\s*←\s*/, "").trim() || "Atrás").trim();
+    const backBtn = (
+      <div style={{ marginBottom: "16px" }}>
+        <button
+          type="button"
+          onClick={() => setSelectedId(null)}
+          style={{
+            minHeight: "44px",
+            minWidth: "44px",
+            padding: "8px 16px",
+            cursor: "pointer",
+            background: "transparent",
+            border: "1px solid rgba(128,128,128,0.3)",
+            borderRadius: "8px",
+            color: "inherit",
+            fontSize: "14px",
+          }}
+        >
+          ← {tl?.nav_back ?? "Atrás"}
+        </button>
+      </div>
+    );
 
     return (
       <div className="space-y-4 max-w-3xl">
-        <div
-          className="border-b border-zinc-200 dark:border-white/10"
-          style={{
-            marginBottom: "16px",
-            paddingBottom: "16px",
-          }}
-        >
-          <button
-            type="button"
-            className="border border-zinc-300 bg-transparent text-inherit dark:border-white/20"
-            style={{
-              minHeight: "44px",
-              minWidth: "44px",
-              padding: "8px 16px",
-              cursor: "pointer",
-              borderRadius: "8px",
-              fontSize: "14px",
-            }}
-            onClick={() => setSelectedId(null)}
-          >
-            ← {backLabel}
-          </button>
-        </div>
+        {backBtn}
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-lg font-semibold overflow-hidden">
@@ -849,6 +854,11 @@ export function EmployeesModule({
             <Users className="h-4 w-4" />
             {tl.employees_basic_info ?? ""}
           </h3>
+          {isSelf && !(draft.full_name ?? selected.full_name ?? "").trim() && (tl.employees_add_profile_name_hint ?? "").trim() ? (
+            <p className="text-xs text-amber-700 dark:text-amber-300/90 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2">
+              {tl.employees_add_profile_name_hint}
+            </p>
+          ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="block text-sm">
               <span className="text-zinc-500">{t.personnel ?? ""}</span>
@@ -1262,16 +1272,6 @@ export function EmployeesModule({
               <option value="invited">{tl.employees_status_invited ?? ""}</option>
             </select>
           </div>
-          {(canManageEmployees || workerSelf) && (
-            <button
-              type="button"
-              onClick={() => void saveProfile()}
-              disabled={saving}
-              className="min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
-            >
-              {saving ? "…" : (tl.employees_save_changes ?? t.save ?? "")}
-            </button>
-          )}
           {canManageEmployees && (
             <button
               type="button"
@@ -1283,6 +1283,30 @@ export function EmployeesModule({
             >
               <UserPlus className="h-4 w-4" />
               {t.employees_invite ?? ""}
+            </button>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 flex flex-wrap gap-3 items-center">
+          {(canManageEmployees || workerSelf) && (
+            <button
+              type="button"
+              onClick={() => void saveProfile()}
+              disabled={saving}
+              className="min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
+            >
+              {saving ? "…" : (tl.employees_save_changes ?? t.save ?? "")}
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              className="min-h-[44px] rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 text-sm font-medium"
+              onClick={() =>
+                void deactivateProfile(selected.id, employeeDisplayLabel(selected, tl, currentUserProfileId ?? null))
+              }
+            >
+              {tl.employees_delete_action ?? tl.common_delete ?? ""}
             </button>
           )}
         </section>
@@ -1489,11 +1513,11 @@ export function EmployeesModule({
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-slate-700 rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
           {filtered.map((r) => (
-            <li key={r.id} className="flex items-stretch">
+            <li key={r.id}>
               <button
                 type="button"
                 onClick={() => setSelectedId(r.id)}
-                className="min-w-0 flex flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800 min-h-[56px]"
+                className="w-full min-w-0 flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800 min-h-[56px] cursor-pointer"
               >
                 <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-sm font-medium shrink-0">
                   {r.avatar_url ? (
@@ -1523,26 +1547,6 @@ export function EmployeesModule({
                       : tl.common_active ?? ""}
                 </span>
               </button>
-              {canManageEmployees && (
-                <div className="flex shrink-0 items-center gap-0.5 border-l border-zinc-200 dark:border-slate-700 px-1">
-                  <button
-                    type="button"
-                    aria-label={tl.common_edit ?? "Edit"}
-                    onClick={() => setSelectedId(r.id)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={tl.common_delete ?? ""}
-                    onClick={() => void deactivateProfile(r.id, employeeDisplayLabel(r, tl, currentUserProfileId ?? null))}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </div>
-              )}
             </li>
           ))}
         </ul>

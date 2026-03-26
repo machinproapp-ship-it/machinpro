@@ -42,13 +42,14 @@ export function useSubscription(companyId: string | null | undefined) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!supabase || !companyId) {
       setRow(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const silent = Boolean(opts?.silent);
+    if (!silent) setLoading(true);
     setError(null);
     const { data, error: qErr } = await supabase
       .from("subscriptions")
@@ -61,11 +62,15 @@ export function useSubscription(companyId: string | null | undefined) {
     } else {
       setRow(data as SubscriptionRow | null);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [companyId]);
 
   useEffect(() => {
     void refresh();
+    const t = setInterval(() => {
+      void refresh({ silent: true });
+    }, 10 * 60 * 1000);
+    return () => clearInterval(t);
   }, [refresh]);
 
   const isActive = useMemo(() => {
