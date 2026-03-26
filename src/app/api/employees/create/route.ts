@@ -111,7 +111,8 @@ export async function POST(req: NextRequest) {
     const baseRole = baseRoleFromCustomRoleId(customRoleId);
 
     const effectivePayType = payType;
-    const { error: baseErr } = await admin.from("user_profiles").upsert(
+    /** Columnas user_profiles: pay_*, vacation_policy_enabled, vacation_days_allowed (no usar payment_*). */
+    const { error: profErr } = await admin.from("user_profiles").upsert(
       {
         id: userId,
         company_id: companyId,
@@ -123,19 +124,6 @@ export async function POST(req: NextRequest) {
         custom_role_id: customRoleId,
         profile_status: profileStatus,
         use_role_permissions: true,
-      },
-      { onConflict: "id" }
-    );
-
-    if (baseErr) {
-      console.error("[api/employees/create] base profile upsert:", baseErr);
-      await admin.auth.admin.deleteUser(userId);
-      return NextResponse.json({ error: baseErr.message }, { status: 500 });
-    }
-
-    const { error: extErr } = await admin
-      .from("user_profiles")
-      .update({
         emergency_contact_name: emergencyName,
         emergency_contact_phone: emergencyPhone,
         emergency_contact_relation: emergencyRelation,
@@ -145,12 +133,14 @@ export async function POST(req: NextRequest) {
         pay_period: effectivePayType ? payPeriod : null,
         vacation_policy_enabled: vacationPolicyEnabled,
         vacation_days_allowed: vacationPolicyEnabled ? vacationDaysAnnual : null,
-      })
-      .eq("id", userId);
+      },
+      { onConflict: "id" }
+    );
 
-    if (extErr) {
-      console.error("[api/employees/create] extended profile fields (employee still created):", extErr);
-      return NextResponse.json({ id: userId, warning: extErr.message });
+    if (profErr) {
+      console.error("[api/employees/create] profile upsert:", profErr);
+      await admin.auth.admin.deleteUser(userId);
+      return NextResponse.json({ error: profErr.message }, { status: 500 });
     }
 
     return NextResponse.json({ id: userId });

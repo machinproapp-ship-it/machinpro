@@ -76,6 +76,12 @@ type EmployeeDocRow = {
   created_at?: string | null;
 };
 
+function coercePayAmount(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
 function emailLocalPart(email: string | null | undefined): string {
   const e = (email ?? "").trim();
   if (!e) return "";
@@ -344,13 +350,26 @@ export function EmployeesModule({
         selected.use_role_permissions != null
           ? selected.use_role_permissions
           : selected.custom_permissions == null;
-      const pt = (selected.pay_type ?? "").trim();
+      let pt = (selected.pay_type ?? "").trim().toLowerCase();
+      if (pt === "salary") pt = "fixed";
+      if (pt !== "fixed" && pt !== "hourly") pt = "";
+      const payAmt = coercePayAmount(selected.pay_amount);
+      const rawVac = selected.vacation_days_allowed;
+      let vacationDaysAllowed: number | null = null;
+      if (rawVac != null && String(rawVac).trim() !== "") {
+        const n = typeof rawVac === "number" ? rawVac : parseInt(String(rawVac).trim(), 10);
+        if (Number.isFinite(n) && !Number.isNaN(n)) vacationDaysAllowed = n;
+      }
       setDraft({
         ...selected,
         pay_type: pt === "" ? "unspecified" : pt,
-        pay_currency: selected.pay_currency ?? "CAD",
-        pay_period: selected.pay_period ?? "monthly",
-        vacation_policy_enabled: selected.vacation_policy_enabled ?? Boolean(selected.vacation_days_allowed),
+        pay_amount: payAmt,
+        pay_currency: (selected.pay_currency ?? "CAD").trim() || "CAD",
+        pay_period: (selected.pay_period ?? "monthly").trim() || "monthly",
+        vacation_policy_enabled:
+          selected.vacation_policy_enabled === true ||
+          (selected.vacation_policy_enabled == null && Boolean(selected.vacation_days_allowed)),
+        vacation_days_allowed: vacationDaysAllowed,
         use_role_permissions: inherit,
         custom_permissions: inherit ? {} : (selected.custom_permissions ?? {}) as Partial<RolePermissions>,
       });
@@ -723,10 +742,11 @@ export function EmployeesModule({
     const canEditBasicFields = canManageEmployees || isSelf;
 
     const formatPayReadOnly = (sel: ProfileRow): string => {
-      const pt = (sel.pay_type ?? "unspecified").trim();
+      const pt = (sel.pay_type ?? "unspecified").trim().toLowerCase();
       if (!pt || pt === "unspecified") return tl.employees_pay_type_unspecified ?? "";
       const cur = sel.pay_currency ?? "";
-      const amt = sel.pay_amount != null ? String(sel.pay_amount) : tl.common_dash ?? "";
+      const amtNum = coercePayAmount(sel.pay_amount);
+      const amt = amtNum != null ? String(amtNum) : tl.common_dash ?? "";
       const per =
         sel.pay_period === "monthly"
           ? tl.pay_period_monthly ?? ""
@@ -746,10 +766,10 @@ export function EmployeesModule({
       <div className="space-y-4 max-w-3xl">
         <button
           type="button"
+          style={{ minHeight: "44px", marginBottom: "16px" }}
           onClick={() => setSelectedId(null)}
-          className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
         >
-          {tl.nav_back ?? "← Atrás"}
+          ← Atrás
         </button>
 
         <div className="flex flex-wrap items-center gap-4">
