@@ -287,6 +287,22 @@ function entryDotClass(entry: SchedEntry): string {
   return "bg-zinc-500";
 }
 
+/** Human-readable schedule type for calendar (not raw DB keys). */
+function scheduleEntryTypeLabel(entry: SchedEntry, lx: Record<string, string>): string {
+  if (entry.type === "shift") return lx.schedule_type_shift ?? "Turno";
+  if (entry.type === "vacation") return lx.schedule_type_vacation ?? "Vacaciones";
+  const ev = entry.eventLabel ?? "other";
+  if (ev === "collective_off") return lx.schedule_type_collective_off ?? lx.schedule_day_off_collective ?? "Festivo";
+  if (ev === "vacation") return lx.schedule_type_vacation ?? "Vacaciones";
+  if (ev === "personal_leave") return lx.schedule_type_personal ?? lx.schedule_personal_leave ?? "Día libre";
+  if (ev === "meeting") return lx.schedule_type_meeting ?? lx.schedule_legend_meeting ?? "Reunión";
+  if (ev === "training") return lx.schedule_type_training ?? lx.schedule_legend_training ?? "Formación";
+  if (ev === "company_event") return lx.schedule_event_company ?? "Evento empresa";
+  if (ev === "shift") return lx.schedule_type_shift ?? "Turno";
+  if (ev === "other") return lx.common_other ?? "Otro";
+  return ev;
+}
+
 // Parse "HH:mm" to decimal hours
 function timeToHours(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -619,6 +635,7 @@ export default function ScheduleModule({
   onClockOut,
   customRoles = [],
 }: ScheduleModuleProps) {
+  const lx = labels as Record<string, string>;
   const today = new Date();
   const todayYmd = toYMD(today);
   const todayEntry = clockEntries.find(
@@ -1051,14 +1068,14 @@ export default function ScheduleModule({
 
           <div className="flex flex-wrap gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             {[
-              { key: "shift", label: labels.shift ?? "Turno" },
-              { key: "meeting", label: (labels as Record<string, string>).schedule_legend_meeting ?? "Reunión" },
-              { key: "company_event", label: (labels as Record<string, string>).schedule_event_company ?? "Evento empresa" },
-              { key: "collective_off", label: (labels as Record<string, string>).schedule_day_off_collective ?? "Día libre colectivo" },
-              { key: "vacation", label: (labels as Record<string, string>).schedule_vacation_request ?? "Vacaciones" },
-              { key: "personal_leave", label: (labels as Record<string, string>).schedule_personal_leave ?? "Día libre individual" },
-              { key: "training", label: (labels as Record<string, string>).schedule_legend_training ?? "Formación" },
-              { key: "other", label: (labels as Record<string, string>).common_other ?? "Otro" },
+              { key: "shift", label: lx.schedule_type_shift ?? labels.shift ?? "Turno" },
+              { key: "meeting", label: lx.schedule_type_meeting ?? lx.schedule_legend_meeting ?? "Reunión" },
+              { key: "company_event", label: lx.schedule_event_company ?? "Evento empresa" },
+              { key: "collective_off", label: lx.schedule_type_collective_off ?? lx.schedule_day_off_collective ?? "Festivo" },
+              { key: "vacation", label: lx.schedule_type_vacation ?? lx.schedule_vacation_request ?? "Vacaciones" },
+              { key: "personal_leave", label: lx.schedule_type_personal ?? lx.schedule_personal_leave ?? "Día libre" },
+              { key: "training", label: lx.schedule_type_training ?? lx.schedule_legend_training ?? "Formación" },
+              { key: "other", label: lx.common_other ?? "Otro" },
             ].map(({ key, label }) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span className={`w-3 h-3 rounded border inline-block ${EVENT_COLORS[key]}`} />
@@ -1131,7 +1148,9 @@ export default function ScheduleModule({
                             )}
                             {entry.type !== "shift" && (
                               <p className="text-sm mt-1">
-                                {entry.notes ?? entry.eventLabel ?? "Evento"}
+                                {entry.notes?.trim()
+                                  ? `${scheduleEntryTypeLabel(entry, lx)} — ${entry.notes}`
+                                  : scheduleEntryTypeLabel(entry, lx)}
                               </p>
                             )}
                           </div>

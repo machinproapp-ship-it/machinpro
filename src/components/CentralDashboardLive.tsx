@@ -195,6 +195,32 @@ function WidgetSkeleton({ lines = 4 }: { lines?: number }) {
   );
 }
 
+function SkeletonLoader() {
+  return (
+    <div className="space-y-6 animate-pulse" aria-busy="true" aria-live="polite">
+      <div className="h-7 w-56 max-w-[80%] rounded-lg bg-gray-200 dark:bg-gray-600" />
+      <div className="h-4 w-full max-w-md rounded bg-gray-100 dark:bg-gray-700" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 min-h-[88px]"
+          >
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-lg bg-gray-200 dark:bg-gray-600 shrink-0" />
+              <div className="flex-1 space-y-2 min-w-0">
+                <div className="h-4 max-w-[120px] rounded bg-gray-200 dark:bg-gray-600" />
+                <div className="h-7 w-14 rounded bg-gray-200 dark:bg-gray-600" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <WidgetSkeleton lines={5} />
+    </div>
+  );
+}
+
 function UnifiedDashCard({
   icon,
   iconWrapClassName,
@@ -1670,7 +1696,7 @@ export function CentralDashboardLive({
   };
 
   if (!companyId) {
-    return null;
+    return <SkeletonLoader />;
   }
 
   return (

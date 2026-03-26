@@ -837,7 +837,6 @@ export default function Home() {
       .limit(100)
       .then(({ data }) => setAuditLogs((data as AuditLogEntry[]) ?? []));
   }, [companyId]);
-  console.log("companyId:", companyId, "photos:", photos.length);
   const pendingPhotoCountByProject = useMemo(() => {
     const m: Record<string, number> = {};
     for (const ph of photos ?? []) {
@@ -1094,13 +1093,21 @@ export default function Home() {
         .order("created_at", { ascending: false })
         .limit(200);
       if (!cancelled && vac) setVacationRequests(vac as VacationRequestRow[]);
-      const { data: schedVac, error: schedErr } = await supabase
+      const { data: schedRows, error: schedErr } = await supabase
         .from("schedule_entries")
         .select("*")
         .eq("company_id", companyId)
-        .eq("type", "vacation");
-      if (!cancelled && !schedErr && schedVac?.length) {
-        const mapped: ScheduleEntry[] = (schedVac as Record<string, unknown>[]).map((row) => {
+        .limit(4000);
+      const schedVac =
+        !schedErr && schedRows?.length
+          ? (schedRows as Record<string, unknown>[]).filter((row) => {
+              const st = String(row.type ?? "");
+              const el = row.event_label != null ? String(row.event_label) : "";
+              return st === "vacation" || (st === "event" && el === "vacation");
+            })
+          : [];
+      if (!cancelled && !schedErr && schedVac.length) {
+        const mapped: ScheduleEntry[] = schedVac.map((row) => {
           const st = String(row.start_time ?? "00:00");
           const et = String(row.end_time ?? "23:59");
           return {

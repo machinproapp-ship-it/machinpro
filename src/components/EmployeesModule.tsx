@@ -622,7 +622,16 @@ export function EmployeesModule({
       (lx.employees_confirm_deactivate?.replace(/\{name\}/g, displayNameForConfirm) ?? "").trim() ||
       confirmDeleteMsg;
     if (typeof window !== "undefined" && !window.confirm(named)) return;
-    await supabase.from("user_profiles").update({ profile_status: "inactive" }).eq("id", id);
+    const { error } = await supabase.from("user_profiles").update({ profile_status: "inactive" }).eq("id", id);
+    if (error) {
+      console.error("[EmployeesModule] deactivateProfile", error);
+      window.alert(
+        (lx.employees_delete_error ?? "").trim() ||
+          error.message ||
+          "Could not update profile."
+      );
+      return;
+    }
     if (selectedId === id) setSelectedId(null);
     void load();
   };
@@ -789,30 +798,24 @@ export function EmployeesModule({
       return tl.common_dash ?? "";
     };
 
+    const backLabel = ((tl?.nav_back ?? "Atrás").replace(/^\s*←\s*/, "").trim() || "Atrás").trim();
     const backBtn = (
-      <div style={{ marginBottom: "16px" }}>
+      <div className="sticky top-0 z-40 -mx-1 mb-4 px-1 py-3 bg-zinc-50/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-zinc-200 dark:border-slate-700">
         <button
           type="button"
           onClick={() => setSelectedId(null)}
-          style={{
-            minHeight: "44px",
-            minWidth: "44px",
-            padding: "8px 16px",
-            cursor: "pointer",
-            background: "transparent",
-            border: "1px solid rgba(128,128,128,0.3)",
-            borderRadius: "8px",
-            color: "inherit",
-            fontSize: "14px",
-          }}
+          className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 rounded-lg border-2 border-zinc-400 dark:border-zinc-500 bg-white dark:bg-slate-800 text-zinc-900 dark:text-zinc-50 text-sm font-medium shadow-md hover:bg-zinc-100 dark:hover:bg-slate-700"
         >
-          ← {tl?.nav_back ?? "Atrás"}
+          <span aria-hidden className="text-base">
+            ←
+          </span>
+          <span>{backLabel}</span>
         </button>
       </div>
     );
 
     return (
-      <div className="space-y-4 max-w-3xl">
+      <div className="space-y-4 max-w-3xl min-h-0 overflow-visible">
         {backBtn}
 
         <div className="flex flex-wrap items-center gap-4">
