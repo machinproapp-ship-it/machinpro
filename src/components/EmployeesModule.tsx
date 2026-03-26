@@ -173,6 +173,7 @@ function permLabel(key: keyof RolePermissions, t: Record<string, string>): strin
     canViewTimeclock: lx.permViewTimeclock ?? "",
     canManageTimeclock: lx.permManageTimeclock ?? "",
     canViewBilling: lx.permViewBilling ?? "",
+    canManageDailyReports: lx.permManageDailyReports ?? "",
   };
   return map[key] || String(key);
 }
@@ -204,6 +205,7 @@ function emptyPermissions(): RolePermissions {
     canViewTimeclock: false,
     canManageTimeclock: false,
     canViewBilling: false,
+    canManageDailyReports: false,
   };
 }
 

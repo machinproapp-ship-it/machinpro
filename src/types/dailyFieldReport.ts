@@ -1,56 +1,82 @@
-export type WeatherCondition = "sunny" | "cloudy" | "rainy" | "windy" | "snowy" | "foggy";
+/** Valores persistidos en BD (inglés). La UI traduce con t.clave. */
+export type DailyReportWeather = "sunny" | "cloudy" | "rain" | "wind" | "snow";
 
-export type LaborEntry = {
-  id: string;
-  employeeId?: string;
-  employeeName: string;
-  role: string;
-  hoursWorked: number;
-  overtime: number;
-  notes?: string;
-};
+export type DailyReportStatus = "draft" | "published";
 
-export type MaterialEntry = {
+export type DailyReportSignatureMethod = "tap" | "drawing" | "tap_named";
+
+export type DailyReportTask = {
   id: string;
+  reportId?: string;
+  employeeId: string | null;
+  employeeName?: string;
   description: string;
-  quantity: number;
-  unit: string;
-  supplier?: string;
-  notes?: string;
+  completed: boolean;
 };
 
-export type EquipmentEntry = {
+export type DailyReportHazard = {
   id: string;
-  name: string;
-  hoursUsed: number;
-  operator?: string;
-  notes?: string;
+  reportId?: string;
+  description: string;
+  ppeRequired: string[];
 };
 
+export type DailyReportPhoto = {
+  id: string;
+  url: string;
+  cloudinaryId?: string | null;
+  createdAt?: string;
+};
+
+export type DailyReportSignature = {
+  id: string;
+  employeeId: string;
+  signedAt: string;
+  method: DailyReportSignatureMethod;
+  signatureData?: string | null;
+  employeeName?: string;
+};
+
+export type DailyReportAttendance = {
+  id: string;
+  employeeId: string;
+  status: "present" | "absent" | "late";
+  fromTimeclock?: boolean;
+  employeeName?: string;
+};
+
+/** Parte diario completo (Supabase + UI enriquecida). */
 export type DailyFieldReport = {
   id: string;
+  companyId: string;
   projectId: string;
   projectName: string;
-  companyId: string;
-  date: string;
-  weatherCondition: WeatherCondition;
-  weatherTemp?: number;
-  weatherNotes?: string;
-  workPerformed: string;
-  plannedWork: string;
-  laborEntries: LaborEntry[];
-  materialEntries: MaterialEntry[];
-  equipmentEntries: EquipmentEntry[];
-  visitors: string;
-  delays: string;
-  safetyIncidents: string;
-  inspections: string;
-  notes: string;
-  status: "draft" | "submitted" | "approved";
   createdBy: string;
   createdByName: string;
+  date: string;
+  weather: DailyReportWeather;
+  siteConditions: string;
+  notes: string;
+  status: DailyReportStatus;
+  ppeSelected: string[];
+  ppeOther: string;
+  hazards: DailyReportHazard[];
+  tasks: DailyReportTask[];
+  photos: DailyReportPhoto[];
+  signatures: DailyReportSignature[];
+  attendance: DailyReportAttendance[];
   createdAt: string;
-  submittedAt?: string;
-  approvedBy?: string;
-  approvedAt?: string;
+  updatedAt?: string;
 };
+
+/** Claves EPI estándar guardadas en inglés. */
+export const DAILY_REPORT_PPE_KEYS = [
+  "helmet",
+  "vest",
+  "boots",
+  "gloves",
+  "goggles",
+  "harness",
+] as const;
+
+export type DailyReportPpeKey = (typeof DAILY_REPORT_PPE_KEYS)[number];

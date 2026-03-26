@@ -243,6 +243,7 @@ const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
   canViewTimeclock: false,
   canManageTimeclock: false,
   canViewBilling: false,
+  canManageDailyReports: false,
 };
 
 function computeComplianceRecordStatus(
@@ -416,6 +417,7 @@ export function CentralModule({
       canViewTimeclock: false,
       canManageTimeclock: false,
       canViewBilling: false,
+      canManageDailyReports: false,
     },
   });
 
@@ -447,6 +449,7 @@ export function CentralModule({
       canViewTimeclock: lx.permViewTimeclock ?? "Ver fichajes",
       canManageTimeclock: lx.permManageTimeclock ?? "Gestionar fichajes",
       canViewBilling: lx.permViewBilling ?? "Ver facturación",
+      canManageDailyReports: lx.permManageDailyReports ?? "Partes diarios",
     };
     return map[key];
   };
@@ -482,6 +485,7 @@ export function CentralModule({
         canViewTimeclock: false,
         canManageTimeclock: false,
         canViewBilling: false,
+      canManageDailyReports: false,
       },
     });
     setRoleModalOpen(true);

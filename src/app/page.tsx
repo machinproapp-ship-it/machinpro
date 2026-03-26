@@ -76,6 +76,7 @@ import type { FormTemplate, FormInstance } from "@/types/forms";
 import type { Subcontractor } from "@/types/subcontractor";
 import { INITIAL_FORM_TEMPLATES } from "@/lib/formTemplates";
 import { getCountryConfig } from "@/lib/countryConfig";
+import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
 
 type ResourceRequestStatus =
   | "pending"
@@ -572,6 +573,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewTimeclock: true,
       canManageTimeclock: true,
       canViewBilling: true,
+      canManageDailyReports: true,
     },
   },
   {
@@ -605,6 +607,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewTimeclock: true,
       canManageTimeclock: false,
       canViewBilling: false,
+      canManageDailyReports: true,
     },
   },
   {
@@ -616,8 +619,8 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canEditCentral: false,
       canViewLogistics: false,
       canEditLogistics: false,
-      canViewProjects: false,
-      canViewOnlyAssignedProjects: false,
+      canViewProjects: true,
+      canViewOnlyAssignedProjects: true,
       canEditProjects: false,
       canViewSchedule: true,
       canWriteSchedule: false,
@@ -627,7 +630,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canEditSettings: false,
       canManageRoles: false,
       canManageEmployees: false,
-      canViewForms: false,
+      canViewForms: true,
       canManageForms: false,
       canViewBinders: true,
       canManageBinders: false,
@@ -637,6 +640,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewTimeclock: true,
       canManageTimeclock: false,
       canViewBilling: false,
+      canManageDailyReports: false,
     },
     createdAt: "2026-01-01T00:00:00Z",
   },
@@ -671,6 +675,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewTimeclock: false,
       canManageTimeclock: false,
       canViewBilling: false,
+      canManageDailyReports: false,
     },
   },
 ];
@@ -1496,14 +1501,53 @@ export default function Home() {
     }
   });
 
-  const [dailyReports, setDailyReports] = useState<DailyFieldReport[]>(() => {
-    try {
-      const raw = localStorage.getItem("machinpro_daily_reports");
-      return raw ? (JSON.parse(raw) as DailyFieldReport[]) : [];
-    } catch {
-      return [];
+  const [dailyReports, setDailyReports] = useState<DailyFieldReport[]>([]);
+  const [teamProfiles, setTeamProfiles] = useState<
+    { id: string; employeeId: string | null; name: string }[]
+  >([]);
+
+  const reloadDailyReports = useCallback(async () => {
+    if (!supabase || !companyId) {
+      setDailyReports([]);
+      return;
     }
-  });
+    const rows = await fetchDailyReportsForCompany(supabase, companyId);
+    setDailyReports(rows);
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!supabase || !session || !companyId) {
+      setTeamProfiles([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("user_profiles")
+        .select("id, employee_id, full_name, display_name")
+        .eq("company_id", companyId);
+      if (cancelled) return;
+      setTeamProfiles(
+        (data ?? []).map((row: Record<string, unknown>) => {
+          const id = String(row.id ?? "");
+          const fn = typeof row.full_name === "string" ? row.full_name.trim() : "";
+          const dn = typeof row.display_name === "string" ? row.display_name.trim() : "";
+          return {
+            id,
+            employeeId: row.employee_id != null ? String(row.employee_id) : null,
+            name: fn || dn || "",
+          };
+        })
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, session, companyId]);
+
+  useEffect(() => {
+    void reloadDailyReports();
+  }, [reloadDailyReports]);
 
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>(() => {
     try {
@@ -1583,12 +1627,6 @@ export default function Home() {
       localStorage.setItem("machinpro_safety_checklists", JSON.stringify(safetyChecklists));
     } catch {}
   }, [safetyChecklists]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("machinpro_daily_reports", JSON.stringify(dailyReports));
-    } catch {}
-  }, [dailyReports]);
 
   useEffect(() => {
     try {
@@ -3108,7 +3146,7 @@ export default function Home() {
                   (t as Record<string, string>).admin ??
                   "Admin"
                 }
-                currentUserRole={currentUserRole}
+                currentUserRole={effectiveRole}
                 onApproveDiaryEntry={async (id) => {
                   await approvePhoto(id, effectiveEmployeeId ?? "admin");
                   void logAuditEvent({
@@ -3209,15 +3247,15 @@ export default function Home() {
                     )
                   );
                 }}
-                countryCode={subcontractorCountryCode ?? "CA"}
+                countryCode={companyCountry ?? "CA"}
                 dailyReports={dailyReports}
-                onSaveDailyReport={(report) => {
-                  setDailyReports((prev) => {
-                    const exists = prev.find((r) => r.id === report.id);
-                    if (exists) return prev.map((r) => (r.id === report.id ? report : r));
-                    return [...prev, report];
-                  });
-                }}
+                onRefreshDailyReports={reloadDailyReports}
+                teamProfiles={teamProfiles}
+                canManageDailyReports={
+                  effectiveRole === "admin" ||
+                  effectiveRole === "supervisor" ||
+                  !!rolePerms.canManageDailyReports
+                }
                 companyId={companyId ?? ""}
                 currentUserProfileId={profile?.id ?? null}
                 onOpenHazardFromBlueprint={(id) => {

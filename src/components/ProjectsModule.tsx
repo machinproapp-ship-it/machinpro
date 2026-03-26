@@ -57,6 +57,7 @@ import type { ProjectTask, TaskPriority } from "@/types/projectTask";
 import { getTemplatesForCountry } from "@/lib/safetyChecklistTemplates";
 import { generateSafetyChecklistPdf } from "@/lib/generateSafetyChecklistReport";
 import { DailyFieldReportView } from "@/components/DailyFieldReportView";
+import { formatReportDate } from "@/lib/dailyReportFormat";
 import { VisitorModule } from "@/components/VisitorModule";
 
 export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
@@ -196,7 +197,10 @@ export interface ProjectsModuleProps {
   onSaveChecklist?: (checklist: SafetyChecklist) => void;
   countryCode?: string;
   dailyReports?: DailyFieldReport[];
-  onSaveDailyReport?: (report: DailyFieldReport) => void;
+  onRefreshDailyReports?: () => void | Promise<void>;
+  teamProfiles?: { id: string; employeeId: string | null; name: string }[];
+  /** Admin/supervisor o permiso canManageDailyReports */
+  canManageDailyReports?: boolean;
   companyId?: string;
   /** Perfil Supabase (user_profiles.id) para planos / pines. */
   currentUserProfileId?: string | null;
@@ -422,7 +426,9 @@ export function ProjectsModule({
   onSaveChecklist,
   countryCode = "CA",
   dailyReports = [],
-  onSaveDailyReport,
+  onRefreshDailyReports,
+  teamProfiles = [],
+  canManageDailyReports = false,
   companyId = "",
   currentUserProfileId = null,
   onOpenHazardFromBlueprint,
@@ -466,6 +472,7 @@ export function ProjectsModule({
   const [openSafetyChecklistId, setOpenSafetyChecklistId] = useState<string | null>(null);
   const [safetyDraft, setSafetyDraft] = useState<SafetyChecklist | null>(null);
   const [openDailyReportKey, setOpenDailyReportKey] = useState<string | null>(null);
+  const [dailyReportViewVariant, setDailyReportViewVariant] = useState<"full" | "employee">("full");
   const [taskFilter, setTaskFilter] = useState<"all" | "pending" | "in_progress" | "completed">("all");
   const [taskModal, setTaskModal] = useState<null | "new" | string>(null);
   const [taskDraft, setTaskDraft] = useState<{
@@ -543,12 +550,6 @@ export function ProjectsModule({
     currentUserRole === "admin" || currentUserRole === "supervisor";
 
   useEffect(() => {
-    if (currentUserRole === "worker" && activeTab === "formularios") {
-      setActiveTab("general");
-    }
-  }, [currentUserRole, activeTab]);
-
-  useEffect(() => {
     if (!showProjectVisitorsTab && activeTab === "visitantes") {
       setActiveTab("general");
     }
@@ -612,10 +613,26 @@ export function ProjectsModule({
     (selectedProject?.assignedEmployeeIds ?? []).includes(e.id)
   );
 
+  const projectProfileAssignees = useMemo(() => {
+    if (!selectedProject) return [] as { profileId: string; name: string }[];
+    const ids = new Set(selectedProject.assignedEmployeeIds ?? []);
+    return teamProfiles
+      .filter((tp) => tp.employeeId && ids.has(tp.employeeId))
+      .map((tp) => ({ profileId: tp.id, name: tp.name || "—" }));
+  }, [teamProfiles, selectedProject]);
+
   const userAssignedToProject =
     !!currentUserEmployeeId &&
     !!selectedProject &&
     (selectedProject.assignedEmployeeIds ?? []).includes(currentUserEmployeeId);
+
+  const dailyReportsListForUi = useMemo(() => {
+    if (currentUserRole === "worker") {
+      if (!userAssignedToProject || !selectedProjectId) return [];
+      return dailyReportsForProject.filter((r) => r.status === "published");
+    }
+    return dailyReportsForProject;
+  }, [currentUserRole, dailyReportsForProject, userAssignedToProject, selectedProjectId]);
 
   const projectInventory = (inventoryItems ?? []).filter(
     (i) => i.assignedToProjectId === selectedProjectId
@@ -894,7 +911,6 @@ export function ProjectsModule({
           <div className="border-b border-zinc-200 dark:border-slate-700 px-6 flex flex-nowrap gap-0 overflow-x-auto">
             {TABS.filter(
               (tab) =>
-                (currentUserRole !== "worker" || tab.id !== "formularios") &&
                 (showProjectVisitorsTab || tab.id !== "visitantes") &&
                 (showProjectRfiTab || tab.id !== "rfi")
             ).map((tab) => {
@@ -1717,47 +1733,67 @@ export function ProjectsModule({
         )}
 
         {/* ══ TAB FORMULARIOS ══ */}
-        {activeTab === "formularios" && selectedProject && currentUserRole !== "worker" && (
+        {activeTab === "formularios" && selectedProject && (
           <div className="p-4 space-y-4">
             <section className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-slate-800/50 p-4 space-y-3">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).dailyFieldReportsTitle ?? (t as Record<string, string>).dailyFieldReport ?? "Daily Field Reports"}
+                {(t as Record<string, string>).dailyFieldReportsTitle ??
+                  (t as Record<string, string>).dailyReport ??
+                  (t as Record<string, string>).dailyFieldReport ??
+                  "Daily report"}
               </h2>
-              {(currentUserRole === "admin" || currentUserRole === "supervisor") && (
+              {canManageDailyReports && (
                 <button
                   type="button"
-                  onClick={() => setOpenDailyReportKey("new")}
+                  onClick={() => {
+                    setDailyReportViewVariant("full");
+                    setOpenDailyReportKey("new");
+                  }}
                   className="flex w-full sm:w-auto items-center gap-2 rounded-xl border-2 border-amber-500 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-medium text-amber-800 dark:text-amber-200 min-h-[44px]"
                 >
                   <Plus className="h-4 w-4" />
-                  {(t as Record<string, string>).newDailyReport ?? "New Daily Report"}
+                  {(t as Record<string, string>).newDailyReport ?? "New report"}
                 </button>
               )}
-              {dailyReportsForProject.length === 0 ? (
+              {dailyReportsListForUi.length === 0 ? (
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {(t as Record<string, string>).noDailyReportsYet ?? (t as Record<string, string>).noForms ?? ""}
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {dailyReportsForProject.map((dr) => {
+                  {dailyReportsListForUi.map((dr) => {
                     const tl = t as Record<string, string>;
                     const st =
                       dr.status === "draft"
-                        ? { label: tl.reportStatusDraft ?? tl.formStatusDraft ?? "Draft", cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" }
-                        : dr.status === "submitted"
-                          ? { label: tl.reportStatusSubmitted ?? "Submitted", cls: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" }
-                          : { label: tl.reportStatusApproved ?? "Approved", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200" };
+                        ? {
+                            label: tl.reportStatusDraft ?? tl.formStatusDraft ?? "Draft",
+                            cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
+                          }
+                        : {
+                            label: tl.reportStatusPublished ?? tl.publishReport ?? "Published",
+                            cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200",
+                          };
+                    const sigN = dr.signatures.length;
+                    const tot = Math.max(assignedEmployees.length, projectProfileAssignees.length, 1);
                     return (
                       <li key={dr.id}>
                         <button
                           type="button"
-                          onClick={() => setOpenDailyReportKey(dr.id)}
-                          className="flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left text-sm hover:border-amber-300 dark:border-zinc-600 dark:bg-slate-900 dark:hover:border-amber-600"
+                          onClick={() => {
+                            setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
+                            setOpenDailyReportKey(dr.id);
+                          }}
+                          className="flex w-full min-h-[44px] flex-col gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left text-sm hover:border-amber-300 dark:border-zinc-600 dark:bg-slate-900 dark:hover:border-amber-600 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <span className="font-medium text-zinc-900 dark:text-white">
-                            {formatDate(dr.date)} · {dr.createdByName}
+                            {formatReportDate(dr.date, language ?? "es", countryCode)}{" "}
+                            <span className="text-zinc-500 font-normal">
+                              · {sigN}/{tot} {tl.dailyReportSignaturesShort ?? ""}
+                            </span>
                           </span>
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${st.cls}`}>{st.label}</span>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${st.cls}`}>
+                            {st.label}
+                          </span>
                         </button>
                       </li>
                     );
@@ -1766,6 +1802,8 @@ export function ProjectsModule({
               )}
             </section>
 
+            {currentUserRole !== "worker" && (
+            <>
             <section className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-slate-800/50 p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-zinc-900 dark:text-white flex flex-wrap items-center gap-2">
@@ -2624,6 +2662,8 @@ export function ProjectsModule({
                 </div>
               </div>
             )}
+            </>
+            )}
 
             {openDailyReportKey !== null &&
               selectedProject &&
@@ -2631,6 +2671,7 @@ export function ProjectsModule({
               <div className="fixed inset-0 z-[70] flex min-h-0 flex-col bg-zinc-50 dark:bg-zinc-950">
                 <DailyFieldReportView
                   key={openDailyReportKey === "new" ? `dfr-new-${selectedProject.id}` : openDailyReportKey}
+                  variant={dailyReportViewVariant}
                   report={
                     openDailyReportKey === "new"
                       ? null
@@ -2640,21 +2681,22 @@ export function ProjectsModule({
                   projectName={selectedProject.name}
                   companyName={companyName}
                   companyId={companyId}
-                  employees={(allEmployees ?? []).map((e) => ({
-                    id: e.id,
-                    name: e.name,
-                    role: e.role,
-                  }))}
+                  projectAssignees={projectProfileAssignees}
+                  currentUserProfileId={currentUserProfileId ?? ""}
                   currentUserName={currentUserDisplayName || currentUserName || ""}
-                  currentUserEmployeeId={currentUserEmployeeId ?? ""}
-                  language={language}
+                  language={language ?? "es"}
                   labels={t as Record<string, string>}
                   countryCode={countryCode}
                   companyLogoUrl={companyLogoUrl}
-                  onSave={(r) => {
-                    onSaveDailyReport?.(r);
-                  }}
+                  cloudinaryCloudName={
+                    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
+                  }
+                  cloudinaryUploadPreset={
+                    process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET?.trim() || "i5dmd07o"
+                  }
                   onBack={() => setOpenDailyReportKey(null)}
+                  onRefreshList={() => void onRefreshDailyReports?.()}
+                  onReportCreated={(id) => setOpenDailyReportKey(id)}
                 />
               </div>
             )}

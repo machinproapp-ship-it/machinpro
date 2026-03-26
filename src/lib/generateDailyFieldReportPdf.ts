@@ -1,4 +1,5 @@
-import type { DailyFieldReport, WeatherCondition } from "@/types/dailyFieldReport";
+import type { DailyFieldReport, DailyReportPpeKey, DailyReportWeather } from "@/types/dailyFieldReport";
+import { dateLocaleForUser } from "@/lib/dailyReportFormat";
 
 function escapeHtml(s: string): string {
   return s
@@ -8,28 +9,46 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function localeForLanguage(lang?: string): string {
-  const m: Record<string, string> = {
-    es: "es-ES",
-    en: "en-GB",
-    fr: "fr-FR",
-    de: "de-DE",
-    it: "it-IT",
-    pt: "pt-PT",
-  };
-  return m[lang ?? "es"] ?? "en-GB";
-}
-
-function weatherLabel(w: WeatherCondition, t: Record<string, string>): string {
-  const m: Record<WeatherCondition, string> = {
+function weatherLabel(w: DailyReportWeather, t: Record<string, string>): string {
+  const m: Record<DailyReportWeather, string> = {
     sunny: t.weatherSunny ?? "Sunny",
     cloudy: t.weatherCloudy ?? "Cloudy",
-    rainy: t.weatherRainy ?? "Rainy",
-    windy: t.weatherWindy ?? "Windy",
-    snowy: t.weatherSnowy ?? "Snowy",
-    foggy: t.weatherFoggy ?? "Foggy",
+    rain: t.weatherRain ?? t.weatherRainy ?? "Rain",
+    wind: t.weatherWind ?? t.weatherWindy ?? "Wind",
+    snow: t.weatherSnow ?? t.weatherSnowy ?? "Snow",
   };
   return m[w] ?? w;
+}
+
+function ppeLabel(key: DailyReportPpeKey, t: Record<string, string>): string {
+  const m: Record<DailyReportPpeKey, string> = {
+    helmet: t.ppeHelmet ?? "Helmet",
+    vest: t.ppeVest ?? "Vest",
+    boots: t.ppeBoots ?? "Boots",
+    gloves: t.ppeGloves ?? "Gloves",
+    goggles: t.ppeGoggles ?? "Goggles",
+    harness: t.ppeHarness ?? "Harness",
+  };
+  return m[key] ?? key;
+}
+
+function formatDateYmd(dateYmd: string, language: string, countryCode: string): string {
+  const loc = dateLocaleForUser(language, countryCode);
+  const d = new Date(`${dateYmd}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return dateYmd;
+  return new Intl.DateTimeFormat(loc, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(d);
+}
+
+function formatDt(iso: string, language: string, countryCode: string): string {
+  const loc = dateLocaleForUser(language, countryCode);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat(loc, { dateStyle: "medium", timeStyle: "short" }).format(d);
 }
 
 export function generateDailyFieldReportPdf(params: {
@@ -38,129 +57,135 @@ export function generateDailyFieldReportPdf(params: {
   companyLogoUrl?: string;
   language?: string;
   labels: Record<string, string>;
-  tempUnit: "C" | "F";
+  countryCode?: string;
 }): void {
-  const { report, companyName, companyLogoUrl, language, labels: tl, tempUnit } = params;
-  const locale = localeForLanguage(language);
-  const title = tl.dailyFieldReport ?? "Daily Field Report";
+  const { report, companyName, companyLogoUrl, language = "en", labels: tl, countryCode = "CA" } = params;
+  const title = tl.dailyReport ?? tl.dailyFieldReport ?? "Daily report";
   const footerLine = `${escapeHtml(companyName)} · MachinPro`;
 
   const section = (h: string, inner: string) =>
     `<section class="sec"><h2 class="h2">${escapeHtml(h)}</h2>${inner}</section>`;
-
   const p = (label: string, val: string) =>
     `<p class="line"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(val)}</p>`;
 
-  const weatherInner = `
-    ${p(tl.weatherSection ?? "Weather", weatherLabel(report.weatherCondition, tl))}
-    ${
-      report.weatherTemp != null
-        ? p(tl.temperature ?? "Temperature", `${report.weatherTemp}°${tempUnit}`)
-        : ""
+  const ppeGlobal =
+    report.ppeSelected.length > 0
+      ? report.ppeSelected.map((k) => ppeLabel(k as DailyReportPpeKey, tl)).join(", ")
+      : "—";
+  const ppeOther = report.ppeOther?.trim() || "";
+
+  let hazardsHtml = "";
+  for (const h of report.hazards) {
+    const hppe =
+      h.ppeRequired.length > 0
+        ? h.ppeRequired.map((k) => ppeLabel(k as DailyReportPpeKey, tl)).join(", ")
+        : "—";
+    hazardsHtml += `<li><div>${escapeHtml(h.description || "—")}</div><div class="muted">PPE: ${escapeHtml(hppe)}</div></li>`;
+  }
+
+  let tasksHtml = "";
+  for (const t of report.tasks) {
+    tasksHtml += `<tr>
+      <td>${escapeHtml(t.description)}</td>
+      <td>${escapeHtml(t.employeeName ?? "—")}</td>
+      <td>${t.completed ? "✓" : "—"}</td>
+    </tr>`;
+  }
+  const tasksTable =
+    report.tasks.length > 0
+      ? `<table class="tbl"><thead><tr>
+          <th>${escapeHtml(tl.description ?? "Task")}</th>
+          <th>${escapeHtml(tl.schedule_pick_employees ?? "Employee")}</th>
+          <th>${escapeHtml(tl.dailyReportDone ?? "Done")}</th>
+        </tr></thead><tbody>${tasksHtml}</tbody></table>`
+      : `<p class="muted">—</p>`;
+
+  let attHtml = "";
+  for (const a of report.attendance) {
+    const st =
+      a.status === "absent"
+        ? tl.attendanceAbsent ?? "Absent"
+        : a.status === "late"
+          ? tl.attendanceLate ?? "Late"
+          : tl.attendancePresent ?? "Present";
+    attHtml += `<tr>
+      <td>${escapeHtml(a.employeeName ?? "—")}</td>
+      <td>${escapeHtml(st)}</td>
+      <td>${a.fromTimeclock ? "✓" : "—"}</td>
+    </tr>`;
+  }
+  const attTable =
+    report.attendance.length > 0
+      ? `<table class="tbl"><thead><tr>
+          <th>${escapeHtml(tl.personnel ?? "Employee")}</th>
+          <th>${escapeHtml(tl.attendance ?? "Attendance")}</th>
+          <th>${escapeHtml(tl.dailyReportFromTimeclock ?? "Timeclock")}</th>
+        </tr></thead><tbody>${attHtml}</tbody></table>`
+      : `<p class="muted">—</p>`;
+
+  let sigHtml = "";
+  for (const s of report.signatures) {
+    let extra = "";
+    if (s.method === "tap_named" && s.signatureData) {
+      try {
+        const j = JSON.parse(s.signatureData) as { name?: string };
+        extra = j.name ? ` (${escapeHtml(j.name)})` : "";
+      } catch {
+        /* ignore */
+      }
     }
-    ${report.weatherNotes ? `<p class="notes">${escapeHtml(report.weatherNotes)}</p>` : ""}
-  `;
-
-  let laborRows = "";
-  for (const row of report.laborEntries) {
-    laborRows += `<tr>
-      <td>${escapeHtml(row.employeeName)}</td>
-      <td>${escapeHtml(row.role)}</td>
-      <td>${row.hoursWorked}</td>
-      <td>${row.overtime}</td>
-      <td>${escapeHtml(row.notes ?? "")}</td>
+    sigHtml += `<tr>
+      <td>${escapeHtml(s.employeeName ?? "—")}${extra}</td>
+      <td>${escapeHtml(s.method)}</td>
+      <td>${escapeHtml(formatDt(s.signedAt, language, countryCode))}</td>
     </tr>`;
   }
+  const sigTable =
+    report.signatures.length > 0
+      ? `<table class="tbl"><thead><tr>
+          <th>${escapeHtml(tl.personnel ?? "Signer")}</th>
+          <th>${escapeHtml(tl.signatureMethod ?? "Method")}</th>
+          <th>${escapeHtml(tl.checklistDate ?? "Time")}</th>
+        </tr></thead><tbody>${sigHtml}</tbody></table>`
+      : `<p class="muted">—</p>`;
 
-  const laborInner = report.laborEntries.length
-    ? `<table class="tbl"><thead><tr>
-        <th>${escapeHtml(tl.workerName ?? "Worker")}</th>
-        <th>${escapeHtml(tl.laborRole ?? tl.roleLabel ?? "Role")}</th>
-        <th>${escapeHtml(tl.hoursWorked ?? "Hours")}</th>
-        <th>${escapeHtml(tl.overtime ?? "OT")}</th>
-        <th>${escapeHtml(tl.checklistComments ?? "Notes")}</th>
-      </tr></thead><tbody>${laborRows}</tbody></table>`
-    : `<p class="muted">—</p>`;
-
-  let matRows = "";
-  for (const row of report.materialEntries) {
-    matRows += `<tr>
-      <td>${escapeHtml(row.description)}</td>
-      <td>${row.quantity}</td>
-      <td>${escapeHtml(row.unit)}</td>
-      <td>${escapeHtml(row.supplier ?? "")}</td>
-      <td>${escapeHtml(row.notes ?? "")}</td>
-    </tr>`;
+  let photosHtml = "";
+  for (const ph of report.photos) {
+    photosHtml += `<div class="ph"><img src="${escapeHtml(ph.url)}" alt="" crossorigin="anonymous" /></div>`;
   }
 
-  const matInner = report.materialEntries.length
-    ? `<table class="tbl"><thead><tr>
-        <th>${escapeHtml(tl.description ?? "Description")}</th>
-        <th>${escapeHtml(tl.quantity ?? "Qty")}</th>
-        <th>${escapeHtml(tl.unit ?? "Unit")}</th>
-        <th>${escapeHtml(tl.supplier ?? "Supplier")}</th>
-        <th>${escapeHtml(tl.checklistComments ?? "Notes")}</th>
-      </tr></thead><tbody>${matRows}</tbody></table>`
-    : `<p class="muted">—</p>`;
-
-  let eqRows = "";
-  for (const row of report.equipmentEntries) {
-    eqRows += `<tr>
-      <td>${escapeHtml(row.name)}</td>
-      <td>${row.hoursUsed}</td>
-      <td>${escapeHtml(row.operator ?? "")}</td>
-      <td>${escapeHtml(row.notes ?? "")}</td>
-    </tr>`;
-  }
-
-  const eqInner = report.equipmentEntries.length
-    ? `<table class="tbl"><thead><tr>
-        <th>${escapeHtml(tl.equipmentName ?? "Equipment")}</th>
-        <th>${escapeHtml(tl.hoursUsed ?? "Hours")}</th>
-        <th>${escapeHtml(tl.operator ?? "Operator")}</th>
-        <th>${escapeHtml(tl.checklistComments ?? "Notes")}</th>
-      </tr></thead><tbody>${eqRows}</tbody></table>`
-    : `<p class="muted">—</p>`;
-
+  const dateStr = formatDateYmd(report.date, language, countryCode);
   const statusStr =
     report.status === "draft"
       ? tl.reportStatusDraft ?? "Draft"
-      : report.status === "submitted"
-        ? tl.reportStatusSubmitted ?? "Submitted"
-        : tl.reportStatusApproved ?? "Approved";
-
-  const dateStr = new Date(report.date).toLocaleDateString(locale, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+      : tl.reportStatusPublished ?? "Published";
 
   const logoBlock = companyLogoUrl
     ? `<div class="logo-wrap"><img class="logo" src="${escapeHtml(companyLogoUrl)}" alt="" crossorigin="anonymous" /></div>`
     : "";
 
   const bodyParts = [
-    section(tl.weatherSection ?? "Weather", weatherInner),
-    section(tl.workPerformed ?? "Work performed", `<p class="notes">${escapeHtml(report.workPerformed || "—")}</p>`),
-    section(tl.plannedWork ?? "Planned work", `<p class="notes">${escapeHtml(report.plannedWork || "—")}</p>`),
-    section(tl.laborSection ?? "Labor", laborInner),
-    section(tl.materialsSection ?? "Materials", matInner),
-    section(tl.equipmentSection ?? "Equipment", eqInner),
+    section(tl.weatherSection ?? "Weather", p(tl.weatherSection ?? "Weather", weatherLabel(report.weather, tl))),
+    section(tl.siteConditions ?? "Site", `<p class="notes">${escapeHtml(report.siteConditions || "—")}</p>`),
     section(
-      tl.incidentsAndNotes ?? "Incidents & notes",
+      tl.securityBriefing ?? "Safety",
       `
-      ${p(tl.visitorsOnSite ?? "Visitors", report.visitors || "—")}
-      ${p(tl.delaysReasons ?? "Delays", report.delays || "—")}
-      ${p(tl.safetyIncidents ?? "Safety", report.safetyIncidents || "—")}
-      ${p(tl.inspectionsReceived ?? "Inspections", report.inspections || "—")}
-      ${p(tl.generalNotes ?? "Notes", report.notes || "—")}
+      ${p(tl.dailyReportPpeGlobal ?? "PPE", ppeGlobal + (ppeOther ? `; ${ppeOther}` : ""))}
+      <ul class="hz">${hazardsHtml || `<li class="muted">—</li>`}</ul>
     `
     ),
+    section(tl.dailyTasks ?? "Tasks", tasksTable),
+    section(tl.attendance ?? "Attendance", attTable),
+    section(tl.generalNotes ?? "Notes", `<p class="notes">${escapeHtml(report.notes || "—")}</p>`),
+    section(
+      tl.dailyReportPhotos ?? "Photos",
+      photosHtml ? `<div class="grid">${photosHtml}</div>` : `<p class="muted">—</p>`
+    ),
+    section(tl.dailyReportSignaturesList ?? "Signatures", sigTable),
   ].join("");
 
   const html = `<!DOCTYPE html>
-<html lang="${escapeHtml(language ?? "en")}">
+<html lang="${escapeHtml(language)}">
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
@@ -181,6 +206,10 @@ export function generateDailyFieldReportPdf(params: {
     .tbl th, .tbl td { border: 1px solid #d4d4d8; padding: 6px; text-align: left; vertical-align: top; }
     .tbl th { background: #fafafa; }
     .muted { color: #71717a; }
+    .hz { margin: 8px 0; padding-left: 18px; }
+    .hz li { margin: 6px 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .ph img { width: 100%; max-height: 160px; object-fit: cover; border-radius: 6px; }
     .foot { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e4e4e7; text-align: center; font-size: 9pt; color: #71717a; }
     @media print {
       .foot { position: fixed; bottom: 8mm; left: 0; right: 0; }
