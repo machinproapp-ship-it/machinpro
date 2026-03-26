@@ -13,6 +13,7 @@ import type { ComplianceAlert } from '@/lib/complianceWatchdog';
 import type { UserRole } from '@/types/shared';
 import type { MainSection } from '@/types/shared';
 import { CentralDashboardLive } from '@/components/CentralDashboardLive';
+import { auditActionDescription } from '@/lib/auditActionLabel';
 
 interface Certificate {
   id: string;
@@ -140,17 +141,6 @@ function formatMoneyCAD(n: number): string {
   return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })} CAD`;
 }
 
-function auditActionDescription(action: string, l: Record<string, string>): string {
-  const m: Record<string, string> = {
-    photo_approved: l.auditPhotoApproved ?? "",
-    photo_rejected: l.auditPhotoRejected ?? "",
-    photo_uploaded: l.auditPhotoUploaded ?? "",
-    employee_created: l.auditEmployeeCreated ?? "",
-    employee_deleted: l.auditEmployeeDeleted ?? "",
-    document_uploaded: l.auditDocumentUploaded ?? "",
-  };
-  return m[action] ?? action;
-}
 
 function initialsFromName(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
@@ -252,6 +242,7 @@ const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
   canViewAttendance: false,
   canViewTimeclock: false,
   canManageTimeclock: false,
+  canViewBilling: false,
 };
 
 function computeComplianceRecordStatus(
@@ -424,6 +415,7 @@ export function CentralModule({
       canViewAttendance: false,
       canViewTimeclock: false,
       canManageTimeclock: false,
+      canViewBilling: false,
     },
   });
 
@@ -454,6 +446,7 @@ export function CentralModule({
       canViewAttendance: lx.permViewAttendance ?? "Ver panel asistencia",
       canViewTimeclock: lx.permViewTimeclock ?? "Ver fichajes",
       canManageTimeclock: lx.permManageTimeclock ?? "Gestionar fichajes",
+      canViewBilling: lx.permViewBilling ?? "Ver facturación",
     };
     return map[key];
   };
@@ -488,6 +481,7 @@ export function CentralModule({
         canViewAttendance: false,
         canViewTimeclock: false,
         canManageTimeclock: false,
+        canViewBilling: false,
       },
     });
     setRoleModalOpen(true);

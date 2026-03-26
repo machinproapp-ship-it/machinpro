@@ -297,7 +297,8 @@ function scheduleEntryTypeLabel(entry: SchedEntry, lx: Record<string, string>): 
   if (ev === "personal_leave") return lx.schedule_type_personal ?? lx.schedule_personal_leave ?? "Día libre";
   if (ev === "meeting") return lx.schedule_type_meeting ?? lx.schedule_legend_meeting ?? "Reunión";
   if (ev === "training") return lx.schedule_type_training ?? lx.schedule_legend_training ?? "Formación";
-  if (ev === "company_event") return lx.schedule_event_company ?? "Evento empresa";
+  if (ev === "company_event") return lx.schedule_type_company ?? lx.schedule_event_company ?? "Evento empresa";
+  if (ev === "event") return lx.schedule_type_event ?? lx.event ?? "Evento";
   if (ev === "shift") return lx.schedule_type_shift ?? "Turno";
   if (ev === "other") return lx.common_other ?? "Otro";
   return ev;
@@ -1045,12 +1046,16 @@ export default function ScheduleModule({
                             <div
                               key={entry.id}
                               className={`rounded px-1 py-0.5 text-[10px] truncate ${entryColor(entry)}`}
-                              title={`${entry.startTime}–${entry.endTime} ${entry.projectCode ?? entry.eventLabel ?? ""}`}
+                              title={`${entry.startTime}–${entry.endTime} ${
+                                entry.type === "shift"
+                                  ? (entry.projectCode ?? "")
+                                  : scheduleEntryTypeLabel(entry, lx)
+                              }`}
                             >
                               {entry.type === "shift" && entry.projectCode && (
                                 <span className="font-mono text-xs">{entry.projectCode}</span>
                               )}
-                              {entry.type !== "shift" && (entry.eventLabel ?? "—")}
+                              {entry.type !== "shift" && scheduleEntryTypeLabel(entry, lx)}
                               {entry.type === "shift" && !entry.projectCode && (entry.startTime + "–" + entry.endTime)}
                             </div>
                           ))}
@@ -1364,25 +1369,13 @@ export default function ScheduleModule({
                     onChange={(e) => setFLabel(e.target.value)}
                     className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                   >
-                    <option value="meeting">
-                      {(labels as Record<string, string>).schedule_legend_meeting ?? "Reunión"}
-                    </option>
-                    <option value="company_event">
-                      {(labels as Record<string, string>).schedule_event_company ?? "Evento de empresa"}
-                    </option>
-                    <option value="collective_off">
-                      {(labels as Record<string, string>).schedule_day_off_collective ?? "Día libre colectivo"}
-                    </option>
-                    <option value="vacation">
-                      {(labels as Record<string, string>).schedule_vacation_request ?? "Vacaciones"}
-                    </option>
-                    <option value="personal_leave">
-                      {(labels as Record<string, string>).schedule_personal_leave ?? "Día libre individual"}
-                    </option>
-                    <option value="training">
-                      {(labels as Record<string, string>).schedule_legend_training ?? "Formación"}
-                    </option>
-                    <option value="other">{(labels as Record<string, string>).common_other ?? "Otro"}</option>
+                    <option value="meeting">{lx.schedule_type_meeting ?? lx.schedule_legend_meeting ?? "Reunión"}</option>
+                    <option value="company_event">{lx.schedule_type_company ?? lx.schedule_event_company ?? "Evento empresa"}</option>
+                    <option value="collective_off">{lx.schedule_type_collective_off ?? lx.schedule_day_off_collective ?? "Festivo"}</option>
+                    <option value="vacation">{lx.schedule_type_vacation ?? lx.schedule_vacation_request ?? "Vacaciones"}</option>
+                    <option value="personal_leave">{lx.schedule_type_personal ?? lx.schedule_personal_leave ?? "Día libre"}</option>
+                    <option value="training">{lx.schedule_type_training ?? lx.schedule_legend_training ?? "Formación"}</option>
+                    <option value="other">{lx.common_other ?? "Otro"}</option>
                   </select>
                 </div>
               )}
@@ -1390,7 +1383,7 @@ export default function ScheduleModule({
               {fType === "shift" && (
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Proyecto *
+                    {(labels as Record<string, string>).project ?? "Proyecto"} *
                   </label>
                   <select
                     value={fProjectId}

@@ -50,6 +50,8 @@ export interface RFIModuleProps {
   userName: string;
   userProfileId: string | null;
   projects: { id: string; name: string }[];
+  /** When set, list and new RFI are scoped to this project (e.g. pestaña en obra). */
+  projectIdFilter?: string | null;
 }
 
 export function RFIModule({
@@ -60,6 +62,7 @@ export function RFIModule({
   userName,
   userProfileId,
   projects,
+  projectIdFilter = null,
 }: RFIModuleProps) {
   const l = (k: string, fb: string) => t[k] ?? fb;
   const rfiCatLabel = (c: RfiCategory) =>
@@ -110,6 +113,10 @@ export function RFIModule({
   }, [load]);
 
   useEffect(() => {
+    if (projectIdFilter) setFilterProject(projectIdFilter);
+  }, [projectIdFilter]);
+
+  useEffect(() => {
     if (!supabase || !companyId) {
       setCompanyProfiles([]);
       return;
@@ -146,6 +153,7 @@ export function RFIModule({
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
+      if (filterProject !== "all" && (r.project_id ?? "") !== filterProject) return false;
       if (filterCat !== "all" && r.category !== filterCat) return false;
       if (filterStatus !== "all" && r.status !== filterStatus) return false;
       if (filterPriority !== "all" && r.priority !== filterPriority) return false;
@@ -160,6 +168,8 @@ export function RFIModule({
 
   const submitCreate = async () => {
     if (!supabase || !companyId || !canEdit || !form.title.trim() || !form.description.trim()) return;
+    const resolvedProjectId = (form.project_id || projectIdFilter || "").trim() || null;
+    if (projectIdFilter && !resolvedProjectId) return;
     setSaving(true);
     const num = await nextNumber();
     const tags = form.tags
@@ -168,8 +178,11 @@ export function RFIModule({
       .filter(Boolean);
     const payload = {
       company_id: companyId,
-      project_id: form.project_id || null,
-      project_name: form.project_name || projects.find((p) => p.id === form.project_id)?.name || null,
+      project_id: resolvedProjectId,
+      project_name:
+        form.project_name ||
+        projects.find((p) => p.id === resolvedProjectId)?.name ||
+        null,
       rfi_number: num,
       title: form.title.trim(),
       description: form.description.trim(),
@@ -279,7 +292,13 @@ export function RFIModule({
         {canEdit && (
           <button
             type="button"
-            onClick={() => setCreateOpen(true)}
+            onClick={() => {
+              if (projectIdFilter) {
+                const pn = projects.find((p) => p.id === projectIdFilter)?.name ?? "";
+                setForm((f) => ({ ...f, project_id: projectIdFilter, project_name: pn }));
+              }
+              setCreateOpen(true);
+            }}
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
           >
             <Plus className="h-5 w-5" />
@@ -289,6 +308,7 @@ export function RFIModule({
       </div>
 
       <div className="flex flex-wrap gap-2 items-end">
+        {!projectIdFilter && (
         <label className="flex flex-col gap-1 text-sm min-w-[160px]">
           <span className="text-gray-600 dark:text-gray-400">{l("rfi_project", "Project")}</span>
           <select
@@ -304,6 +324,7 @@ export function RFIModule({
             ))}
           </select>
         </label>
+        )}
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
           <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
             <Filter className="h-3.5 w-3.5" /> {l("rfi_status", "Status")}
@@ -443,6 +464,7 @@ export function RFIModule({
               </button>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">{l("rfi_auto_number", "")}</p>
+            {!projectIdFilter ? (
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">{l("rfi_project", "Project")}</span>
               <select
@@ -462,6 +484,9 @@ export function RFIModule({
                 ))}
               </select>
             </label>
+            ) : (
+              <input type="hidden" name="rfi_project" value={projectIdFilter} readOnly aria-hidden />
+            )}
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">{l("rfi_list_title", "Title")}</span>
               <input

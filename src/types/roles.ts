@@ -23,6 +23,8 @@ export interface RolePermissions {
   canViewAttendance: boolean;
   canViewTimeclock: boolean;
   canManageTimeclock: boolean;
+  /** Ver facturación / planes en Ajustes */
+  canViewBilling: boolean;
 }
 
 export interface CustomRole {
@@ -58,6 +60,7 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewAttendance",
   "canViewTimeclock",
   "canManageTimeclock",
+  "canViewBilling",
 ];
 
 export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
@@ -85,6 +88,7 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewAttendance: "Ver panel asistencia",
   canViewTimeclock: "Ver fichajes",
   canManageTimeclock: "Gestionar fichajes",
+  canViewBilling: "Ver facturación",
 };
 
 const BASE_ROLE_IDS = ["role-admin", "role-supervisor", "role-worker", "role-logistic"];

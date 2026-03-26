@@ -460,24 +460,42 @@ export function SubcontractorsModule({
 
   if (selected) {
     const history = parseWorkHistory(selected.work_history);
-    console.log("[SubcontractorsModule] detail view render", { selectedId: selected.id });
-    const backLabel = ((tl?.nav_back ?? "Atrás").replace(/^\s*←\s*/, "").trim() || "Atrás").trim();
     const backBtn = (
-      <div className="sticky top-0 z-40 -mx-1 mb-4 px-1 py-3 bg-zinc-50/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-zinc-200 dark:border-slate-700">
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          backgroundColor: "var(--color-background-primary, var(--background))",
+          padding: "12px 0",
+          marginBottom: "16px",
+          borderBottom: "1px solid var(--color-border-tertiary, rgba(148, 163, 184, 0.35))",
+        }}
+      >
         <button
           type="button"
           onClick={() => setSelectedId(null)}
-          className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 rounded-lg border-2 border-zinc-400 dark:border-zinc-500 bg-white dark:bg-slate-800 text-zinc-900 dark:text-zinc-50 text-sm font-medium shadow-md hover:bg-zinc-100 dark:hover:bg-slate-700"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            minHeight: "44px",
+            padding: "8px 16px",
+            background: "var(--color-background-secondary, var(--background))",
+            border: "1px solid var(--color-border-secondary, rgba(148, 163, 184, 0.45))",
+            borderRadius: "8px",
+            color: "var(--color-text-primary, var(--foreground))",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: 500,
+          }}
         >
-          <span aria-hidden className="text-base">
-            ←
-          </span>
-          <span>{backLabel}</span>
+          ← {tl?.nav_back ?? "Atrás"}
         </button>
       </div>
     );
     return (
-      <div className="space-y-4 max-w-3xl min-h-0 overflow-visible">
+      <div style={{ position: "relative", paddingTop: "60px" }} className="space-y-4 max-w-3xl min-h-0 overflow-visible">
         {backBtn}
         {canManage ? (
           <div className="space-y-3">

@@ -18,6 +18,7 @@ export type MainSection =
   | "visitors"
   | "hazards"
   | "corrective_actions"
+  | "security"
   | "settings"
   | "employees"
   | "subcontractors";
@@ -72,6 +73,8 @@ export interface SidebarLabels {
   rfi_menu?: string;
   /** Bottom nav / sidebar label for Operations (site) */
   nav_operations?: string;
+  /** Seguridad (hazards + correctivos + documentos + auditoría) */
+  nav_security?: string;
 }
 
 /** Employee shape for CentralModule (compatible with page Employee). */

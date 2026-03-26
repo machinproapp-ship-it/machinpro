@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Sliders, Lock, Pencil, Trash2, LogOut, Bell } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
@@ -90,6 +90,9 @@ export interface SettingsModuleProps {
   session?: Session | null;
   onSignOut?: () => void;
   companyId?: string | null;
+  /** Plan y facturación (Stripe) — solo si canViewBilling */
+  billingSection?: ReactNode;
+  showBillingSection?: boolean;
 }
 
 export function SettingsModule({
@@ -112,6 +115,8 @@ export function SettingsModule({
   session = null,
   onSignOut,
   companyId = null,
+  billingSection = null,
+  showBillingSection = false,
 }: SettingsModuleProps) {
   const { showToast } = useToast();
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
@@ -180,6 +185,15 @@ export function SettingsModule({
         <Sliders className="h-5 w-5" />
         {t.settings}
       </h2>
+
+      {showBillingSection && billingSection ? (
+        <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/50 dark:bg-slate-800/30 p-4 sm:p-6 space-y-4">
+          <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+            {(t as Record<string, string>).settings_billing_section ?? ""}
+          </h3>
+          {billingSection}
+        </section>
+      ) : null}
 
       {session && onSignOut && (
         <div className="flex flex-wrap gap-2">

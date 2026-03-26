@@ -33,15 +33,10 @@ import { SettingsModule } from "@/components/SettingsModule";
 import { OperationsModule } from "@/components/OperationsModule";
 import ScheduleModule from "@/components/ScheduleModule";
 import { FormsModule } from "@/components/FormsModule";
-import { BindersModule } from "@/components/BindersModule";
 import { BillingModule } from "@/components/BillingModule";
-import {
-  CorrectiveActionsModule,
-  type CorrectiveActionsPrefill,
-} from "@/components/CorrectiveActionsModule";
-import { HazardModule } from "@/components/HazardModule";
+import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
-import { RFIModule } from "@/components/RFIModule";
+import { SecurityModule } from "@/components/SecurityModule";
 import { EmployeesModule } from "@/components/EmployeesModule";
 import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
@@ -576,6 +571,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewAttendance: true,
       canViewTimeclock: true,
       canManageTimeclock: true,
+      canViewBilling: true,
     },
   },
   {
@@ -608,6 +604,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewAttendance: true,
       canViewTimeclock: true,
       canManageTimeclock: false,
+      canViewBilling: false,
     },
   },
   {
@@ -639,6 +636,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewAttendance: false,
       canViewTimeclock: true,
       canManageTimeclock: false,
+      canViewBilling: false,
     },
     createdAt: "2026-01-01T00:00:00Z",
   },
@@ -672,6 +670,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewAttendance: false,
       canViewTimeclock: false,
       canManageTimeclock: false,
+      canViewBilling: false,
     },
   },
 ];
@@ -980,6 +979,7 @@ export default function Home() {
   const [dashActionCreateSig, setDashActionCreateSig] = useState(0);
   const [dashVisitorQrSig, setDashVisitorQrSig] = useState(0);
   const [dashVisitorTabSig, setDashVisitorTabSig] = useState(0);
+  const [projectsOpenRfiSig, setProjectsOpenRfiSig] = useState(0);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>(INITIAL_CUSTOM_ROLES);
@@ -1839,11 +1839,6 @@ export default function Home() {
     [perms.site, visibleProjects]
   );
 
-  useEffect(() => {
-    if (activeSection !== "visitors") return;
-    navigateToSiteVisitorsTab({ openQr: false });
-  }, [activeSection, navigateToSiteVisitorsTab]);
-
   const handleClockIn = useCallback(() => {
     const code = clockInProjectCode.trim().toUpperCase();
     const matchedProject = code
@@ -2173,6 +2168,7 @@ export default function Home() {
     hazards: (t as Record<string, string>).hazards_menu ?? "Riesgos",
     actions: (t as Record<string, string>).actions_menu ?? "Acciones",
     settings: t.settings,
+    nav_security: (t as Record<string, string>).nav_security ?? "Seguridad",
     worker: t.worker,
     blueprints: t.blueprints ?? "Planos",
     employees: t.personnel,
@@ -2579,20 +2575,7 @@ export default function Home() {
           canAccessWarehouse={perms.warehouse}
           canAccessSite={perms.site}
           canAccessSchedule={perms.canAccessSchedule ?? true}
-          canAccessForms={perms.forms ?? false}
-          canAccessBinders={perms.canViewBinders ?? false}
-          canAccessBilling={effectiveRole === "admin"}
-          canAccessHazards={
-            effectiveRole === "admin" ||
-            effectiveRole === "supervisor" ||
-            effectiveRole === "worker"
-          }
-          canAccessCorrectiveActions={
-            effectiveRole === "admin" ||
-            effectiveRole === "supervisor" ||
-            effectiveRole === "worker"
-          }
-          canAccessRfi={effectiveRole === "admin" || effectiveRole === "supervisor"}
+          canAccessSecurity
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -2884,16 +2867,15 @@ export default function Home() {
                 companyName={(profile?.companyName ?? companyName) || null}
                 onNavigateAppSection={(s) => setActiveSection(s)}
                 onQuickNewHazard={() => {
-                  setActiveSection("hazards");
+                  setActiveSection("security");
                   setDashHazardCreateSig((n) => n + 1);
                 }}
                 onQuickNewAction={() => {
-                  setActiveSection("corrective_actions");
+                  setActiveSection("security");
                   setDashActionCreateSig((n) => n + 1);
                 }}
                 onQuickVisitorQr={() => {
-                  setActiveSection("visitors");
-                  setDashVisitorQrSig((n) => n + 1);
+                  navigateToSiteVisitorsTab({ openQr: true });
                 }}
                 visitorCheckInUrl={companyId ? buildVisitorCheckInUrl(companyId) : null}
                 canAccessEmployees={!!perms.canAccessEmployees}
@@ -2911,7 +2893,14 @@ export default function Home() {
                 }
                 currentUserId={user?.id ?? null}
                 canViewAttendance={!!rolePerms.canViewAttendance}
-                onQuickNewRfi={() => setActiveSection("rfi")}
+                onQuickNewRfi={() => {
+                  if (!perms.site) return;
+                  const vp = visibleProjects ?? [];
+                  const first = vp.find((p) => !p.archived)?.id ?? vp[0]?.id ?? null;
+                  if (first) setSiteSelectedProjectId(first);
+                  setActiveSection("site");
+                  setProjectsOpenRfiSig((n) => n + 1);
+                }}
                 onQuickNewSubcontractor={() => setActiveSection("subcontractors")}
               />
             )}
@@ -3233,10 +3222,10 @@ export default function Home() {
                 currentUserProfileId={profile?.id ?? null}
                 onOpenHazardFromBlueprint={(id) => {
                   setFocusHazardId(id);
-                  setActiveSection("hazards");
+                  setActiveSection("security");
                 }}
                 onOpenCorrectiveFromBlueprint={() => {
-                  setActiveSection("corrective_actions");
+                  setActiveSection("security");
                 }}
                 projectTasks={projectTasks}
                 onCreateTask={(task) => {
@@ -3261,6 +3250,8 @@ export default function Home() {
                 canUseProjectTimeclock={!!rolePerms.canViewTimeclock}
                 visitorOpenQrSignal={dashVisitorQrSig}
                 visitorTabSignal={dashVisitorTabSig}
+                openRfiTabSignal={projectsOpenRfiSig}
+                showProjectRfiTab={effectiveRole === "admin" || effectiveRole === "supervisor"}
                 showProjectVisitorsTab={
                   effectiveRole === "admin" || effectiveRole === "supervisor"
                 }
@@ -3419,29 +3410,6 @@ export default function Home() {
               />
             )}
 
-            {activeSection === "binders" && (perms.canViewBinders !== false) && (
-              <BindersModule
-                binders={binders}
-                documents={binderDocuments}
-                canManage={perms.canManageBinders ?? false}
-                currentUserRole={effectiveRole}
-                employees={employees.map((e) => ({ id: e.id, name: e.name }))}
-                roleOptions={customRoles.map((r) => ({ id: r.id, name: r.name }))}
-                labels={t as Record<string, string>}
-                onAddBinder={(b) => setBinders((prev) => [...prev, b])}
-                onDeleteBinder={(id) =>
-                  setBinders((prev) =>
-                    prev.filter((b) => b.id !== id || b.isDefault)
-                  )}
-                onAddDocument={(d) =>
-                  setBinderDocuments((prev) => [...prev, d])}
-                onDeleteDocument={(id) =>
-                  setBinderDocuments((prev) =>
-                    prev.filter((d) => d.id !== id)
-                  )}
-              />
-            )}
-
             {activeSection === "forms" && (perms.forms !== false) && (
               <FormsModule
                 templates={formTemplates}
@@ -3469,83 +3437,56 @@ export default function Home() {
               />
             )}
 
-            {activeSection === "hazards" &&
-              (effectiveRole === "admin" ||
-                effectiveRole === "supervisor" ||
-                effectiveRole === "worker") && (
-                <HazardModule
-                  t={t as Record<string, string>}
-                  companyId={companyId}
-                  companyName={profile?.companyName ?? companyName}
-                  userRole={effectiveRole}
-                  userName={
-                    profile?.fullName ?? profile?.email ?? user?.email ?? "User"
-                  }
-                  userProfileId={profile?.id ?? null}
-                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
-                  employees={(employees ?? []).map((e) => ({ id: e.id, name: e.name }))}
-                  focusHazardId={focusHazardId}
-                  onFocusHazardConsumed={() => setFocusHazardId(null)}
-                  onOpenCorrectiveFromHazard={({ hazardId, projectId, projectName }) => {
-                    setCorrectivePrefill({
-                      hazardId,
-                      projectId,
-                      projectName,
-                    });
-                    setActiveSection("corrective_actions");
-                  }}
-                  openCreateSignal={dashHazardCreateSig}
-                />
-              )}
-
-            {activeSection === "corrective_actions" &&
-              (effectiveRole === "admin" ||
-                effectiveRole === "supervisor" ||
-                effectiveRole === "worker") && (
-                <CorrectiveActionsModule
-                  t={t as Record<string, string>}
-                  companyId={companyId}
-                  companyName={profile?.companyName ?? companyName}
-                  userRole={effectiveRole}
-                  userName={
-                    profile?.fullName ?? profile?.email ?? user?.email ?? "User"
-                  }
-                  userProfileId={profile?.id ?? null}
-                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
-                  employees={(employees ?? []).map((e) => ({ id: e.id, name: e.name }))}
-                  prefill={correctivePrefill}
-                  onConsumePrefill={consumeCorrectivePrefill}
-                  onNavigateToHazard={(id) => {
-                    setFocusHazardId(id);
-                    setActiveSection("hazards");
-                  }}
-                  openCreateSignal={dashActionCreateSig}
-                />
-              )}
-
-            {activeSection === "rfi" &&
-              (effectiveRole === "admin" || effectiveRole === "supervisor") && (
-                <RFIModule
-                  t={t as Record<string, string>}
-                  companyId={companyId}
-                  companyName={profile?.companyName ?? companyName}
-                  userRole={effectiveRole}
-                  userName={profile?.fullName ?? profile?.email ?? user?.email ?? "User"}
-                  userProfileId={profile?.id ?? null}
-                  projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
-                />
-              )}
-
-            {activeSection === "billing" && effectiveRole === "admin" && companyId && (
-              <BillingModule
+            {activeSection === "security" && (
+              <SecurityModule
                 t={t as Record<string, string>}
                 companyId={companyId}
                 companyName={profile?.companyName ?? companyName}
-                email={profile?.email ?? undefined}
-                employeesCount={(employees ?? []).length}
-                projectsCount={(projects ?? []).filter((p) => !p.archived).length}
-                storageUsedGb={0}
                 userRole={effectiveRole}
+                userName={profile?.fullName ?? profile?.email ?? user?.email ?? "User"}
+                userProfileId={profile?.id ?? null}
+                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+                employees={(employees ?? []).map((e) => ({ id: e.id, name: e.name }))}
+                focusHazardId={focusHazardId}
+                onFocusHazardConsumed={() => setFocusHazardId(null)}
+                correctivePrefill={correctivePrefill}
+                onConsumeCorrectivePrefill={consumeCorrectivePrefill}
+                openHazardSignal={dashHazardCreateSig}
+                openActionSignal={dashActionCreateSig}
+                binders={binders}
+                binderDocuments={binderDocuments}
+                canManageBinders={perms.canManageBinders ?? false}
+                roleOptions={customRoles.map((r) => ({ id: r.id, name: r.name }))}
+                onAddBinder={(b) => setBinders((prev) => [...prev, b])}
+                onDeleteBinder={(id) =>
+                  setBinders((prev) => prev.filter((b) => b.id !== id || b.isDefault))
+                }
+                onAddDocument={(d) => setBinderDocuments((prev) => [...prev, d])}
+                onDeleteDocument={(id) =>
+                  setBinderDocuments((prev) => prev.filter((d) => d.id !== id))
+                }
+                auditLogs={auditLogs}
+                canManageRoles={rolePerms.canManageRoles}
+                canShowHazards={
+                  effectiveRole === "admin" ||
+                  effectiveRole === "supervisor" ||
+                  effectiveRole === "worker"
+                }
+                canShowActions={
+                  effectiveRole === "admin" ||
+                  effectiveRole === "supervisor" ||
+                  effectiveRole === "worker"
+                }
+                canShowDocuments={perms.canViewBinders !== false}
+                canShowAudit={rolePerms.canManageRoles}
+                onOpenCorrectiveFromHazard={({ hazardId, projectId, projectName }) => {
+                  setCorrectivePrefill({
+                    hazardId,
+                    projectId,
+                    projectName,
+                  });
+                }}
+                onRequestFocusHazard={(id) => setFocusHazardId(id)}
               />
             )}
 
@@ -3594,6 +3535,21 @@ export default function Home() {
                 session={session}
                 onSignOut={() => void handleLogout()}
                 companyId={companyId}
+                showBillingSection={effectiveRole === "admin" || !!rolePerms.canViewBilling}
+                billingSection={
+                  companyId ? (
+                    <BillingModule
+                      t={t as Record<string, string>}
+                      companyId={companyId}
+                      companyName={profile?.companyName ?? companyName}
+                      email={profile?.email ?? undefined}
+                      employeesCount={(employees ?? []).length}
+                      projectsCount={(projects ?? []).filter((p) => !p.archived).length}
+                      storageUsedGb={0}
+                      userRole={effectiveRole}
+                    />
+                  ) : null
+                }
               />
             )}
 

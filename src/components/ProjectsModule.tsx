@@ -35,8 +35,10 @@ import {
   LayoutGrid,
   HardHat,
   Circle,
+  FileQuestion,
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
+import { RFIModule } from "@/components/RFIModule";
 import {
   generatePhotoReport,
   type PhotoReportOrientation,
@@ -212,6 +214,9 @@ export interface ProjectsModuleProps {
   /** Solo cambiar a la pestaña (p. ej. alerta visita larga), sin abrir modal QR */
   visitorTabSignal?: number;
   showProjectVisitorsTab?: boolean;
+  /** Desde Central: abrir pestaña RFI del proyecto seleccionado */
+  openRfiTabSignal?: number;
+  showProjectRfiTab?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -357,7 +362,8 @@ type TabId =
   | "galeria"
   | "blueprints"
   | "formularios"
-  | "visitantes";
+  | "visitantes"
+  | "rfi";
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "general", icon: <Info className="h-4 w-4" /> },
@@ -367,6 +373,7 @@ const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "blueprints", icon: <FileText className="h-4 w-4" /> },
   { id: "formularios", icon: <ClipboardList className="h-4 w-4" /> },
   { id: "visitantes", icon: <UserCheck className="h-4 w-4" /> },
+  { id: "rfi", icon: <FileQuestion className="h-4 w-4" /> },
 ];
 
 // ─── Componente principal ──────────────────────────────────────────────────────
@@ -429,9 +436,12 @@ export function ProjectsModule({
   visitorOpenQrSignal = 0,
   visitorTabSignal = 0,
   showProjectVisitorsTab = true,
+  openRfiTabSignal = 0,
+  showProjectRfiTab = false,
 }: ProjectsModuleProps) {
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const lastVisitorNavSig = useRef(0);
+  const lastRfiNavSig = useRef(0);
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -545,6 +555,12 @@ export function ProjectsModule({
   }, [showProjectVisitorsTab, activeTab]);
 
   useEffect(() => {
+    if (!showProjectRfiTab && activeTab === "rfi") {
+      setActiveTab("general");
+    }
+  }, [showProjectRfiTab, activeTab]);
+
+  useEffect(() => {
     const tab = visitorTabSignal ?? 0;
     const qr = visitorOpenQrSignal ?? 0;
     const mx = Math.max(tab, qr);
@@ -552,6 +568,13 @@ export function ProjectsModule({
     lastVisitorNavSig.current = mx;
     if (selectedProjectId) setActiveTab("visitantes");
   }, [visitorTabSignal, visitorOpenQrSignal, selectedProjectId]);
+
+  useEffect(() => {
+    const s = openRfiTabSignal ?? 0;
+    if (!s || s <= lastRfiNavSig.current || !selectedProjectId) return;
+    lastRfiNavSig.current = s;
+    setActiveTab("rfi");
+  }, [openRfiTabSignal, selectedProjectId]);
 
   useEffect(() => {
     if (!openSafetyChecklistId) {
@@ -872,7 +895,8 @@ export function ProjectsModule({
             {TABS.filter(
               (tab) =>
                 (currentUserRole !== "worker" || tab.id !== "formularios") &&
-                (showProjectVisitorsTab || tab.id !== "visitantes")
+                (showProjectVisitorsTab || tab.id !== "visitantes") &&
+                (showProjectRfiTab || tab.id !== "rfi")
             ).map((tab) => {
               const label =
                 tab.id === "general"
@@ -893,6 +917,8 @@ export function ProjectsModule({
                   ? (t as Record<string, string>).siteTabVisitors ||
                     (t as Record<string, string>).visitors_menu ||
                     ""
+                  : tab.id === "rfi"
+                  ? (t as Record<string, string>).site_tab_rfi ?? (t as Record<string, string>).rfi_menu ?? "RFI"
                   : "";
               const badge =
                 tab.id === "galeria" && pendingObraPhotos.length > 0 && canApprove
@@ -2645,6 +2671,21 @@ export function ProjectsModule({
               openQrSignal={visitorOpenQrSignal}
               lockedProjectId={selectedProject.id}
               lockedProjectName={selectedProject.name}
+            />
+          </div>
+        )}
+
+        {activeTab === "rfi" && selectedProject && showProjectRfiTab && companyId && (
+          <div className="space-y-4">
+            <RFIModule
+              t={t as Record<string, string>}
+              companyId={companyId || null}
+              companyName={companyName}
+              userRole={currentUserRole}
+              userName={currentUserDisplayName}
+              userProfileId={currentUserProfileId}
+              projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+              projectIdFilter={selectedProject.id}
             />
           </div>
         )}

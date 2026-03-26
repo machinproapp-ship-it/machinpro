@@ -323,7 +323,7 @@ type TimeclockRow = {
   durationLabel?: string;
 };
 
-export function CentralDashboardLive({
+function CentralDashboardLiveInner({
   labels: labelsProp,
   companyId,
   companyName,
@@ -806,15 +806,16 @@ export function CentralDashboardLive({
         { event: "*", schema: "public", table: "hazards", filter: `company_id=eq.${companyId}` },
         () => setTick((x) => x + 1)
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "corrective_actions", filter: `company_id=eq.${companyId}` },
-        () => setTick((x) => x + 1)
-      )
       .subscribe();
     return () => {
       void client.removeChannel(ch);
     };
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    const id = window.setInterval(() => setTick((x) => x + 1), 30_000);
+    return () => clearInterval(id);
   }, [companyId]);
 
   const trialAlert =
@@ -1367,7 +1368,7 @@ export function CentralDashboardLive({
                     </div>
                     <button
                       type="button"
-                      onClick={() => onNavigateAppSection("hazards")}
+                      onClick={() => onNavigateAppSection("security")}
                       className="min-h-[44px] px-3 rounded-lg border border-red-300 dark:border-red-800 text-sm font-semibold text-red-700 dark:text-red-300"
                     >
                       {labels.viewAll ?? ""}
@@ -1386,7 +1387,7 @@ export function CentralDashboardLive({
                     </div>
                     <button
                       type="button"
-                      onClick={() => onNavigateAppSection("corrective_actions")}
+                      onClick={() => onNavigateAppSection("security")}
                       className="min-h-[44px] px-3 rounded-lg border border-amber-300 dark:border-amber-800 text-sm font-semibold text-amber-800 dark:text-amber-200"
                     >
                       {labels.viewAll ?? ""}
@@ -1425,7 +1426,7 @@ export function CentralDashboardLive({
                     </div>
                     <button
                       type="button"
-                      onClick={() => onNavigateAppSection(currentUserRole === "admin" ? "billing" : "settings")}
+                      onClick={() => onNavigateAppSection("settings")}
                       className="min-h-[44px] px-3 rounded-lg border border-amber-300 text-sm font-semibold text-amber-800 dark:text-amber-200"
                     >
                       {labels.viewAll ?? ""}
@@ -1475,7 +1476,7 @@ export function CentralDashboardLive({
                     <li key={h.id}>
                       <button
                         type="button"
-                        onClick={() => onNavigateAppSection("hazards")}
+                        onClick={() => onNavigateAppSection("security")}
                         className="text-left w-full flex items-center gap-2 text-xs min-h-[44px] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 px-1"
                       >
                         <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
@@ -1695,10 +1696,6 @@ export function CentralDashboardLive({
     }
   };
 
-  if (!companyId) {
-    return <SkeletonLoader />;
-  }
-
   return (
     <>
       <section className="space-y-2 mb-4">
@@ -1910,4 +1907,9 @@ export function CentralDashboardLive({
       ) : null}
     </>
   );
+}
+
+export function CentralDashboardLive(props: CentralDashboardLiveProps) {
+  if (!props.companyId) return <SkeletonLoader />;
+  return <CentralDashboardLiveInner {...props} companyId={props.companyId} />;
 }
