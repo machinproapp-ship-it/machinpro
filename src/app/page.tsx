@@ -1138,60 +1138,97 @@ export default function Home() {
   }, [session, companyId]);
 
   useEffect(() => {
-    if (!supabase || !session) return;
+    if (!supabase || !session || !companyId) return;
     const client = supabase;
     const loadEmployees = async () => {
-      const { data, error } = await client.from("employees").select("*");
-      if (!error && data && data.length > 0) {
-        setEmployees(
-          data.map((e: Record<string, unknown>) => ({
-            id: String(e.id),
-            name: String(e.name),
-            role: String(e.role),
-            hours: typeof e.hours === "number" ? e.hours : Number(e.hours) || 0,
-            payType: e.pay_type as Employee["payType"],
-            hourlyRate: e.hourly_rate != null ? Number(e.hourly_rate) : undefined,
-            monthlySalary: e.monthly_salary != null ? Number(e.monthly_salary) : undefined,
-            phone: e.phone != null ? String(e.phone) : undefined,
-            email: e.email != null ? String(e.email) : undefined,
+      const { data, error } = await client
+        .from("user_profiles")
+        .select(
+          "id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at"
+        )
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("[page] user_profiles (employees state)", error);
+        return;
+      }
+      if (!data?.length) return;
+      setEmployees(
+        data.map((row: Record<string, unknown>) => {
+          const id = String(row.id);
+          const fn = row.full_name != null ? String(row.full_name).trim() : "";
+          const dn = row.display_name != null ? String(row.display_name).trim() : "";
+          const em = row.email != null ? String(row.email).trim() : "";
+          const name =
+            fn ||
+            dn ||
+            (em.includes("@") ? em.split("@")[0]!.trim() : em) ||
+            id.slice(0, 8);
+          const role = String(row.role ?? "worker");
+          let payType: Employee["payType"] | undefined;
+          const pt = String(row.pay_type ?? "").toLowerCase();
+          if (pt === "hourly") payType = "hourly";
+          else if (pt === "fixed" || pt === "salary") payType = "salary";
+          let hourlyRate: number | undefined;
+          let monthlySalary: number | undefined;
+          const payAmt = row.pay_amount != null ? Number(row.pay_amount) : undefined;
+          if (payType === "hourly" && payAmt != null && Number.isFinite(payAmt)) hourlyRate = payAmt;
+          if (payType === "salary" && payAmt != null && Number.isFinite(payAmt)) monthlySalary = payAmt;
+          return {
+            id,
+            name,
+            role,
+            hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
+            payType,
+            hourlyRate,
+            monthlySalary,
+            phone: row.phone != null ? String(row.phone) : undefined,
+            email: em || undefined,
             certificates: [],
             hoursLog: [],
-          }))
-        );
-      }
+            customRoleId: row.custom_role_id != null ? String(row.custom_role_id) : undefined,
+            customPermissions: row.custom_permissions as Employee["customPermissions"],
+            useRolePermissions:
+              row.use_role_permissions != null ? Boolean(row.use_role_permissions) : undefined,
+          };
+        })
+      );
     };
     void loadEmployees();
-  }, [session]);
+  }, [session, companyId]);
 
   useEffect(() => {
-    if (!supabase || !session) return;
+    if (!supabase || !session || !companyId) return;
     const client = supabase;
     const loadProjects = async () => {
-      const { data, error } = await client.from("projects").select("*");
-      if (!error && data && data.length > 0) {
-        setProjects(
-          data.map((p: Record<string, unknown>) => ({
-            id: String(p.id),
-            name: String(p.name),
-            type: String(p.type ?? ""),
-            location: String(p.location ?? ""),
-            projectCode: p.project_code != null ? String(p.project_code) : undefined,
-            budgetCAD: p.budget_cad != null ? Number(p.budget_cad) : undefined,
-            spentCAD: p.spent_cad != null ? Number(p.spent_cad) : undefined,
-            estimatedStart: String(p.estimated_start ?? ""),
-            estimatedEnd: String(p.estimated_end ?? ""),
-            locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
-            locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
-            archived: Boolean(p.archived),
-            assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
-              ? (p.assigned_employee_ids as string[])
-              : [],
-          }))
-        );
+      const { data, error } = await client.from("projects").select("*").eq("company_id", companyId);
+      if (error) {
+        console.error("[page] projects", error);
+        return;
       }
+      if (!data?.length) return;
+      setProjects(
+        data.map((p: Record<string, unknown>) => ({
+          id: String(p.id),
+          name: String(p.name),
+          type: String(p.type ?? ""),
+          location: String(p.location ?? ""),
+          projectCode: p.project_code != null ? String(p.project_code) : undefined,
+          budgetCAD: p.budget_cad != null ? Number(p.budget_cad) : undefined,
+          spentCAD: p.spent_cad != null ? Number(p.spent_cad) : undefined,
+          estimatedStart: String(p.estimated_start ?? ""),
+          estimatedEnd: String(p.estimated_end ?? ""),
+          locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
+          locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
+          archived: Boolean(p.archived),
+          assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
+            ? (p.assigned_employee_ids as string[])
+            : [],
+        }))
+      );
     };
     void loadProjects();
-  }, [session]);
+  }, [session, companyId]);
 
   const [isOnline, setIsOnline] = useState(true);
 
