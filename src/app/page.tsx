@@ -42,7 +42,7 @@ import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
-import type { Session } from "@supabase/supabase-js";
+import type { AuthChangeEvent, PostgrestResponse, Session } from "@supabase/supabase-js";
 import {
   LogOut,
   Wifi,
@@ -57,7 +57,7 @@ import {
   Bell,
   Settings,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
 import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
@@ -802,24 +802,19 @@ export default function Home() {
   const { user, profile, signOut, syncSession } = useAuth();
 
   useEffect(() => {
-    if (!supabase) {
-      setAuthLoading(false);
-      return;
-    }
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
+    void supabase.auth.getSession().then((result: AuthGetSessionResult) => {
+      setSession(result.data.session);
       setAuthLoading(false);
     });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, s: Session | null) => {
       setSession(s);
     });
     return () => subscription.unsubscribe();
   }, []);
 
   const handleLogout = async () => {
-    if (!supabase) return;
     await signOut();
     setSession(null);
   };
@@ -832,14 +827,14 @@ export default function Home() {
   const { photos, uploadPhoto, approvePhoto, rejectPhoto } = useProjectPhotos(companyId);
 
   useEffect(() => {
-    if (!companyId || !supabase) return;
+    if (!companyId) return;
     void supabase
       .from("audit_logs")
       .select("*")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
       .limit(100)
-      .then(({ data }) => setAuditLogs((data as AuditLogEntry[]) ?? []));
+      .then((res: PostgrestResponse<AuditLogEntry>) => setAuditLogs(res.data ?? []));
   }, [companyId]);
   const pendingPhotoCountByProject = useMemo(() => {
     const m: Record<string, number> = {};

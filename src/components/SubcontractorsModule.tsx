@@ -273,7 +273,9 @@ export function SubcontractorsModule({
     ]);
     setContacts((c ?? []) as ContactRow[]);
     setDocs((d ?? []) as DocRow[]);
-    setDetailProjectIds((pj ?? []).map((r) => String((r as { project_id: string }).project_id)));
+    setDetailProjectIds(
+      (pj ?? []).map((r: { project_id: string }) => String(r.project_id))
+    );
   }, []);
 
   useEffect(() => {

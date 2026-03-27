@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { useAppLocale } from "@/hooks/useAppLocale";
-import { supabase } from "@/lib/supabase";
+import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,24 +42,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void supabase?.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then((result: AuthGetSessionResult) => {
       if (cancelled) return;
-      if (data.session) router.replace("/");
+      if (result.data.session) router.replace("/");
     });
     return () => {
       cancelled = true;
     };
   }, [router]);
-
-  if (!supabase) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-slate-950">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {tx("toast_loading", "…")}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <>

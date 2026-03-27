@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { supabase } from "./supabase";
-import type { User, Session } from "@supabase/supabase-js";
+import { supabase, type AuthGetSessionResult } from "./supabase";
+import type { AuthChangeEvent, User, Session } from "@supabase/supabase-js";
 
 /** Mirrors `user_profiles` in Supabase; optional name fields if columns exist. */
 interface UserProfile {
@@ -73,7 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const syncSession = async () => {
-    if (!supabase) return;
     const { data } = await supabase.auth.getSession();
     const s = data.session ?? null;
     setSession(s);
@@ -83,24 +82,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    void supabase.auth.getSession().then((result: AuthGetSessionResult) => {
+      const session = result.data.session;
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) void fetchProfile(session.user.id);
       setLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) void fetchProfile(session.user.id);
       else setProfile(null);
     });
 
@@ -108,7 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    if (!supabase) return { error: "Supabase no configurado" };
     console.log("[AUTH] Intentando login con:", email);
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -119,7 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    if (!supabase) return;
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);

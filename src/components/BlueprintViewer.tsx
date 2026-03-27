@@ -336,7 +336,7 @@ export default function BlueprintViewer({
         .order("name", { ascending: true })
         .order("version", { ascending: false });
       if (!error && data) {
-        const mapped = (data ?? []).map((r) => normalizeBlueprintRow(r as Record<string, unknown>));
+        const mapped = (data ?? []).map((r: Record<string, unknown>) => normalizeBlueprintRow(r));
         setRows(mapped);
         setListFromCache(false);
         for (const row of mapped) {

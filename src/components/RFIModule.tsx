@@ -10,6 +10,7 @@ import {
   FileDown,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
+import type { PostgrestResponse } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
 import type { UserRole } from "@/types/shared";
@@ -126,12 +127,12 @@ export function RFIModule({
       .select("id,full_name,email")
       .eq("company_id", companyId)
       .order("full_name", { ascending: true })
-      .then(({ data, error }) => {
-        if (error) {
-          console.error(error);
+      .then((res: PostgrestResponse<{ id: string; full_name: string | null; email: string | null }>) => {
+        if (res.error) {
+          console.error(res.error);
           return;
         }
-        setCompanyProfiles((data ?? []) as { id: string; full_name: string | null; email: string | null }[]);
+        setCompanyProfiles(res.data ?? []);
       });
   }, [companyId]);
 

@@ -424,7 +424,7 @@ function CentralDashboardLiveInner({
   const supabaseLoggedRef = useRef(false);
   if (!supabaseLoggedRef.current) {
     supabaseLoggedRef.current = true;
-    console.log("[CentralDashboardLive] supabase:", supabase != null ? "non-null" : "null");
+    console.log("[CentralDashboardLive] supabase: browser client ready");
   }
 
   const { subscription, trialDaysLeft, loading: subscriptionLoading } = useSubscription(companyId);
@@ -440,7 +440,7 @@ function CentralDashboardLiveInner({
   }, []);
 
   const loadDashboardConfig = useCallback(async () => {
-    if (!supabase || !companyId) {
+    if (!companyId) {
       setResolvedConfig(parseDashboardConfig(null));
       return;
     }
@@ -484,7 +484,6 @@ function CentralDashboardLiveInner({
       setSavingConfig(true);
       try {
         const payload = buildDashboardConfigPayload(next);
-        if (!supabase) return false;
         const { data: sess } = await supabase.auth.getSession();
         const token = sess.session?.access_token;
         if (!token) return false;
@@ -511,13 +510,7 @@ function CentralDashboardLiveInner({
   );
 
   const loadAll = useCallback(async () => {
-    if (!supabase || !companyId) {
-      if (!supabase) {
-        setDashboardLoadError(
-          labels.dashboard_error_supabase_body ??
-            "Supabase client is not available. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
-        );
-      }
+    if (!companyId) {
       setEmpCount(null);
       setVisToday(0);
       setVisYesterday(0);
@@ -829,7 +822,7 @@ function CentralDashboardLiveInner({
 
     void (async () => {
       try {
-        if (!supabase || !companyId) return;
+        if (!companyId) return;
         const [bpCt, pinCt, noteRes] = await Promise.all([
           supabase.from("blueprints").select("id", { count: "exact", head: true }).eq("company_id", companyId),
           supabase.from("blueprint_pins").select("id", { count: "exact", head: true }).eq("company_id", companyId),
@@ -859,9 +852,8 @@ function CentralDashboardLiveInner({
   }, [loadAll, tick]);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client || !companyId) return;
-    const ch = client
+    if (!companyId) return;
+    const ch = supabase
       .channel(`dash_${companyId}`)
       .on(
         "postgres_changes",
@@ -875,7 +867,7 @@ function CentralDashboardLiveInner({
       )
       .subscribe();
     return () => {
-      void client.removeChannel(ch);
+      void supabase.removeChannel(ch);
     };
   }, [companyId]);
 
@@ -1989,20 +1981,5 @@ function CentralDashboardLiveInner({
 
 export function CentralDashboardLive(props: CentralDashboardLiveProps) {
   if (!props.companyId) return <SkeletonLoader />;
-  const t = props.labels;
-  if (!supabase) {
-    return (
-      <div
-        role="alert"
-        className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-4 text-sm text-red-900 dark:text-red-100"
-      >
-        <p className="font-semibold">{t.dashboard_error_supabase_title ?? "Dashboard unavailable"}</p>
-        <p className="mt-2 opacity-90">
-          {t.dashboard_error_supabase_body ??
-            "The database client could not be initialized. For production, set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."}
-        </p>
-      </div>
-    );
-  }
   return <CentralDashboardLiveInner {...props} companyId={props.companyId} />;
 }

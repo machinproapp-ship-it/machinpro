@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppLocale } from "@/hooks/useAppLocale";
-import { supabase } from "@/lib/supabase";
+import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 
 export default function RegisterPublicPage() {
   const { tx } = useAppLocale();
@@ -18,9 +18,9 @@ export default function RegisterPublicPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void supabase?.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then((result: AuthGetSessionResult) => {
       if (cancelled) return;
-      if (data.session) router.replace("/");
+      if (result.data.session) router.replace("/");
     });
     return () => {
       cancelled = true;
