@@ -333,6 +333,10 @@ export default {
   dashboard_all_clear: "All clear",
   dashboard_all_clear_named: "All clear at {company}",
   dashboard_company: "company",
+  dashboard_error_supabase_title: "Dashboard unavailable",
+  dashboard_error_supabase_body:
+    "The database client could not be initialized. For production, set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your hosting environment.",
+  dashboard_error_load_title: "Could not load some dashboard data",
   dashboard_alerts_attention: "You have {n} alerts that need attention",
   dashboard_critical_hazards: "Critical hazard — unassigned",
   dashboard_overdue_actions: "Overdue corrective action",

@@ -214,8 +214,11 @@ export function formatLandingPrice(amount: number, currency: LandingPriceCurrenc
   }
 }
 
-function emptyGeo(): GeoDetect {
-  return { tier: 1, country: "", countryCode: null, region: "other", usState: null };
+/** Fallback when IP lookup fails (CORS, network, rate limit) — avoids blank tier in production. */
+function geoDefaultCa(): GeoDetect {
+  const cc = "CA";
+  const { region, tier } = resolveRegionTier(cc);
+  return { tier, country: cc, countryCode: cc, region, usState: null };
 }
 
 /**
@@ -224,15 +227,15 @@ function emptyGeo(): GeoDetect {
 export async function detectGeo(): Promise<GeoDetect> {
   try {
     const res = await fetch("https://ipapi.co/json/", { cache: "no-store" });
-    if (!res.ok) return emptyGeo();
+    if (!res.ok) return geoDefaultCa();
     const data = (await res.json()) as {
       country_code?: string;
       region_code?: string;
       error?: boolean;
     };
-    if (data.error) return emptyGeo();
+    if (data.error) return geoDefaultCa();
     const cc = (data.country_code ?? "").trim().toUpperCase() || "";
-    if (!cc) return emptyGeo();
+    if (!cc) return geoDefaultCa();
     const { region, tier } = resolveRegionTier(cc);
     const usState =
       cc === "US" && typeof data.region_code === "string" ? data.region_code.trim().toUpperCase() || null : null;
@@ -244,7 +247,7 @@ export async function detectGeo(): Promise<GeoDetect> {
       usState,
     };
   } catch {
-    return emptyGeo();
+    return geoDefaultCa();
   }
 }
 

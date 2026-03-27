@@ -82,6 +82,14 @@ function relativeTime(iso: string, locale: string, labels: Record<string, string
   return (labels.dashboard_rel_days ?? "").replace("{n}", String(d));
 }
 
+function errMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
+    return (e as { message: string }).message;
+  }
+  return String(e);
+}
+
 function activityBucket(action: string, entityType: string): ActivityFilter | "other" {
   const a = action.toLowerCase();
   const e = entityType.toLowerCase();
@@ -412,6 +420,12 @@ function CentralDashboardLiveInner({
   const [savingConfig, setSavingConfig] = useState(false);
   const [useDnD, setUseDnD] = useState(false);
   const [dragWidget, setDragWidget] = useState<DashboardWidgetId | null>(null);
+  const [dashboardLoadError, setDashboardLoadError] = useState<string | null>(null);
+  const supabaseLoggedRef = useRef(false);
+  if (!supabaseLoggedRef.current) {
+    supabaseLoggedRef.current = true;
+    console.log("[CentralDashboardLive] supabase:", supabase != null ? "non-null" : "null");
+  }
 
   const { subscription, trialDaysLeft, loading: subscriptionLoading } = useSubscription(companyId);
 
@@ -430,18 +444,30 @@ function CentralDashboardLiveInner({
       setResolvedConfig(parseDashboardConfig(null));
       return;
     }
-    const { data: co } = await supabase.from("companies").select("dashboard_config").eq("id", companyId).maybeSingle();
-    let userRaw: unknown = null;
-    if (currentUserId) {
-      const { data: pr } = await supabase
-        .from("user_profiles")
+    try {
+      const { data: co, error: coErr } = await supabase
+        .from("companies")
         .select("dashboard_config")
-        .eq("id", currentUserId)
+        .eq("id", companyId)
         .maybeSingle();
-      userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
+      if (coErr) throw coErr;
+      let userRaw: unknown = null;
+      if (currentUserId) {
+        const { data: pr, error: prErr } = await supabase
+          .from("user_profiles")
+          .select("dashboard_config")
+          .eq("id", currentUserId)
+          .maybeSingle();
+        if (prErr) throw prErr;
+        userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
+      }
+      const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
+      setResolvedConfig(parseDashboardConfig(merged));
+    } catch (e) {
+      console.error("[CentralDashboardLive] loadDashboardConfig", e);
+      setDashboardLoadError(errMessage(e));
+      setResolvedConfig(parseDashboardConfig(null));
     }
-    const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
-    setResolvedConfig(parseDashboardConfig(merged));
   }, [companyId, currentUserId]);
 
   useEffect(() => {
@@ -473,6 +499,10 @@ function CentralDashboardLiveInner({
         if (!res.ok) return false;
         setResolvedConfig(next);
         return true;
+      } catch (e) {
+        console.error("[CentralDashboardLive] persistConfig", e);
+        setDashboardLoadError(errMessage(e));
+        return false;
       } finally {
         setSavingConfig(false);
       }
@@ -482,6 +512,12 @@ function CentralDashboardLiveInner({
 
   const loadAll = useCallback(async () => {
     if (!supabase || !companyId) {
+      if (!supabase) {
+        setDashboardLoadError(
+          labels.dashboard_error_supabase_body ??
+            "Supabase client is not available. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+        );
+      }
       setEmpCount(null);
       setVisToday(0);
       setVisYesterday(0);
@@ -505,6 +541,7 @@ function CentralDashboardLiveInner({
     }
     setLoading(true);
     setSecondaryMetricsReady(false);
+    setDashboardLoadError(null);
     const { start: tStart, end: tEnd } = startEndLocalDay(0);
     const { start: yStart, end: yEnd } = startEndLocalDay(-1);
     const eightH = hoursAgoIso(8);
@@ -519,21 +556,7 @@ function CentralDashboardLiveInner({
     const weekEnd = `${dayKeys[6]}T23:59:59.999Z`;
 
     try {
-      const [
-        profToday,
-        hzOpen,
-        hzList,
-        caList,
-        vToday,
-        vYest,
-        vActive,
-        vLong,
-        audits,
-        critUn,
-        vacRows,
-        timeRows,
-        weekVis,
-      ] = await Promise.all([
+      const batch = await Promise.all([
         supabase.from("user_profiles").select("id", { count: "exact", head: true }).eq("company_id", companyId),
         supabase
           .from("hazards")
@@ -598,6 +621,28 @@ function CentralDashboardLiveInner({
           .gte("check_in", weekStart)
           .lte("check_in", weekEnd),
       ]);
+      const batchErr = batch.find((r) => r.error)?.error;
+      if (batchErr) {
+        const msg = batchErr.message || "Dashboard queries failed";
+        console.error("[CentralDashboardLive] query batch", batchErr);
+        setDashboardLoadError(msg);
+        throw batchErr;
+      }
+      const [
+        profToday,
+        hzOpen,
+        hzList,
+        caList,
+        vToday,
+        vYest,
+        vActive,
+        vLong,
+        audits,
+        critUn,
+        vacRows,
+        timeRows,
+        weekVis,
+      ] = batch;
 
       setEmpCount(profToday.count ?? 0);
       setVisToday(vToday.count ?? 0);
@@ -612,25 +657,32 @@ function CentralDashboardLiveInner({
       setActivityRows(auditRows);
       const userIds = [...new Set(auditRows.map((r) => r.user_id).filter(Boolean))];
       if (userIds.length > 0) {
-        const { data: profs } = await supabase
-          .from("user_profiles")
-          .select("id, full_name, display_name, email")
-          .in("id", userIds);
-        const map: Record<string, string> = {};
-        for (const p of profs ?? []) {
-          const pr = p as {
-            id: string;
-            full_name?: string | null;
-            display_name?: string | null;
-            email?: string | null;
-          };
-          const nm = (pr.full_name || pr.display_name || "").trim();
-          const em = (pr.email ?? "").trim();
-          const local = em.includes("@") ? em.split("@")[0]!.trim() : "";
-          const disp = nm || local;
-          if (disp) map[pr.id] = disp;
+        try {
+          const { data: profs, error: auditProfErr } = await supabase
+            .from("user_profiles")
+            .select("id, full_name, display_name, email")
+            .in("id", userIds);
+          if (auditProfErr) throw auditProfErr;
+          const map: Record<string, string> = {};
+          for (const p of profs ?? []) {
+            const pr = p as {
+              id: string;
+              full_name?: string | null;
+              display_name?: string | null;
+              email?: string | null;
+            };
+            const nm = (pr.full_name || pr.display_name || "").trim();
+            const em = (pr.email ?? "").trim();
+            const local = em.includes("@") ? em.split("@")[0]!.trim() : "";
+            const disp = nm || local;
+            if (disp) map[pr.id] = disp;
+          }
+          setUserNameById(map);
+        } catch (e) {
+          console.error("[CentralDashboardLive] user_profiles (audit names)", e);
+          setUserNameById({});
+          setDashboardLoadError(e instanceof Error ? e.message : String(e));
         }
-        setUserNameById(map);
       } else {
         setUserNameById({});
       }
@@ -687,34 +739,43 @@ function CentralDashboardLiveInner({
       if (useCache) {
         profRows = cached!.rows as ProfLite[];
       } else {
-        const { data: rpcCompanyProfs, error: rpcCompanyErr } = await supabase.rpc("get_company_profiles", {
-          p_company_id: companyId,
-        });
-        if (rpcCompanyErr) {
-          console.error("[CentralDashboardLive] get_company_profiles", rpcCompanyErr);
-        }
-        if (Array.isArray(rpcCompanyProfs) && rpcCompanyProfs.length > 0) {
-          profRows = rpcCompanyProfs as ProfLite[];
-        } else {
-          const direct = await supabase
-            .from("user_profiles")
-            .select("id, full_name, display_name, email")
-            .eq("company_id", companyId)
-            .order("created_at", { ascending: false });
-          if (direct.error) {
-            console.error("[CentralDashboardLive] user_profiles list", direct.error);
+        try {
+          const { data: rpcCompanyProfs, error: rpcCompanyErr } = await supabase.rpc("get_company_profiles", {
+            p_company_id: companyId,
+          });
+          if (rpcCompanyErr) {
+            console.error("[CentralDashboardLive] get_company_profiles", rpcCompanyErr);
           }
-          profRows = (direct.data ?? []) as ProfLite[];
-          if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
-            const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
-              p_company_id: companyId,
-            });
-            if (rpcErr) {
-              console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
-            } else if (rpcRows?.length) {
-              profRows = rpcRows as ProfLite[];
+          if (Array.isArray(rpcCompanyProfs) && rpcCompanyProfs.length > 0) {
+            profRows = rpcCompanyProfs as ProfLite[];
+          } else {
+            const direct = await supabase
+              .from("user_profiles")
+              .select("id, full_name, display_name, email")
+              .eq("company_id", companyId)
+              .order("created_at", { ascending: false });
+            if (direct.error) {
+              console.error("[CentralDashboardLive] user_profiles list", direct.error);
+              throw direct.error;
+            }
+            profRows = (direct.data ?? []) as ProfLite[];
+            if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
+              const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
+                p_company_id: companyId,
+              });
+              if (rpcErr) {
+                console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
+                throw rpcErr;
+              }
+              if (rpcRows?.length) {
+                profRows = rpcRows as ProfLite[];
+              }
             }
           }
+        } catch (e) {
+          console.error("[CentralDashboardLive] timeclock profiles load", e);
+          setDashboardLoadError(errMessage(e));
+          profRows = [];
         }
         profRowsCacheRef.current = { companyId, at: Date.now(), rows: profRows };
       }
@@ -759,7 +820,9 @@ function CentralDashboardLiveInner({
       }
       setTimeclockRows(tclock);
     } catch (e) {
-      console.error(e);
+      console.error("[CentralDashboardLive] loadAll", e);
+      const msg = errMessage(e);
+      setDashboardLoadError((prev) => prev ?? msg);
     } finally {
       setLoading(false);
     }
@@ -776,11 +839,15 @@ function CentralDashboardLiveInner({
             .eq("company_id", companyId)
             .eq("is_resolved", false),
         ]);
+        const secErr = bpCt.error || pinCt.error || noteRes.error;
+        if (secErr) {
+          console.error("[CentralDashboardLive] blueprint counts", secErr);
+        }
         setBlueprintCount(bpCt.count ?? 0);
         setPinCount(pinCt.count ?? 0);
         setNoteCount(noteRes.error ? 0 : noteRes.count ?? 0);
       } catch (e) {
-        console.error(e);
+        console.error("[CentralDashboardLive] blueprint counts (async)", e);
       } finally {
         setSecondaryMetricsReady(true);
       }
@@ -1698,6 +1765,17 @@ function CentralDashboardLiveInner({
 
   return (
     <>
+      {dashboardLoadError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 text-sm text-amber-950 dark:text-amber-100 mb-4"
+        >
+          <p className="font-semibold">
+            {L("dashboard_error_load_title") || "Could not load some dashboard data"}
+          </p>
+          <p className="mt-1 font-mono text-xs break-all opacity-90">{dashboardLoadError}</p>
+        </div>
+      ) : null}
       <section className="space-y-2 mb-4">
         <p className="text-lg font-medium text-gray-900 dark:text-white">
           {getGreeting()} — {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
@@ -1911,5 +1989,20 @@ function CentralDashboardLiveInner({
 
 export function CentralDashboardLive(props: CentralDashboardLiveProps) {
   if (!props.companyId) return <SkeletonLoader />;
+  const t = props.labels;
+  if (!supabase) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-4 text-sm text-red-900 dark:text-red-100"
+      >
+        <p className="font-semibold">{t.dashboard_error_supabase_title ?? "Dashboard unavailable"}</p>
+        <p className="mt-2 opacity-90">
+          {t.dashboard_error_supabase_body ??
+            "The database client could not be initialized. For production, set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."}
+        </p>
+      </div>
+    );
+  }
   return <CentralDashboardLiveInner {...props} companyId={props.companyId} />;
 }
