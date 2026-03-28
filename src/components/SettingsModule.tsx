@@ -468,7 +468,7 @@ export function SettingsModule({
                     onClick={onProfileAvatarUpload}
                     className="w-full max-w-md min-h-[44px] rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm"
                   >
-                    {t.uploadLogo ?? ""}
+                    {(t as Record<string, string>).profilePhoto ?? "Foto de perfil"}
                   </button>
                 ) : null}
               </div>

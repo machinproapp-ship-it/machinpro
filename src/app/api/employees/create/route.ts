@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifyCanManageEmployees } from "@/lib/verify-api-session";
 import { ROLE_PERMISSION_KEYS, type RolePermissions } from "@/types/roles";
+import { getAppBaseUrl } from "@/lib/app-url";
+import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
+import {
+  buildEmployeeInviteEmailHtml,
+  employeeInviteSubject,
+} from "@/lib/transactionalEmailHtml";
 
 export const runtime = "nodejs";
 
@@ -196,6 +203,65 @@ export async function POST(req: NextRequest) {
       console.error("[api/employees/create] profile upsert:", profErr);
       await admin.auth.admin.deleteUser(userId);
       return NextResponse.json({ error: profErr.message }, { status: 500 });
+    }
+
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      try {
+        const { data: compRow } = await admin
+          .from("companies")
+          .select("name, language")
+          .eq("id", companyId)
+          .maybeSingle();
+        const comp = compRow as { name?: string | null; language?: string | null } | null;
+        const companyDisplayName = (comp?.name ?? "").trim() || "MachinPro";
+        const emailLang = transactionalEmailLangFromCode(comp?.language ?? undefined);
+
+        const { data: inviterRow } = await admin
+          .from("user_profiles")
+          .select("full_name, display_name")
+          .eq("id", authz.userId)
+          .maybeSingle();
+        const ir = inviterRow as { full_name?: string | null; display_name?: string | null } | null;
+        const adminName =
+          (typeof ir?.full_name === "string" && ir.full_name.trim()) ||
+          (typeof ir?.display_name === "string" && ir.display_name.trim()) ||
+          "MachinPro";
+
+        const baseTrim = getAppBaseUrl().replace(/\/$/, "");
+        const redirectTo = `${baseTrim}/login`;
+        const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+          type: "recovery",
+          email,
+          options: { redirectTo },
+        });
+        const actionLink = linkData?.properties?.action_link;
+
+        if (linkErr || !actionLink) {
+          console.error("[api/employees/create] generateLink:", linkErr);
+        } else {
+          const logoUrl = `${baseTrim}/logo-source.png`;
+          const html = buildEmployeeInviteEmailHtml({
+            adminName,
+            companyName: companyDisplayName,
+            lang: emailLang,
+            logoUrl,
+            ctaUrl: actionLink,
+          });
+          const resendCli = new Resend(resendKey);
+          const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
+          const { error: mailErr } = await resendCli.emails.send({
+            from,
+            to: email,
+            replyTo: "machinpro.app@gmail.com",
+            subject: employeeInviteSubject(companyDisplayName, emailLang),
+            html,
+          });
+          if (mailErr) console.error("[api/employees/create] invite email:", mailErr);
+        }
+      } catch (e) {
+        console.error("[api/employees/create] invite email:", e);
+      }
     }
 
     return NextResponse.json({ id: userId });

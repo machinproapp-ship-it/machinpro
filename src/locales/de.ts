@@ -287,6 +287,8 @@ export default {
   projectFormLngPlaceholder: "Länge · -73.56",
   projectFormGpsHelp: "Zur GPS-Prüfung beim Stempeln und für Maps",
   profilePhoto: "Profilfoto",
+  emailWelcomeSubject: "Willkommen bei MachinPro",
+  emailTrialReminder: "Sie haben 14 Tage kostenlose Testversion",
   helpSectionIntro: "Anleitungen und Updates erhalten Sie von Ihrem Administrator.",
   settingsTimezone: "Zeitzone",
   settingsDateFormat: "Datumsformat",

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { getLimitsForPlan, type PlanKey } from "@/lib/stripe";
 import type { InvitationPlan } from "@/types/invitation";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
+import { getAppBaseUrl } from "@/lib/app-url";
+import { transactionalEmailLangFromCode, getTransactionalCopy } from "@/lib/emailTransactionalI18n";
+import { buildWelcomeEmailHtml } from "@/lib/transactionalEmailHtml";
 
 export const runtime = "nodejs";
 
@@ -223,6 +227,38 @@ export async function POST(req: NextRequest) {
       entity_name: companyName,
       new_value: { invitation_id: inv.id, email },
     });
+
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      try {
+        const emailLang = transactionalEmailLangFromCode(lang);
+        const copy = getTransactionalCopy(emailLang);
+        const base = getAppBaseUrl();
+        const baseTrim = base.replace(/\/$/, "");
+        const logoUrl = `${baseTrim}/logo-source.png`;
+        const ctaUrl = "https://machin.pro";
+        const html = buildWelcomeEmailHtml({
+          userName: fullName,
+          companyName,
+          lang: emailLang,
+          logoUrl,
+          ctaUrl,
+        });
+        const subject = `${copy.welcomeBrand} — ${copy.welcomeTagline}`;
+        const resend = new Resend(resendKey);
+        const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
+        const { error: mailErr } = await resend.emails.send({
+          from,
+          to: email,
+          replyTo: "machinpro.app@gmail.com",
+          subject,
+          html,
+        });
+        if (mailErr) console.error("[invitations/complete] welcome email:", mailErr);
+      } catch (e) {
+        console.error("[invitations/complete] welcome email:", e);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (e) {
