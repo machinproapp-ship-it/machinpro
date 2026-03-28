@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, type ReactNode } from "react";
-import { Sliders, Lock, Pencil, Trash2, LogOut, Bell } from "lucide-react";
+import { Sliders, Lock, Pencil, Trash2, LogOut, Bell, ChevronLeft, LifeBuoy } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
 import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotifications";
@@ -96,6 +96,17 @@ export interface SettingsModuleProps {
   /** Plan y facturación (Stripe) — solo si canViewBilling */
   billingSection?: ReactNode;
   showBillingSection?: boolean;
+  profileFullName?: string;
+  setProfileFullName?: (v: string) => void;
+  profileEmail?: string;
+  profilePhone?: string;
+  setProfilePhone?: (v: string) => void;
+  profileAvatarUrl?: string;
+  onProfileAvatarUpload?: () => void;
+  onSaveProfile?: () => void | Promise<void>;
+  profileSaveBusy?: boolean;
+  onRequestPasswordReset?: () => void | Promise<void>;
+  passwordResetBusy?: boolean;
 }
 
 export function SettingsModule({
@@ -123,6 +134,17 @@ export function SettingsModule({
   companyId = null,
   billingSection = null,
   showBillingSection = false,
+  profileFullName = "",
+  setProfileFullName,
+  profileEmail = "",
+  profilePhone = "",
+  setProfilePhone,
+  profileAvatarUrl = "",
+  onProfileAvatarUpload,
+  onSaveProfile,
+  profileSaveBusy = false,
+  onRequestPasswordReset,
+  passwordResetBusy = false,
 }: SettingsModuleProps) {
   const { showToast } = useToast();
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
@@ -134,6 +156,21 @@ export function SettingsModule({
   const [prefHazard, setPrefHazard] = useState(true);
   const [prefAction, setPrefAction] = useState(true);
   const [prefVisitor, setPrefVisitor] = useState(true);
+
+  type SettingsSectionId =
+    | "general"
+    | "profile"
+    | "company"
+    | "notifications"
+    | "regional"
+    | "compliance"
+    | "billing"
+    | "help";
+
+  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("general");
+  const [settingsMobileMenu, setSettingsMobileMenu] = useState(true);
+  const [regionalTimezone, setRegionalTimezone] = useState("Europe/Madrid");
+  const [regionalDateFormat, setRegionalDateFormat] = useState("DD/MM/YYYY");
 
   const persistPushPref = useCallback((key: "hazard" | "action" | "visitor", on: boolean) => {
     const map = { hazard: "machinpro_push_hazard", action: "machinpro_push_action", visitor: "machinpro_push_visitor" };
@@ -179,6 +216,29 @@ export function SettingsModule({
     return () => window.clearTimeout(id);
   }, [autoSetupMessage]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const tz = localStorage.getItem("machinpro_tz");
+      const df = localStorage.getItem("machinpro_date_fmt");
+      if (tz) setRegionalTimezone(tz);
+      if (df) setRegionalDateFormat(df);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const handleRegionalChange = useCallback((tz: string, df: string) => {
+    setRegionalTimezone(tz);
+    setRegionalDateFormat(df);
+    try {
+      localStorage.setItem("machinpro_tz", tz);
+      localStorage.setItem("machinpro_date_fmt", df);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const handleCountryChange = (country: string) => {
     const defaults = COUNTRY_DEFAULTS[country];
     onCountryChange(country, defaults);
@@ -192,37 +252,74 @@ export function SettingsModule({
         {t.settings}
       </h2>
 
-      {showBillingSection && billingSection ? (
-        <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/50 dark:bg-slate-800/30 p-4 sm:p-6 space-y-4">
-          <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-            {(t as Record<string, string>).settings_billing_section ?? ""}
-          </h3>
-          {billingSection}
-        </section>
-      ) : null}
+      <div className="flex flex-col gap-6 md:flex-row md:items-start">
+        <nav
+          className={`shrink-0 space-y-1 md:w-56 ${settingsMobileMenu ? "flex flex-col" : "hidden"} md:flex`}
+          aria-label={t.settings ?? "Settings"}
+        >
+          {(
+            [
+              ["general", (t as Record<string, string>).settingsGeneral ?? t.tabGeneral ?? ""] as const,
+              ["profile", (t as Record<string, string>).settingsProfile ?? ""] as const,
+              ["company", (t as Record<string, string>).settingsCompany ?? ""] as const,
+              ["notifications", (t as Record<string, string>).settingsNotifications ?? ""] as const,
+              ["regional", (t as Record<string, string>).settingsRegional ?? ""] as const,
+              ["compliance", (t as Record<string, string>).settingsCompliance ?? ""] as const,
+              ["billing", (t as Record<string, string>).settingsBilling ?? ""] as const,
+              ["help", (t as Record<string, string>).helpAndTutorials ?? ""] as const,
+            ] as const
+          )
+            .filter(([id]) => {
+              if (id === "company") return canEditCompanyProfile;
+              if (id === "notifications") return !!(session?.access_token && companyId);
+              if (id === "regional") return canManageRegionalConfig;
+              if (id === "compliance") return canManageCompliance;
+              if (id === "billing") return showBillingSection && !!billingSection;
+              return true;
+            })
+            .map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setActiveSettingsSection(id);
+                  setSettingsMobileMenu(false);
+                }}
+                className={`flex w-full min-h-[44px] items-center rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors ${
+                  activeSettingsSection === id
+                    ? "bg-amber-100 text-amber-950 dark:bg-amber-900/40 dark:text-amber-100"
+                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-slate-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+        </nav>
 
-      {session && onSignOut && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
-          >
-            <LogOut className="h-4 w-4" />
-            {t.settings_sign_out ?? "Sign out"}
-          </button>
-        </div>
-      )}
+        <div
+          className={`min-w-0 flex-1 space-y-6 ${settingsMobileMenu ? "hidden" : ""} md:block`}
+        >
+          <div className="md:hidden">
+            <button
+              type="button"
+              onClick={() => setSettingsMobileMenu(true)}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+              {t.nav_back ?? "Back"}
+            </button>
+          </div>
 
-      {autoSetupMessage && (
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-          {autoSetupMessage}
-        </div>
-      )}
-
-      <div>
-        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{t.tabGeneral ?? "General"}</h3>
-        <div className="space-y-4">
+          {activeSettingsSection === "general" && (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).settingsGeneral ?? t.tabGeneral ?? ""}
+              </h3>
+              {autoSetupMessage && (
+                <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                  {autoSetupMessage}
+                </div>
+              )}
           <div>
             <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.language}</label>
             <select
@@ -250,12 +347,123 @@ export function SettingsModule({
             </select>
           </div>
 
-          {session?.access_token && companyId && (
-            <section className="pt-4 border-t border-zinc-200 dark:border-slate-700 space-y-4">
-              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-                <Bell className="h-4 w-4 shrink-0" aria-hidden />
-                {(t as Record<string, string>).push_section_title ?? "Push notifications"}
+          {session && onSignOut && (
+            <div className="pt-4 border-t border-zinc-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 sm:w-auto"
+              >
+                <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+                {t.settings_sign_out ?? "Sign out"}
+              </button>
+            </div>
+          )}
+            </div>
+          )}
+
+          {activeSettingsSection === "profile" && setProfileFullName && setProfilePhone && onSaveProfile && (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).settingsProfile ?? (t as Record<string, string>).myProfile ?? ""}
               </h3>
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.name ?? ""}</label>
+                <input
+                  type="text"
+                  value={profileFullName}
+                  onChange={(e) => setProfileFullName(e.target.value)}
+                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.email ?? "Email"}</label>
+                <input
+                  type="email"
+                  value={profileEmail}
+                  readOnly
+                  className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-slate-600 bg-zinc-100 dark:bg-slate-800/50 px-4 py-3 text-sm text-zinc-500 min-h-[44px]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                  {(t as Record<string, string>).phone ?? "Phone"}
+                </label>
+                <input
+                  type="tel"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.language}</label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as Language)}
+                  className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.flag} {lang.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                  {(t as Record<string, string>).profilePhoto ??
+                    (t as Record<string, string>).avatar ??
+                    (t as Record<string, string>).companyLogo ??
+                    ""}
+                </label>
+                {profileAvatarUrl ? (
+                  <img
+                    src={profileAvatarUrl}
+                    alt=""
+                    className="mb-3 h-20 w-20 rounded-full object-cover border border-zinc-200 dark:border-slate-700"
+                  />
+                ) : null}
+                {onProfileAvatarUpload ? (
+                  <button
+                    type="button"
+                    onClick={onProfileAvatarUpload}
+                    className="w-full max-w-md min-h-[44px] rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm"
+                  >
+                    {t.uploadLogo ?? ""}
+                  </button>
+                ) : null}
+              </div>
+              {onRequestPasswordReset ? (
+                <button
+                  type="button"
+                  onClick={() => void onRequestPasswordReset()}
+                  disabled={passwordResetBusy}
+                  className="w-full max-w-md min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium disabled:opacity-50"
+                >
+                  {(t as Record<string, string>).changePassword ?? ""}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void onSaveProfile()}
+                disabled={profileSaveBusy}
+                className="w-full max-w-md min-h-[44px] rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+              >
+                {t.save ?? ""}
+              </button>
+            </div>
+          )}
+
+          {activeSettingsSection === "notifications" && session?.access_token && companyId && (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Bell className="h-4 w-4 shrink-0" aria-hidden />
+                {(t as Record<string, string>).settingsNotifications ??
+                  (t as Record<string, string>).push_section_title ??
+                  ""}
+              </h3>
+              <section className="space-y-4">
               <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]">
                 <span className="text-sm text-zinc-800 dark:text-zinc-200">
                   {(t as Record<string, string>).push_enable ?? "Enable push"}
@@ -365,10 +573,14 @@ export function SettingsModule({
                 ) : null}
               </div>
             </section>
+            </div>
           )}
 
-          {canEditCompanyProfile ? (
-            <>
+          {activeSettingsSection === "company" && canEditCompanyProfile ? (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).settingsCompany ?? ""}
+              </h3>
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.countryRegion ?? "País / Región"}</label>
                 <select
@@ -408,7 +620,6 @@ export function SettingsModule({
                       type="text"
                       value={companyName}
                       onChange={(e) => onCompanyNameChange(e.target.value)}
-                      placeholder="Canariense Inc"
                       className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
@@ -434,23 +645,56 @@ export function SettingsModule({
                   </div>
                 </div>
               </section>
-            </>
+            </div>
           ) : null}
 
-          {canManageRegionalConfig ? (
-            <section className="pt-4 border-t border-zinc-200 dark:border-slate-700">
-              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
-                {(t as Record<string, string>).settings_regional_advanced ?? "Configuración regional avanzada"}
+          {activeSettingsSection === "regional" && canManageRegionalConfig ? (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).settingsRegional ?? ""}
               </h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 {(t as Record<string, string>).settings_regional_advanced_hint ?? ""}
               </p>
-            </section>
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                  {(t as Record<string, string>).settingsTimezone ?? "Time zone"}
+                </label>
+                <select
+                  value={regionalTimezone}
+                  onChange={(e) => handleRegionalChange(e.target.value, regionalDateFormat)}
+                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                >
+                  <option value="Europe/Madrid">Europe / Madrid</option>
+                  <option value="Europe/London">Europe / London</option>
+                  <option value="America/Toronto">America / Toronto</option>
+                  <option value="America/New_York">America / New York</option>
+                  <option value="America/Mexico_City">America / Mexico City</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                  {(t as Record<string, string>).settingsDateFormat ?? "Date format"}
+                </label>
+                <select
+                  value={regionalDateFormat}
+                  onChange={(e) => handleRegionalChange(regionalTimezone, e.target.value)}
+                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                >
+                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                </select>
+              </div>
+            </div>
           ) : null}
 
-          {canManageCompliance ? (
-              <section className="pt-4 border-t border-zinc-200 dark:border-slate-700">
-                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{t.complianceFields ?? "Campos de Compliance"}</h3>
+          {activeSettingsSection === "compliance" && canManageCompliance ? (
+              <section className="space-y-4">
+                <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                  {(t as Record<string, string>).settingsCompliance ?? t.complianceFields ?? ""}
+                </h3>
                 <div className="space-y-2">
                   {complianceFields.map((field) => (
                     <div
@@ -539,6 +783,29 @@ export function SettingsModule({
                 </button>
               </section>
           ) : null}
+
+          {activeSettingsSection === "billing" && showBillingSection && billingSection && (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).settingsBilling ?? ""}
+              </h3>
+              <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/50 dark:bg-slate-800/30 p-4 sm:p-6">
+                {billingSection}
+              </div>
+            </div>
+          )}
+
+          {activeSettingsSection === "help" && (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                <LifeBuoy className="h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+                {(t as Record<string, string>).helpAndTutorials ?? ""}
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {(t as Record<string, string>).helpSectionIntro ?? ""}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -665,19 +932,6 @@ export function SettingsModule({
             </div>
           </div>
         </>
-      )}
-
-      {session && onSignOut && (
-        <div className="pt-6 border-t border-zinc-200 dark:border-slate-700">
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
-          >
-            <LogOut className="h-4 w-4" />
-            {t.settings_sign_out ?? "Sign out"}
-          </button>
-        </div>
       )}
     </section>
   );

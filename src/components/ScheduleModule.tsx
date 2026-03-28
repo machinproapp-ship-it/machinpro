@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
 import {
   Calendar,
   ChevronLeft,
@@ -115,6 +116,11 @@ export interface ScheduleModuleProps {
     gpsOutOfRange?: string;
     projectCodePlaceholder?: string;
     projectCodeNotFound?: string;
+    projectCode?: string;
+    projectCodeHint?: string;
+    useAnotherCode?: string;
+    backToMyProjects?: string;
+    selectProjectToClock?: string;
     editEntry?: string;
     confirmDeleteShift?: string;
     cancel?: string;
@@ -208,8 +214,10 @@ export interface ScheduleModuleProps {
   gpsStatus?: "idle" | "locating" | "ok" | "alert" | "no_gps";
   clockInAlertMessage?: string | null;
   onDismissClockInAlert?: () => void;
-  onClockIn?: () => void;
+  onClockIn?: (override?: { projectId?: string; projectCode?: string }) => void;
   onClockOut?: () => void;
+  /** Proyectos asignados al usuario para fichaje inteligente (sin turno / código libre). */
+  assignedClockInProjects?: ClockInAssignedProject[];
   /** full_name/display_name/email y mapeo demo e1… desde page */
   employeeLabels?: Record<string, string>;
   /** AW-6: ids del usuario actual (perfil y/o employee_id) para abrir vista jornada. */
@@ -644,6 +652,7 @@ export default function ScheduleModule({
   onDismissClockInAlert,
   onClockIn,
   onClockOut,
+  assignedClockInProjects = [],
   customRoles = [],
   employeeLabels = {},
   scheduleSelfIds = [],
@@ -664,6 +673,7 @@ export default function ScheduleModule({
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deleteConfirmEntryId, setDeleteConfirmEntryId] = useState<string | null>(null);
+  const [clockInManualNeeded, setClockInManualNeeded] = useState(true);
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -1305,18 +1315,22 @@ export default function ScheduleModule({
                       )}
                     </div>
                   )}
-                  {!todayEntry?.clockOut && (
-                    <div>
-                      <input
-                        type="text"
-                        value={clockInProjectCode}
-                        onChange={(e) =>
-                          setClockInProjectCode?.(e.target.value.toUpperCase())
+                  {!todayEntry && setClockInProjectCode && (
+                    <>
+                      <ClockInProjectPicker
+                        lx={lx}
+                        assignedProjects={assignedClockInProjects}
+                        clockInProjectCode={clockInProjectCode}
+                        setClockInProjectCode={setClockInProjectCode}
+                        onSelectProjectClockIn={(p) =>
+                          onClockIn?.({
+                            projectId: p.id,
+                            projectCode: p.projectCode,
+                          })
                         }
-                        placeholder={labels.projectCodePlaceholder ?? "Código de proyecto (ej: MON-01)"}
-                        className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-mono tracking-wider uppercase text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[44px]"
+                        onManualClockInNeededChange={setClockInManualNeeded}
                       />
-                      {clockInProjectCode &&
+                      {clockInManualNeeded && clockInProjectCode ? (
                         (() => {
                           const found = projects.find(
                             (p) =>
@@ -1324,35 +1338,38 @@ export default function ScheduleModule({
                               clockInProjectCode.trim().toUpperCase()
                           );
                           return found ? (
-                            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400 -mt-1">
                               ✓ {found.name}
                             </p>
                           ) : (
-                            <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                            <p className="text-xs text-red-500 dark:text-red-400 -mt-1">
                               {labels.projectCodeNotFound ?? "Código no encontrado"}
                             </p>
                           );
-                        })()}
-                    </div>
+                        })()
+                      ) : null}
+                    </>
                   )}
                   <div className="grid grid-cols-1 gap-3">
                     {!todayEntry ? (
-                      <button
-                        type="button"
-                        onClick={onClockIn}
-                        disabled={gpsStatus === "locating"}
-                        className="h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-base disabled:opacity-60 transition-colors"
-                      >
-                        {gpsStatus === "locating"
-                          ? (labels.gpsLocating ?? "Obteniendo ubicación…")
-                          : (labels.clockIn ?? "Fichar Entrada")}
-                      </button>
+                      clockInManualNeeded ? (
+                        <button
+                          type="button"
+                          onClick={() => onClockIn?.()}
+                          disabled={gpsStatus === "locating"}
+                          className="h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-base disabled:opacity-60 transition-colors min-h-[44px]"
+                        >
+                          {gpsStatus === "locating"
+                            ? (labels.gpsLocating ?? "Obteniendo ubicación…")
+                            : (labels.clockIn ?? "Fichar Entrada")}
+                        </button>
+                      ) : null
                     ) : !todayEntry.clockOut ? (
                       <button
                         type="button"
                         onClick={onClockOut}
                         disabled={gpsStatus === "locating"}
-                        className="h-14 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-semibold text-base disabled:opacity-60 transition-colors"
+                        className="h-14 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-semibold text-base disabled:opacity-60 transition-colors min-h-[44px]"
                       >
                         {gpsStatus === "locating"
                           ? (labels.gpsLocating ?? "Obteniendo ubicación…")

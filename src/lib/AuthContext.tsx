@@ -23,6 +23,8 @@ interface UserProfile {
   isSuperadmin?: boolean;
   /** Preferencia de idioma (`user_profiles.locale`). */
   locale?: Language | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface AuthContextValue {
@@ -69,6 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const localeRaw =
         row.locale != null && String(row.locale).trim() ? String(row.locale).trim() : null;
       const locale = isValidLanguage(localeRaw) ? localeRaw : null;
+      const phoneRaw = row.phone;
+      const avatarRaw = row.avatar_url;
       setProfile({
         id: data.id,
         employeeId: data.employee_id ?? null,
@@ -80,6 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         isSuperadmin: superRow.is_superadmin === true,
         locale,
+        phone: typeof phoneRaw === "string" && phoneRaw.trim() ? phoneRaw.trim() : null,
+        avatarUrl: typeof avatarRaw === "string" && avatarRaw.trim() ? avatarRaw.trim() : null,
       });
     } else {
       setProfile(null);

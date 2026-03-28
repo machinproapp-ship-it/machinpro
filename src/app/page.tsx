@@ -43,6 +43,7 @@ import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
+import { useToast } from "@/components/Toast";
 import type { AuthChangeEvent, PostgrestResponse, Session } from "@supabase/supabase-js";
 import {
   LogOut,
@@ -795,6 +796,7 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState(true);
 
   const { user, profile, signOut, syncSession } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     void supabase.auth.getSession().then((result: AuthGetSessionResult) => {
@@ -1995,7 +1997,6 @@ export default function Home() {
   const [projectFormType, setProjectFormType] = useState<ProjectType>("residential");
   const [projectFormLocation, setProjectFormLocation] = useState("");
   const [projectFormBudget, setProjectFormBudget] = useState("");
-  const [projectFormSpent, setProjectFormSpent] = useState("");
   const [projectFormStart, setProjectFormStart] = useState("");
   const [projectFormEnd, setProjectFormEnd] = useState("");
   const [projectFormLat, setProjectFormLat] = useState("");
@@ -2077,6 +2078,133 @@ export default function Home() {
     () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),
     [profile?.id, effectiveEmployeeId]
   );
+
+  const assignedClockInProjects = useMemo(() => {
+    const ids = new Set(scheduleSelfIds);
+    return (projects ?? [])
+      .filter(
+        (p) =>
+          !p.archived && (p.assignedEmployeeIds ?? []).some((eid) => ids.has(eid))
+      )
+      .map((p) => ({ id: p.id, name: p.name, projectCode: p.projectCode }));
+  }, [projects, scheduleSelfIds]);
+
+  const [profileEditName, setProfileEditName] = useState("");
+  const [profileEditPhone, setProfileEditPhone] = useState("");
+  const [profileEditAvatarUrl, setProfileEditAvatarUrl] = useState("");
+  const [profileSaveBusy, setProfileSaveBusy] = useState(false);
+  const [passwordResetBusy, setPasswordResetBusy] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    setProfileEditName(profile.fullName ?? "");
+    setProfileEditPhone(profile.phone ?? "");
+    setProfileEditAvatarUrl(profile.avatarUrl ?? "");
+  }, [profile?.id, profile?.fullName, profile?.phone, profile?.avatarUrl]);
+
+  const handleProfileAvatarUpload = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) return;
+    const cloudinary = (
+      window as unknown as {
+        cloudinary?: {
+          openUploadWidget: (
+            options: unknown,
+            callback: (
+              error: unknown,
+              result: { event?: string; info?: { secure_url: string } }
+            ) => void
+          ) => void;
+        };
+      }
+    ).cloudinary;
+    if (!cloudinary?.openUploadWidget) return;
+    cloudinary.openUploadWidget(
+      {
+        cloudName,
+        uploadPreset,
+        sources: ["local", "camera"],
+        multiple: false,
+        maxFileSize: 5000000,
+        cropping: true,
+        croppingAspectRatio: 1,
+        croppingDefaultSelectionRatio: 0.9,
+        folder: "machinpro/avatars",
+        clientAllowedFormats: ["png", "jpg", "jpeg", "webp"],
+        showAdvancedOptions: false,
+        showCompletedButton: true,
+        theme: "minimal",
+      },
+      (error: unknown, result: { event?: string; info?: { secure_url: string } }) => {
+        if (!error && result?.event === "success" && result?.info?.secure_url) {
+          setProfileEditAvatarUrl(result.info.secure_url);
+        }
+      }
+    );
+  }, []);
+
+  const handleSaveUserProfile = useCallback(async () => {
+    if (!supabase || !user?.id) return;
+    setProfileSaveBusy(true);
+    const { error } = await supabase
+      .from("user_profiles")
+      .update({
+        full_name: profileEditName.trim() || null,
+        phone: profileEditPhone.trim() || null,
+        avatar_url: profileEditAvatarUrl.trim() || null,
+      })
+      .eq("id", user.id);
+    setProfileSaveBusy(false);
+    if (error) {
+      showToast("error", error.message);
+      return;
+    }
+    await syncSession();
+    const uid = user.id;
+    const eid = profile?.employeeId;
+    setEmployees((prev) =>
+      prev.map((em) =>
+        em.id === uid || (eid && em.id === eid)
+          ? {
+              ...em,
+              name: profileEditName.trim() || em.name,
+              phone: profileEditPhone.trim() || em.phone,
+            }
+          : em
+      )
+    );
+    showToast("success", (t as Record<string, string>).toast_saved ?? "Guardado");
+  }, [
+    supabase,
+    user?.id,
+    profileEditName,
+    profileEditPhone,
+    profileEditAvatarUrl,
+    profile?.employeeId,
+    syncSession,
+    showToast,
+    t,
+  ]);
+
+  const handleRequestPasswordReset = useCallback(async () => {
+    const email = profile?.email ?? user?.email;
+    if (!email || !supabase) return;
+    setPasswordResetBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: typeof window !== "undefined" ? `${window.location.origin}/` : undefined,
+    });
+    setPasswordResetBusy(false);
+    if (error) {
+      showToast("error", error.message);
+      return;
+    }
+    showToast(
+      "success",
+      (t as Record<string, string>).passwordResetEmailSent ?? "Revisa tu correo"
+    );
+  }, [profile?.email, user?.email, supabase, showToast, t]);
 
   const openEmployeeShiftDay = useCallback((date: string, entryId: string) => {
     setEmployeeShiftDayOpen({ date, entryId });
@@ -2971,7 +3099,6 @@ export default function Home() {
     setProjectFormType((p?.type as ProjectType) ?? "residential");
     setProjectFormLocation(p?.location ?? "");
     setProjectFormBudget(String(p?.budgetCAD ?? ""));
-    setProjectFormSpent(String(p?.spentCAD ?? ""));
     setProjectFormStart(p?.estimatedStart ?? "");
     setProjectFormEnd(p?.estimatedEnd ?? "");
     setProjectFormLat(String(p?.locationLat ?? ""));
@@ -2983,14 +3110,20 @@ export default function Home() {
     setEditingProjectId(null);
   }
   function saveProjectForm() {
-    const name = projectFormName.trim() || (editingProjectId ? projects.find((p) => p.id === editingProjectId)?.name : null) || "Nuevo proyecto";
+    const existingProject = editingProjectId
+      ? projects.find((p) => p.id === editingProjectId)
+      : undefined;
+    const name =
+      projectFormName.trim() ||
+      existingProject?.name ||
+      `${(t as Record<string, string>).addNew ?? ""} ${t.projects ?? ""}`.trim();
     const payload = {
       name,
       projectCode: projectFormCode.trim().toUpperCase() || undefined,
       type: projectFormType,
       location: projectFormLocation.trim(),
       budgetCAD: parseFloat(projectFormBudget) || 0,
-      spentCAD: parseFloat(projectFormSpent) || 0,
+      spentCAD: existingProject?.spentCAD ?? 0,
       estimatedStart: projectFormStart || new Date().toISOString().slice(0, 10),
       estimatedEnd: projectFormEnd || new Date().toISOString().slice(0, 10),
       locationLat: parseFloat(projectFormLat) || undefined,
@@ -3967,6 +4100,11 @@ export default function Home() {
                   gpsOutOfRange: (t as Record<string, string>).gpsOutOfRange ?? "Fuera de rango GPS",
                   projectCodePlaceholder: (t as Record<string, string>).projectCodePlaceholder ?? "Código de proyecto (ej: MON-01)",
                   projectCodeNotFound: (t as Record<string, string>).projectCodeNotFound ?? "Código no encontrado",
+                  projectCode: (t as Record<string, string>).projectCode,
+                  projectCodeHint: (t as Record<string, string>).projectCodeHint,
+                  useAnotherCode: (t as Record<string, string>).useAnotherCode,
+                  backToMyProjects: (t as Record<string, string>).backToMyProjects,
+                  selectProjectToClock: (t as Record<string, string>).selectProjectToClock,
                   editEntry: (t as Record<string, string>).editEntry ?? "Editar turno",
                   confirmDeleteShift: (t as Record<string, string>).confirmDeleteShift ?? "¿Eliminar este turno? Esta acción no se puede deshacer",
                   cancel: t.cancel,
@@ -4048,6 +4186,7 @@ export default function Home() {
                 onClockOut={handleClockOut}
                 onOpenMyShiftView={openEmployeeShiftDay}
                 scheduleSelfIds={scheduleSelfIds}
+                assignedClockInProjects={assignedClockInProjects}
               />
             )}
 
@@ -4199,6 +4338,17 @@ export default function Home() {
                     />
                   ) : null
                 }
+                profileFullName={profileEditName}
+                setProfileFullName={setProfileEditName}
+                profileEmail={profile?.email ?? user?.email ?? ""}
+                profilePhone={profileEditPhone}
+                setProfilePhone={setProfileEditPhone}
+                profileAvatarUrl={profileEditAvatarUrl}
+                onProfileAvatarUpload={handleProfileAvatarUpload}
+                onSaveProfile={() => void handleSaveUserProfile()}
+                profileSaveBusy={profileSaveBusy}
+                onRequestPasswordReset={() => void handleRequestPasswordReset()}
+                passwordResetBusy={passwordResetBusy}
               />
             )}
 
@@ -4472,111 +4622,100 @@ export default function Home() {
           <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeProjectForm} />
           <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
-              {editingProjectId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")} proyecto
+              {editingProjectId ? (t.edit ?? "") : (t.addNew ?? "")}{(t as Record<string, string>).projectFormTitleSuffix ?? ""}
             </h3>
             <div className="space-y-3">
-
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Nombre *
+                  {(t as Record<string, string>).projectFormNameLabel ?? `${t.name} *`}
                 </label>
                 <input type="text" value={projectFormName}
                   onChange={(e) => setProjectFormName(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Código de proyecto
+                  {(t as Record<string, string>).projectFormCodeLabel ?? ""}
                 </label>
                 <input type="text" value={projectFormCode}
                   onChange={(e) => setProjectFormCode(e.target.value.toUpperCase())}
                   placeholder="MON-01" maxLength={10}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono tracking-wider text-zinc-900 dark:text-zinc-100 uppercase" />
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono tracking-wider text-zinc-900 dark:text-zinc-100 uppercase" />
                 <p className="text-xs text-zinc-400 mt-1">
-                  El trabajador usa este código para fichar en esta obra
+                  {(t as Record<string, string>).projectFormCodeHelp ?? ""}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Tipo de proyecto
+                  {(t as Record<string, string>).projectFormTypeLabel ?? ""}
                 </label>
                 <select value={projectFormType}
                   onChange={(e) => setProjectFormType(e.target.value as ProjectType)}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
-                  <option value="residential">Residencial</option>
-                  <option value="commercial">Comercial</option>
-                  <option value="industrial">Industrial</option>
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
+                  <option value="residential">{(t as Record<string, string>).projectTypeResidential ?? ""}</option>
+                  <option value="commercial">{(t as Record<string, string>).projectTypeCommercial ?? ""}</option>
+                  <option value="industrial">{(t as Record<string, string>).projectTypeIndustrial ?? ""}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Ubicación
+                  {(t as Record<string, string>).projectFormLocationLabel ?? ""}
                 </label>
                 <input type="text" value={projectFormLocation}
                   onChange={(e) => setProjectFormLocation(e.target.value)}
-                  placeholder="Ciudad, Provincia, País"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+                  placeholder={(t as Record<string, string>).projectFormLocationPlaceholder ?? ""}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).projectFormBudgetTotal ?? ""}
+                </label>
+                <input type="number" min={0} value={projectFormBudget}
+                  onChange={(e) => setProjectFormBudget(e.target.value)}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Presupuesto total (CAD)
-                  </label>
-                  <input type="number" min={0} value={projectFormBudget}
-                    onChange={(e) => setProjectFormBudget(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Presupuesto consumido (CAD)
-                  </label>
-                  <input type="number" min={0} value={projectFormSpent}
-                    onChange={(e) => setProjectFormSpent(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Fecha inicio
+                    {(t as Record<string, string>).projectFormDateStart ?? ""}
                   </label>
                   <input type="date" value={projectFormStart}
                     onChange={(e) => setProjectFormStart(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Fecha fin
+                    {(t as Record<string, string>).projectFormDateEnd ?? ""}
                   </label>
                   <input type="date" value={projectFormEnd}
                     onChange={(e) => setProjectFormEnd(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Coordenadas GPS (opcional)
+                  {(t as Record<string, string>).projectFormGpsOptional ?? ""}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <input type="number" step="0.000001"
                     value={projectFormLat}
                     onChange={(e) => setProjectFormLat(e.target.value)}
-                    placeholder="Latitud · 45.50"
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+                    placeholder={(t as Record<string, string>).projectFormLatPlaceholder ?? ""}
+                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
                   <input type="number" step="0.000001"
                     value={projectFormLng}
                     onChange={(e) => setProjectFormLng(e.target.value)}
-                    placeholder="Longitud · -73.56"
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+                    placeholder={(t as Record<string, string>).projectFormLngPlaceholder ?? ""}
+                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
                 </div>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Para verificar GPS al fichar y enlace Maps
+                  {(t as Record<string, string>).projectFormGpsHelp ?? ""}
                 </p>
               </div>
 
@@ -4888,11 +5027,25 @@ export default function Home() {
           gpsStatus={clockInGpsStatus}
           clockInAlertMessage={clockInAlertMessage}
           onDismissClockInAlert={() => setClockInAlertMessage(null)}
-          onClockIn={() => {
+          onClockIn={(override) => {
             const pid = employeeShiftModalModel.entry.projectId;
             const pcode = employeeShiftModalModel.entry.projectCode;
-            void handleClockIn(pid ? { projectId: pid, projectCode: pcode } : pcode ? { projectCode: pcode } : undefined);
+            if (override) {
+              void handleClockIn(override);
+              return;
+            }
+            void handleClockIn(
+              pid ? { projectId: pid, projectCode: pcode } : pcode ? { projectCode: pcode } : undefined
+            );
           }}
+          assignedClockInProjects={assignedClockInProjects}
+          clockInProjectCode={clockInProjectCode}
+          setClockInProjectCode={setClockInProjectCode}
+          clockProjectsForHint={projects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            projectCode: p.projectCode,
+          }))}
           onClockOut={handleClockOut}
           tasks={employeeShiftModalModel.shiftTasks}
           onToggleProjectTask={(taskId, completed) => {
