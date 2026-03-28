@@ -78,7 +78,10 @@ export interface SettingsModuleProps {
   setCurrency: (c: string) => void;
   measurementSystem: "metric" | "imperial";
   setMeasurementSystem: (v: "metric" | "imperial") => void;
-  canEditSettings: boolean;
+  canEditCompanyProfile: boolean;
+  canManageCompliance: boolean;
+  canManageProjectVisitors: boolean;
+  canManageRegionalConfig: boolean;
   companyCountry: string;
   onCountryChange: (country: string, defaults?: { currency: string; measurementSystem: "metric" | "imperial" }) => void;
   companyName: string;
@@ -103,7 +106,10 @@ export function SettingsModule({
   setCurrency,
   measurementSystem,
   setMeasurementSystem,
-  canEditSettings,
+  canEditCompanyProfile,
+  canManageCompliance,
+  canManageProjectVisitors,
+  canManageRegionalConfig,
   companyCountry,
   onCountryChange,
   companyName,
@@ -301,43 +307,67 @@ export function SettingsModule({
                 />
               </label>
               <div className="space-y-2">
-                {(
-                  [
-                    ["hazard", prefHazard, "push_type_hazard"] as const,
-                    ["action", prefAction, "push_type_action"] as const,
-                    ["visitor", prefVisitor, "push_type_visitor"] as const,
-                  ] as const
-                ).map(([key, checked, labelKey]) => (
-                  <label
-                    key={key}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer"
-                  >
+                {canManageCompliance
+                  ? (
+                    [
+                      ["hazard", prefHazard, "push_type_hazard"] as const,
+                      ["action", prefAction, "push_type_action"] as const,
+                    ] as const
+                  ).map(([key, checked, labelKey]) => (
+                    <label
+                      key={key}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer"
+                    >
+                      <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                        {(t as Record<string, string>)[labelKey] ?? labelKey}
+                      </span>
+                      <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={checked}
+                          onChange={(ev) => persistPushPref(key, ev.target.checked)}
+                        />
+                        <span
+                          className={`relative h-7 w-12 rounded-full transition-colors ${checked ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
+                          aria-hidden
+                        >
+                          <span
+                            className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[22px]" : ""}`}
+                          />
+                        </span>
+                      </span>
+                    </label>
+                  ))
+                  : null}
+                {canManageProjectVisitors ? (
+                  <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer">
                     <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                      {(t as Record<string, string>)[labelKey] ?? labelKey}
+                      {(t as Record<string, string>).push_type_visitor ?? "push_type_visitor"}
                     </span>
                     <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
                       <input
                         type="checkbox"
                         className="sr-only"
-                        checked={checked}
-                        onChange={(ev) => persistPushPref(key, ev.target.checked)}
+                        checked={prefVisitor}
+                        onChange={(ev) => persistPushPref("visitor", ev.target.checked)}
                       />
                       <span
-                        className={`relative h-7 w-12 rounded-full transition-colors ${checked ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
+                        className={`relative h-7 w-12 rounded-full transition-colors ${prefVisitor ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
                         aria-hidden
                       >
                         <span
-                          className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[22px]" : ""}`}
+                          className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${prefVisitor ? "translate-x-[22px]" : ""}`}
                         />
                       </span>
                     </span>
                   </label>
-                ))}
+                ) : null}
               </div>
             </section>
           )}
 
-          {canEditSettings && (
+          {canEditCompanyProfile ? (
             <>
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.countryRegion ?? "País / Región"}</label>
@@ -404,7 +434,21 @@ export function SettingsModule({
                   </div>
                 </div>
               </section>
+            </>
+          ) : null}
 
+          {canManageRegionalConfig ? (
+            <section className="pt-4 border-t border-zinc-200 dark:border-slate-700">
+              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
+                {(t as Record<string, string>).settings_regional_advanced ?? "Configuración regional avanzada"}
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {(t as Record<string, string>).settings_regional_advanced_hint ?? ""}
+              </p>
+            </section>
+          ) : null}
+
+          {canManageCompliance ? (
               <section className="pt-4 border-t border-zinc-200 dark:border-slate-700">
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{t.complianceFields ?? "Campos de Compliance"}</h3>
                 <div className="space-y-2">
@@ -494,12 +538,11 @@ export function SettingsModule({
                   + {t.addComplianceField ?? "Añadir campo de compliance"}
                 </button>
               </section>
-            </>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {complianceModalOpen && canEditSettings && onComplianceFieldsChange && (
+      {complianceModalOpen && canManageCompliance && onComplianceFieldsChange && (
         <>
           <div className="fixed inset-0 z-50 bg-black/50" aria-hidden onClick={() => { setComplianceModalOpen(false); setEditingComplianceField(null); }} />
           <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>

@@ -76,6 +76,9 @@ export default {
   lightMode: "Modo claro",
   tabGeneral: "General",
   settings_sign_out: "Cerrar sesión",
+  settings_regional_advanced: "Configuración regional avanzada",
+  settings_regional_advanced_hint:
+    "Zona horaria, formatos de fecha y otras preferencias regionales de la empresa las gestiona quien tenga este permiso.",
   tabRegions: "Regiones",
   language: "Idioma",
   currency: "Moneda",

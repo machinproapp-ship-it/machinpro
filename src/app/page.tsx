@@ -1557,7 +1557,7 @@ export default function Home() {
 
   const [dailyReports, setDailyReports] = useState<DailyFieldReport[]>([]);
   const [teamProfiles, setTeamProfiles] = useState<
-    { id: string; employeeId: string | null; name: string }[]
+    { id: string; employeeId: string | null; name: string; email?: string }[]
   >([]);
 
   const reloadDailyReports = useCallback(async () => {
@@ -1578,7 +1578,7 @@ export default function Home() {
     void (async () => {
       const { data } = await supabase
         .from("user_profiles")
-        .select("id, employee_id, full_name, display_name")
+        .select("id, employee_id, full_name, display_name, email")
         .eq("company_id", companyId);
       if (cancelled) return;
       setTeamProfiles(
@@ -1586,10 +1586,13 @@ export default function Home() {
           const id = String(row.id ?? "");
           const fn = typeof row.full_name === "string" ? row.full_name.trim() : "";
           const dn = typeof row.display_name === "string" ? row.display_name.trim() : "";
+          const em = typeof row.email === "string" ? row.email.trim() : "";
+          const name = fn || dn || em || "";
           return {
             id,
             employeeId: row.employee_id != null ? String(row.employee_id) : null,
-            name: fn || dn || "",
+            name,
+            email: em || undefined,
           };
         })
       );
@@ -2252,6 +2255,28 @@ export default function Home() {
     }
     return out;
   }, [vacationRequests, userToEmployeeMap, employees]);
+
+  /** Resuelve nombres en turnos (IDs de perfil, employee_id legacy, o demo e1/e2). */
+  const scheduleEmployeeLabels = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const e of INITIAL_EMPLOYEES) {
+      m[e.id] = (e.name ?? "").trim() || (e.email ?? "").trim() || e.id;
+    }
+    for (const e of employees) {
+      const nm = (e.name ?? "").trim();
+      const em = (e.email ?? "").trim();
+      m[e.id] = nm || em || e.id;
+    }
+    for (const p of teamProfiles) {
+      const lbl =
+        (p.name ?? "").trim() ||
+        (p.email ?? "").trim() ||
+        p.id;
+      m[p.id] = lbl;
+      if (p.employeeId) m[p.employeeId] = lbl;
+    }
+    return m;
+  }, [employees, teamProfiles]);
 
   const handleAddBlueprint = (bp: Blueprint) => {
     setBlueprints((prev) => [...prev, bp]);
@@ -3563,6 +3588,7 @@ export default function Home() {
                   location: p.location,
                 }))}
                 currentUserEmployeeId={currentUserEmployeeId ?? undefined}
+                employeeLabels={scheduleEmployeeLabels}
                 canWrite={!!rolePerms.canCreateShifts}
                 canClockIn={effectiveRole !== "admin"}
                 viewAll={!!rolePerms.canViewSchedule}
@@ -3770,6 +3796,10 @@ export default function Home() {
                   uploadLogo: (t as Record<string, string>).uploadLogo ?? "Subir logo",
                   countryRegion: (t as Record<string, string>).countryRegion ?? "País / Región",
                   autoSetupConfirm: (t as Record<string, string>).autoSetupConfirm ?? "País actualizado — moneda y medidas configuradas",
+                  settings_regional_advanced: (t as Record<string, string>).settings_regional_advanced ?? "Configuración regional avanzada",
+                  settings_regional_advanced_hint:
+                    (t as Record<string, string>).settings_regional_advanced_hint ??
+                    "Opciones regionales adicionales (zona horaria, formatos) gestionadas por el administrador.",
                 }}
                 language={language}
                 setLanguage={(lang) => setLanguage(lang)}
@@ -3777,14 +3807,10 @@ export default function Home() {
                 setCurrency={(c) => setCurrency(c as Currency)}
                 measurementSystem={measurementSystem}
                 setMeasurementSystem={setMeasurementSystem}
-                canEditSettings={
-                  !!(
-                    rolePerms.canEditCompanyProfile ||
-                    rolePerms.canManageNotifications ||
-                    rolePerms.canManageRegionalConfig ||
-                    rolePerms.canManageCompliance
-                  )
-                }
+                canEditCompanyProfile={!!rolePerms.canEditCompanyProfile}
+                canManageCompliance={!!rolePerms.canManageCompliance}
+                canManageProjectVisitors={!!rolePerms.canManageProjectVisitors}
+                canManageRegionalConfig={!!rolePerms.canManageRegionalConfig}
                 companyCountry={companyCountry}
                 onCountryChange={(country, defaults) => {
                   setCompanyCountry(country);
@@ -3804,7 +3830,7 @@ export default function Home() {
                 session={session}
                 onSignOut={() => void handleLogout()}
                 companyId={companyId}
-                showBillingSection={effectiveRole === "admin" || !!rolePerms.canViewBilling}
+                showBillingSection={!!rolePerms.canViewBilling}
                 billingSection={
                   companyId ? (
                     <BillingModule

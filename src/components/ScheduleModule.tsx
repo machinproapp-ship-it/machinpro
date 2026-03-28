@@ -208,6 +208,8 @@ export interface ScheduleModuleProps {
   onDismissClockInAlert?: () => void;
   onClockIn?: () => void;
   onClockOut?: () => void;
+  /** full_name/display_name/email y mapeo demo e1… desde page */
+  employeeLabels?: Record<string, string>;
 }
 
 function startOfWeek(date: Date): Date {
@@ -386,6 +388,7 @@ function TimesheetsView({
   currentUserEmployeeId,
   viewAll,
   labels,
+  employeeLabels = {},
 }: {
   clockEntries: ClockEntryForSchedule[];
   employees: SchedEmployee[];
@@ -393,6 +396,7 @@ function TimesheetsView({
   currentUserEmployeeId?: string;
   viewAll: boolean;
   labels: ScheduleModuleProps["labels"];
+  employeeLabels?: Record<string, string>;
 }) {
   const [periodType, setPeriodType] = useState<"weekly" | "biweekly" | "monthly">("weekly");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
@@ -635,6 +639,7 @@ export default function ScheduleModule({
   onClockIn,
   onClockOut,
   customRoles = [],
+  employeeLabels = {},
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const today = new Date();
@@ -707,6 +712,15 @@ export default function ScheduleModule({
 
   const getProject = (id?: string) => projects.find((p) => p.id === id);
   const getEmployee = (id: string) => employees.find((e) => e.id === id);
+  const resolveSchedulePerson = useCallback(
+    (id: string) => employeeLabels[id] ?? getEmployee(id)?.name ?? id,
+    [employeeLabels, employees]
+  );
+  const formatEntryAssignees = useCallback(
+    (entry: SchedEntry) =>
+      (entry.employeeIds ?? []).map((id) => resolveSchedulePerson(id)).filter(Boolean).join(", "),
+    [resolveSchedulePerson]
+  );
 
   const mapsUrl = (proj: SchedProject) =>
     proj.locationLat != null && proj.locationLng != null
@@ -1099,6 +1113,7 @@ export default function ScheduleModule({
           currentUserEmployeeId={currentUserEmployeeId ?? undefined}
           viewAll={viewAll}
           labels={labels}
+          employeeLabels={employeeLabels}
         />
       )}
 
@@ -1182,10 +1197,7 @@ export default function ScheduleModule({
                         </div>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 flex items-center gap-1">
                           <Users className="h-3.5 w-3.5 shrink-0" />
-                          {entry.employeeIds
-                            .map((id) => getEmployee(id)?.name ?? id)
-                            .filter(Boolean)
-                            .join(", ")}
+                          {formatEntryAssignees(entry)}
                         </p>
                         {entry.notes && entry.type === "shift" && (
                           <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
