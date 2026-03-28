@@ -180,6 +180,8 @@ export interface ScheduleModuleProps {
     worker?: string;
     logistic?: string;
     whFilterAll?: string;
+    openInMaps?: string;
+    viewMyShift?: string;
   };
   customRoles?: { id: string; name: string }[];
   canApproveVacations?: boolean;
@@ -210,6 +212,10 @@ export interface ScheduleModuleProps {
   onClockOut?: () => void;
   /** full_name/display_name/email y mapeo demo e1… desde page */
   employeeLabels?: Record<string, string>;
+  /** AW-6: ids del usuario actual (perfil y/o employee_id) para abrir vista jornada. */
+  scheduleSelfIds?: string[];
+  /** AW-6: vista completa de jornada (solo turnos propios, !viewAll). */
+  onOpenMyShiftView?: (date: string, entryId: string) => void;
 }
 
 function startOfWeek(date: Date): Date {
@@ -640,6 +646,8 @@ export default function ScheduleModule({
   onClockOut,
   customRoles = [],
   employeeLabels = {},
+  scheduleSelfIds = [],
+  onOpenMyShiftView,
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const today = new Date();
@@ -720,6 +728,14 @@ export default function ScheduleModule({
     (entry: SchedEntry) =>
       (entry.employeeIds ?? []).map((id) => resolveSchedulePerson(id)).filter(Boolean).join(", "),
     [resolveSchedulePerson]
+  );
+
+  const isSelfShift = useCallback(
+    (entry: SchedEntry) =>
+      entry.type === "shift" &&
+      scheduleSelfIds.length > 0 &&
+      (entry.employeeIds ?? []).some((id) => scheduleSelfIds.includes(id)),
+    [scheduleSelfIds]
   );
 
   const mapsUrl = (proj: SchedProject) =>
@@ -1017,16 +1033,25 @@ export default function ScheduleModule({
                   : dayEntries.length > 3
                     ? dayEntries.length - 3
                     : 0;
+                const openDayPanel = () => {
+                  const dayList = entriesForDay(ymd);
+                  const myShifts = !viewAll && onOpenMyShiftView ? dayList.filter(isSelfShift) : [];
+                  if (myShifts.length === 1) {
+                    onOpenMyShiftView!(ymd, myShifts[0]!.id);
+                    return;
+                  }
+                  setSelectedDay(ymd);
+                };
                 return (
                   <div
                     key={ymd}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedDay(ymd)}
+                    onClick={openDayPanel}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setSelectedDay(ymd);
+                        openDayPanel();
                       }
                     }}
                     className={`rounded-xl border p-1.5 sm:p-2 h-16 min-h-[64px] sm:h-24 sm:min-h-[96px] flex flex-col gap-0.5 cursor-pointer hover:ring-2 hover:ring-amber-400/50 transition-shadow ${
@@ -1059,6 +1084,25 @@ export default function ScheduleModule({
                           {displayEntries.map((entry) => (
                             <div
                               key={entry.id}
+                              role={!viewAll && onOpenMyShiftView && isSelfShift(entry) ? "button" : undefined}
+                              tabIndex={!viewAll && onOpenMyShiftView && isSelfShift(entry) ? 0 : undefined}
+                              onClick={(e) => {
+                                if (!viewAll && onOpenMyShiftView && isSelfShift(entry)) {
+                                  e.stopPropagation();
+                                  onOpenMyShiftView(ymd, entry.id);
+                                }
+                              }}
+                              onKeyDown={
+                                !viewAll && onOpenMyShiftView && isSelfShift(entry)
+                                  ? (e) => {
+                                      if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onOpenMyShiftView(ymd, entry.id);
+                                      }
+                                    }
+                                  : undefined
+                              }
                               className={`rounded px-1 py-0.5 text-[10px] truncate ${entryColor(entry)}`}
                               title={`${entry.startTime}–${entry.endTime} ${
                                 entry.type === "shift"
@@ -1209,11 +1253,23 @@ export default function ScheduleModule({
                             href={mapsUrl(proj)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
+                            className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline min-h-[44px] items-center"
                           >
                             <MapPin className="h-3.5 w-3.5" />
-                            Ver en Maps
+                            {(labels as Record<string, string>).openInMaps ?? "Maps"}
                           </a>
+                        )}
+                        {!viewAll && onOpenMyShiftView && isSelfShift(entry) && selectedDay && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onOpenMyShiftView(selectedDay, entry.id);
+                              setSelectedDay(null);
+                            }}
+                            className="mt-3 w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold"
+                          >
+                            {(labels as Record<string, string>).viewMyShift ?? "Ver mi jornada"}
+                          </button>
                         )}
                       </li>
                     );

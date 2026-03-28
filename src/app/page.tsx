@@ -32,6 +32,7 @@ import type { ProjectTask } from "@/types/projectTask";
 import { SettingsModule } from "@/components/SettingsModule";
 import { OperationsModule } from "@/components/OperationsModule";
 import ScheduleModule from "@/components/ScheduleModule";
+import { EmployeeShiftDayView } from "@/components/EmployeeShiftDayView";
 import { FormsModule } from "@/components/FormsModule";
 import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
@@ -688,6 +689,27 @@ function permissionsToModule(p: RolePermissions): ModulePermissions {
     canAccessSecurity: p.canViewSecurity,
     canViewSettings: p.canViewSettings,
   };
+}
+
+function localTodayYmd(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatWorkedFromClockPair(clockIn: string, clockOut: string): string {
+  const [ih, im] = clockIn.split(":").map((x) => parseInt(x, 10));
+  const [oh, om] = clockOut.split(":").map((x) => parseInt(x, 10));
+  if (!Number.isFinite(ih) || !Number.isFinite(im) || !Number.isFinite(oh) || !Number.isFinite(om)) return "";
+  let start = ih * 60 + im;
+  let end = oh * 60 + om;
+  if (end < start) end += 24 * 60;
+  const diff = end - start;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return `${h}h ${m}m`;
 }
 
 function haversineMeters(
@@ -1621,6 +1643,7 @@ export default function Home() {
   const [clockInProjectCode, setClockInProjectCode] = useState("");
   const [clockInGpsStatus, setClockInGpsStatus] = useState<"idle" | "locating" | "ok" | "alert" | "no_gps">("idle");
   const [clockInAlertMessage, setClockInAlertMessage] = useState<string | null>(null);
+  const [employeeShiftDayOpen, setEmployeeShiftDayOpen] = useState<{ date: string; entryId: string } | null>(null);
 
   /** null = aún no hidratado desde localStorage (evita sobrescribir la clave antes de leerla). */
   const [darkMode, setDarkMode] = useState<boolean | null>(null);
@@ -1972,77 +1995,223 @@ export default function Home() {
     [perms.site, visibleProjects]
   );
 
-  const handleClockIn = useCallback(() => {
-    const code = clockInProjectCode.trim().toUpperCase();
-    const matchedProject = code
-      ? (projects ?? []).find((p) => (p.projectCode ?? "").toUpperCase() === code)
-      : undefined;
+  const scheduleSelfIds = useMemo(
+    () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),
+    [profile?.id, effectiveEmployeeId]
+  );
 
-    const emp = (employees ?? []).find((e) => e.id === currentUserEmployeeId);
-    const hasPendingCerts = emp?.certificates?.some(
-      (c) => c.status === "expired" || (c.expiryDate != null && new Date(c.expiryDate) < new Date())
-    ) ?? false;
+  const openEmployeeShiftDay = useCallback((date: string, entryId: string) => {
+    setEmployeeShiftDayOpen({ date, entryId });
+  }, []);
 
-    const createEntry = (lat?: number, lng?: number, alert?: boolean, alertMeters?: number) => {
-      const entry: ClockEntry = {
-        id: `ce${Date.now()}`,
-        employeeId: currentUserEmployeeId ?? "",
-        projectId: matchedProject?.id,
-        projectCode: code || undefined,
-        date: new Date().toISOString().split("T")[0],
-        clockIn: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-        locationLat: lat,
-        locationLng: lng,
-        locationAlert: alert ?? false,
-        locationAlertMeters: alertMeters,
-        hadPendingCerts: hasPendingCerts || undefined,
-      };
-      setClockEntries((prev) => [...prev, entry]);
-      setClockInProjectCode("");
-      setClockInGpsStatus("ok");
-    };
-
-    setClockInGpsStatus("locating");
-    setClockInAlertMessage(null);
-
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      createEntry(undefined, undefined, false);
-      setClockInGpsStatus("no_gps");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        let alert = false;
-        let distMeters: number | undefined;
-        if (matchedProject?.locationLat != null && matchedProject?.locationLng != null) {
-          const dist = haversineMeters(
-            latitude,
-            longitude,
-            matchedProject.locationLat,
-            matchedProject.locationLng
-          );
-          distMeters = dist;
-          alert = dist > 500;
-        }
-        createEntry(latitude, longitude, alert, distMeters);
-        if (alert && distMeters != null) {
-          setClockInGpsStatus("alert");
-          const msg = (t as Record<string, string>).outsideZoneAlert ?? "Estás a {n}m del proyecto. El fichaje quedará registrado como fuera de zona.";
-          setClockInAlertMessage(msg.replace("{n}", String(Math.round(distMeters))));
-        }
-      },
-      () => {
-        createEntry(undefined, undefined, false);
-        setClockInGpsStatus("no_gps");
-      },
-      { timeout: 8000, maximumAge: 60000 }
+  useEffect(() => {
+    if (effectiveRole === "admin") return;
+    if (!session || scheduleSelfIds.length === 0) return;
+    if (typeof window === "undefined") return;
+    const ymd = localTodayYmd();
+    const key = `machinpro_aw6_openshift_${ymd}`;
+    if (sessionStorage.getItem(key)) return;
+    const myShifts = scheduleEntries.filter(
+      (e) =>
+        e.date === ymd &&
+        e.type === "shift" &&
+        scheduleSelfIds.some((id) => (e.employeeIds ?? []).includes(id))
     );
-  }, [clockInProjectCode, projects, currentUserEmployeeId, employees, t]);
+    if (myShifts.length === 1) {
+      setEmployeeShiftDayOpen({ date: ymd, entryId: myShifts[0]!.id });
+      sessionStorage.setItem(key, "1");
+    }
+  }, [effectiveRole, session, scheduleSelfIds, scheduleEntries]);
+
+  const myShiftCentralCard = useMemo(() => {
+    const ymd = localTodayYmd();
+    const myShifts = scheduleEntries.filter(
+      (e) =>
+        e.date === ymd &&
+        e.type === "shift" &&
+        scheduleSelfIds.some((id) => (e.employeeIds ?? []).includes(id))
+    );
+    const ce = displayClockEntries.find(
+      (e) =>
+        e.date === ymd &&
+        (e.employeeId === currentUserEmployeeId || e.employeeId === profile?.id)
+    );
+    const worked =
+      ce?.clockIn && ce?.clockOut ? formatWorkedFromClockPair(ce.clockIn, ce.clockOut) : null;
+    const first = myShifts[0];
+    return {
+      hasShiftToday: myShifts.length > 0,
+      projectName: first?.projectId ? projects.find((p) => p.id === first.projectId)?.name : undefined,
+      shiftTimeLabel: first ? `${first.startTime} → ${first.endTime}` : undefined,
+      workedSummary: worked,
+      clockedInNotOut: !!(ce && !ce.clockOut),
+    };
+  }, [
+    scheduleEntries,
+    scheduleSelfIds,
+    displayClockEntries,
+    currentUserEmployeeId,
+    profile?.id,
+    projects,
+  ]);
+
+  const handleClockIn = useCallback(
+    (override?: { projectId?: string; projectCode?: string }) => {
+      const fromOverride = override?.projectCode?.trim().toUpperCase() ?? "";
+      const code = fromOverride || clockInProjectCode.trim().toUpperCase();
+      const matchedProject = override?.projectId
+        ? (projects ?? []).find((p) => p.id === override.projectId)
+        : code
+          ? (projects ?? []).find((p) => (p.projectCode ?? "").toUpperCase() === code)
+          : undefined;
+
+      const emp = (employees ?? []).find(
+        (e) => e.id === currentUserEmployeeId || e.id === profile?.id
+      );
+      const hasPendingCerts =
+        emp?.certificates?.some(
+          (c) =>
+            c.status === "expired" || (c.expiryDate != null && new Date(c.expiryDate) < new Date())
+        ) ?? false;
+
+      const pad2 = (n: number) => String(n).padStart(2, "0");
+
+      const createEntryLocal = (lat?: number, lng?: number, alert?: boolean, alertMeters?: number) => {
+        const dateStr = localTodayYmd();
+        const now = new Date();
+        const entry: ClockEntry = {
+          id: `ce${Date.now()}`,
+          employeeId: currentUserEmployeeId ?? profile?.id ?? "",
+          projectId: matchedProject?.id,
+          projectCode: code || matchedProject?.projectCode,
+          date: dateStr,
+          clockIn: `${pad2(now.getHours())}:${pad2(now.getMinutes())}`,
+          locationLat: lat,
+          locationLng: lng,
+          locationAlert: alert ?? false,
+          locationAlertMeters: alertMeters,
+          hadPendingCerts: hasPendingCerts || undefined,
+        };
+        setClockEntries((prev) => [...prev, entry]);
+        setClockInProjectCode("");
+        setClockInGpsStatus(alert ? "alert" : "ok");
+      };
+
+      const persistServer = async (
+        lat?: number,
+        lng?: number,
+        alert?: boolean,
+        alertMeters?: number
+      ) => {
+        const dateStr = localTodayYmd();
+        if (supabase && user?.id && companyId) {
+          const { data, error } = await supabase
+            .from("time_entries")
+            .insert({
+              company_id: companyId,
+              user_id: user.id,
+              project_id: matchedProject?.id ?? null,
+              clock_in_lat: lat ?? null,
+              clock_in_lng: lng ?? null,
+              status: "active",
+            })
+            .select("id, clock_in_at")
+            .single();
+          if (!error && data) {
+            const row = data as { id: string; clock_in_at: string };
+            const inD = new Date(row.clock_in_at);
+            const mappedDate = `${inD.getFullYear()}-${pad2(inD.getMonth() + 1)}-${pad2(inD.getDate())}`;
+            const mappedClockIn = `${pad2(inD.getHours())}:${pad2(inD.getMinutes())}`;
+            setDbClockEntries((prev) => [
+              {
+                id: row.id,
+                employeeId: currentUserEmployeeId ?? profile?.id ?? user.id,
+                projectId: matchedProject?.id,
+                projectCode: code || matchedProject?.projectCode,
+                date: mappedDate,
+                clockIn: mappedClockIn,
+                clockOut: undefined,
+                locationLat: lat,
+                locationLng: lng,
+                locationAlert: alert ?? false,
+                locationAlertMeters: alertMeters,
+                hadPendingCerts: hasPendingCerts || undefined,
+              },
+              ...prev.filter((e) => e.id !== row.id),
+            ]);
+            setClockInProjectCode("");
+            setClockInGpsStatus(alert ? "alert" : "ok");
+            return true;
+          }
+        }
+        createEntryLocal(lat, lng, alert, alertMeters);
+        return false;
+      };
+
+      const finish = async (
+        lat?: number,
+        lng?: number,
+        alert?: boolean,
+        alertMeters?: number
+      ) => {
+        await persistServer(lat, lng, alert, alertMeters);
+        if (alert && alertMeters != null) {
+          setClockInGpsStatus("alert");
+          const msg =
+            (t as Record<string, string>).outsideZoneAlert ??
+            "Estás a {n}m del proyecto. El fichaje quedará registrado como fuera de zona.";
+          setClockInAlertMessage(msg.replace("{n}", String(Math.round(alertMeters))));
+        }
+      };
+
+      setClockInGpsStatus("locating");
+      setClockInAlertMessage(null);
+
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        void finish(undefined, undefined, false);
+        setClockInGpsStatus("no_gps");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          let alert = false;
+          let distMeters: number | undefined;
+          if (matchedProject?.locationLat != null && matchedProject?.locationLng != null) {
+            const dist = haversineMeters(
+              latitude,
+              longitude,
+              matchedProject.locationLat,
+              matchedProject.locationLng
+            );
+            distMeters = dist;
+            alert = dist > 500;
+          }
+          void finish(latitude, longitude, alert, distMeters);
+        },
+        () => {
+          void finish(undefined, undefined, false);
+          setClockInGpsStatus("no_gps");
+        },
+        { timeout: 8000, maximumAge: 60000 }
+      );
+    },
+    [
+      clockInProjectCode,
+      projects,
+      currentUserEmployeeId,
+      profile?.id,
+      employees,
+      t,
+      supabase,
+      user?.id,
+      companyId,
+    ]
+  );
 
   const handleClockOut = useCallback(() => {
-    const todayYmd = new Date().toISOString().split("T")[0];
+    const todayYmd = localTodayYmd();
     const openEntry = displayClockEntries.find(
       (e) =>
         e.employeeId === (currentUserEmployeeId ?? "") &&
@@ -2277,6 +2446,66 @@ export default function Home() {
     }
     return m;
   }, [employees, teamProfiles]);
+
+  const employeeShiftModalModel = useMemo(() => {
+    if (!employeeShiftDayOpen) return null;
+    const entry = scheduleEntries.find((e) => e.id === employeeShiftDayOpen.entryId);
+    if (!entry || entry.type !== "shift") return null;
+    const projectRow = entry.projectId
+      ? (projects ?? []).find((p) => p.id === entry.projectId) ?? null
+      : null;
+    const dateStr = entry.date;
+    const clockCandidates = displayClockEntries.filter(
+      (e) =>
+        e.date === dateStr &&
+        (e.employeeId === currentUserEmployeeId || e.employeeId === profile?.id)
+    );
+    const clockEntry =
+      clockCandidates.find((e) => e.projectId === entry.projectId) ?? clockCandidates[0];
+    const colleagueNames = (entry.employeeIds ?? [])
+      .filter((id) => !scheduleSelfIds.includes(id))
+      .map(
+        (id) =>
+          scheduleEmployeeLabels[id] ?? employees.find((em) => em.id === id)?.name ?? ""
+      )
+      .filter((n) => n.trim().length > 0);
+    const shiftTasks = projectTasks.filter(
+      (task) =>
+        task.projectId === entry.projectId &&
+        (task.assignedToEmployeeId === currentUserEmployeeId ||
+          task.assignedToEmployeeId === profile?.id) &&
+        (task.dueDate == null || task.dueDate === dateStr)
+    );
+    const dr = entry.projectId
+      ? dailyReports.find(
+          (r) =>
+            r.projectId === entry.projectId && r.date === dateStr && r.status === "published"
+        ) ?? null
+      : null;
+    const canActClock = dateStr === localTodayYmd() && effectiveRole !== "admin";
+    return {
+      entry,
+      projectRow,
+      clockEntry,
+      colleagueNames,
+      shiftTasks,
+      dailyReport: dr ?? null,
+      canActClock,
+    };
+  }, [
+    employeeShiftDayOpen,
+    scheduleEntries,
+    projects,
+    displayClockEntries,
+    currentUserEmployeeId,
+    profile?.id,
+    scheduleSelfIds,
+    scheduleEmployeeLabels,
+    employees,
+    projectTasks,
+    dailyReports,
+    effectiveRole,
+  ]);
 
   const handleAddBlueprint = (bp: Blueprint) => {
     setBlueprints((prev) => [...prev, bp]);
@@ -3143,6 +3372,17 @@ export default function Home() {
                   setProjectsOpenRfiSig((n) => n + 1);
                 }}
                 onQuickNewSubcontractor={() => setActiveSection("subcontractors")}
+                onOpenMyShiftView={() => {
+                  const ymd = localTodayYmd();
+                  const mine = scheduleEntries.filter(
+                    (e) =>
+                      e.date === ymd &&
+                      e.type === "shift" &&
+                      scheduleSelfIds.some((id) => (e.employeeIds ?? []).includes(id))
+                  );
+                  if (mine.length >= 1) openEmployeeShiftDay(ymd, mine[0]!.id);
+                }}
+                myShiftCentralCard={myShiftCentralCard}
               />
             )}
 
@@ -3682,6 +3922,8 @@ export default function Home() {
                   worker: (t as Record<string, string>).worker,
                   logistic: (t as Record<string, string>).logistic,
                   whFilterAll: (t as Record<string, string>).whFilterAll,
+                  openInMaps: (t as Record<string, string>).openInMaps,
+                  viewMyShift: (t as Record<string, string>).viewMyShift,
                 }}
                 onAddEntry={handleAddScheduleEntry}
                 onUpdateEntry={handleUpdateScheduleEntry}
@@ -3694,6 +3936,8 @@ export default function Home() {
                 onDismissClockInAlert={() => setClockInAlertMessage(null)}
                 onClockIn={handleClockIn}
                 onClockOut={handleClockOut}
+                onOpenMyShiftView={openEmployeeShiftDay}
+                scheduleSelfIds={scheduleSelfIds}
               />
             )}
 
@@ -4520,6 +4764,59 @@ export default function Home() {
             </div>
           </div>
         </>
+      )}
+      {employeeShiftModalModel && (
+        <EmployeeShiftDayView
+          open
+          onClose={() => setEmployeeShiftDayOpen(null)}
+          language={language}
+          labels={t as Record<string, string>}
+          scheduleEntry={employeeShiftModalModel.entry}
+          project={
+            employeeShiftModalModel.projectRow
+              ? {
+                  id: employeeShiftModalModel.projectRow.id,
+                  name: employeeShiftModalModel.projectRow.name,
+                  projectCode: employeeShiftModalModel.projectRow.projectCode,
+                  location: employeeShiftModalModel.projectRow.location,
+                  locationLat: employeeShiftModalModel.projectRow.locationLat,
+                  locationLng: employeeShiftModalModel.projectRow.locationLng,
+                }
+              : null
+          }
+          clockEntry={employeeShiftModalModel.clockEntry}
+          canActClock={employeeShiftModalModel.canActClock}
+          gpsStatus={clockInGpsStatus}
+          clockInAlertMessage={clockInAlertMessage}
+          onDismissClockInAlert={() => setClockInAlertMessage(null)}
+          onClockIn={() => {
+            const pid = employeeShiftModalModel.entry.projectId;
+            const pcode = employeeShiftModalModel.entry.projectCode;
+            void handleClockIn(pid ? { projectId: pid, projectCode: pcode } : pcode ? { projectCode: pcode } : undefined);
+          }}
+          onClockOut={handleClockOut}
+          tasks={employeeShiftModalModel.shiftTasks}
+          onToggleProjectTask={(taskId, completed) => {
+            setProjectTasks((prev) =>
+              prev.map((task) =>
+                task.id === taskId
+                  ? {
+                      ...task,
+                      status: completed ? ("completed" as const) : ("pending" as const),
+                      completedAt: completed ? new Date().toISOString() : undefined,
+                    }
+                  : task
+              )
+            );
+          }}
+          dailyReport={employeeShiftModalModel.dailyReport}
+          currentUserProfileId={profile?.id ?? null}
+          currentUserDisplayName={
+            (profile?.fullName ?? profile?.email ?? user?.email ?? "").trim() || "User"
+          }
+          colleagueNames={employeeShiftModalModel.colleagueNames}
+          onDailyReportSigned={() => void reloadDailyReports()}
+        />
       )}
       <InstallPWABanner labels={t} isDark={darkMode ?? false} />
     </div>

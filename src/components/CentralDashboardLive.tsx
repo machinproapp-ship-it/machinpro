@@ -269,6 +269,14 @@ export interface CentralDashboardLiveProps {
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
   onOpenSubcontractorsInOperations?: () => void;
+  onOpenMyShiftView?: () => void;
+  myShiftCentralCard?: {
+    hasShiftToday: boolean;
+    projectName?: string;
+    shiftTimeLabel?: string;
+    workedSummary?: string | null;
+    clockedInNotOut?: boolean;
+  };
 }
 
 type TimeRow = {
@@ -327,6 +335,8 @@ function CentralDashboardBody(
     onQuickNewRfi,
     onQuickNewSubcontractor,
     onOpenSubcontractorsInOperations,
+    onOpenMyShiftView,
+    myShiftCentralCard,
   } = props;
 
   const labels = labelsProp;
@@ -952,18 +962,55 @@ function CentralDashboardBody(
               <Clock className="h-4 w-4 text-emerald-500" aria-hidden />
               {title}
             </h3>
-            <ul className="text-sm space-y-2">
-              {myTimeRows.length === 0 ? (
-                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
-              ) : (
-                myTimeRows.map((r) => (
-                  <li key={r.id}>
-                    {fmtTime(r.clock_in_at)}
-                    {r.clock_out_at ? ` – ${fmtTime(r.clock_out_at)}` : ` · ${L("dashboard_active_now")}`}
-                  </li>
-                ))
-              )}
-            </ul>
+            {myShiftCentralCard && onOpenMyShiftView ? (
+              <div className="space-y-3">
+                {!myShiftCentralCard.hasShiftToday ? (
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{L("noShiftToday")}</p>
+                ) : (
+                  <>
+                    {myShiftCentralCard.projectName && (
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        {myShiftCentralCard.projectName}
+                      </p>
+                    )}
+                    {myShiftCentralCard.shiftTimeLabel && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                        {myShiftCentralCard.shiftTimeLabel}
+                      </p>
+                    )}
+                    {myShiftCentralCard.workedSummary && (
+                      <p className="text-sm text-gray-700 dark:text-gray-200">
+                        {L("timeWorked")}:{" "}
+                        <span className="font-semibold tabular-nums">{myShiftCentralCard.workedSummary}</span>
+                      </p>
+                    )}
+                    {myShiftCentralCard.clockedInNotOut && (
+                      <p className="text-sm text-amber-700 dark:text-amber-300">{L("dashboard_active_now")}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={onOpenMyShiftView}
+                      className="w-full min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
+                    >
+                      {L("viewMyShift")}
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <ul className="text-sm space-y-2">
+                {myTimeRows.length === 0 ? (
+                  <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
+                ) : (
+                  myTimeRows.map((r) => (
+                    <li key={r.id}>
+                      {fmtTime(r.clock_in_at)}
+                      {r.clock_out_at ? ` – ${fmtTime(r.clock_out_at)}` : ` · ${L("dashboard_active_now")}`}
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
           </>
         );
       case "activity":

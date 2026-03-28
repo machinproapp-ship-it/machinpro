@@ -236,6 +236,15 @@ interface CentralModuleProps {
   onQuickNewSubcontractor?: () => void;
   /** Abrir Operaciones → Subcontratistas (fuera de Central). */
   onOpenSubcontractorsInOperations?: () => void;
+  /** Vista jornada AW-6: abre panel completo desde widget Mi fichaje. */
+  onOpenMyShiftView?: () => void;
+  myShiftCentralCard?: {
+    hasShiftToday: boolean;
+    projectName?: string;
+    shiftTimeLabel?: string;
+    workedSummary?: string | null;
+    clockedInNotOut?: boolean;
+  };
 }
 
 function computeComplianceRecordStatus(
@@ -356,6 +365,8 @@ export function CentralModule({
   onQuickNewRfi,
   onQuickNewSubcontractor,
   onOpenSubcontractorsInOperations,
+  onOpenMyShiftView,
+  myShiftCentralCard,
 }: CentralModuleProps) {
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
@@ -747,6 +758,8 @@ export function CentralModule({
                 onQuickNewRfi={onQuickNewRfi}
                 onQuickNewSubcontractor={onQuickNewSubcontractor}
                 onOpenSubcontractorsInOperations={onOpenSubcontractorsInOperations}
+                onOpenMyShiftView={onOpenMyShiftView}
+                myShiftCentralCard={myShiftCentralCard}
               />
             </div>
           ) : (
