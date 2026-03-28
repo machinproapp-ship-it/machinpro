@@ -19,7 +19,13 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
-import { ROLE_PERMISSION_KEYS, pickDefaultWorkerRoleId } from "@/types/roles";
+import {
+  ROLE_PERMISSION_KEYS,
+  ROLE_PERMISSION_LABELS,
+  emptyRolePermissionsInline,
+  permLocaleKey,
+  pickDefaultWorkerRoleId,
+} from "@/types/roles";
 import type { ComplianceField, ComplianceRecord, VacationRequestRow } from "@/app/page";
 
 export interface EmployeesModuleProps {
@@ -157,66 +163,13 @@ function employeeInitials(r: ProfileRow): string {
 
 function permLabel(key: keyof RolePermissions, t: Record<string, string>): string {
   const lx = t as Record<string, string>;
-  const map: Record<keyof RolePermissions, string> = {
-    canViewCentral: lx.permViewCentral ?? "",
-    canEditCentral: lx.permEditCentral ?? "",
-    canViewLogistics: lx.permViewLogistics ?? "",
-    canEditLogistics: lx.permEditLogistics ?? "",
-    canViewProjects: lx.permViewProjects ?? "",
-    canViewOnlyAssignedProjects: lx.permOnlyAssigned ?? "",
-    canEditProjects: lx.permEditProjects ?? "",
-    canViewSchedule: lx.permViewSchedule ?? "",
-    canWriteSchedule: lx.permWriteSchedule ?? "",
-    canViewBlueprints: lx.permViewBlueprints ?? "",
-    canAnnotateBlueprints: lx.permAnnotate ?? "",
-    canViewSettings: lx.permViewSettings ?? "",
-    canEditSettings: lx.permEditSettings ?? "",
-    canManageRoles: lx.permManageRoles ?? "",
-    canManageEmployees: lx.permManageEmployees ?? "",
-    canViewForms: lx.permViewForms ?? "",
-    canManageForms: lx.permManageForms ?? "",
-    canViewBinders: lx.permViewBinders ?? "",
-    canManageBinders: lx.permManageBinders ?? "",
-    canManageSubcontractors: lx.permManageSubcontractors ?? "",
-    canApproveVacations: lx.permApproveVacations ?? "",
-    canViewAttendance: lx.permViewAttendance ?? "",
-    canViewTimeclock: lx.permViewTimeclock ?? "",
-    canManageTimeclock: lx.permManageTimeclock ?? "",
-    canViewBilling: lx.permViewBilling ?? "",
-    canManageDailyReports: lx.permManageDailyReports ?? "",
-  };
-  return map[key] || String(key);
+  const fromT = lx[permLocaleKey(key)];
+  if (fromT) return fromT;
+  return ROLE_PERMISSION_LABELS[key] ?? String(key);
 }
 
 function emptyPermissions(): RolePermissions {
-  return {
-    canViewCentral: false,
-    canEditCentral: false,
-    canViewLogistics: false,
-    canEditLogistics: false,
-    canViewProjects: false,
-    canViewOnlyAssignedProjects: false,
-    canEditProjects: false,
-    canViewSchedule: false,
-    canWriteSchedule: false,
-    canViewBlueprints: false,
-    canAnnotateBlueprints: false,
-    canViewSettings: false,
-    canEditSettings: false,
-    canManageRoles: false,
-    canManageEmployees: false,
-    canViewForms: false,
-    canManageForms: false,
-    canViewBinders: false,
-    canManageBinders: false,
-    canManageSubcontractors: false,
-    canApproveVacations: false,
-    canViewAttendance: false,
-    canViewTimeclock: false,
-    canManageTimeclock: false,
-    canViewBilling: false,
-    canManageDailyReports: false,
-  };
+  return emptyRolePermissionsInline();
 }
 
 function mergePerm(base: RolePermissions, partial?: Partial<RolePermissions> | null): RolePermissions {

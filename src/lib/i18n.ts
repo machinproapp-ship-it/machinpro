@@ -13,6 +13,14 @@ import fr from "@/locales/fr";
 import de from "@/locales/de";
 import it from "@/locales/it";
 import pt from "@/locales/pt";
+import {
+  PERMISSION_LABELS_DE,
+  PERMISSION_LABELS_EN,
+  PERMISSION_LABELS_ES,
+  PERMISSION_LABELS_FR,
+  PERMISSION_LABELS_IT,
+  PERMISSION_LABELS_PT,
+} from "@/locales/permAw5";
 
 export const LANGUAGES: { code: Language; flag: string; label: string }[] = [
   { code: "es", flag: "🇪🇸", label: "Español" },
@@ -65,12 +73,12 @@ export async function loadLocale(lang: string): Promise<Record<string, string>> 
 }
 
 export const ALL_TRANSLATIONS: Record<string, Record<string, string>> = {
-  es: mergeWithEn(es as LocaleModule),
-  en: mergeWithEn(en as LocaleModule),
-  fr: mergeWithEn(fr as LocaleModule),
-  de: mergeWithEn(de as LocaleModule),
-  it: mergeWithEn(it as LocaleModule),
-  pt: mergeWithEn(pt as LocaleModule),
+  es: mergeWithEn({ ...(es as object), ...PERMISSION_LABELS_ES } as LocaleModule),
+  en: EN,
+  fr: mergeWithEn({ ...(fr as object), ...PERMISSION_LABELS_FR } as LocaleModule),
+  de: mergeWithEn({ ...(de as object), ...PERMISSION_LABELS_DE } as LocaleModule),
+  it: mergeWithEn({ ...(it as object), ...PERMISSION_LABELS_IT } as LocaleModule),
+  pt: mergeWithEn({ ...(pt as object), ...PERMISSION_LABELS_PT } as LocaleModule),
 };
 
 export type LanguageWithTranslations =

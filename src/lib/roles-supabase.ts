@@ -16,6 +16,79 @@ export function emptyRolePermissions(): RolePermissions {
   return o as RolePermissions;
 }
 
+/** Migra JSON antiguo (pre-AW-5) a flags nuevos. */
+function applyLegacyPermissionFields(
+  acc: Record<keyof RolePermissions, boolean>,
+  o: Record<string, unknown>
+): void {
+  const L = (k: string): boolean => o[k] === true;
+  if (L("canEditCentral")) {
+    acc.canViewCentral = true;
+    acc.canViewEmployees = true;
+    acc.canManageEmployees = true;
+    acc.canViewDashboardWidgets = true;
+    acc.canViewAuditLog = true;
+    acc.canManageCompliance = true;
+  }
+  if (L("canEditLogistics")) {
+    acc.canViewLogistics = true;
+    acc.canViewInventory = true;
+    acc.canManageInventory = true;
+    acc.canViewFleet = true;
+    acc.canManageFleet = true;
+    acc.canViewSuppliers = true;
+    acc.canManageSuppliers = true;
+    acc.canManageRentals = true;
+    acc.canCreatePurchaseOrders = true;
+  }
+  if (L("canWriteSchedule")) acc.canCreateShifts = true;
+  if (L("canApproveVacations")) acc.canManageVacations = true;
+  if (L("canViewBlueprints")) acc.canViewProjectBlueprints = true;
+  if (L("canAnnotateBlueprints")) {
+    acc.canViewProjectBlueprints = true;
+    acc.canManageProjectBlueprints = true;
+  }
+  if (L("canViewForms")) acc.canViewProjectForms = true;
+  if (L("canManageForms")) {
+    acc.canViewProjectForms = true;
+    acc.canManageProjectForms = true;
+    acc.canManageDailyReports = true;
+  }
+  if (L("canEditSettings")) {
+    acc.canViewSettings = true;
+    acc.canEditCompanyProfile = true;
+    acc.canManageNotifications = true;
+    acc.canManageRegionalConfig = true;
+  }
+  if (L("canManageSubcontractors")) {
+    acc.canViewSubcontractors = true;
+    acc.canManageSubcontractors = true;
+  }
+  if (L("canManageRoles")) {
+    acc.canViewRoles = true;
+    acc.canManageRoles = true;
+  }
+  if (L("canManageEmployees")) acc.canViewEmployees = true;
+  if (L("canViewProjects")) {
+    acc.canViewProjectGeneral = true;
+    acc.canViewProjectTeam = true;
+    acc.canViewProjectInventory = true;
+    acc.canViewProjectGallery = true;
+    acc.canViewProjectForms = true;
+  }
+  if (L("canEditProjects")) {
+    acc.canViewProjects = true;
+    acc.canCreateProjects = true;
+    acc.canEditProjects = true;
+    acc.canViewProjectGeneral = true;
+    acc.canManageProjectTeam = true;
+  }
+  if (L("canViewAttendance")) {
+    acc.canViewDashboardWidgets = true;
+    acc.canViewAttendance = true;
+  }
+}
+
 export function mergeRolePermissions(raw: unknown): RolePermissions {
   const base = emptyRolePermissions();
   const acc = { ...base } as Record<keyof RolePermissions, boolean>;
@@ -24,6 +97,7 @@ export function mergeRolePermissions(raw: unknown): RolePermissions {
   for (const k of ROLE_PERMISSION_KEYS) {
     if (typeof o[k as string] === "boolean") acc[k] = o[k as string] as boolean;
   }
+  applyLegacyPermissionFields(acc, o);
   return acc as RolePermissions;
 }
 

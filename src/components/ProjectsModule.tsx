@@ -1737,10 +1737,10 @@ export function ProjectsModule({
           <div className="p-4 space-y-4">
             <section className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-slate-800/50 p-4 space-y-3">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).dailyFieldReportsTitle ??
-                  (t as Record<string, string>).dailyReport ??
+                {(t as Record<string, string>).dailyReport ??
+                  (t as Record<string, string>).dailyFieldReportsTitle ??
                   (t as Record<string, string>).dailyFieldReport ??
-                  "Daily report"}
+                  "Parte diario"}
               </h2>
               {canManageDailyReports && (
                 <button
@@ -1752,12 +1752,12 @@ export function ProjectsModule({
                   className="flex w-full sm:w-auto items-center gap-2 rounded-xl border-2 border-amber-500 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-medium text-amber-800 dark:text-amber-200 min-h-[44px]"
                 >
                   <Plus className="h-4 w-4" />
-                  {(t as Record<string, string>).newDailyReport ?? "New report"}
+                  {(t as Record<string, string>).newDailyReport ?? "Nuevo parte diario"}
                 </button>
               )}
               {dailyReportsListForUi.length === 0 ? (
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {(t as Record<string, string>).noDailyReportsYet ?? (t as Record<string, string>).noForms ?? ""}
+                  {(t as Record<string, string>).noDailyReportsYet ?? "Aún no hay partes diarios"}
                 </p>
               ) : (
                 <ul className="space-y-2">

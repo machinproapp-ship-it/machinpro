@@ -3,7 +3,14 @@
 import React, { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { Users, Briefcase, HardHat, ChevronRight, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound } from 'lucide-react';
 import type { CustomRole, RolePermissions } from '@/types/roles';
-import { ROLE_PERMISSION_KEYS, isProtectedCustomRole } from '@/types/roles';
+import {
+  ROLE_PERMISSION_KEYS,
+  isProtectedCustomRole,
+  ROLE_PERMISSION_GROUPS,
+  permLocaleKey,
+  ROLE_PERMISSION_LABELS,
+  emptyRolePermissionsInline,
+} from '@/types/roles';
 import type { CentralEmployee } from '@/types/shared';
 import type { Subcontractor } from '@/types/subcontractor';
 import { getTaxIdLabel, getComplianceCertLabel, SUBCONTRACTOR_SPECIALTIES } from '@/types/subcontractor';
@@ -178,6 +185,8 @@ interface CentralModuleProps {
   pendingPhotoCountByProject?: Record<string, number>;
   canEdit?: boolean;
   canManageRoles?: boolean;
+  canViewRoles?: boolean;
+  canViewAuditLog?: boolean;
   customRoles?: CustomRole[];
   onAddRole?: (role: CustomRole) => void | Promise<void>;
   onUpdateRole?: (role: CustomRole) => void | Promise<void>;
@@ -218,39 +227,16 @@ interface CentralModuleProps {
   dashboardCanViewTeamClock?: boolean;
   dashboardCanManageComplianceAlerts?: boolean;
   dashboardCanViewLogistics?: boolean;
+  dashboardCanViewEmployees?: boolean;
+  dashboardCanViewRoles?: boolean;
+  dashboardCanViewAuditLog?: boolean;
+  dashboardCanViewDashboardWidgets?: boolean;
   dashboardCriticalInventoryCount?: number;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
+  /** Abrir Operaciones → Subcontratistas (fuera de Central). */
+  onOpenSubcontractorsInOperations?: () => void;
 }
-
-const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
-  canViewCentral: false,
-  canEditCentral: false,
-  canViewLogistics: false,
-  canEditLogistics: false,
-  canViewProjects: false,
-  canViewOnlyAssignedProjects: false,
-  canEditProjects: false,
-  canViewSchedule: false,
-  canWriteSchedule: false,
-  canViewBlueprints: false,
-  canAnnotateBlueprints: false,
-  canViewSettings: false,
-  canEditSettings: false,
-  canManageRoles: false,
-  canManageEmployees: false,
-  canViewForms: false,
-  canManageForms: false,
-  canViewBinders: false,
-  canManageBinders: false,
-  canManageSubcontractors: false,
-  canApproveVacations: false,
-  canViewAttendance: false,
-  canViewTimeclock: false,
-  canManageTimeclock: false,
-  canViewBilling: false,
-  canManageDailyReports: false,
-};
 
 function computeComplianceRecordStatus(
   expiryDate: string | undefined,
@@ -323,6 +309,8 @@ export function CentralModule({
   pendingPhotoCountByProject = {},
   canEdit = true,
   canManageRoles = false,
+  canViewRoles = false,
+  canViewAuditLog = false,
   customRoles = [],
   onAddRole,
   onUpdateRole,
@@ -360,9 +348,14 @@ export function CentralModule({
   dashboardCanViewTeamClock = false,
   dashboardCanManageComplianceAlerts = false,
   dashboardCanViewLogistics = false,
+  dashboardCanViewEmployees = false,
+  dashboardCanViewRoles = false,
+  dashboardCanViewAuditLog = false,
+  dashboardCanViewDashboardWidgets = false,
   dashboardCriticalInventoryCount = 0,
   onQuickNewRfi,
   onQuickNewSubcontractor,
+  onOpenSubcontractorsInOperations,
 }: CentralModuleProps) {
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
@@ -380,7 +373,7 @@ export function CentralModule({
               : "en-GB";
   const [employeePanelId, setEmployeePanelId] = useState<string | null>(null);
   const [centralView, setCentralView] = useState<
-    "dashboard" | "projects" | "personnel" | "subcontractors" | "roles" | "auditlog" | "compliance"
+    "dashboard" | "projects" | "personnel" | "roles" | "auditlog" | "compliance"
   >("dashboard");
   const [subcontractorModalOpen, setSubcontractorModalOpen] = useState(false);
   const [editingSubcontractorId, setEditingSubcontractorId] = useState<string | null>(null);
@@ -402,67 +395,13 @@ export function CentralModule({
   const [roleDraft, setRoleDraft] = useState<{ name: string; color: string; permissions: RolePermissions }>({
     name: "",
     color: "#b45309",
-    permissions: {
-      canViewCentral: false,
-      canEditCentral: false,
-      canViewLogistics: false,
-      canEditLogistics: false,
-      canViewProjects: false,
-      canViewOnlyAssignedProjects: false,
-      canEditProjects: false,
-      canViewSchedule: false,
-      canWriteSchedule: false,
-      canViewBlueprints: false,
-      canAnnotateBlueprints: false,
-      canViewSettings: false,
-      canEditSettings: false,
-      canManageRoles: false,
-      canManageEmployees: false,
-      canViewForms: false,
-      canManageForms: false,
-      canViewBinders: false,
-      canManageBinders: false,
-      canManageSubcontractors: false,
-      canApproveVacations: false,
-      canViewAttendance: false,
-      canViewTimeclock: false,
-      canManageTimeclock: false,
-      canViewBilling: false,
-      canManageDailyReports: false,
-    },
+    permissions: emptyRolePermissionsInline(),
   });
 
   const permLabel = (key: keyof RolePermissions): string => {
     const lx = labels as Record<string, string>;
-    const map: Record<keyof RolePermissions, string> = {
-      canViewCentral: labels.permViewCentral ?? "Ver Central",
-      canEditCentral: labels.permEditCentral ?? "Editar Central",
-      canViewLogistics: labels.permViewLogistics ?? "Ver Log?stica",
-      canEditLogistics: labels.permEditLogistics ?? "Editar Log?stica",
-      canViewProjects: labels.permViewProjects ?? "Ver Proyectos",
-      canViewOnlyAssignedProjects: labels.permOnlyAssigned ?? "Solo proyectos asignados",
-      canEditProjects: labels.permEditProjects ?? "Editar Proyectos",
-      canViewSchedule: labels.permViewSchedule ?? "Ver Horario",
-      canWriteSchedule: labels.permWriteSchedule ?? "Crear turnos",
-      canViewBlueprints: labels.permViewBlueprints ?? "Ver Planos",
-      canAnnotateBlueprints: labels.permAnnotate ?? "Anotar en Planos",
-      canViewSettings: labels.permViewSettings ?? "Ver Ajustes",
-      canEditSettings: labels.permEditSettings ?? "Editar Ajustes",
-      canManageRoles: labels.permManageRoles ?? "Gestionar Roles",
-      canManageEmployees: labels.permManageEmployees ?? "Gestionar Empleados",
-      canViewForms: labels.permViewForms ?? "Ver Formularios",
-      canManageForms: labels.permManageForms ?? "Gestionar Formularios",
-      canViewBinders: lx.permViewBinders ?? "Ver Documentos",
-      canManageBinders: lx.permManageBinders ?? "Gestionar Documentos",
-      canManageSubcontractors: lx.permManageSubcontractors ?? "Gestionar Subcontratistas",
-      canApproveVacations: lx.permApproveVacations ?? "Aprobar vacaciones",
-      canViewAttendance: lx.permViewAttendance ?? "Ver panel asistencia",
-      canViewTimeclock: lx.permViewTimeclock ?? "Ver fichajes",
-      canManageTimeclock: lx.permManageTimeclock ?? "Gestionar fichajes",
-      canViewBilling: lx.permViewBilling ?? "Ver facturación",
-      canManageDailyReports: lx.permManageDailyReports ?? "Partes diarios",
-    };
-    return map[key];
+    const i18n = lx[permLocaleKey(key)];
+    return i18n && i18n.trim() !== "" ? i18n : ROLE_PERMISSION_LABELS[key];
   };
 
   const openCreateRole = () => {
@@ -470,34 +409,7 @@ export function CentralModule({
     setRoleDraft({
       name: "",
       color: "#b45309",
-      permissions: {
-        canViewCentral: false,
-        canEditCentral: false,
-        canViewLogistics: false,
-        canEditLogistics: false,
-        canViewProjects: false,
-        canViewOnlyAssignedProjects: false,
-        canEditProjects: false,
-        canViewSchedule: false,
-        canWriteSchedule: false,
-        canViewBlueprints: false,
-        canAnnotateBlueprints: false,
-        canViewSettings: false,
-        canEditSettings: false,
-        canManageRoles: false,
-        canManageEmployees: false,
-        canViewForms: false,
-        canManageForms: false,
-        canViewBinders: false,
-        canManageBinders: false,
-        canManageSubcontractors: false,
-        canApproveVacations: false,
-        canViewAttendance: false,
-        canViewTimeclock: false,
-        canManageTimeclock: false,
-        canViewBilling: false,
-      canManageDailyReports: false,
-      },
+      permissions: emptyRolePermissionsInline(),
     });
     setRoleModalOpen(true);
   };
@@ -701,7 +613,7 @@ export function CentralModule({
       title: (labels as Record<string, string>).subcontractorInsuranceExpiring ?? "Seguro de subcontratista pr?ximo a vencer",
       description: replaceCount((labels as Record<string, string>).subcontractorInsuranceExpiringDescription ?? "{count} subcontratista(s) con seguro pr?ximo a vencer", subcontractorsInsuranceExpiring.length),
       count: subcontractorsInsuranceExpiring.length,
-      action: () => setCentralView("subcontractors"),
+      action: () => onOpenSubcontractorsInOperations?.(),
       actionLabel: labels.viewAll ?? "Ver",
     });
   }
@@ -798,24 +710,26 @@ export function CentralModule({
                 projectNameById={projectNameById}
                 currentUserRole={currentUserRole}
                 canManageRoles={canManageRoles}
+                canViewRoles={canViewRoles}
                 canManageEmployees={dashboardCanManageEmployees}
+                canViewEmployees={dashboardCanViewEmployees}
+                canViewAuditLog={dashboardCanViewAuditLog}
                 canViewTeamClock={dashboardCanViewTeamClock}
                 canManageComplianceAlerts={dashboardCanManageComplianceAlerts}
                 canViewLogistics={dashboardCanViewLogistics}
+                canViewDashboardWidgets={dashboardCanViewDashboardWidgets}
                 criticalInventoryCount={dashboardCriticalInventoryCount}
                 canAccessVisitors={canAccessVisitors}
                 canAccessHazards={canAccessHazards}
                 canAccessCorrective={canAccessCorrective}
                 onNavigateAppSection={onNavigateAppSection}
                 onOpenAuditInCentral={() => {
-                  if (dashboardCanManageEmployees) setCentralView("auditlog");
+                  if (dashboardCanManageEmployees || dashboardCanViewAuditLog) setCentralView("auditlog");
                 }}
                 onOpenRolesInCentral={() => {
-                  if (canManageRoles) setCentralView("roles");
+                  if (canManageRoles || canViewRoles) setCentralView("roles");
                 }}
                 customRolesCount={customRoles.length}
-                subcontractorsCount={safeSubcontractors.length}
-                canAccessSubcontractors={canAccessSubcontractors}
                 complianceWatchdogCount={complianceWatchdogAlerts.length}
                 onOpenComplianceInCentral={
                   complianceWatchdogAlerts.length > 0
@@ -832,6 +746,7 @@ export function CentralModule({
                 onQuickNewEmployee={onAddEmployee}
                 onQuickNewRfi={onQuickNewRfi}
                 onQuickNewSubcontractor={onQuickNewSubcontractor}
+                onOpenSubcontractorsInOperations={onOpenSubcontractorsInOperations}
               />
             </div>
           ) : (
@@ -851,7 +766,7 @@ export function CentralModule({
           )}
         </>
       )}
-      {centralView === "auditlog" && dashboardCanManageEmployees && (
+      {centralView === "auditlog" && (dashboardCanManageEmployees || dashboardCanViewAuditLog) && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-white/10">
             <h3 className="font-semibold text-zinc-900 dark:text-white">
@@ -1116,11 +1031,11 @@ export function CentralModule({
         </div>
       )}
 
-      {centralView === "roles" && canManageRoles && (
+      {centralView === "roles" && (canManageRoles || canViewRoles) && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex flex-wrap justify-between items-center gap-3">
             <h3 className="font-semibold">{labels.roles ?? "Roles"}</h3>
-            {onAddRole && (
+            {canManageRoles && onAddRole && (
               <button type="button" onClick={openCreateRole} className="flex items-center gap-1.5 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-3 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-400 min-h-[44px]">
                 <Plus className="h-4 w-4" /> {labels.createRole ?? "Crear rol"}
               </button>
@@ -1165,6 +1080,7 @@ export function CentralModule({
                       <td className="py-3 px-4 text-sm text-zinc-500">{count}</td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {canManageRoles ? (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1176,6 +1092,7 @@ export function CentralModule({
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
+                          ) : null}
                           {base ? (
                             <span
                               className="p-2.5 rounded-lg text-zinc-400 min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -1185,6 +1102,7 @@ export function CentralModule({
                               <Lock className="h-4 w-4" />
                             </span>
                           ) : (
+                            canManageRoles &&
                             onDeleteRole && (
                               <button
                                 type="button"
@@ -1309,116 +1227,6 @@ export function CentralModule({
           </>
         );
       })()}
-
-      {centralView === "subcontractors" && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
-          <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex flex-wrap justify-between items-center gap-3">
-            <h3 className="font-semibold text-zinc-900 dark:text-white">{labels.subcontractors ?? "Subcontratistas"}</h3>
-            {canEdit && onAddSubcontractor && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingSubcontractorId(null);
-                  setSubcontractorDraft({
-                    name: "",
-                    specialty: SUBCONTRACTOR_SPECIALTIES[0],
-                    taxId: "",
-                    taxIdLabel: taxLabel,
-                    address: "",
-                    status: "active",
-                    complianceCertLabel: getComplianceCertLabel(subcontractorCountryCode),
-                    assignedProjectIds: [],
-                    createdAt: new Date().toISOString().slice(0, 10),
-                  });
-                  setSubcontractorModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-3 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-400 min-h-[44px]"
-              >
-                <Plus className="h-4 w-4" /> {(labels as Record<string, string>).addSubcontractor ?? "A?adir subcontratista"}
-              </button>
-            )}
-          </div>
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {safeSubcontractors.length === 0 ? (
-              <p className="col-span-full p-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
-                {(labels as Record<string, string>).noSubcontractors ?? "Sin subcontratistas"}
-              </p>
-            ) : (
-              safeSubcontractors.map((sub) => {
-                const subFull = sub as Subcontractor;
-                const isInsuranceSoon = subFull.liabilityInsuranceExpiry && daysUntilExpiry(subFull.liabilityInsuranceExpiry) >= 0 && daysUntilExpiry(subFull.liabilityInsuranceExpiry) <= 30;
-                const statusLabel = subFull.status === "active" ? (labels as Record<string, string>).active ?? "Activo" : subFull.status === "inactive" ? (labels as Record<string, string>).inactive ?? "Inactivo" : (labels as Record<string, string>).underReview ?? "En revisi?n";
-                const statusClass = subFull.status === "active" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" : subFull.status === "inactive" ? "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400" : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300";
-                const projectNames = (subFull.assignedProjectIds ?? []).map((pid) => safeProjects.find((p) => p.id === pid)?.name ?? pid).filter(Boolean);
-                return (
-                  <div
-                    key={sub.id}
-                    className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-zinc-900 dark:text-white truncate">{sub.name ?? sub.id}</p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">{(labels as Record<string, string>).specialty ?? "Especialidad"}: {(labels as Record<string, string>)[subFull.specialty] ?? subFull.specialty}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>{statusLabel}</span>
-                    </div>
-                    {projectNames.length > 0 && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-                        {(labels as Record<string, string>).projects ?? "Proyectos"}: {projectNames.join(", ")}
-                      </p>
-                    )}
-                    {isInsuranceSoon && (
-                      <span className="inline-block mb-2 text-xs font-medium text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded-full px-2 py-0.5">
-                        {(labels as Record<string, string>).insuranceExpiringSoon ?? "Seguro pr?ximo a vencer"}
-                      </span>
-                    )}
-                    {subFull.rating != null && subFull.rating > 0 && (
-                      <div className="flex items-center gap-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <Star key={i} className={`h-4 w-4 ${i <= (subFull.rating ?? 0) ? "text-amber-500 fill-amber-500" : "text-zinc-300 dark:text-zinc-600"}`} />
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 flex-wrap mt-2">
-                      <button
-                        type="button"
-                        onClick={() => setSubcontractorDetailId(sub.id)}
-                        className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
-                      >
-                        {(labels as Record<string, string>).viewDetail ?? "Ver detalle"}
-                      </button>
-                      {canEdit && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingSubcontractorId(sub.id);
-                              setSubcontractorDraft({ ...subFull });
-                              setSubcontractorModalOpen(true);
-                            }}
-                            className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:underline"
-                          >
-                            {labels.edit ?? "Editar"}
-                          </button>
-                          {onConfirmDeleteSubcontractor && (
-                            <button
-                              type="button"
-                              onClick={() => typeof window !== "undefined" && window.confirm((labels as Record<string, string>).confirmDeleteSubcontractor ?? "?Eliminar?") && onConfirmDeleteSubcontractor(sub.id)}
-                              className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
-                            >
-                              {labels["delete"] ?? "Eliminar"}
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
 
       {centralView === "projects" && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
@@ -2086,10 +1894,10 @@ export function CentralModule({
                 {currentUserRole === "admin" && onUpdateEmployeePermissions && (() => {
                   const tl = t as Record<string, string>;
                   const assigned = customRoles.find((r) => r.id === emp.customRoleId);
-                  const basePerms = assigned?.permissions ?? EMPTY_ROLE_PERMISSIONS;
+                  const basePerms = assigned?.permissions ?? emptyRolePermissionsInline();
                   const useRole = emp.useRolePermissions !== false;
                   const merged: RolePermissions = {
-                    ...EMPTY_ROLE_PERMISSIONS,
+                    ...emptyRolePermissionsInline(),
                     ...basePerms,
                     ...(useRole ? {} : (emp.customPermissions ?? {})),
                   };
@@ -2394,51 +2202,39 @@ export function CentralModule({
                   <span className="text-sm text-zinc-500 font-mono">{roleDraft.color}</span>
                 </div>
               </div>
-              <div>
-                <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{labels.roleModules ?? "M?dulos"}</h4>
-                <table className="w-full text-sm">
-                  <tbody>
-                    {ROLE_PERMISSION_KEYS.filter((k) => !["canViewSettings", "canEditSettings", "canManageRoles", "canManageEmployees", "canViewForms", "canManageForms", "canManageSubcontractors", "canApproveVacations", "canViewAttendance", "canViewTimeclock", "canManageTimeclock"].includes(k)).map((key) => (
-                      <tr key={key} className="border-b border-zinc-100 dark:border-white/5">
-                        <td className="py-2.5 pr-4 text-zinc-700 dark:text-zinc-300">{permLabel(key)}</td>
-                        <td className="py-2.5 w-14 text-right">
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={roleDraft.permissions[key]}
-                            onClick={() => togglePerm(key)}
-                            className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${roleDraft.permissions[key] ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
-                          >
-                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${roleDraft.permissions[key] ? "translate-x-5" : "translate-x-0"}`} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{labels.roleAdmin2 ?? "Administraci?n"}</h4>
-                <table className="w-full text-sm">
-                  <tbody>
-                    {(["canViewSettings", "canEditSettings", "canManageRoles", "canManageEmployees", "canViewForms", "canManageForms", "canManageSubcontractors", "canApproveVacations", "canViewAttendance", "canViewTimeclock", "canManageTimeclock"] as const).map((key) => (
-                      <tr key={key} className="border-b border-zinc-100 dark:border-white/5">
-                        <td className="py-2.5 pr-4 text-zinc-700 dark:text-zinc-300">{permLabel(key)}</td>
-                        <td className="py-2.5 w-14 text-right">
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={roleDraft.permissions[key]}
-                            onClick={() => togglePerm(key)}
-                            className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${roleDraft.permissions[key] ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
-                          >
-                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${roleDraft.permissions[key] ? "translate-x-5" : "translate-x-0"}`} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-6">
+                {ROLE_PERMISSION_GROUPS.map((group) => {
+                  const gl = (labels as Record<string, string>)[group.labelKey];
+                  return (
+                    <div key={group.id}>
+                      <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
+                        {gl && gl.trim() !== "" ? gl : group.id}
+                      </h4>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {group.keys.map((key) => (
+                            <tr key={key} className="border-b border-zinc-100 dark:border-white/5">
+                              <td className="py-2.5 pr-4 text-zinc-700 dark:text-zinc-300">{permLabel(key)}</td>
+                              <td className="py-2.5 w-14 text-right">
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={roleDraft.permissions[key]}
+                                  onClick={() => togglePerm(key)}
+                                  className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${roleDraft.permissions[key] ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
+                                >
+                                  <span
+                                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${roleDraft.permissions[key] ? "translate-x-5" : "translate-x-0"}`}
+                                  />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">

@@ -230,7 +230,7 @@ export function SecurityModule({
           />
         )}
 
-        {tab === "audit" && canShowAudit && canManageRoles && (
+        {tab === "audit" && canShowAudit && (
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
             <div className="p-4 border-b border-zinc-200 dark:border-white/10">
               <h3 className="font-semibold text-zinc-900 dark:text-white">{t.auditLog ?? ""}</h3>

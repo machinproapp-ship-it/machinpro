@@ -76,11 +76,13 @@ import {
   resolveActiveCustomRole,
   pickDefaultWorkerRoleId,
   isProtectedCustomRole,
+  emptyRolePermissionsInline,
 } from "@/types/roles";
 import {
   customRoleFromSupabaseRow,
   readLegacyCustomRolesFromLocalStorage,
   clearLegacyCustomRolesLocalStorage,
+  fullAdministratorPermissions,
   type RolesTableRow,
 } from "@/lib/roles-supabase";
 import type { Binder, BinderDocument, BinderCategory } from "@/types/binders";
@@ -553,142 +555,91 @@ const INITIAL_WORKER_ASSIGNMENTS: WorkerAssignment[] = [
 
 // ─── Permisos y roles personalizados (Sprint E) ──────────────────────────────────
 
+function fillRolePermissions(p: Partial<RolePermissions>): RolePermissions {
+  return { ...emptyRolePermissionsInline(), ...p };
+}
+
 const INITIAL_CUSTOM_ROLES: CustomRole[] = [
   {
     id: "role-admin",
     name: "Administrador",
     color: "#b45309",
     createdAt: new Date().toISOString(),
-    permissions: {
-      canViewCentral: true,
-      canEditCentral: true,
-      canViewLogistics: true,
-      canEditLogistics: true,
-      canViewProjects: true,
-      canViewOnlyAssignedProjects: false,
-      canEditProjects: true,
-      canViewSchedule: true,
-      canWriteSchedule: true,
-      canViewBlueprints: true,
-      canAnnotateBlueprints: true,
-      canViewSettings: true,
-      canEditSettings: true,
-      canManageRoles: true,
-      canManageEmployees: true,
-      canViewForms: true,
-      canManageForms: true,
-      canViewBinders: true,
-      canManageBinders: true,
-      canManageSubcontractors: true,
-      canApproveVacations: true,
-      canViewAttendance: true,
-      canViewTimeclock: true,
-      canManageTimeclock: true,
-      canViewBilling: true,
-      canManageDailyReports: true,
-    },
+    permissions: fullAdministratorPermissions(),
   },
   {
     id: "role-supervisor",
     name: "Supervisor",
     color: "#0d9488",
     createdAt: new Date().toISOString(),
-    permissions: {
-      canViewCentral: false,
-      canEditCentral: false,
-      canViewLogistics: false,
-      canEditLogistics: false,
+    permissions: fillRolePermissions({
       canViewProjects: true,
       canViewOnlyAssignedProjects: true,
-      canEditProjects: false,
       canViewSchedule: true,
-      canWriteSchedule: true,
-      canViewBlueprints: true,
-      canAnnotateBlueprints: true,
-      canViewSettings: true,
-      canEditSettings: false,
-      canManageRoles: false,
-      canManageEmployees: false,
-      canViewForms: true,
-      canManageForms: true,
-      canViewBinders: true,
-      canManageBinders: false,
-      canManageSubcontractors: false,
-      canApproveVacations: true,
-      canViewAttendance: true,
-      canViewTimeclock: true,
-      canManageTimeclock: false,
-      canViewBilling: false,
+      canCreateShifts: true,
+      canManageVacations: true,
+      canViewTimesheets: true,
+      canViewProjectGeneral: true,
+      canViewProjectTeam: true,
+      canViewProjectInventory: true,
+      canViewProjectGallery: true,
+      canViewProjectBlueprints: true,
+      canManageProjectBlueprints: true,
+      canViewProjectForms: true,
+      canManageProjectForms: true,
       canManageDailyReports: true,
-    },
+      canViewProjectVisitors: true,
+      canViewProjectRFI: true,
+      canManageProjectRFI: true,
+      canViewSettings: true,
+      canViewBinders: true,
+      canViewAttendance: true,
+      canViewSecurity: true,
+      canViewHazards: true,
+      canViewCorrectiveActions: true,
+      canViewTimeclock: true,
+    }),
   },
   {
     id: "role-worker",
     name: "Empleado",
     color: "#10b981",
-    permissions: {
-      canViewCentral: false,
-      canEditCentral: false,
-      canViewLogistics: false,
-      canEditLogistics: false,
+    createdAt: "2026-01-01T00:00:00Z",
+    permissions: fillRolePermissions({
       canViewProjects: true,
       canViewOnlyAssignedProjects: true,
-      canEditProjects: false,
       canViewSchedule: true,
-      canWriteSchedule: false,
-      canViewBlueprints: false,
-      canAnnotateBlueprints: false,
+      canViewTimesheets: true,
+      canViewProjectGeneral: true,
+      canViewProjectTeam: true,
+      canViewProjectInventory: true,
+      canViewProjectGallery: true,
+      canViewProjectForms: true,
       canViewSettings: true,
-      canEditSettings: false,
-      canManageRoles: false,
-      canManageEmployees: false,
-      canViewForms: true,
-      canManageForms: false,
       canViewBinders: true,
-      canManageBinders: false,
-      canManageSubcontractors: false,
-      canApproveVacations: false,
-      canViewAttendance: false,
       canViewTimeclock: true,
-      canManageTimeclock: false,
-      canViewBilling: false,
-      canManageDailyReports: false,
-    },
-    createdAt: "2026-01-01T00:00:00Z",
+    }),
   },
   {
     id: "role-logistic",
     name: "Logística",
     color: "#2563eb",
     createdAt: new Date().toISOString(),
-    permissions: {
-      canViewCentral: false,
-      canEditCentral: false,
+    permissions: fillRolePermissions({
       canViewLogistics: true,
-      canEditLogistics: true,
-      canViewProjects: false,
-      canViewOnlyAssignedProjects: false,
-      canEditProjects: false,
+      canViewInventory: true,
+      canManageInventory: true,
+      canViewFleet: true,
+      canManageFleet: true,
+      canViewSuppliers: true,
+      canManageSuppliers: true,
+      canManageRentals: true,
+      canCreatePurchaseOrders: true,
       canViewSchedule: true,
-      canWriteSchedule: false,
-      canViewBlueprints: false,
-      canAnnotateBlueprints: false,
+      canViewTimesheets: true,
       canViewSettings: true,
-      canEditSettings: false,
-      canManageRoles: false,
-      canManageEmployees: false,
-      canViewForms: false,
-      canManageForms: false,
       canViewBinders: true,
-      canManageBinders: false,
-      canManageSubcontractors: false,
-      canApproveVacations: false,
-      canViewAttendance: false,
-      canViewTimeclock: false,
-      canManageTimeclock: false,
-      canViewBilling: false,
-      canManageDailyReports: false,
-    },
+    }),
   },
 ];
 
@@ -701,37 +652,41 @@ interface ModulePermissions {
   forms?: boolean;
   canSeeOnlyAssignedProjects?: boolean;
   canAccessSchedule?: boolean;
-  canWriteSchedule?: boolean;
-  canEditSettings?: boolean;
+  canCreateShifts?: boolean;
+  canEditCompanyProfile?: boolean;
   canViewBinders?: boolean;
   canManageBinders?: boolean;
   canAccessEmployees?: boolean;
   canAccessSubcontractors?: boolean;
-  canApproveVacations?: boolean;
+  canManageVacations?: boolean;
   canViewAttendance?: boolean;
   canViewTimeclock?: boolean;
   canManageTimeclock?: boolean;
+  canAccessSecurity?: boolean;
+  canViewSettings?: boolean;
 }
 
 function permissionsToModule(p: RolePermissions): ModulePermissions {
   return {
     office: p.canViewCentral,
     warehouse: p.canViewLogistics,
-    site: p.canViewProjects,
+    site: p.canViewProjects || p.canViewSubcontractors,
     worker: false,
-    forms: p.canViewForms,
+    forms: p.canViewProjectForms,
     canSeeOnlyAssignedProjects: p.canViewOnlyAssignedProjects,
     canAccessSchedule: p.canViewSchedule,
-    canWriteSchedule: p.canWriteSchedule,
-    canEditSettings: p.canEditSettings,
+    canCreateShifts: p.canCreateShifts,
+    canEditCompanyProfile: p.canEditCompanyProfile,
     canViewBinders: p.canViewBinders,
     canManageBinders: p.canManageBinders,
-    canAccessEmployees: p.canManageEmployees,
-    canAccessSubcontractors: p.canManageSubcontractors,
-    canApproveVacations: p.canApproveVacations,
+    canAccessEmployees: p.canViewEmployees || p.canManageEmployees,
+    canAccessSubcontractors: p.canViewSubcontractors || p.canManageSubcontractors,
+    canManageVacations: p.canManageVacations,
     canViewAttendance: p.canViewAttendance,
     canViewTimeclock: p.canViewTimeclock,
     canManageTimeclock: p.canManageTimeclock,
+    canAccessSecurity: p.canViewSecurity,
+    canViewSettings: p.canViewSettings,
   };
 }
 
@@ -985,6 +940,7 @@ export default function Home() {
   const [fabIncidentNotes, setFabIncidentNotes] = useState<string>("");
 
   const [activeSection, setActiveSection] = useState<MainSection>("office");
+  const [operationsMainTab, setOperationsMainTab] = useState<"projects" | "subcontractors">("projects");
   const [correctivePrefill, setCorrectivePrefill] = useState<CorrectiveActionsPrefill | null>(null);
   const [focusHazardId, setFocusHazardId] = useState<string | null>(null);
   const [dashHazardCreateSig, setDashHazardCreateSig] = useState(0);
@@ -1960,7 +1916,10 @@ export default function Home() {
     }
     return resolveActiveCustomRole(customRoles, effectiveRole, profile?.customRoleId);
   }, [customRoles, effectiveRole, profile?.customRoleId]);
-  const rolePerms = activeCustomRole.permissions;
+  const rolePerms = useMemo(
+    () => (effectiveRole === "admin" ? fullAdministratorPermissions() : activeCustomRole.permissions),
+    [effectiveRole, activeCustomRole.permissions]
+  );
   const perms = permissionsToModule(rolePerms);
 
   const criticalInventoryCount = useMemo(
@@ -1981,6 +1940,21 @@ export default function Home() {
         (p.assignedEmployeeIds ?? []).includes(effectiveEmployeeId ?? "")
       )
     : projects ?? [];
+
+  const canViewProjectsTab =
+    rolePerms.canViewProjects || rolePerms.canViewOnlyAssignedProjects;
+
+  useEffect(() => {
+    if (activeSection !== "site") return;
+    if (!canViewProjectsTab && perms.canAccessSubcontractors) {
+      setOperationsMainTab("subcontractors");
+    }
+  }, [activeSection, canViewProjectsTab, perms.canAccessSubcontractors]);
+
+  const openOperationsSubcontractors = useCallback(() => {
+    setActiveSection("site");
+    setOperationsMainTab("subcontractors");
+  }, []);
 
   const navigateToSiteVisitorsTab = useCallback(
     (opts?: { openQr?: boolean }) => {
@@ -2732,7 +2706,8 @@ export default function Home() {
           canAccessWarehouse={perms.warehouse}
           canAccessSite={perms.site}
           canAccessSchedule={perms.canAccessSchedule ?? true}
-          canAccessSecurity
+          canAccessSecurity={perms.canAccessSecurity ?? false}
+          canAccessSettings={perms.canViewSettings ?? false}
           labels={labels}
           collapsed={sidebarCollapsed}
         />
@@ -2925,7 +2900,16 @@ export default function Home() {
                 projects={projects}
                 displayProjects={projects}
                 subcontractors={subcontractors}
-                canEdit={rolePerms.canEditCentral}
+                canEdit={
+                  !!(
+                    rolePerms.canManageEmployees ||
+                    rolePerms.canCreateProjects ||
+                    rolePerms.canEditProjects ||
+                    rolePerms.canDeleteProjects
+                  )
+                }
+                canViewRoles={!!rolePerms.canViewRoles}
+                canViewAuditLog={!!rolePerms.canViewAuditLog}
                 onAddProject={() => openProjectForm()}
                 onEditProject={(id) => openProjectForm(projects.find((p) => p.id === id) ?? null)}
                 onArchiveProject={(id) => {
@@ -3113,11 +3097,17 @@ export default function Home() {
                   )
                 }
                 dashboardCanManageComplianceAlerts={
-                  !!(rolePerms.canManageForms || rolePerms.canManageEmployees)
+                  !!(rolePerms.canManageCompliance || rolePerms.canManageEmployees)
                 }
-                dashboardCanViewLogistics={
-                  !!(rolePerms.canViewLogistics || rolePerms.canEditLogistics)
+                dashboardCanViewLogistics={!!rolePerms.canViewLogistics}
+                dashboardCanViewEmployees={
+                  !!(rolePerms.canViewEmployees || rolePerms.canManageEmployees)
                 }
+                dashboardCanViewRoles={
+                  !!(rolePerms.canViewRoles || rolePerms.canManageRoles)
+                }
+                dashboardCanViewAuditLog={!!rolePerms.canViewAuditLog}
+                dashboardCanViewDashboardWidgets={!!rolePerms.canViewDashboardWidgets}
                 dashboardCriticalInventoryCount={criticalInventoryCount}
                 onQuickNewRfi={() => {
                   if (!perms.site) return;
@@ -3192,7 +3182,15 @@ export default function Home() {
                   if (typeof window !== "undefined" && window.confirm(msg))
                     setSuppliers((prev) => prev.filter((s) => s.id !== id));
                 }}
-                canEdit={rolePerms.canEditLogistics}
+                canEdit={
+                  !!(
+                    rolePerms.canManageInventory ||
+                    rolePerms.canManageFleet ||
+                    rolePerms.canManageSuppliers ||
+                    rolePerms.canManageRentals ||
+                    rolePerms.canCreatePurchaseOrders
+                  )
+                }
                 onUpdateItemStatus={(id, status) => {
                   setInventoryItems((prev) => {
                     const next = prev.map((i) => i.id === id ? { ...i, toolStatus: status as ToolStatus } : i);
@@ -3273,20 +3271,64 @@ export default function Home() {
               />
             )}
 
-            {activeSection === "subcontractors" && !!perms.canAccessSubcontractors && (
-              <SubcontractorsModule
-                companyId={companyId}
-                onBackToOffice={() => setActiveSection("office")}
-                labels={t as Record<string, string>}
-                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
-                canManage={rolePerms.canManageSubcontractors}
-                canDeleteSubcontractor={effectiveRole === "admin" || !!rolePerms.canManageSubcontractors}
-                customRoles={customRoles}
-              />
-            )}
-
             {activeSection === "site" && perms.site && (
-              <ProjectsModule
+              <>
+                {canViewProjectsTab && perms.canAccessSubcontractors ? (
+                  <div
+                    className="flex flex-wrap gap-2 mb-4"
+                    role="tablist"
+                    aria-label={(t as Record<string, string>).nav_operations ?? ""}
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={operationsMainTab === "projects"}
+                      onClick={() => setOperationsMainTab("projects")}
+                      className={`inline-flex min-h-[44px] items-center rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                        operationsMainTab === "projects"
+                          ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                          : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {t.projects ?? "Proyectos"}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={operationsMainTab === "subcontractors"}
+                      onClick={() => setOperationsMainTab("subcontractors")}
+                      className={`inline-flex min-h-[44px] items-center rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                        operationsMainTab === "subcontractors"
+                          ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                          : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {t.subcontractors ?? "Subcontratistas"}
+                    </button>
+                  </div>
+                ) : null}
+                {!canViewProjectsTab && perms.canAccessSubcontractors ? (
+                  <SubcontractorsModule
+                   companyId={companyId}
+                    onBackToOffice={() => setActiveSection("office")}
+                    labels={t as Record<string, string>}
+                    projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
+                    canManage={rolePerms.canManageSubcontractors}
+                    canDeleteSubcontractor={effectiveRole === "admin" || !!rolePerms.canManageSubcontractors}
+                    customRoles={customRoles}
+                  />
+                ) : operationsMainTab === "subcontractors" && perms.canAccessSubcontractors ? (
+                  <SubcontractorsModule
+                    companyId={companyId}
+                    onBackToOffice={() => setOperationsMainTab("projects")}
+                    labels={t as Record<string, string>}
+                    projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
+                    canManage={rolePerms.canManageSubcontractors}
+                    canDeleteSubcontractor={effectiveRole === "admin" || !!rolePerms.canManageSubcontractors}
+                    customRoles={customRoles}
+                  />
+                ) : (
+                  <ProjectsModule
                 labels={t}
                 projects={siteProjects}
                 selectedProjectId={siteSelectedProjectId}
@@ -3412,7 +3454,7 @@ export default function Home() {
                 onAddRevision={handleAddBlueprintRevision}
                 onMarkBlueprintNotCurrent={handleMarkBlueprintNotCurrent}
                 canEdit={rolePerms.canEditProjects}
-                canAnnotateBlueprints={rolePerms.canAnnotateBlueprints}
+                canAnnotateBlueprints={!!rolePerms.canManageProjectBlueprints}
                 cloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ""}
                 projectForms={projectForms}
                 safetyChecklists={safetyChecklists}
@@ -3442,11 +3484,7 @@ export default function Home() {
                 dailyReports={dailyReports}
                 onRefreshDailyReports={reloadDailyReports}
                 teamProfiles={teamProfiles}
-                canManageDailyReports={
-                  effectiveRole === "admin" ||
-                  effectiveRole === "supervisor" ||
-                  !!rolePerms.canManageDailyReports
-                }
+                canManageDailyReports={!!rolePerms.canManageDailyReports}
                 companyId={companyId ?? ""}
                 currentUserProfileId={profile?.id ?? null}
                 onOpenHazardFromBlueprint={(id) => {
@@ -3480,10 +3518,8 @@ export default function Home() {
                 visitorOpenQrSignal={dashVisitorQrSig}
                 visitorTabSignal={dashVisitorTabSig}
                 openRfiTabSignal={projectsOpenRfiSig}
-                showProjectRfiTab={effectiveRole === "admin" || effectiveRole === "supervisor"}
-                showProjectVisitorsTab={
-                  effectiveRole === "admin" || effectiveRole === "supervisor"
-                }
+                showProjectRfiTab={!!rolePerms.canViewProjectRFI}
+                showProjectVisitorsTab={!!rolePerms.canViewProjectVisitors}
                 onCreateForm={(projectId, form) => {
                   const newForm = {
                     ...form,
@@ -3504,6 +3540,8 @@ export default function Home() {
                   });
                 }}
               />
+                )}
+              </>
             )}
 
             {activeSection === "schedule" && (perms.canAccessSchedule !== false) && (
@@ -3525,16 +3563,10 @@ export default function Home() {
                   location: p.location,
                 }))}
                 currentUserEmployeeId={currentUserEmployeeId ?? undefined}
-                canWrite={
-                  effectiveRole === "admin" ||
-                  effectiveRole === "supervisor" ||
-                  (perms.canWriteSchedule ?? false)
-                }
+                canWrite={!!rolePerms.canCreateShifts}
                 canClockIn={effectiveRole !== "admin"}
-                viewAll={effectiveRole === "admin" || effectiveRole === "supervisor"}
-                canApproveVacations={
-                  effectiveRole === "admin" || !!perms.canApproveVacations
-                }
+                viewAll={!!rolePerms.canViewSchedule}
+                canApproveVacations={!!rolePerms.canManageVacations}
                 canRequestVacation={!!session && !!companyId}
                 vacationRequests={vacationRequests}
                 vacationEmployeeNames={vacationEmployeeNames}
@@ -3651,7 +3683,7 @@ export default function Home() {
                 employees={employees.map((e) => ({ id: e.id, name: e.name, email: e.email }))}
                 currentUserEmployeeId={effectiveEmployeeId ?? ""}
                 currentUserName={employees.find((e) => e.id === effectiveEmployeeId)?.name ?? "Admin"}
-                canManage={rolePerms.canManageForms ?? false}
+                canManage={!!rolePerms.canManageProjectForms}
                 onCreateInstance={(instance) => setFormInstances((prev) => [...prev, instance])}
                 onUpdateInstance={(instance) => {
                   setFormInstances((prev) => prev.map((i) => (i.id === instance.id ? instance : i)));
@@ -3666,7 +3698,7 @@ export default function Home() {
               />
             )}
 
-            {activeSection === "security" && (
+            {activeSection === "security" && (perms.canAccessSecurity ?? false) && (
               <SecurityModule
                 t={t as Record<string, string>}
                 companyId={companyId}
@@ -3696,18 +3728,19 @@ export default function Home() {
                 }
                 auditLogs={auditLogs}
                 canManageRoles={rolePerms.canManageRoles}
-                canShowHazards={
-                  effectiveRole === "admin" ||
-                  effectiveRole === "supervisor" ||
-                  effectiveRole === "worker"
-                }
+                canShowHazards={!!(rolePerms.canViewHazards || rolePerms.canManageHazards)}
                 canShowActions={
-                  effectiveRole === "admin" ||
-                  effectiveRole === "supervisor" ||
-                  effectiveRole === "worker"
+                  !!(rolePerms.canViewCorrectiveActions || rolePerms.canManageCorrectiveActions)
                 }
-                canShowDocuments={perms.canViewBinders !== false}
-                canShowAudit={rolePerms.canManageRoles}
+                canShowDocuments={
+                  !!(
+                    rolePerms.canViewSecurityDocs ||
+                    rolePerms.canManageSecurityDocs ||
+                    rolePerms.canViewBinders ||
+                    rolePerms.canManageBinders
+                  )
+                }
+                canShowAudit={!!(rolePerms.canViewSecurityAudit || rolePerms.canViewAuditLog)}
                 onOpenCorrectiveFromHazard={({ hazardId, projectId, projectName }) => {
                   setCorrectivePrefill({
                     hazardId,
@@ -3719,7 +3752,7 @@ export default function Home() {
               />
             )}
 
-            {activeSection === "settings" && (
+            {activeSection === "settings" && (perms.canViewSettings ?? false) && (
               <SettingsModule
                 labels={{
                   ...(t as Record<string, string>),
@@ -3744,7 +3777,14 @@ export default function Home() {
                 setCurrency={(c) => setCurrency(c as Currency)}
                 measurementSystem={measurementSystem}
                 setMeasurementSystem={setMeasurementSystem}
-                canEditSettings={rolePerms.canEditSettings}
+                canEditSettings={
+                  !!(
+                    rolePerms.canEditCompanyProfile ||
+                    rolePerms.canManageNotifications ||
+                    rolePerms.canManageRegionalConfig ||
+                    rolePerms.canManageCompliance
+                  )
+                }
                 companyCountry={companyCountry}
                 onCountryChange={(country, defaults) => {
                   setCompanyCountry(country);

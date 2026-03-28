@@ -36,6 +36,7 @@ export interface SidebarProps {
   canAccessSchedule?: boolean;
   /** Seguridad (riesgos, acciones, documentos, auditoría) */
   canAccessSecurity?: boolean;
+  canAccessSettings?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
 }
@@ -48,6 +49,7 @@ export function Sidebar({
   canAccessSite,
   canAccessSchedule = true,
   canAccessSecurity = true,
+  canAccessSettings = true,
   labels,
   collapsed = false,
 }: SidebarProps) {
@@ -61,7 +63,7 @@ export function Sidebar({
       { id: "schedule", icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
       { id: "warehouse", icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
       { id: "security", icon: Shield, label: securityLabel, show: canAccessSecurity },
-      { id: "settings", icon: Settings, label: labels.settings ?? "Ajustes", show: true },
+      { id: "settings", icon: Settings, label: labels.settings ?? "Ajustes", show: canAccessSettings },
     ],
     [
       labels.office,
@@ -75,6 +77,7 @@ export function Sidebar({
       canAccessSchedule,
       canAccessWarehouse,
       canAccessSecurity,
+      canAccessSettings,
     ]
   );
 

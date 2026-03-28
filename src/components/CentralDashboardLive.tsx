@@ -85,14 +85,21 @@ type AuditProfileSnippet = {
   email?: string | null;
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function auditActorLabel(
   row: AuditLogEntry,
   profileByUserId: Record<string, AuditProfileSnippet>,
   labels: Record<string, string>
 ): string {
-  const un = (row.user_name ?? "").trim();
+  const rawName = (row.user_name ?? "").trim();
+  const badGeneric =
+    /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
+  const un =
+    rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
   if (un) return un;
-  const p = profileByUserId[row.user_id];
+  const uid = (row.user_id ?? "").trim();
+  const p = uid ? profileByUserId[uid] : undefined;
   if (p) {
     const fn = (p.full_name ?? "").trim();
     if (fn) return fn;
@@ -101,7 +108,7 @@ function auditActorLabel(
     const em = (p.email ?? "").trim();
     if (em) return em;
   }
-  return labels.dashboard_activity_user_fallback ?? "Usuario";
+  return (labels.dashboard_activity_unknown_user ?? "").trim() || "—";
 }
 
 function formatActivityLine(
@@ -230,8 +237,11 @@ export interface CentralDashboardLiveProps {
   projectNameById: Record<string, string>;
   currentUserRole: UserRole;
   canManageRoles: boolean;
+  canViewRoles?: boolean;
   /** Zona 1 gestión, personalización del panel y widgets de gestión (actividad, visitantes, equipo). */
   canManageEmployees: boolean;
+  canViewEmployees?: boolean;
+  canViewAuditLog?: boolean;
   /** Widget fichaje del equipo. */
   canViewTeamClock: boolean;
   /** Alertas compliance e incidencias ampliadas. */
@@ -247,18 +257,18 @@ export interface CentralDashboardLiveProps {
   onNavigateToOperationsVisitors?: () => void;
   visitorCheckInUrl: string | null;
   canAccessEmployees?: boolean;
-  canAccessSubcontractors?: boolean;
-  subcontractorsCount: number;
   onOpenRolesInCentral: () => void;
   customRolesCount: number;
   complianceWatchdogCount?: number;
   onOpenComplianceInCentral?: () => void;
   currentUserId?: string | null;
   canViewLogistics: boolean;
+  canViewDashboardWidgets?: boolean;
   criticalInventoryCount?: number;
   onQuickNewEmployee?: () => void;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
+  onOpenSubcontractorsInOperations?: () => void;
 }
 
 type TimeRow = {
@@ -288,7 +298,10 @@ function CentralDashboardBody(
     projectNameById,
     currentUserRole,
     canManageRoles,
+    canViewRoles = false,
     canManageEmployees,
+    canViewEmployees = false,
+    canViewAuditLog = false,
     canViewTeamClock,
     canManageComplianceAlerts,
     canAccessVisitors,
@@ -302,18 +315,18 @@ function CentralDashboardBody(
     onNavigateToOperationsVisitors,
     visitorCheckInUrl,
     canAccessEmployees = false,
-    canAccessSubcontractors = false,
-    subcontractorsCount,
     onOpenRolesInCentral,
     customRolesCount,
     complianceWatchdogCount = 0,
     onOpenComplianceInCentral,
     currentUserId,
     canViewLogistics,
+    canViewDashboardWidgets = true,
     criticalInventoryCount = 0,
     onQuickNewEmployee,
     onQuickNewRfi,
     onQuickNewSubcontractor,
+    onOpenSubcontractorsInOperations,
   } = props;
 
   const labels = labelsProp;
@@ -364,7 +377,12 @@ function CentralDashboardBody(
   const [hazardRows, setHazardRows] = useState<Hazard[]>([]);
   const [visitorsTodayCount, setVisitorsTodayCount] = useState(0);
 
-  const showZone1 = canManageEmployees;
+  const showZone1 =
+    canViewEmployees ||
+    canManageEmployees ||
+    canViewRoles ||
+    canManageRoles ||
+    canViewAuditLog;
 
   const canShowWidget = useCallback(
     (id: DashboardWidgetId): boolean => {
@@ -374,7 +392,7 @@ function CentralDashboardBody(
         case "my_timeclock":
           return true;
         case "activity":
-          return canManageEmployees;
+          return canViewAuditLog || canManageEmployees;
         case "compliance_alerts":
           return canManageComplianceAlerts;
         case "hazards":
@@ -396,6 +414,7 @@ function CentralDashboardBody(
     [
       canViewTeamClock,
       canManageEmployees,
+      canViewAuditLog,
       canManageComplianceAlerts,
       canAccessHazards,
       canAccessVisitors,
@@ -581,7 +600,7 @@ function CentralDashboardBody(
       }
 
       const fetchEmpCount = async () => {
-        if (!canManageEmployees) {
+        if (!canViewEmployees && !canManageEmployees) {
           if (!cancelled) setEmpActiveCount(null);
           return;
         }
@@ -698,6 +717,8 @@ function CentralDashboardBody(
     tEnd,
     canViewTeamClock,
     canManageEmployees,
+    canViewEmployees,
+    canViewAuditLog,
     canAccessVisitors,
     canAccessHazards,
     canManageComplianceAlerts,
@@ -795,7 +816,7 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "audit" && canManageEmployees) {
+        if (k === "audit" && (canManageEmployees || canViewAuditLog)) {
           return (
             <button
               key={k}
@@ -834,12 +855,12 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "subcontractor" && onQuickNewSubcontractor) {
+        if (k === "subcontractor" && (onQuickNewSubcontractor || onOpenSubcontractorsInOperations)) {
           return (
             <button
               key={k}
               type="button"
-              onClick={onQuickNewSubcontractor}
+              onClick={onQuickNewSubcontractor ?? onOpenSubcontractorsInOperations}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <Briefcase className="h-4 w-4 shrink-0" aria-hidden />
@@ -1153,7 +1174,8 @@ function CentralDashboardBody(
       {showZone1 ? (
         <>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+            {(canViewEmployees || canManageEmployees) ? (
             <UnifiedDashCard
               icon={<Users className="h-5 w-5 text-white" />}
               iconWrapClassName="bg-blue-500"
@@ -1162,22 +1184,18 @@ function CentralDashboardBody(
               onClick={() => onNavigateAppSection("employees")}
               disabled={!canAccessEmployees}
             />
-            <UnifiedDashCard
-              icon={<Briefcase className="h-5 w-5 text-white" />}
-              iconWrapClassName="bg-indigo-500"
-              label={L("subcontractors") ?? ""}
-              value={subcontractorsCount}
-              onClick={() => onNavigateAppSection("subcontractors")}
-              disabled={!canAccessSubcontractors}
-            />
+            ) : null}
+            {(canViewRoles || canManageRoles) ? (
             <UnifiedDashCard
               icon={<KeyRound className="h-5 w-5 text-white" />}
               iconWrapClassName="bg-violet-500"
               label={L("roles") ?? L("permManageRoles")}
               value={customRolesCount}
               onClick={() => onOpenRolesInCentral()}
-              disabled={!canManageRoles}
+              disabled={!(canViewRoles || canManageRoles)}
             />
+            ) : null}
+            {canViewAuditLog ? (
             <UnifiedDashCard
               icon={<Shield className="h-5 w-5 text-white" />}
               iconWrapClassName="bg-emerald-500"
@@ -1185,16 +1203,21 @@ function CentralDashboardBody(
               value="→"
               onClick={() => onOpenAuditInCentral()}
             />
+            ) : null}
           </div>
         </>
       ) : null}
 
+      {canViewDashboardWidgets ? (
+        <>
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {orderedVisibleWidgets.filter(canShowWidget).map((id) => (
           <div key={id}>{renderWidget(id)}</div>
         ))}
       </div>
+        </>
+      ) : null}
 
       {customizeOpen ? (
         <>

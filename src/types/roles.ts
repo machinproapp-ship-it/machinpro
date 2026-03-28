@@ -1,32 +1,84 @@
+/** Permisos granulares AW-5 — cada flag controla una funcionalidad concreta. */
 export interface RolePermissions {
+  // ─── Central ─────────────────────────────────────────────
   canViewCentral: boolean;
-  canEditCentral: boolean;
-  canViewLogistics: boolean;
-  canEditLogistics: boolean;
-  canViewProjects: boolean;
-  canViewOnlyAssignedProjects: boolean;
-  canEditProjects: boolean;
-  canViewSchedule: boolean;
-  canWriteSchedule: boolean;
-  canViewBlueprints: boolean;
-  canAnnotateBlueprints: boolean;
-  canViewSettings: boolean;
-  canEditSettings: boolean;
-  canManageRoles: boolean;
   canManageEmployees: boolean;
-  canViewForms: boolean;
-  canManageForms: boolean;
-  canViewBinders: boolean;
-  canManageBinders: boolean;
+  canViewEmployees: boolean;
+  canManageRoles: boolean;
+  canViewRoles: boolean;
   canManageSubcontractors: boolean;
-  canApproveVacations: boolean;
-  canViewAttendance: boolean;
+  canViewSubcontractors: boolean;
+  canViewAuditLog: boolean;
+  /** Asignar/desasignar empleados en proyectos (desde Operaciones / proyecto). */
+  canManageProjectTeam: boolean;
   canViewTimeclock: boolean;
   canManageTimeclock: boolean;
-  /** Ver facturación / planes en Ajustes */
-  canViewBilling: boolean;
-  /** Crear/editar/publicar partes diarios de obra */
+  canManageCompliance: boolean;
+  canViewDashboardWidgets: boolean;
+
+  // ─── Operaciones / proyecto ───────────────────────────────
+  canViewProjects: boolean;
+  canViewOnlyAssignedProjects: boolean;
+  canCreateProjects: boolean;
+  canEditProjects: boolean;
+  canDeleteProjects: boolean;
+  canViewProjectGeneral: boolean;
+  /** Pestaña Personal del proyecto (solo lectura). */
+  canViewProjectTeam: boolean;
+  canViewProjectInventory: boolean;
+  canViewProjectGallery: boolean;
+  canViewProjectBlueprints: boolean;
+  canViewProjectForms: boolean;
+  canViewProjectVisitors: boolean;
+  canViewProjectRFI: boolean;
+  canManageProjectForms: boolean;
+  canManageProjectGallery: boolean;
+  canManageProjectBlueprints: boolean;
+  canManageProjectRFI: boolean;
+  canManageProjectVisitors: boolean;
+
+  // ─── Horario ─────────────────────────────────────────────
+  canViewSchedule: boolean;
+  canCreateShifts: boolean;
+  canManageVacations: boolean;
+  canViewTimesheets: boolean;
+  canManageTimesheets: boolean;
+
+  // ─── Logística ──────────────────────────────────────────
+  canViewLogistics: boolean;
+  canManageInventory: boolean;
+  canViewInventory: boolean;
+  canManageFleet: boolean;
+  canViewFleet: boolean;
+  canManageSuppliers: boolean;
+  canViewSuppliers: boolean;
+  canManageRentals: boolean;
+  canCreatePurchaseOrders: boolean;
+
+  // ─── Seguridad ──────────────────────────────────────────
+  canViewSecurity: boolean;
+  canManageHazards: boolean;
+  canViewHazards: boolean;
+  canManageCorrectiveActions: boolean;
+  canViewCorrectiveActions: boolean;
+  canManageSecurityDocs: boolean;
+  canViewSecurityDocs: boolean;
+  canViewSecurityAudit: boolean;
   canManageDailyReports: boolean;
+
+  // ─── Ajustes ────────────────────────────────────────────
+  canViewSettings: boolean;
+  canEditCompanyProfile: boolean;
+  canViewBilling: boolean;
+  canManageNotifications: boolean;
+  canManageRegionalConfig: boolean;
+
+  // ─── Documentos (módulo Carpetas / binders) ────────────
+  canViewBinders: boolean;
+  canManageBinders: boolean;
+
+  /** Panel asistencia / GPS en ficha de proyecto. */
+  canViewAttendance: boolean;
 }
 
 export interface CustomRole {
@@ -35,66 +87,250 @@ export interface CustomRole {
   color: string;
   permissions: RolePermissions;
   createdAt: string;
-  /** Fila Supabase con is_system=true — no se puede eliminar desde la UI. */
   isSystem?: boolean;
 }
 
 export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewCentral",
-  "canEditCentral",
-  "canViewLogistics",
-  "canEditLogistics",
-  "canViewProjects",
-  "canViewOnlyAssignedProjects",
-  "canEditProjects",
-  "canViewSchedule",
-  "canWriteSchedule",
-  "canViewBlueprints",
-  "canAnnotateBlueprints",
-  "canViewSettings",
-  "canEditSettings",
-  "canManageRoles",
   "canManageEmployees",
-  "canViewForms",
-  "canManageForms",
-  "canViewBinders",
-  "canManageBinders",
+  "canViewEmployees",
+  "canManageRoles",
+  "canViewRoles",
   "canManageSubcontractors",
-  "canApproveVacations",
-  "canViewAttendance",
+  "canViewSubcontractors",
+  "canViewAuditLog",
+  "canManageProjectTeam",
   "canViewTimeclock",
   "canManageTimeclock",
-  "canViewBilling",
+  "canManageCompliance",
+  "canViewDashboardWidgets",
+  "canViewProjects",
+  "canViewOnlyAssignedProjects",
+  "canCreateProjects",
+  "canEditProjects",
+  "canDeleteProjects",
+  "canViewProjectGeneral",
+  "canViewProjectTeam",
+  "canViewProjectInventory",
+  "canViewProjectGallery",
+  "canViewProjectBlueprints",
+  "canViewProjectForms",
+  "canViewProjectVisitors",
+  "canViewProjectRFI",
+  "canManageProjectForms",
+  "canManageProjectGallery",
+  "canManageProjectBlueprints",
+  "canManageProjectRFI",
+  "canManageProjectVisitors",
+  "canViewSchedule",
+  "canCreateShifts",
+  "canManageVacations",
+  "canViewTimesheets",
+  "canManageTimesheets",
+  "canViewLogistics",
+  "canManageInventory",
+  "canViewInventory",
+  "canManageFleet",
+  "canViewFleet",
+  "canManageSuppliers",
+  "canViewSuppliers",
+  "canManageRentals",
+  "canCreatePurchaseOrders",
+  "canViewSecurity",
+  "canManageHazards",
+  "canViewHazards",
+  "canManageCorrectiveActions",
+  "canViewCorrectiveActions",
+  "canManageSecurityDocs",
+  "canViewSecurityDocs",
+  "canViewSecurityAudit",
   "canManageDailyReports",
+  "canViewSettings",
+  "canEditCompanyProfile",
+  "canViewBilling",
+  "canManageNotifications",
+  "canManageRegionalConfig",
+  "canViewBinders",
+  "canManageBinders",
+  "canViewAttendance",
+];
+
+/** Clave i18n: `perm` + clave con primera letra en mayúscula (permCanViewCentral). */
+export function permLocaleKey(k: keyof RolePermissions): string {
+  const s = String(k);
+  return `perm${s.charAt(0).toUpperCase()}${s.slice(1)}`;
+}
+
+export const ROLE_PERMISSION_GROUPS: {
+  id: string;
+  labelKey: string;
+  keys: (keyof RolePermissions)[];
+}[] = [
+  {
+    id: "central",
+    labelKey: "permGroup_central",
+    keys: [
+      "canViewCentral",
+      "canViewDashboardWidgets",
+      "canViewEmployees",
+      "canManageEmployees",
+      "canViewRoles",
+      "canManageRoles",
+      "canViewSubcontractors",
+      "canManageSubcontractors",
+      "canViewAuditLog",
+      "canViewTimeclock",
+      "canManageTimeclock",
+      "canManageCompliance",
+    ],
+  },
+  {
+    id: "operations",
+    labelKey: "permGroup_operations",
+    keys: [
+      "canViewProjects",
+      "canViewOnlyAssignedProjects",
+      "canCreateProjects",
+      "canEditProjects",
+      "canDeleteProjects",
+      "canManageProjectTeam",
+      "canViewProjectGeneral",
+      "canViewProjectTeam",
+      "canViewProjectInventory",
+      "canViewProjectGallery",
+      "canViewProjectBlueprints",
+      "canViewProjectForms",
+      "canViewProjectVisitors",
+      "canViewProjectRFI",
+      "canManageProjectForms",
+      "canManageProjectGallery",
+      "canManageProjectBlueprints",
+      "canManageProjectRFI",
+      "canManageProjectVisitors",
+    ],
+  },
+  {
+    id: "schedule",
+    labelKey: "permGroup_schedule",
+    keys: [
+      "canViewSchedule",
+      "canCreateShifts",
+      "canManageVacations",
+      "canViewTimesheets",
+      "canManageTimesheets",
+    ],
+  },
+  {
+    id: "logistics",
+    labelKey: "permGroup_logistics",
+    keys: [
+      "canViewLogistics",
+      "canViewInventory",
+      "canManageInventory",
+      "canViewFleet",
+      "canManageFleet",
+      "canViewSuppliers",
+      "canManageSuppliers",
+      "canManageRentals",
+      "canCreatePurchaseOrders",
+    ],
+  },
+  {
+    id: "security",
+    labelKey: "permGroup_security",
+    keys: [
+      "canViewSecurity",
+      "canViewHazards",
+      "canManageHazards",
+      "canViewCorrectiveActions",
+      "canManageCorrectiveActions",
+      "canViewSecurityDocs",
+      "canManageSecurityDocs",
+      "canViewSecurityAudit",
+      "canManageDailyReports",
+    ],
+  },
+  {
+    id: "settings",
+    labelKey: "permGroup_settings",
+    keys: [
+      "canViewSettings",
+      "canEditCompanyProfile",
+      "canViewBilling",
+      "canManageNotifications",
+      "canManageRegionalConfig",
+    ],
+  },
+  {
+    id: "documents",
+    labelKey: "permGroup_documents",
+    keys: ["canViewBinders", "canManageBinders", "canViewAttendance"],
+  },
 ];
 
 export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewCentral: "Ver Central",
-  canEditCentral: "Editar Central",
-  canViewLogistics: "Ver Logística",
-  canEditLogistics: "Editar Logística",
-  canViewProjects: "Ver Proyectos",
+  canManageEmployees: "Gestionar empleados",
+  canViewEmployees: "Ver empleados",
+  canManageRoles: "Gestionar roles",
+  canViewRoles: "Ver roles",
+  canManageSubcontractors: "Gestionar subcontratistas",
+  canViewSubcontractors: "Ver subcontratistas",
+  canViewAuditLog: "Ver registro de auditoría",
+  canManageProjectTeam: "Gestionar equipo del proyecto",
+  canViewTimeclock: "Ver fichajes del equipo",
+  canManageTimeclock: "Gestionar fichajes del equipo",
+  canManageCompliance: "Gestionar compliance y certificados",
+  canViewDashboardWidgets: "Ver panel operativo",
+  canViewProjects: "Ver proyectos",
   canViewOnlyAssignedProjects: "Solo proyectos asignados",
-  canEditProjects: "Editar Proyectos",
-  canViewSchedule: "Ver Horario",
-  canWriteSchedule: "Crear turnos",
-  canViewBlueprints: "Ver Planos",
-  canAnnotateBlueprints: "Anotar en Planos",
-  canViewSettings: "Ver Ajustes",
-  canEditSettings: "Editar Ajustes",
-  canManageRoles: "Gestionar Roles",
-  canManageEmployees: "Gestionar Empleados",
-  canViewForms: "Ver Formularios",
-  canManageForms: "Gestionar Formularios",
-  canViewBinders: "Ver Documentos",
-  canManageBinders: "Gestionar Documentos",
-  canManageSubcontractors: "Gestionar Subcontratistas",
-  canApproveVacations: "Aprobar vacaciones",
-  canViewAttendance: "Ver panel asistencia",
-  canViewTimeclock: "Ver fichajes",
-  canManageTimeclock: "Gestionar fichajes",
-  canViewBilling: "Ver facturación",
+  canCreateProjects: "Crear proyectos",
+  canEditProjects: "Editar proyectos",
+  canDeleteProjects: "Eliminar proyectos",
+  canViewProjectGeneral: "Ver pestaña General del proyecto",
+  canViewProjectTeam: "Ver pestaña Personal del proyecto",
+  canViewProjectInventory: "Ver pestaña Inventario del proyecto",
+  canViewProjectGallery: "Ver pestaña Galería del proyecto",
+  canViewProjectBlueprints: "Ver pestaña Planos del proyecto",
+  canViewProjectForms: "Ver pestaña Formularios del proyecto",
+  canViewProjectVisitors: "Ver pestaña Visitantes del proyecto",
+  canViewProjectRFI: "Ver pestaña RFI del proyecto",
+  canManageProjectForms: "Gestionar formularios y partes diarios",
+  canManageProjectGallery: "Gestionar galería (subir/aprobar fotos)",
+  canManageProjectBlueprints: "Gestionar planos",
+  canManageProjectRFI: "Gestionar RFI",
+  canManageProjectVisitors: "Gestionar visitantes y QR",
+  canViewSchedule: "Ver horario",
+  canCreateShifts: "Crear turnos y eventos",
+  canManageVacations: "Gestionar vacaciones",
+  canViewTimesheets: "Ver hojas de horas",
+  canManageTimesheets: "Editar hojas de horas",
+  canViewLogistics: "Ver logística",
+  canManageInventory: "Gestionar inventario",
+  canViewInventory: "Ver inventario",
+  canManageFleet: "Gestionar flota",
+  canViewFleet: "Ver flota",
+  canManageSuppliers: "Gestionar proveedores",
+  canViewSuppliers: "Ver proveedores",
+  canManageRentals: "Gestionar alquileres",
+  canCreatePurchaseOrders: "Crear pedidos",
+  canViewSecurity: "Ver seguridad",
+  canManageHazards: "Gestionar riesgos",
+  canViewHazards: "Ver riesgos",
+  canManageCorrectiveActions: "Gestionar acciones correctivas",
+  canViewCorrectiveActions: "Ver acciones correctivas",
+  canManageSecurityDocs: "Gestionar documentos de seguridad",
+  canViewSecurityDocs: "Ver documentos de seguridad",
+  canViewSecurityAudit: "Ver auditoría de seguridad",
   canManageDailyReports: "Gestionar partes diarios",
+  canViewSettings: "Ver ajustes",
+  canEditCompanyProfile: "Editar perfil de empresa",
+  canViewBilling: "Ver facturación",
+  canManageNotifications: "Gestionar notificaciones",
+  canManageRegionalConfig: "Gestionar configuración regional",
+  canViewBinders: "Ver documentos (carpetas)",
+  canManageBinders: "Gestionar documentos (carpetas)",
+  canViewAttendance: "Ver panel asistencia en proyecto",
 };
 
 const BASE_ROLE_IDS = ["role-admin", "role-supervisor", "role-worker", "role-logistic"];
@@ -103,14 +339,12 @@ export function isBaseRole(id: string): boolean {
   return BASE_ROLE_IDS.includes(id);
 }
 
-/** Rol protegido: sistema en BD o id legacy de plantilla. */
 export function isProtectedCustomRole(role: CustomRole): boolean {
   return role.isSystem === true || isBaseRole(role.id);
 }
 
 const DEFAULT_WORKER_NAMES = ["empleado", "employee", "worker", "trabajador"];
 
-/** Id del rol tipo “empleado” por nombre, o el primer rol no sistema, o el primero de la lista. */
 export function pickDefaultWorkerRoleId(customRoles: CustomRole[]): string {
   if (!customRoles.length) return "";
   const norm = (s: string) => s.trim().toLowerCase();
@@ -131,7 +365,6 @@ const LEGACY_USER_ROLE_NAMES: Record<"admin" | "supervisor" | "worker" | "logist
 
 type AppRole = "admin" | "supervisor" | "worker" | "logistic" | "projectManager";
 
-/** Resuelve qué CustomRole usa el usuario para permisos (UUID en BD o plantillas legacy). */
 export function resolveActiveCustomRole(
   customRoles: CustomRole[],
   effectiveRole: AppRole,
@@ -154,6 +387,12 @@ export function resolveActiveCustomRole(
   return byName ?? customRoles[0] ?? resolveActiveCustomRoleFallback(effectiveRole);
 }
 
+export function emptyRolePermissionsInline(): RolePermissions {
+  const o = {} as Record<keyof RolePermissions, boolean>;
+  for (const k of ROLE_PERMISSION_KEYS) o[k] = false;
+  return o as RolePermissions;
+}
+
 function allTruePerms(): RolePermissions {
   const o = {} as Record<keyof RolePermissions, boolean>;
   for (const k of ROLE_PERMISSION_KEYS) o[k] = true;
@@ -167,12 +406,6 @@ function resolveActiveCustomRoleFallback(effectiveRole: AppRole): CustomRole {
     name: idKey,
     color: "#71717a",
     createdAt: new Date().toISOString(),
-    permissions: effectiveRole === "admin" ? allTruePerms() : emptyRolePermissionsFallback(),
+    permissions: effectiveRole === "admin" ? allTruePerms() : emptyRolePermissionsInline(),
   };
-}
-
-function emptyRolePermissionsFallback(): RolePermissions {
-  const o = {} as Record<keyof RolePermissions, boolean>;
-  for (const k of ROLE_PERMISSION_KEYS) o[k] = false;
-  return o as RolePermissions;
 }
