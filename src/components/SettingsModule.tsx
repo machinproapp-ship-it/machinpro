@@ -1,7 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback, type ReactNode } from "react";
-import { Sliders, Lock, Pencil, Trash2, LogOut, Bell, ChevronLeft, LifeBuoy } from "lucide-react";
+import {
+  Sliders,
+  Lock,
+  Pencil,
+  Trash2,
+  LogOut,
+  Bell,
+  ChevronLeft,
+  HelpCircle,
+  Settings,
+  User,
+  Building2,
+  Globe,
+  Shield,
+  CreditCard,
+} from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
 import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotifications";
@@ -167,6 +182,17 @@ export function SettingsModule({
     | "billing"
     | "help";
 
+  const sectionNavIcons: Record<SettingsSectionId, typeof Settings> = {
+    general: Settings,
+    profile: User,
+    company: Building2,
+    notifications: Bell,
+    regional: Globe,
+    compliance: Shield,
+    billing: CreditCard,
+    help: HelpCircle,
+  };
+
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("general");
   const [settingsMobileMenu, setSettingsMobileMenu] = useState(true);
   const [regionalTimezone, setRegionalTimezone] = useState("Europe/Madrid");
@@ -252,9 +278,11 @@ export function SettingsModule({
         {t.settings}
       </h2>
 
-      <div className="flex flex-col gap-6 md:flex-row md:items-start">
+      <div className="flex min-h-0 flex-col overflow-x-hidden md:flex-row md:items-start md:gap-0">
         <nav
-          className={`shrink-0 space-y-1 md:w-56 ${settingsMobileMenu ? "flex flex-col" : "hidden"} md:flex`}
+          className={`flex w-full shrink-0 flex-col gap-2 md:w-[200px] md:min-w-[200px] md:max-w-[200px] md:flex-shrink-0 md:gap-1 md:border-r md:border-zinc-200 md:pr-3 dark:md:border-slate-700 ${
+            settingsMobileMenu ? "flex" : "max-md:hidden"
+          } md:flex`}
           aria-label={t.settings ?? "Settings"}
         >
           {(
@@ -277,35 +305,45 @@ export function SettingsModule({
               if (id === "billing") return showBillingSection && !!billingSection;
               return true;
             })
-            .map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  setActiveSettingsSection(id);
-                  setSettingsMobileMenu(false);
-                }}
-                className={`flex w-full min-h-[44px] items-center rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors ${
-                  activeSettingsSection === id
-                    ? "bg-amber-100 text-amber-950 dark:bg-amber-900/40 dark:text-amber-100"
-                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-slate-800"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            .map(([id, label]) => {
+              const NavIcon = sectionNavIcons[id];
+              const active = activeSettingsSection === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setActiveSettingsSection(id);
+                    setSettingsMobileMenu(false);
+                  }}
+                  className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors md:px-3 md:py-2.5 max-md:border max-md:border-zinc-200 max-md:bg-zinc-50/90 max-md:shadow-sm dark:max-md:border-slate-600 dark:max-md:bg-slate-800/50 ${
+                    active
+                      ? "border-amber-300 bg-amber-100 text-amber-950 ring-1 ring-amber-400/50 dark:border-amber-700/50 dark:bg-amber-900/35 dark:text-amber-100 dark:ring-amber-500/30 md:border-transparent md:ring-0"
+                      : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-slate-800 md:hover:bg-zinc-100 dark:md:hover:bg-slate-800"
+                  }`}
+                >
+                  <NavIcon
+                    className={`h-5 w-5 shrink-0 ${active ? "text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400"}`}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 break-words leading-snug">{label}</span>
+                </button>
+              );
+            })}
         </nav>
 
         <div
-          className={`min-w-0 flex-1 space-y-6 ${settingsMobileMenu ? "hidden" : ""} md:block`}
+          className={`min-w-0 flex-1 space-y-6 md:min-w-0 md:flex-1 md:pl-6 ${
+            settingsMobileMenu ? "max-md:hidden" : ""
+          } max-md:fixed max-md:inset-0 max-md:z-40 max-md:overflow-y-auto max-md:bg-white max-md:p-4 dark:max-md:bg-slate-900 md:static md:z-auto md:overflow-visible md:bg-transparent md:p-0`}
         >
-          <div className="md:hidden">
+          <div className="max-md:sticky max-md:top-0 max-md:z-10 max-md:-mx-4 max-md:mb-4 max-md:border-b max-md:border-zinc-200 max-md:bg-white max-md:px-4 max-md:py-3 dark:max-md:border-slate-700 dark:max-md:bg-slate-900 md:hidden">
             <button
               type="button"
               onClick={() => setSettingsMobileMenu(true)}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-start gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
             >
-              <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+              <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
               {t.nav_back ?? "Back"}
             </button>
           </div>
@@ -798,7 +836,7 @@ export function SettingsModule({
           {activeSettingsSection === "help" && (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-                <LifeBuoy className="h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+                <HelpCircle className="h-5 w-5 shrink-0 text-amber-600" aria-hidden />
                 {(t as Record<string, string>).helpAndTutorials ?? ""}
               </h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
