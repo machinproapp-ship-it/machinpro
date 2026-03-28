@@ -180,7 +180,7 @@ export interface ProjectsModuleProps {
   onOpenResourceRequest?: (projectId: string) => void;
   resourceRequests?: ResourceRequest[];
   onConfirmReception?: (requestId: string) => void;
-  companyPlan?: "starter" | "professional" | "enterprise";
+  companyPlan?: string;
   projectForms?: ProjectForm[];
   onCreateForm?: (
     projectId: string,
@@ -413,7 +413,7 @@ export function ProjectsModule({
   onOpenResourceRequest,
   resourceRequests = [],
   onConfirmReception,
-  companyPlan = "starter",
+  companyPlan = "foundation",
   projectForms,
   onCreateForm,
   onDeleteForm,

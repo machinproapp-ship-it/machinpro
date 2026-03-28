@@ -153,24 +153,24 @@ export type LandingPlanPrices = {
 export function getLandingPlanPrices(countryCode: string | null, tier: GeoTier): LandingPlanPrices {
   const cc = (countryCode ?? "").trim().toUpperCase();
   if (cc === "GB") {
-    return { currency: "GBP", starter: 38, pro: 100, enterprise: 233 };
+    return { currency: "GBP", starter: 15, pro: 29, enterprise: 59 };
   }
   if (cc === "BR") {
     return {
       currency: "BRL",
-      starter: 199,
-      pro: 549,
-      enterprise: 1299,
-      usdEquivalent: { starter: 39, pro: 103, enterprise: 239 },
+      starter: 105,
+      pro: 215,
+      enterprise: 435,
+      usdEquivalent: { starter: 19, pro: 39, enterprise: 79 },
     };
   }
   if (tier === 1) {
-    return { currency: "CAD", starter: 49, pro: 129, enterprise: 299 };
+    return { currency: "CAD", starter: 19, pro: 39, enterprise: 79 };
   }
   if (tier === 2) {
-    return { currency: "USD", starter: 39, pro: 103, enterprise: 239 };
+    return { currency: "USD", starter: 15, pro: 29, enterprise: 59 };
   }
-  return { currency: "USD", starter: 29, pro: 77, enterprise: 179 };
+  return { currency: "USD", starter: 12, pro: 23, enterprise: 48 };
 }
 
 export function applyAnnualDiscount(prices: LandingPlanPrices): LandingPlanPrices {

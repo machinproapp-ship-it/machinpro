@@ -3951,7 +3951,7 @@ export default function Home() {
                 onOpenResourceRequest={(projectId) => setRequestModalProjectId(projectId)}
                 resourceRequests={resourceRequests}
                 onConfirmReception={handleConfirmReception}
-                companyPlan="starter"
+                companyPlan="foundation"
                 blueprints={blueprints}
                 currentUserEmployeeId={currentUserEmployeeId ?? ""}
                 currentUserName={

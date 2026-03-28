@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySuperadminAccess } from "@/lib/verify-api-session";
-import { getLimitsForPlan, type PlanKey } from "@/lib/stripe";
+import { getLimitsForPlan, paidPlanKeyFromString, type PaidPlanKey } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
 type Body = {
   companyId: string;
   action: "extend_trial" | "change_plan" | "cancel";
-  planKey?: PlanKey;
+  planKey?: PaidPlanKey | string;
 };
 
 export async function POST(req: NextRequest) {
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const extraDays = 14;
     const base = sub?.trial_ends_at ? new Date(sub.trial_ends_at as string) : new Date();
     const end = new Date(base.getTime() + extraDays * 86400000).toISOString();
-    const lim = getLimitsForPlan("starter");
+    const lim = getLimitsForPlan("foundation");
     if (sub) {
       await admin.from("subscriptions").update({ trial_ends_at: end, status: "trialing" }).eq("company_id", companyId);
     } else {
@@ -66,16 +66,17 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "change_plan") {
-    if (!planKey || !["starter", "pro", "enterprise"].includes(planKey)) {
+    const pk = paidPlanKeyFromString(typeof planKey === "string" ? planKey : "");
+    if (!pk) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
-    const limits = getLimitsForPlan(planKey);
+    const limits = getLimitsForPlan(pk);
     await admin
       .from("companies")
-      .update({ plan: planKey === "pro" ? "professional" : planKey })
+      .update({ plan: pk })
       .eq("id", companyId);
     const patch = {
-      plan: planKey,
+      plan: pk,
       seats_limit: limits.seats_limit,
       projects_limit: limits.projects_limit,
       storage_limit_gb: limits.storage_limit_gb,
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
       action: "superadmin_plan_changed",
       entity_type: "company",
       entity_id: companyId,
-      new_value: { plan: planKey },
+      new_value: { plan: pk },
     });
     return NextResponse.json({ ok: true });
   }

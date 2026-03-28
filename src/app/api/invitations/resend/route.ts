@@ -13,6 +13,16 @@ function planEmailLabel(plan: InvitationPlan): string {
   switch (plan) {
     case "trial":
       return "Trial";
+    case "foundation":
+      return "Foundation";
+    case "obras":
+      return "Obras";
+    case "horarios":
+      return "Horarios";
+    case "logistica":
+      return "Logística";
+    case "todo_incluido":
+      return "Todo Incluido";
     case "starter":
       return "Starter";
     case "pro":

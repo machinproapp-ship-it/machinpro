@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { PlanKey } from "@/lib/stripe";
+import { PAID_PLAN_ORDER, type PaidPlanKey } from "@/lib/stripe";
 import type { Invitation, InvitationPlan } from "@/types/invitation";
 
 export interface SuperadminModuleProps {
@@ -46,7 +46,10 @@ async function authHeaders(): Promise<HeadersInit> {
   return { Authorization: `Bearer ${token}` };
 }
 
-const INVITE_PLANS: InvitationPlan[] = ["trial", "starter", "pro", "enterprise"];
+const LEGACY_INVITE_PLANS: InvitationPlan[] = ["starter", "pro", "enterprise"];
+const INVITE_PLANS: InvitationPlan[] = ["trial", ...PAID_PLAN_ORDER, ...LEGACY_INVITE_PLANS];
+
+const FILTER_PLAN_VALUES = ["trial", ...PAID_PLAN_ORDER, ...LEGACY_INVITE_PLANS] as const;
 
 function inviteDisplayStatus(inv: Invitation): "pending" | "accepted" | "expired" {
   if (inv.status !== "pending") return inv.status;
@@ -179,7 +182,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
   );
 
   const runAction = useCallback(
-    async (companyId: string, action: "extend_trial" | "change_plan" | "cancel", planKey?: PlanKey) => {
+    async (companyId: string, action: "extend_trial" | "change_plan" | "cancel", planKey?: PaidPlanKey) => {
       setActionLoading(`${companyId}-${action}`);
       try {
         const h = await authHeaders();
@@ -286,9 +289,16 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       const plan = (sub?.plan ?? c.plan ?? "").toLowerCase();
       if (filterPlan !== "all") {
         const want = filterPlan.toLowerCase();
-        if (want === "trial" && sub?.status !== "trialing") return false;
-        if (want !== "trial" && !plan.includes(want) && !(want === "pro" && plan.includes("professional")))
-          return false;
+        const planNorm = plan;
+        const matches =
+          want === "trial"
+            ? sub?.status === "trialing" || planNorm === "trial"
+            : planNorm.includes(want) ||
+              (want === "foundation" && (planNorm === "starter" || planNorm === "foundation")) ||
+              (want === "obras" &&
+                (planNorm === "obras" || planNorm === "pro" || planNorm === "professional")) ||
+              (want === "todo_incluido" && (planNorm === "todo_incluido" || planNorm === "enterprise"));
+        if (!matches) return false;
       }
       if (filterStatus !== "all" && (sub?.status ?? "none") !== filterStatus) return false;
       if (dateFrom && c.created_at) {
@@ -553,7 +563,9 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
               >
                 {INVITE_PLANS.map((p) => (
                   <option key={p} value={p}>
-                    {(t as Record<string, string>)[`invite_plan_${p}`] ?? p}
+                    {(t as Record<string, string>)[`invite_plan_${p}`] ??
+                      (t as Record<string, string>)[`pricing_${p}`] ??
+                      p}
                   </option>
                 ))}
               </select>
@@ -599,10 +611,13 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
               className="mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
             >
               <option value="all">—</option>
-              <option value="trial">trial</option>
-              <option value="starter">starter</option>
-              <option value="pro">pro</option>
-              <option value="enterprise">enterprise</option>
+              {FILTER_PLAN_VALUES.map((p) => (
+                <option key={p} value={p}>
+                  {(t as Record<string, string>)[`invite_plan_${p}`] ??
+                    (t as Record<string, string>)[`pricing_${p}`] ??
+                    p}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
@@ -748,7 +763,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     {t.superadmin_extend_trial ?? "Extend trial"}
                   </button>
                   <div className="flex flex-wrap gap-2">
-                    {(["starter", "pro", "enterprise"] as const).map((pk) => (
+                    {PAID_PLAN_ORDER.map((pk) => (
                       <button
                         key={pk}
                         type="button"
@@ -756,7 +771,8 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                         onClick={() => void runAction(detailId, "change_plan", pk)}
                         className="min-h-[44px] flex-1 rounded-xl border border-amber-600 text-amber-800 dark:text-amber-300 font-medium text-xs px-2"
                       >
-                        {(t.superadmin_change_plan ?? "Plan") + `: ${pk}`}
+                        {(t as Record<string, string>).superadmin_change_plan ?? "Plan"}:{" "}
+                        {(t as Record<string, string>)[`pricing_${pk}`] ?? pk}
                       </button>
                     ))}
                   </div>

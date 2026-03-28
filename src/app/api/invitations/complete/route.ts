@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCountryConfig } from "@/lib/countryConfig";
-import { getLimitsForPlan, type PlanKey } from "@/lib/stripe";
+import { getLimitsForPlan, type PlanKey, type PaidPlanKey } from "@/lib/stripe";
 import type { InvitationPlan } from "@/types/invitation";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
 import { getAppBaseUrl } from "@/lib/app-url";
@@ -11,16 +11,59 @@ import { buildWelcomeEmailHtml } from "@/lib/transactionalEmailHtml";
 
 export const runtime = "nodejs";
 
-function planKeyForLimits(p: InvitationPlan): PlanKey {
-  if (p === "trial" || p === "starter") return "starter";
-  if (p === "pro") return "pro";
-  return "enterprise";
+function planKeyForLimits(p: InvitationPlan): PaidPlanKey {
+  switch (p) {
+    case "trial":
+    case "starter":
+      return "foundation";
+    case "pro":
+      return "obras";
+    case "enterprise":
+      return "todo_incluido";
+    case "foundation":
+    case "obras":
+    case "horarios":
+    case "logistica":
+    case "todo_incluido":
+      return p;
+    default:
+      return "foundation";
+  }
 }
 
 function companyPlanColumn(p: InvitationPlan): string {
-  if (p === "pro") return "professional";
-  if (p === "enterprise") return "enterprise";
-  return "starter";
+  switch (p) {
+    case "obras":
+    case "horarios":
+    case "logistica":
+    case "foundation":
+    case "todo_incluido":
+      return p;
+    case "starter":
+      return "foundation";
+    case "pro":
+      return "obras";
+    case "enterprise":
+      return "todo_incluido";
+    case "trial":
+    default:
+      return "foundation";
+  }
+}
+
+function subscriptionPlanFromInvitation(p: InvitationPlan): PlanKey {
+  switch (p) {
+    case "trial":
+      return "trial";
+    case "starter":
+      return "foundation";
+    case "pro":
+      return "obras";
+    case "enterprise":
+      return "todo_incluido";
+    default:
+      return p as PlanKey;
+  }
 }
 
 function languageForCountry(code: string): string {
@@ -191,7 +234,7 @@ export async function POST(req: NextRequest) {
 
     const { error: subErr } = await admin.from("subscriptions").insert({
       company_id: companyId,
-      plan: inv.plan,
+      plan: subscriptionPlanFromInvitation(inv.plan),
       status: "trialing",
       trial_ends_at: trialEnd,
       seats_limit: limits.seats_limit,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { CreditCard, AlertTriangle, Sparkles, ExternalLink, LayoutGrid } from "lucide-react";
+import { CreditCard, AlertTriangle, Sparkles, ExternalLink, LayoutGrid, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSubscription } from "@/lib/useSubscription";
 import type { PlanKey } from "@/lib/stripe";
@@ -43,6 +43,21 @@ function statusLabel(
 function pct(used: number, limit: number | null | undefined): number {
   if (limit == null || limit <= 0 || limit >= 999000) return 0;
   return Math.min(100, Math.round((used / limit) * 100));
+}
+
+function planDisplayName(t: Record<string, string>, plan: string | undefined): string {
+  if (!plan) return "—";
+  const lx = t as Record<string, string>;
+  const pk = `pricing_${plan}`;
+  if (lx[pk]) return lx[pk];
+  const legacy: Record<string, string> = {
+    trial: lx.pricing_plan_trial ?? lx.subscription_status_trialing ?? "Trial",
+    starter: lx.pricing_foundation ?? "Foundation",
+    pro: lx.pricing_obras ?? "Obras",
+    enterprise: lx.pricing_todo_incluido ?? "Todo Incluido",
+    professional: lx.pricing_obras ?? "Obras",
+  };
+  return legacy[plan] ?? plan;
 }
 
 export function BillingModule({
@@ -114,6 +129,16 @@ export function BillingModule({
 
   const currentPlanKey = subscription?.plan as PlanKey | undefined;
 
+  const overUsers =
+    seatsLimit != null && seatsLimit > 0 && seatsLimit < 999000 && employeesCount > seatsLimit;
+  const overProjects =
+    projectsLimit != null &&
+    projectsLimit > 0 &&
+    projectsLimit < 999000 &&
+    projectsCount > projectsLimit;
+  const overStorage =
+    storageLimit != null && storageLimit > 0 && storageUsedGb > storageLimit;
+
   return (
     <div
       className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-10"
@@ -125,9 +150,9 @@ export function BillingModule({
             {t.billing_title ?? "Billing"}
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {t.billing_plan_current ?? "Current plan"}:{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200 capitalize">
-              {subscription?.plan ?? "—"}
+            {t.pricing_current_plan ?? t.billing_plan_current ?? "Current plan"}:{" "}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">
+              {planDisplayName(t, subscription?.plan)}
             </span>
           </p>
         </div>
@@ -138,7 +163,7 @@ export function BillingModule({
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             <LayoutGrid className="h-4 w-4" />
-            {t.billing_change_plan ?? "Change plan"}
+            {t.pricing_upgrade ?? t.billing_change_plan ?? "Change plan"}
           </button>
           <button
             type="button"
@@ -149,6 +174,15 @@ export function BillingModule({
             <CreditCard className="h-4 w-4" />
             {portalLoading ? (t.billing_loading ?? "…") : (t.billing_manage ?? "Manage subscription")}
             <ExternalLink className="h-4 w-4 opacity-80" />
+          </button>
+          <button
+            type="button"
+            disabled={portalLoading || !subscription?.stripe_customer_id}
+            onClick={() => void openPortal()}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-amber-500/60 bg-transparent hover:bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-800 dark:text-amber-200 disabled:opacity-50"
+          >
+            <Users className="h-4 w-4" />
+            {t.billing_add_seats ?? t.pricing_extra_user ?? "Add seats"}
           </button>
         </div>
       </div>
@@ -196,6 +230,16 @@ export function BillingModule({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {(overUsers || overProjects || overStorage) && (
+        <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-4 flex flex-col sm:flex-row sm:items-start gap-3">
+          <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-900 dark:text-amber-100 flex-1">
+            {t.billing_overage_notice ??
+              "You're above your plan limits. You can keep working — upgrade or add seats when ready."}
+          </p>
         </div>
       )}
 

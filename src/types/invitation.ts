@@ -1,6 +1,15 @@
 export type InvitationStatus = "pending" | "accepted" | "expired";
 
-export type InvitationPlan = "trial" | "starter" | "pro" | "enterprise";
+export type InvitationPlan =
+  | "trial"
+  | "foundation"
+  | "obras"
+  | "horarios"
+  | "logistica"
+  | "todo_incluido"
+  | "starter"
+  | "pro"
+  | "enterprise";
 
 export interface Invitation {
   id: string;

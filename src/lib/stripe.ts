@@ -1,9 +1,34 @@
 import Stripe from "stripe";
 import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
 
-export type PlanKey = "starter" | "pro" | "enterprise";
+/** Paid product keys (Stripe checkout + subscription). */
+export type PaidPlanKey =
+  | "foundation"
+  | "obras"
+  | "horarios"
+  | "logistica"
+  | "todo_incluido";
+
+/** Includes trial + legacy DB values still seen in subscriptions / invites. */
+export type PlanKey =
+  | PaidPlanKey
+  | "trial"
+  | "starter"
+  | "pro"
+  | "enterprise";
 
 export type BillingPeriod = "monthly" | "annual";
+
+/** Add-on: extra seat (subscription item). */
+export const STRIPE_PRICE_EXTRA_SEAT_ID = "price_1TG3eEHskIYiyc3EpCXpgXnT";
+
+export const PAID_PLAN_ORDER: PaidPlanKey[] = [
+  "foundation",
+  "obras",
+  "horarios",
+  "logistica",
+  "todo_incluido",
+];
 
 /** Multiplicadores PPP por tier geográfico. */
 export const GEO_TIERS: Record<GeoTier, number> = {
@@ -12,11 +37,16 @@ export const GEO_TIERS: Record<GeoTier, number> = {
   3: 0.6,
 };
 
-/** Precios base de referencia en CAD (alineados con Stripe test prices). */
-export const PLAN_PRICES_CAD: Record<PlanKey, { monthly: number; annual: number }> = {
-  starter: { monthly: 49, annual: 470 },
-  pro: { monthly: 129, annual: 1238 },
-  enterprise: { monthly: 299, annual: 2870 },
+/**
+ * Precios de referencia en CAD (Pricing 2.0 — alineados con Stripe test).
+ * Anual = cobro anual con ~20% de descuento vs 12× mensual.
+ */
+export const PLAN_PRICES_CAD: Record<PaidPlanKey, { monthly: number; annual: number }> = {
+  foundation: { monthly: 19, annual: 182.4 },
+  obras: { monthly: 39, annual: 374.4 },
+  horarios: { monthly: 39, annual: 374.4 },
+  logistica: { monthly: 39, annual: 374.4 },
+  todo_incluido: { monthly: 79, annual: 758.4 },
 };
 
 /**
@@ -32,16 +62,14 @@ export const CURRENCY_BY_TIER: Record<GeoTier, "CAD" | "USD" | "MXN"> = {
 /** Conversión aproximada CAD → moneda de tier (solo UI; cobro real vía Stripe). */
 const CAD_TO_USD = 0.74;
 const CAD_TO_MXN = 13.5;
-/** USD → GBP aproximado para equivalente UK en UI (sobre precio ya pasado por CAD→USD). */
 const USD_TO_GBP = 0.78;
 const CAD_TO_GBP = CAD_TO_USD * USD_TO_GBP;
 
 /**
  * Precio mostrado según plan, periodo, tier PPP y país (redondeado).
- * UK (GB) → GBP; CA → CAD; US → USD; MX → MXN; resto según tier.
  */
 export function getPriceForTier(
-  plan: PlanKey,
+  plan: PaidPlanKey,
   period: BillingPeriod,
   tier: GeoTier,
   countryCode?: string | null
@@ -65,77 +93,132 @@ export function getPriceForTier(
   }
 }
 
-export const PLANS: Record<
-  PlanKey,
-  {
-    labelKey: string;
-    monthly: { priceId: string };
-    annual: { priceId: string };
-    seats: number;
-    /** null = ilimitado en UI */
-    projects: number | null;
-    storageGb: number;
-    /** claves i18n o descripciones cortas */
-    highlights: string[];
-  }
-> = {
-  starter: {
-    labelKey: "starter",
-    monthly: { priceId: "price_1TDawaHskIYiyc3E54pdpnjQ" },
-    annual: { priceId: "price_1TDawaHskIYiyc3E55nkEErn" },
-    seats: 5,
-    projects: 5,
+export type PlanDefinition = {
+  labelKey: string;
+  monthly: { priceId: string };
+  annual: { priceId: string };
+  seats: number;
+  /** null = sin tope práctico en UI */
+  projects: number | null;
+  storageGb: number;
+  /** claves i18n (pricing_feat_*) */
+  featureKeys: string[];
+};
+
+export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
+  foundation: {
+    labelKey: "pricing_foundation",
+    monthly: { priceId: "price_1TG3GgHskIYiyc3EdYtn4TpH" },
+    annual: { priceId: "price_1TG3GgHskIYiyc3EHsq40Iau" },
+    seats: 10,
+    projects: null,
     storageGb: 10,
-    highlights: ["5 users", "5 projects", "10 GB"],
+    featureKeys: [
+      "pricing_feat_foundation_1",
+      "pricing_feat_foundation_2",
+      "pricing_feat_foundation_3",
+    ],
   },
-  pro: {
-    labelKey: "pro",
-    monthly: { priceId: "price_1TDb2KHskIYiyc3E4VjtfEr2" },
-    annual: { priceId: "price_1TDb2KHskIYiyc3Eg72eyWSb" },
+  obras: {
+    labelKey: "pricing_obras",
+    monthly: { priceId: "price_1TG3T0HskIYiyc3E3Hepflbw" },
+    annual: { priceId: "price_1TG3T0HskIYiyc3E4TG5d7MF" },
+    seats: 10,
+    projects: null,
+    storageGb: 10,
+    featureKeys: ["pricing_feat_obras_1", "pricing_feat_obras_2", "pricing_feat_obras_3"],
+  },
+  horarios: {
+    labelKey: "pricing_horarios",
+    monthly: { priceId: "price_1TG3c0HskIYiyc3Eu9T6SFIO" },
+    annual: { priceId: "price_1TG3c0HskIYiyc3ETChxtpFA" },
+    seats: 10,
+    projects: null,
+    storageGb: 10,
+    featureKeys: ["pricing_feat_horarios_1", "pricing_feat_horarios_2", "pricing_feat_horarios_3"],
+  },
+  logistica: {
+    labelKey: "pricing_logistica",
+    monthly: { priceId: "price_1TG3crHskIYiyc3EUE5RVx2G" },
+    annual: { priceId: "price_1TG3crHskIYiyc3E0edoWwfS" },
+    seats: 10,
+    projects: null,
+    storageGb: 10,
+    featureKeys: ["pricing_feat_logistica_1", "pricing_feat_logistica_2", "pricing_feat_logistica_3"],
+  },
+  todo_incluido: {
+    labelKey: "pricing_todo_incluido",
+    monthly: { priceId: "price_1TG3diHskIYiyc3Egv0Qj3MV" },
+    annual: { priceId: "price_1TG3diHskIYiyc3EXzLBfOA0" },
     seats: 25,
     projects: null,
     storageGb: 50,
-    highlights: ["25 users", "Unlimited projects", "50 GB"],
-  },
-  enterprise: {
-    labelKey: "enterprise",
-    monthly: { priceId: "price_1TDb4KHskIYiyc3ERii7RAmS" },
-    annual: { priceId: "price_1TDb4KHskIYiyc3Eb5LpYGH8" },
-    seats: 999999,
-    projects: null,
-    storageGb: 250,
-    highlights: ["Unlimited seats", "Unlimited projects", "250 GB", "White-label"],
+    featureKeys: ["pricing_feat_all_1", "pricing_feat_all_2", "pricing_feat_all_3"],
   },
 };
 
-const PRICE_ID_TO_PLAN = new Map<string, { plan: PlanKey; period: BillingPeriod }>([
-  ["price_1TDawaHskIYiyc3E54pdpnjQ", { plan: "starter", period: "monthly" }],
-  ["price_1TDawaHskIYiyc3E55nkEErn", { plan: "starter", period: "annual" }],
-  ["price_1TDb2KHskIYiyc3E4VjtfEr2", { plan: "pro", period: "monthly" }],
-  ["price_1TDb2KHskIYiyc3Eg72eyWSb", { plan: "pro", period: "annual" }],
-  ["price_1TDb4KHskIYiyc3ERii7RAmS", { plan: "enterprise", period: "monthly" }],
-  ["price_1TDb4KHskIYiyc3Eb5LpYGH8", { plan: "enterprise", period: "annual" }],
-]);
+const PRICE_ID_TO_PLAN = new Map<string, { plan: PaidPlanKey; period: BillingPeriod }>();
+for (const k of PAID_PLAN_ORDER) {
+  const def = PLANS[k];
+  PRICE_ID_TO_PLAN.set(def.monthly.priceId, { plan: k, period: "monthly" });
+  PRICE_ID_TO_PLAN.set(def.annual.priceId, { plan: k, period: "annual" });
+}
 
 export function getPlanFromPriceId(priceId: string | undefined | null): {
-  plan: PlanKey;
+  plan: PaidPlanKey;
   period: BillingPeriod;
 } | null {
-  if (!priceId) return null;
+  if (!priceId || priceId === STRIPE_PRICE_EXTRA_SEAT_ID) return null;
   return PRICE_ID_TO_PLAN.get(priceId) ?? null;
 }
 
-export function getLimitsForPlan(plan: PlanKey): {
+const LEGACY_LIMIT_KEY: Record<string, PaidPlanKey> = {
+  trial: "foundation",
+  starter: "foundation",
+  foundation: "foundation",
+  obras: "obras",
+  horarios: "horarios",
+  logistica: "logistica",
+  todo_incluido: "todo_incluido",
+  pro: "obras",
+  enterprise: "todo_incluido",
+};
+
+/** Límites de suscripción para UI y webhook; normaliza claves legacy. */
+export function getLimitsForPlan(plan: PlanKey | string | null | undefined): {
   seats_limit: number;
   projects_limit: number;
   storage_limit_gb: number;
 } {
-  const p = PLANS[plan];
+  const raw = (plan ?? "foundation").toString();
+  const paidKey = LEGACY_LIMIT_KEY[raw] ?? "foundation";
+  const p = PLANS[paidKey];
   return {
     seats_limit: p.seats,
     projects_limit: p.projects ?? 999_999,
     storage_limit_gb: p.storageGb,
   };
+}
+
+export function paidPlanKeyFromString(v: string | null | undefined): PaidPlanKey | null {
+  if (!v) return null;
+  if ((PAID_PLAN_ORDER as string[]).includes(v)) return v as PaidPlanKey;
+  return null;
+}
+
+export function normalizePlanKeyFromMetadata(v: string | null | undefined): PaidPlanKey | null {
+  if (!v) return null;
+  const map: Record<string, PaidPlanKey> = {
+    foundation: "foundation",
+    obras: "obras",
+    horarios: "horarios",
+    logistica: "logistica",
+    todo_incluido: "todo_incluido",
+    starter: "foundation",
+    pro: "obras",
+    enterprise: "todo_incluido",
+  };
+  return map[v] ?? null;
 }
 
 let stripeSingleton: Stripe | null = null;
@@ -147,7 +230,6 @@ export function getStripe(): Stripe {
   }
   if (!stripeSingleton) {
     stripeSingleton = new Stripe(key, {
-      // Pin explícita (SDK types siguen la última versión Clover).
       apiVersion: "2025-02-24.acacia" as unknown as Stripe.LatestApiVersion,
       typescript: true,
     });
@@ -155,6 +237,6 @@ export function getStripe(): Stripe {
   return stripeSingleton;
 }
 
-export function getStripePriceId(plan: PlanKey, period: BillingPeriod): string {
+export function getStripePriceId(plan: PaidPlanKey, period: BillingPeriod): string {
   return period === "monthly" ? PLANS[plan].monthly.priceId : PLANS[plan].annual.priceId;
 }

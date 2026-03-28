@@ -3,13 +3,13 @@ import type Stripe from "stripe";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifyCompanyAccess } from "@/lib/verify-api-session";
-import { getStripe, getStripePriceId, type PlanKey } from "@/lib/stripe";
+import { getStripe, getStripePriceId, paidPlanKeyFromString, type PaidPlanKey } from "@/lib/stripe";
 import type { GeoTier } from "@/lib/geoTier";
 
 export const runtime = "nodejs";
 
 type Body = {
-  plan: PlanKey;
+  plan: PaidPlanKey | string;
   period: "monthly" | "annual";
   companyId: string;
   companyName?: string;
@@ -20,7 +20,10 @@ type Body = {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Body;
-    const { plan, period, companyId, companyName, email, tier } = body;
+    const { plan: planRaw, period, companyId, companyName, email, tier } = body;
+    const plan = paidPlanKeyFromString(
+      typeof planRaw === "string" ? planRaw.trim() : ""
+    );
     if (!plan || !period || !companyId || tier == null) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }

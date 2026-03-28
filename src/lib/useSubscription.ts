@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { GeoTier } from "@/lib/geoTier";
+import type { PlanKey } from "@/lib/stripe";
 
-export type SubscriptionPlan = "trial" | "starter" | "pro" | "enterprise";
+export type SubscriptionPlan = PlanKey;
 
 export type SubscriptionStatus =
   | "trialing"

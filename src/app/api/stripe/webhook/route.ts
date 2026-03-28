@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { getLimitsForPlan, getPlanFromPriceId, getStripe } from "@/lib/stripe";
-import type { PlanKey } from "@/lib/stripe";
+import {
+  getLimitsForPlan,
+  getPlanFromPriceId,
+  getStripe,
+  normalizePlanKeyFromMetadata,
+  STRIPE_PRICE_EXTRA_SEAT_ID,
+  type PlanKey,
+} from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -96,9 +102,17 @@ async function syncSubscription(admin: ReturnType<typeof createSupabaseAdmin>, s
 
   const { start: cps, end: cpe, trialEnd } = subscriptionPeriodTimestamps(sub);
 
-  const priceId = sub.items.data[0]?.price?.id ?? null;
+  const priceId =
+    sub.items.data.find(
+      (it) => it.price?.id && it.price.id !== STRIPE_PRICE_EXTRA_SEAT_ID && getPlanFromPriceId(it.price.id)
+    )?.price?.id ??
+    sub.items.data.find((it) => it.price?.id && it.price.id !== STRIPE_PRICE_EXTRA_SEAT_ID)?.price?.id ??
+    null;
   const mapped = getPlanFromPriceId(priceId);
-  const plan: PlanKey = mapped?.plan ?? "starter";
+  const fromMeta = normalizePlanKeyFromMetadata(
+    typeof sub.metadata?.plan_key === "string" ? sub.metadata.plan_key : null
+  );
+  const plan: PlanKey = (fromMeta ?? mapped?.plan ?? "foundation") as PlanKey;
   const billing_period = mapped?.period ?? "monthly";
 
   const limits = getLimitsForPlan(plan);

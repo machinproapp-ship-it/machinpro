@@ -9,12 +9,32 @@ import type { InvitationPlan } from "@/types/invitation";
 
 export const runtime = "nodejs";
 
-const PLANS: InvitationPlan[] = ["trial", "starter", "pro", "enterprise"];
+const PLANS: InvitationPlan[] = [
+  "trial",
+  "foundation",
+  "obras",
+  "horarios",
+  "logistica",
+  "todo_incluido",
+  "starter",
+  "pro",
+  "enterprise",
+];
 
 function planEmailLabel(plan: InvitationPlan): string {
   switch (plan) {
     case "trial":
       return "Trial";
+    case "foundation":
+      return "Foundation";
+    case "obras":
+      return "Obras";
+    case "horarios":
+      return "Horarios";
+    case "logistica":
+      return "Logística";
+    case "todo_incluido":
+      return "Todo Incluido";
     case "starter":
       return "Starter";
     case "pro":
