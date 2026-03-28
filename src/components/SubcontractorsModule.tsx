@@ -27,6 +27,8 @@ export interface SubcontractorsModuleProps {
   customRoles?: CustomRole[];
   /** Subcontractors only: limited app roles (e.g. worker / custom) */
   inviteRoleOptions?: { id: string; label: string }[];
+  /** Vuelve a Central (pestaña Oficina). */
+  onBackToOffice?: () => void;
 }
 
 type SubRow = {
@@ -169,6 +171,7 @@ export function SubcontractorsModule({
   canDeleteSubcontractor: canDeleteSubProp,
   customRoles = [],
   inviteRoleOptions,
+  onBackToOffice,
 }: SubcontractorsModuleProps) {
   const canDeleteSub = canDeleteSubProp !== undefined ? canDeleteSubProp : canManage;
   const [list, setList] = useState<SubRow[]>([]);
@@ -840,7 +843,7 @@ export function SubcontractorsModule({
             <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md rounded-xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
               <p className="text-sm font-medium">{tl.subcontractors_invite_app ?? ""}</p>
               <label className="block text-xs">
-                {tl.subcontractors_invite_role ?? ""}
+                {tl.assignedRole ?? tl.subcontractors_invite_role ?? ""}
                 <select
                   value={inviteRoleId}
                   onChange={(e) => setInviteRoleId(e.target.value)}
@@ -891,6 +894,18 @@ export function SubcontractorsModule({
 
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
+      {onBackToOffice ? (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBackToOffice}
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
+          >
+            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+            {tl.back ?? tl.nav_back ?? "Atrás"}
+          </button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Building2 className="h-5 w-5" />
@@ -903,7 +918,7 @@ export function SubcontractorsModule({
             className="min-h-[44px] inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
           >
             <Plus className="h-4 w-4" />
-            {tl.subcontractors_new_modal ?? t.subcontractors_new ?? ""}
+            {tl.newSubcontractor ?? tl.subcontractors_new_modal ?? t.subcontractors_new ?? ""}
           </button>
         )}
       </div>
@@ -966,7 +981,15 @@ export function SubcontractorsModule({
               <p className="text-xs text-zinc-500">{s.company_name ?? "—"}</p>
               <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{s.trade ?? "—"}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5">{s.status}</span>
+                <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5">
+                  {s.status === "active"
+                    ? tl.active ?? s.status
+                    : s.status === "inactive"
+                      ? tl.inactive ?? s.status
+                      : s.status === "pending"
+                        ? tl.pending ?? s.status
+                        : s.status}
+                </span>
                 <span className="text-zinc-500">
                   {tl.subcontractors_project_count ?? ""}: {projCounts[s.id] ?? 0}
                 </span>
@@ -1000,7 +1023,7 @@ export function SubcontractorsModule({
               {tl.nav_back ?? t.cancel ?? ""}
             </button>
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold">{tl.subcontractors_modal_title ?? ""}</h3>
+              <h3 className="text-lg font-semibold">{tl.newSubcontractor ?? tl.subcontractors_modal_title ?? ""}</h3>
               <button
                 type="button"
                 className="min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
@@ -1012,7 +1035,7 @@ export function SubcontractorsModule({
             </div>
 
             <section className="space-y-2">
-              <p className="text-xs font-semibold text-zinc-500 uppercase">{tl.subcontractors_tab_profile ?? ""}</p>
+              <p className="text-xs font-semibold text-zinc-500 uppercase">{tl.profile ?? tl.subcontractors_tab_profile ?? ""}</p>
               <label className="block text-sm">
                 {tl.subcontractors_field_name ?? ""}
                 <input
@@ -1061,15 +1084,15 @@ export function SubcontractorsModule({
                   onChange={(e) => setFormStatus(e.target.value)}
                   className="mt-1 w-full rounded-lg border px-3 py-2 min-h-[44px]"
                 >
-                  <option value="active">active</option>
-                  <option value="inactive">inactive</option>
-                  <option value="pending">pending</option>
+                  <option value="active">{tl.active ?? ""}</option>
+                  <option value="inactive">{tl.inactive ?? ""}</option>
+                  <option value="pending">{tl.pending ?? ""}</option>
                 </select>
               </label>
             </section>
 
             <section className="space-y-2">
-              <p className="text-xs font-semibold text-zinc-500 uppercase">{tl.subcontractors_tab_contacts ?? ""}</p>
+              <p className="text-xs font-semibold text-zinc-500 uppercase">{tl.contacts ?? tl.subcontractors_tab_contacts ?? ""}</p>
               {formContacts.map((c, i) => (
                 <div key={i} className="rounded-lg border border-zinc-200 dark:border-slate-700 p-3 space-y-2">
                   <input
@@ -1083,7 +1106,7 @@ export function SubcontractorsModule({
                     className="w-full rounded border px-2 py-2 min-h-[44px] text-sm"
                   />
                   <input
-                    placeholder={tl.subcontractors_contact_role ?? ""}
+                    placeholder={tl.assignedRole ?? tl.subcontractors_contact_role ?? ""}
                     value={c.role}
                     onChange={(e) => {
                       const next = [...formContacts];
@@ -1141,7 +1164,7 @@ export function SubcontractorsModule({
               {formCompliance.map((row, i) => (
                 <div key={i} className="rounded-lg border border-zinc-200 dark:border-slate-700 p-3 space-y-2">
                   <input
-                    placeholder={tl.subcontractors_doc_name ?? ""}
+                    placeholder={tl.documentName ?? tl.subcontractors_doc_name ?? ""}
                     value={row.name}
                     onChange={(e) => {
                       const next = [...formCompliance];
@@ -1151,7 +1174,7 @@ export function SubcontractorsModule({
                     className="w-full rounded border px-2 py-2 min-h-[44px] text-sm"
                   />
                   <input
-                    placeholder={tl.subcontractors_doc_url ?? ""}
+                    placeholder={tl.documentUrl ?? tl.subcontractors_doc_url ?? ""}
                     value={row.file_url}
                     onChange={(e) => {
                       const next = [...formCompliance];
@@ -1208,7 +1231,7 @@ export function SubcontractorsModule({
                 {tl.subcontractors_emergency ?? ""}
               </p>
               <input
-                placeholder={tl.subcontractors_emergency_name ?? ""}
+                placeholder={tl.emergencyContact ?? tl.subcontractors_emergency_name ?? ""}
                 value={formEmergencyName}
                 onChange={(e) => setFormEmergencyName(e.target.value)}
                 className="rounded border px-3 py-2 min-h-[44px]"

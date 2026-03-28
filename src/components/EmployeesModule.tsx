@@ -15,6 +15,7 @@ import {
   FileText,
   Pencil,
   X,
+  ChevronLeft,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
@@ -43,6 +44,8 @@ export interface EmployeesModuleProps {
   complianceRecords?: ComplianceRecord[];
   onComplianceRecordsChange?: (records: ComplianceRecord[]) => void;
   vacationRequests?: VacationRequestRow[];
+  /** Vuelve a Central (pestaña Oficina). */
+  onBackToOffice?: () => void;
 }
 
 type ProfileRow = {
@@ -275,6 +278,7 @@ export function EmployeesModule({
   complianceRecords = [],
   onComplianceRecordsChange,
   vacationRequests = [],
+  onBackToOffice,
 }: EmployeesModuleProps) {
   const canDelete = canDeleteEmployeeProp !== undefined ? canDeleteEmployeeProp : canManageEmployees;
   const [rows, setRows] = useState<ProfileRow[]>([]);
@@ -1484,6 +1488,18 @@ export function EmployeesModule({
 
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
+      {onBackToOffice ? (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBackToOffice}
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
+          >
+            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+            {tl.back ?? tl.nav_back ?? "Atrás"}
+          </button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Users className="h-5 w-5" />

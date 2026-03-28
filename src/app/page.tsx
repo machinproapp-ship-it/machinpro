@@ -3120,6 +3120,7 @@ export default function Home() {
             {activeSection === "employees" && !!perms.canAccessEmployees && (
               <EmployeesModule
                 companyId={companyId}
+                onBackToOffice={() => setActiveSection("office")}
                 defaultPayCurrency={currency}
                 labels={t as Record<string, string>}
                 customRoles={customRoles}
@@ -3146,6 +3147,7 @@ export default function Home() {
             {activeSection === "subcontractors" && !!perms.canAccessSubcontractors && (
               <SubcontractorsModule
                 companyId={companyId}
+                onBackToOffice={() => setActiveSection("office")}
                 labels={t as Record<string, string>}
                 projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
                 canManage={rolePerms.canManageSubcontractors}
