@@ -68,7 +68,7 @@ export default {
   recentStaff: "Pessoal recente",
   viewAll: "Ver tudo",
   subcontractors: "Subcontratados",
-  activeProjects: "Projetos ativos",
+  activeProjects: "projetos ativos",
   certificates: "Certificados",
   hours: "Horas",
   hoursLogged: "Horas / mês",

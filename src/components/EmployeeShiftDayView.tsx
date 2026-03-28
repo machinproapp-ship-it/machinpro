@@ -215,25 +215,25 @@ export function EmployeeShiftDayView({
   return (
     <>
       <div
-        className="fixed inset-0 z-[60] bg-black/50"
+        className="fixed inset-0 z-[60] bg-black/60 dark:bg-black/70"
         aria-hidden
         onClick={onClose}
       />
       <div
-        className="fixed z-[70] inset-0 sm:inset-4 md:inset-8 flex flex-col rounded-none sm:rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border-0 sm:border border-zinc-200 dark:border-slate-700 shadow-2xl max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)]"
+        className="fixed z-[70] left-0 top-0 flex h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-white dark:bg-slate-900 md:left-1/2 md:top-1/2 md:h-auto md:max-h-[min(90dvh,calc(100dvh-2rem))] md:min-h-0 md:w-full md:min-w-[640px] md:max-w-[800px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:border-zinc-200 md:dark:border-slate-700 md:shadow-2xl"
         role="dialog"
         aria-labelledby="employee-shift-day-title"
       >
-        <header className="shrink-0 border-b border-zinc-200 dark:border-slate-700 px-4 py-3 flex items-start gap-3 bg-white dark:bg-slate-900">
-          <div className="flex-1 min-w-0">
-            <p id="employee-shift-day-title" className="text-lg font-bold text-zinc-900 dark:text-white capitalize">
+        <header className="sticky top-0 z-10 flex shrink-0 items-start gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+          <div className="min-w-0 flex-1 pe-2">
+            <p id="employee-shift-day-title" className="text-lg font-bold capitalize text-zinc-900 dark:text-white">
               {tl.shiftView ?? "Mi jornada"}
             </p>
-            <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-0.5 capitalize">{dateLabel}</p>
+            <p className="mt-0.5 text-sm capitalize text-zinc-600 dark:text-zinc-300">{dateLabel}</p>
             {project && (
-              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mt-2 flex items-center gap-1.5">
-                <Briefcase className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-                <span className="truncate">{project.name}</span>
+              <p className="mt-2 flex items-start gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                <Briefcase className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                <span className="break-words">{project.name}</span>
               </p>
             )}
             {scheduleEntry.type === "shift" && (
@@ -257,14 +257,14 @@ export function EmployeeShiftDayView({
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800"
+            className="sticky top-0 flex h-11 w-11 shrink-0 items-center justify-center self-start rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800"
             aria-label={tl.nav_back ?? "Close"}
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
         </header>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-4">
           {/* Fichaje */}
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3 bg-zinc-50/80 dark:bg-slate-950/40">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2">

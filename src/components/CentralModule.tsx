@@ -231,6 +231,8 @@ interface CentralModuleProps {
   dashboardCanViewRoles?: boolean;
   dashboardCanViewAuditLog?: boolean;
   dashboardCanViewDashboardWidgets?: boolean;
+  /** Tarjeta Proyectos en Zona de gestión (Central). */
+  dashboardCanViewProjectsManagement?: boolean;
   dashboardCriticalInventoryCount?: number;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
@@ -361,6 +363,7 @@ export function CentralModule({
   dashboardCanViewRoles = false,
   dashboardCanViewAuditLog = false,
   dashboardCanViewDashboardWidgets = false,
+  dashboardCanViewProjectsManagement = false,
   dashboardCriticalInventoryCount = 0,
   onQuickNewRfi,
   onQuickNewSubcontractor,
@@ -718,6 +721,7 @@ export function CentralModule({
                 companyName={companyName ?? undefined}
                 language={language}
                 activeProjectsCount={safeDisplayProjects.filter((p) => !p.archived).length}
+                canViewProjectsManagement={dashboardCanViewProjectsManagement}
                 projectNameById={projectNameById}
                 currentUserRole={currentUserRole}
                 canManageRoles={canManageRoles}

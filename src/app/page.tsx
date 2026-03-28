@@ -70,6 +70,12 @@ import {
 } from "@/lib/complianceWatchdog";
 import type { Language, Currency } from "@/lib/i18n";
 import { LANGUAGES, ALL_TRANSLATIONS, loadLocale, isLazyLocale } from "@/lib/i18n";
+import {
+  LOCALE_STORAGE_KEY,
+  isValidLanguage,
+  detectLanguageFromNavigator,
+  persistUserLocale,
+} from "@/lib/localePreference";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import {
   type CustomRole,
@@ -834,7 +840,15 @@ export default function Home() {
     }
     return m;
   }, [photos]);
-  const [language, setLanguage] = useState<Language>("es");
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === "undefined") return "es";
+    try {
+      const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
+      return raw && isValidLanguage(raw) ? raw : "es";
+    } catch {
+      return "es";
+    }
+  });
   const [lazyLocaleT, setLazyLocaleT] = useState<Record<string, string> | null>(null);
   const lazyLocaleCacheRef = useRef<Map<string, Record<string, string>>>(new Map());
 
@@ -867,6 +881,62 @@ export default function Home() {
     }
     return (lazyLocaleT ?? TRANSLATIONS["en"]) as Record<string, string>;
   }, [language, lazyLocaleT]);
+
+  const applyLanguage = useCallback(
+    async (lang: Language) => {
+      setLanguage(lang);
+      try {
+        localStorage.setItem(LOCALE_STORAGE_KEY, lang);
+      } catch {
+        /* ignore */
+      }
+      if (user?.id) {
+        await persistUserLocale(supabase, user.id, lang);
+        await syncSession();
+      }
+    },
+    [user?.id, syncSession]
+  );
+
+  useEffect(() => {
+    if (!user?.id || !profile) return;
+    if (profile.locale && isValidLanguage(profile.locale)) {
+      setLanguage((prev) => (prev === profile.locale ? prev : profile.locale!));
+      try {
+        if (localStorage.getItem(LOCALE_STORAGE_KEY) !== profile.locale) {
+          localStorage.setItem(LOCALE_STORAGE_KEY, profile.locale);
+        }
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    const bootKey = `machinpro_locale_bootstrapped_${user.id}`;
+    try {
+      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(bootKey)) return;
+      if (typeof sessionStorage !== "undefined") sessionStorage.setItem(bootKey, "1");
+    } catch {
+      /* ignore */
+    }
+    let fromLs: string | null = null;
+    try {
+      fromLs = localStorage.getItem(LOCALE_STORAGE_KEY);
+    } catch {
+      fromLs = null;
+    }
+    const chosen =
+      fromLs && isValidLanguage(fromLs) ? fromLs : detectLanguageFromNavigator();
+    void (async () => {
+      setLanguage(chosen);
+      try {
+        localStorage.setItem(LOCALE_STORAGE_KEY, chosen);
+      } catch {
+        /* ignore */
+      }
+      await persistUserLocale(supabase, user.id, chosen);
+      await syncSession();
+    })();
+  }, [user?.id, profile?.id, profile?.locale]);
 
   const loginDemoAccounts = useMemo((): LoginDemoAccount[] => {
     const rawEnv = process.env.NEXT_PUBLIC_LOGIN_DEMOS;
@@ -2451,9 +2521,36 @@ export default function Home() {
     if (!employeeShiftDayOpen) return null;
     const entry = scheduleEntries.find((e) => e.id === employeeShiftDayOpen.entryId);
     if (!entry || entry.type !== "shift") return null;
-    const projectRow = entry.projectId
-      ? (projects ?? []).find((p) => p.id === entry.projectId) ?? null
+    let resolvedProject = entry.projectId
+      ? ((projects ?? []).find((p) => p.id === entry.projectId) ?? null)
       : null;
+    if (!resolvedProject && entry.projectCode?.trim()) {
+      const codeU = entry.projectCode.trim().toUpperCase();
+      resolvedProject =
+        (projects ?? []).find((p) => (p.projectCode ?? "").toUpperCase() === codeU) ?? null;
+    }
+    const codeFallback =
+      entry.projectCode?.trim() || entry.projectId || "—";
+    const shiftViewProject =
+      resolvedProject != null
+        ? {
+            id: resolvedProject.id,
+            name: resolvedProject.name,
+            projectCode: resolvedProject.projectCode,
+            location: resolvedProject.location,
+            locationLat: resolvedProject.locationLat,
+            locationLng: resolvedProject.locationLng,
+          }
+        : entry.projectCode?.trim() || entry.projectId
+          ? {
+              id: entry.projectId ?? `code:${entry.projectCode ?? "unknown"}`,
+              name: codeFallback,
+              projectCode: entry.projectCode,
+              location: undefined,
+              locationLat: undefined,
+              locationLng: undefined,
+            }
+          : null;
     const dateStr = entry.date;
     const clockCandidates = displayClockEntries.filter(
       (e) =>
@@ -2485,7 +2582,7 @@ export default function Home() {
     const canActClock = dateStr === localTodayYmd() && effectiveRole !== "admin";
     return {
       entry,
-      projectRow,
+      shiftViewProject,
       clockEntry,
       colleagueNames,
       shiftTasks,
@@ -3056,7 +3153,7 @@ export default function Home() {
               <div className="hidden lg:block">
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as Language)}
+                  onChange={(e) => void applyLanguage(e.target.value as Language)}
                   className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1 text-sm"
                 >
                   {LANGUAGES.map((lang) => (
@@ -3362,6 +3459,10 @@ export default function Home() {
                 }
                 dashboardCanViewAuditLog={!!rolePerms.canViewAuditLog}
                 dashboardCanViewDashboardWidgets={!!rolePerms.canViewDashboardWidgets}
+                dashboardCanViewProjectsManagement={
+                  effectiveRole === "admin" ||
+                  !!(rolePerms.canViewProjects || rolePerms.canCreateProjects)
+                }
                 dashboardCriticalInventoryCount={criticalInventoryCount}
                 onQuickNewRfi={() => {
                   if (!perms.site) return;
@@ -4046,7 +4147,7 @@ export default function Home() {
                     "Opciones regionales adicionales (zona horaria, formatos) gestionadas por el administrador.",
                 }}
                 language={language}
-                setLanguage={(lang) => setLanguage(lang)}
+                setLanguage={(lang) => void applyLanguage(lang)}
                 currency={currency}
                 setCurrency={(c) => setCurrency(c as Currency)}
                 measurementSystem={measurementSystem}
@@ -4772,18 +4873,7 @@ export default function Home() {
           language={language}
           labels={t as Record<string, string>}
           scheduleEntry={employeeShiftModalModel.entry}
-          project={
-            employeeShiftModalModel.projectRow
-              ? {
-                  id: employeeShiftModalModel.projectRow.id,
-                  name: employeeShiftModalModel.projectRow.name,
-                  projectCode: employeeShiftModalModel.projectRow.projectCode,
-                  location: employeeShiftModalModel.projectRow.location,
-                  locationLat: employeeShiftModalModel.projectRow.locationLat,
-                  locationLng: employeeShiftModalModel.projectRow.locationLng,
-                }
-              : null
-          }
+          project={employeeShiftModalModel.shiftViewProject}
           clockEntry={employeeShiftModalModel.clockEntry}
           canActClock={employeeShiftModalModel.canActClock}
           gpsStatus={clockInGpsStatus}

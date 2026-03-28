@@ -6,7 +6,6 @@ import {
   UserCheck,
   AlertTriangle,
   ClipboardCheck,
-  Shield,
   Clock,
   Layers,
   StickyNote,
@@ -234,6 +233,8 @@ export interface CentralDashboardLiveProps {
   companyName?: string | null;
   language: string;
   activeProjectsCount: number;
+  /** Zona gestión: tarjeta Proyectos (ver/crear proyectos o admin). */
+  canViewProjectsManagement: boolean;
   projectNameById: Record<string, string>;
   currentUserRole: UserRole;
   canManageRoles: boolean;
@@ -303,6 +304,8 @@ function CentralDashboardBody(
     companyId,
     companyName,
     language,
+    activeProjectsCount,
+    canViewProjectsManagement,
     projectNameById,
     currentUserRole,
     canManageRoles,
@@ -392,7 +395,7 @@ function CentralDashboardBody(
     canManageEmployees ||
     canViewRoles ||
     canManageRoles ||
-    canViewAuditLog;
+    canViewProjectsManagement;
 
   const canShowWidget = useCallback(
     (id: DashboardWidgetId): boolean => {
@@ -1242,13 +1245,16 @@ function CentralDashboardBody(
               disabled={!(canViewRoles || canManageRoles)}
             />
             ) : null}
-            {canViewAuditLog ? (
+            {canViewProjectsManagement ? (
             <UnifiedDashCard
-              icon={<Shield className="h-5 w-5 text-white" />}
-              iconWrapClassName="bg-emerald-500"
-              label={L("auditLog") ?? ""}
-              value="→"
-              onClick={() => onOpenAuditInCentral()}
+              icon={<Briefcase className="h-5 w-5 text-white" />}
+              iconWrapClassName="bg-amber-500"
+              label={L("projects")}
+              value={dataLoading ? "—" : activeProjectsCount}
+              subContent={
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{L("activeProjects")}</span>
+              }
+              onClick={() => onNavigateAppSection("site")}
             />
             ) : null}
           </div>

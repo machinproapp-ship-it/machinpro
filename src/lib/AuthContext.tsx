@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase, type AuthGetSessionResult } from "./supabase";
 import type { AuthChangeEvent, User, Session } from "@supabase/supabase-js";
+import type { Language } from "@/types/shared";
+import { isValidLanguage } from "@/lib/localePreference";
 
 /** Mirrors `user_profiles` in Supabase; optional name fields if columns exist. */
 interface UserProfile {
@@ -19,6 +21,8 @@ interface UserProfile {
   email?: string | null;
   /** Panel MachinPro global (columna `is_superadmin` en Supabase). */
   isSuperadmin?: boolean;
+  /** Preferencia de idioma (`user_profiles.locale`). */
+  locale?: Language | null;
 }
 
 interface AuthContextValue {
@@ -62,6 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const customRoleRaw = row.custom_role_id;
       const customRoleId =
         customRoleRaw != null && String(customRoleRaw).trim() ? String(customRoleRaw).trim() : null;
+      const localeRaw =
+        row.locale != null && String(row.locale).trim() ? String(row.locale).trim() : null;
+      const locale = isValidLanguage(localeRaw) ? localeRaw : null;
       setProfile({
         id: data.id,
         employeeId: data.employee_id ?? null,
@@ -72,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName,
         email,
         isSuperadmin: superRow.is_superadmin === true,
+        locale,
       });
     } else {
       setProfile(null);
