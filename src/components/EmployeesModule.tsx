@@ -278,6 +278,9 @@ export function EmployeesModule({
     documentUrl: string;
     value: string;
   } | null>(null);
+  const [employeeDeleteModalOpen, setEmployeeDeleteModalOpen] = useState(false);
+  const [hardDeleteConfirmInput, setHardDeleteConfirmInput] = useState("");
+  const [hardDeleteBusy, setHardDeleteBusy] = useState(false);
 
   const activeProjects = useMemo(
     () => projects.filter((p) => !p.archived),
@@ -486,6 +489,7 @@ export function EmployeesModule({
 
   const saveProfile = async () => {
     if (!selected) return;
+    if ((selected.profile_status ?? "") === "deleted") return;
     const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
     const workerSelf = isSelf && !canManageEmployees;
     if (!canManageEmployees && !isSelf) return;
@@ -609,32 +613,64 @@ export function EmployeesModule({
     void loadAssignments();
   };
 
-  const confirmDeleteMsg = (t as Record<string, string>).common_confirm_delete ?? "";
-
-  const deactivateProfile = async (id: string, displayNameForConfirm: string) => {
-    if (!canDelete) return;
+  const softDeactivateEmployee = async () => {
+    if (!canDelete || !selected || !companyId) return;
     const lx = t as Record<string, string>;
-    const named =
-      (lx.employees_delete_confirm?.replace(/\{name\}/g, displayNameForConfirm) ?? "").trim() ||
-      (lx.employees_confirm_deactivate?.replace(/\{name\}/g, displayNameForConfirm) ?? "").trim() ||
-      confirmDeleteMsg;
-    if (typeof window !== "undefined" && !window.confirm(named)) return;
     const { error } = await supabase
       .from("user_profiles")
       .update({ profile_status: "inactive" })
-      .eq("id", id)
+      .eq("id", selected.id)
       .eq("company_id", companyId);
     if (error) {
-      console.error("[EmployeesModule] deactivateProfile", error);
-      window.alert(
-        (lx.employees_delete_error ?? "").trim() ||
-          error.message ||
-          "Could not update profile."
-      );
+      console.error("[EmployeesModule] softDeactivateEmployee", error);
+      window.alert((lx.employees_delete_error ?? "").trim() || error.message || "Could not update profile.");
       return;
     }
-    if (selectedId === id) setSelectedId(null);
+    setEmployeeDeleteModalOpen(false);
+    setHardDeleteConfirmInput("");
+    if (selectedId === selected.id) setSelectedId(null);
     void load();
+    const ok = (lx.employee_deactivate_success ?? "").trim();
+    if (ok) window.alert(ok);
+  };
+
+  const runHardDeleteEmployee = async () => {
+    if (!canManageEmployees || !selected || !companyId) return;
+    const lx = t as Record<string, string>;
+    const word = (lx.employee_hard_delete_confirm_word ?? "ELIMINAR").trim();
+    if (hardDeleteConfirmInput.trim() !== word) return;
+    setHardDeleteBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        window.alert((lx.employees_delete_error ?? "").trim() || "Session required");
+        return;
+      }
+      const res = await fetch("/api/employees/hard-delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ companyId, userId: selected.id }),
+      });
+      const j = (await res.json()) as { error?: string; hint?: string; ok?: boolean };
+      if (!res.ok || !j.ok) {
+        window.alert(
+          [j.error, j.hint].filter(Boolean).join("\n") || (lx.employees_delete_error ?? "").trim() || "Error"
+        );
+        return;
+      }
+      setEmployeeDeleteModalOpen(false);
+      setHardDeleteConfirmInput("");
+      if (selectedId === selected.id) setSelectedId(null);
+      void load();
+      const ok = (lx.employee_hard_delete_success ?? "").trim();
+      if (ok) window.alert(ok);
+    } finally {
+      setHardDeleteBusy(false);
+    }
   };
 
   const submitCreateEmployee = async () => {
@@ -780,7 +816,8 @@ export function EmployeesModule({
     const inheritPerms = draft.use_role_permissions !== false;
     const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
     const workerSelf = isSelf && !canManageEmployees;
-    const canEditBasicFields = canManageEmployees || isSelf;
+    const isDeletedProfile = (selected.profile_status ?? "") === "deleted";
+    const canEditBasicFields = (canManageEmployees || isSelf) && !isDeletedProfile;
 
     const complianceFieldLabel = (field: ComplianceField): string => {
       const m: Record<string, string> = {
@@ -858,7 +895,7 @@ export function EmployeesModule({
             <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">{name}</h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">{roleLabel(selected)}</p>
           </div>
-          {(canManageEmployees || selected.id === currentUserProfileId) && (
+          {(canManageEmployees || selected.id === currentUserProfileId) && !isDeletedProfile && (
             <label className="ml-auto cursor-pointer min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm">
               <Camera className="h-4 w-4" />
               <input
@@ -1293,12 +1330,15 @@ export function EmployeesModule({
             <select
               value={draft.profile_status ?? "active"}
               onChange={(e) => setDraft((d) => ({ ...d, profile_status: e.target.value }))}
-              disabled={!canManageEmployees}
+              disabled={!canManageEmployees || isDeletedProfile}
               className="block mt-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
             >
               <option value="active">{tl.employees_status_active ?? ""}</option>
               <option value="inactive">{tl.employees_status_inactive ?? ""}</option>
               <option value="invited">{tl.employees_status_invited ?? ""}</option>
+              {isDeletedProfile ? (
+                <option value="deleted">{tl.employees_status_deleted ?? ""}</option>
+              ) : null}
             </select>
           </div>
           {canManageEmployees && (
@@ -1327,13 +1367,14 @@ export function EmployeesModule({
               {saving ? "…" : (tl.employees_save_changes ?? t.save ?? "")}
             </button>
           )}
-          {canDelete && (
+          {canDelete && !isDeletedProfile && selected.id !== currentUserProfileId && (
             <button
               type="button"
               className="min-h-[44px] rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 text-sm font-medium"
-              onClick={() =>
-                void deactivateProfile(selected.id, employeeDisplayLabel(selected, tl, currentUserProfileId ?? null))
-              }
+              onClick={() => {
+                setHardDeleteConfirmInput("");
+                setEmployeeDeleteModalOpen(true);
+              }}
             >
               {tl.employees_delete_action ?? tl.common_delete ?? ""}
             </button>
@@ -1414,6 +1455,77 @@ export function EmployeesModule({
               >
                 {tl.employees_save_changes ?? t.save ?? ""}
               </button>
+            </div>
+          </>
+        )}
+
+        {employeeDeleteModalOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-[62] bg-black/50"
+              aria-hidden
+              onClick={() => !hardDeleteBusy && setEmployeeDeleteModalOpen(false)}
+            />
+            <div
+              className="fixed z-[63] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="employee-delete-dialog-title"
+            >
+              <div className="flex justify-between items-start gap-2">
+                <h3 id="employee-delete-dialog-title" className="text-base font-semibold text-zinc-900 dark:text-white">
+                  {tl.employee_delete_title ?? ""}
+                </h3>
+                <button
+                  type="button"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300"
+                  onClick={() => !hardDeleteBusy && setEmployeeDeleteModalOpen(false)}
+                  aria-label={tl.cancel ?? "Close"}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/90 dark:bg-amber-950/30 p-4 space-y-3">
+                <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{tl.employee_deactivate ?? ""}</p>
+                <p className="text-sm text-amber-900/90 dark:text-amber-100/90">{tl.employee_deactivate_desc ?? ""}</p>
+                <button
+                  type="button"
+                  disabled={hardDeleteBusy}
+                  className="w-full min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold disabled:opacity-50"
+                  onClick={() => void softDeactivateEmployee()}
+                >
+                  {tl.employee_deactivate ?? ""}
+                </button>
+              </div>
+
+              {canManageEmployees ? (
+                <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50/80 dark:bg-red-950/25 p-4 space-y-3">
+                  <p className="text-sm font-semibold text-red-900 dark:text-red-100">{tl.employee_hard_delete ?? ""}</p>
+                  <p className="text-sm text-red-900/90 dark:text-red-100/90">{tl.employee_hard_delete_desc ?? ""}</p>
+                  <label className="block text-xs font-medium text-red-900 dark:text-red-100">
+                    {tl.employee_hard_delete_confirm ?? ""}
+                    <input
+                      value={hardDeleteConfirmInput}
+                      onChange={(e) => setHardDeleteConfirmInput(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[44px]"
+                      autoComplete="off"
+                      disabled={hardDeleteBusy}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={
+                      hardDeleteBusy ||
+                      hardDeleteConfirmInput.trim() !== (tl.employee_hard_delete_confirm_word ?? "ELIMINAR").trim()
+                    }
+                    className="w-full min-h-[44px] rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50"
+                    onClick={() => void runHardDeleteEmployee()}
+                  >
+                    {hardDeleteBusy ? "…" : (tl.employee_hard_delete ?? "")}
+                  </button>
+                </div>
+              ) : null}
             </div>
           </>
         )}
@@ -1547,6 +1659,7 @@ export function EmployeesModule({
           <option value="active">{tl.employees_status_active ?? ""}</option>
           <option value="inactive">{tl.employees_status_inactive ?? ""}</option>
           <option value="invited">{tl.employees_status_invited ?? ""}</option>
+          <option value="deleted">{tl.employees_status_deleted ?? ""}</option>
         </select>
       </div>
 
@@ -1586,7 +1699,9 @@ export function EmployeesModule({
                     ? tl.common_inactive ?? ""
                     : r.profile_status === "invited"
                       ? tl.employees_status_invited ?? ""
-                      : tl.common_active ?? ""}
+                      : r.profile_status === "deleted"
+                        ? tl.employees_status_deleted ?? ""
+                        : tl.common_active ?? ""}
                 </span>
               </button>
             </li>
