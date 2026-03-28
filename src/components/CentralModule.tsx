@@ -240,6 +240,8 @@ interface CentralModuleProps {
   onOpenSubcontractorsInOperations?: () => void;
   /** Vista jornada AW-6: abre panel completo desde widget Mi fichaje. */
   onOpenMyShiftView?: () => void;
+  /** Tarjeta Proyectos: crear proyecto o solo Operaciones según permisos. */
+  onProjectsManagementCardClick?: () => void;
   myShiftCentralCard?: {
     hasShiftToday: boolean;
     projectName?: string;
@@ -369,6 +371,7 @@ export function CentralModule({
   onQuickNewSubcontractor,
   onOpenSubcontractorsInOperations,
   onOpenMyShiftView,
+  onProjectsManagementCardClick,
   myShiftCentralCard,
 }: CentralModuleProps) {
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
@@ -763,6 +766,7 @@ export function CentralModule({
                 onQuickNewSubcontractor={onQuickNewSubcontractor}
                 onOpenSubcontractorsInOperations={onOpenSubcontractorsInOperations}
                 onOpenMyShiftView={onOpenMyShiftView}
+                onProjectsManagementCardClick={onProjectsManagementCardClick}
                 myShiftCentralCard={myShiftCentralCard}
               />
             </div>

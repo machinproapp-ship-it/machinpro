@@ -271,6 +271,7 @@ export interface CentralDashboardLiveProps {
   onQuickNewSubcontractor?: () => void;
   onOpenSubcontractorsInOperations?: () => void;
   onOpenMyShiftView?: () => void;
+  onProjectsManagementCardClick?: () => void;
   myShiftCentralCard?: {
     hasShiftToday: boolean;
     projectName?: string;
@@ -339,6 +340,7 @@ function CentralDashboardBody(
     onQuickNewSubcontractor,
     onOpenSubcontractorsInOperations,
     onOpenMyShiftView,
+    onProjectsManagementCardClick,
     myShiftCentralCard,
   } = props;
 
@@ -1254,7 +1256,10 @@ function CentralDashboardBody(
               subContent={
                 <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{L("activeProjects")}</span>
               }
-              onClick={() => onNavigateAppSection("site")}
+              onClick={() => {
+                if (onProjectsManagementCardClick) onProjectsManagementCardClick();
+                else onNavigateAppSection("site");
+              }}
             />
             ) : null}
           </div>

@@ -2065,6 +2065,14 @@ export default function Home() {
     [perms.site, visibleProjects]
   );
 
+  const handleProjectsManagementCardClick = useCallback(() => {
+    if (effectiveRole === "admin" || rolePerms.canCreateProjects) {
+      openProjectForm();
+      return;
+    }
+    setActiveSection("site");
+  }, [effectiveRole, rolePerms.canCreateProjects]);
+
   const scheduleSelfIds = useMemo(
     () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),
     [profile?.id, effectiveEmployeeId]
@@ -3484,6 +3492,7 @@ export default function Home() {
                   if (mine.length >= 1) openEmployeeShiftDay(ymd, mine[0]!.id);
                 }}
                 myShiftCentralCard={myShiftCentralCard}
+                onProjectsManagementCardClick={handleProjectsManagementCardClick}
               />
             )}
 

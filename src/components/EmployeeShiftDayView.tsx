@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Briefcase, Clock, MapPin, Users, X } from "lucide-react";
 import type { ProjectTask } from "@/types/projectTask";
@@ -210,17 +211,62 @@ export function EmployeeShiftDayView({
     return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   }, [mySignature, locale]);
 
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : false
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const overlayStyle: CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    zIndex: 49,
+  };
+
+  const panelStyle: CSSProperties = isDesktop
+    ? {
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: "min(800px, 90vw)",
+        minWidth: 640,
+        minHeight: 500,
+        maxHeight: "90vh",
+        overflowY: "auto",
+        zIndex: 50,
+        borderRadius: 12,
+        display: "flex",
+        flexDirection: "column",
+      }
+    : {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100dvh",
+        overflowY: "auto",
+        zIndex: 50,
+        borderRadius: 0,
+        display: "flex",
+        flexDirection: "column",
+      };
+
   if (!open) return null;
 
   return (
     <>
+      <div style={overlayStyle} aria-hidden onClick={onClose} />
       <div
-        className="fixed inset-0 z-[60] bg-black/60 dark:bg-black/70"
-        aria-hidden
-        onClick={onClose}
-      />
-      <div
-        className="fixed z-[70] left-0 top-0 flex h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden bg-white dark:bg-slate-900 md:left-1/2 md:top-1/2 md:h-auto md:max-h-[min(90dvh,calc(100dvh-2rem))] md:min-h-0 md:w-full md:min-w-[640px] md:max-w-[800px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:border-zinc-200 md:dark:border-slate-700 md:shadow-2xl"
+        style={panelStyle}
+        className="border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-labelledby="employee-shift-day-title"
       >
@@ -264,7 +310,7 @@ export function EmployeeShiftDayView({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-4">
+        <div className="space-y-6 px-4 py-4">
           {/* Fichaje */}
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3 bg-zinc-50/80 dark:bg-slate-950/40">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
