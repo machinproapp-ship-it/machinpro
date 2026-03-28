@@ -423,6 +423,7 @@ export default {
   dashboard_day_off: "Day off / holiday",
   dashboard_duration_h_m: "{h}h {m}min",
   dashboard_activity_unknown_user: "Team member",
+  dashboard_activity_user_fallback: "User",
   dashboard_timeclock_empty: "No employee profiles to show.",
   dashboard_drag_handle: "Drag to reorder",
   dashboard_move_up: "Move widget up",

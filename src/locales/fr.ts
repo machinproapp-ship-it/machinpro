@@ -414,6 +414,7 @@ export default {
   dashboard_day_off: "Congé / jour férié",
   dashboard_duration_h_m: "{h}h {m}min",
   dashboard_activity_unknown_user: "Membre de l'équipe",
+  dashboard_activity_user_fallback: "Utilisateur",
   dashboard_timeclock_empty: "Aucun profil employé à afficher.",
   dashboard_drag_handle: "Glisser pour réorganiser",
   dashboard_move_up: "Monter le widget",

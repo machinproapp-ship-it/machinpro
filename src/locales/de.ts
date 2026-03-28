@@ -419,6 +419,8 @@ export default {
   dashboard_not_clocked_in: "Nicht eingestempelt",
   dashboard_day_off: "Frei / Feiertag",
   dashboard_timeclock_empty: "Keine Mitarbeiterprofile anzuzeigen.",
+  dashboard_activity_unknown_user: "Teammitglied",
+  dashboard_activity_user_fallback: "Benutzer",
   dashboard_drag_handle: "Ziehen zum Sortieren",
   dashboard_move_up: "Widget nach oben",
   dashboard_move_down: "Widget nach unten",

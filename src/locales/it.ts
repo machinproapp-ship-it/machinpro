@@ -420,6 +420,7 @@ export default {
   dashboard_day_off: "Riposo / festivo",
   dashboard_duration_h_m: "{h}h {m}min",
   dashboard_activity_unknown_user: "Membro del team",
+  dashboard_activity_user_fallback: "Utente",
   dashboard_timeclock_empty: "Nessun profilo dipendente da mostrare.",
   dashboard_drag_handle: "Trascina per riordinare",
   dashboard_move_up: "Sposta widget su",

@@ -453,15 +453,31 @@ export function SubcontractorsModule({
     if (defaultInviteRoles.length && !inviteRoleId) setInviteRoleId(defaultInviteRoles[0].id);
   }, [defaultInviteRoles, inviteRoleId]);
 
+  const tlNoCo = t as Record<string, string>;
   if (!companyId) {
     return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        {(t as Record<string, string>).subcontractors_no_company ?? ""}
-      </p>
+      <>
+        {onBackToOffice ? (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onBackToOffice}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+              {tlNoCo.back ?? "Volver"}
+            </button>
+          </div>
+        ) : null}
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
+          {tlNoCo.subcontractors_no_company ?? ""}
+        </p>
+      </>
     );
   }
 
   const tl = t as Record<string, string>;
+  const activeView: "list" | "detail" = selectedId ? "detail" : "list";
 
   if (selected) {
     const history = parseWorkHistory(selected.work_history);
@@ -480,22 +496,10 @@ export function SubcontractorsModule({
         <button
           type="button"
           onClick={() => setSelectedId(null)}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            minHeight: "44px",
-            padding: "8px 16px",
-            background: "var(--color-background-secondary, var(--background))",
-            border: "1px solid var(--color-border-secondary, rgba(148, 163, 184, 0.45))",
-            borderRadius: "8px",
-            color: "var(--color-text-primary, var(--foreground))",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: 500,
-          }}
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
         >
-          ← {tl?.nav_back ?? "Atrás"}
+          <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+          {tl.back ?? "Volver"}
         </button>
       </div>
     );
@@ -893,8 +897,8 @@ export function SubcontractorsModule({
   }
 
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
-      {onBackToOffice ? (
+    <>
+      {activeView === "list" && onBackToOffice ? (
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -902,10 +906,11 @@ export function SubcontractorsModule({
             className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
           >
             <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
-            {tl.back ?? tl.nav_back ?? "Atrás"}
+            {tl.back ?? "Volver"}
           </button>
         </div>
       ) : null}
+      <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Building2 className="h-5 w-5" />
@@ -1273,5 +1278,6 @@ export function SubcontractorsModule({
         </>
       )}
     </section>
+    </>
   );
 }

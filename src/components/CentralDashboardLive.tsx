@@ -79,6 +79,31 @@ function relativeTime(iso: string, locale: string, labels: Record<string, string
   return (labels.dashboard_rel_days ?? "").replace("{n}", String(d));
 }
 
+type AuditProfileSnippet = {
+  full_name?: string | null;
+  display_name?: string | null;
+  email?: string | null;
+};
+
+function auditActorLabel(
+  row: AuditLogEntry,
+  profileByUserId: Record<string, AuditProfileSnippet>,
+  labels: Record<string, string>
+): string {
+  const un = (row.user_name ?? "").trim();
+  if (un) return un;
+  const p = profileByUserId[row.user_id];
+  if (p) {
+    const fn = (p.full_name ?? "").trim();
+    if (fn) return fn;
+    const dn = (p.display_name ?? "").trim();
+    if (dn) return dn;
+    const em = (p.email ?? "").trim();
+    if (em) return em;
+  }
+  return labels.dashboard_activity_user_fallback ?? "Usuario";
+}
+
 function formatActivityLine(
   row: AuditLogEntry,
   labels: Record<string, string>,
@@ -335,6 +360,7 @@ function CentralDashboardBody(
   const [myTasksToday, setMyTasksToday] = useState<{ description: string; completed: boolean }[]>([]);
   const [empActiveCount, setEmpActiveCount] = useState<number | null>(null);
   const [activityRows, setActivityRows] = useState<AuditLogEntry[]>([]);
+  const [auditProfileByUserId, setAuditProfileByUserId] = useState<Record<string, AuditProfileSnippet>>({});
   const [hazardRows, setHazardRows] = useState<Hazard[]>([]);
   const [visitorsTodayCount, setVisitorsTodayCount] = useState(0);
 
@@ -379,20 +405,13 @@ function CentralDashboardBody(
 
   const loadDashboardConfig = useCallback(async () => {
     try {
-      const { data: co, error: coErr } = await supabase
-        .from("companies")
-        .select("dashboard_config")
-        .eq("id", companyId)
-        .maybeSingle();
+      const [{ data: co, error: coErr }, { data: pr, error: prErr }] = await Promise.all([
+        supabase.from("companies").select("dashboard_config").eq("id", companyId).maybeSingle(),
+        supabase.from("user_profiles").select("dashboard_config").eq("id", currentUserId).maybeSingle(),
+      ]);
       if (coErr) throw coErr;
-      let userRaw: unknown = null;
-      const { data: pr, error: prErr } = await supabase
-        .from("user_profiles")
-        .select("dashboard_config")
-        .eq("id", currentUserId)
-        .maybeSingle();
       if (prErr) throw prErr;
-      userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
+      const userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
       const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
       setResolvedConfig(parseDashboardConfig(merged));
     } catch (e) {
@@ -401,10 +420,6 @@ function CentralDashboardBody(
       setResolvedConfig(parseDashboardConfig(null));
     }
   }, [companyId, currentUserId]);
-
-  useEffect(() => {
-    void loadDashboardConfig();
-  }, [loadDashboardConfig]);
 
   useEffect(() => {
     if (customizeOpen) setDraftConfig(resolvedConfig);
@@ -452,205 +467,221 @@ function CentralDashboardBody(
       setDataLoading(true);
       setLoadErrors([]);
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        if (!cancelled) setDataLoading(false);
+        return;
+      }
+
+      await loadDashboardConfig();
+      if (cancelled) return;
+
+      const epPromise = supabase
+        .from("employee_projects")
+        .select("project_id")
+        .eq("user_id", currentUserId)
+        .eq("company_id", companyId);
+
+      const myTimePromise = supabase
+        .from("time_entries")
+        .select("id, user_id, clock_in_at, clock_out_at")
+        .eq("company_id", companyId)
+        .eq("user_id", currentUserId)
+        .gte("clock_in_at", tStart)
+        .lte("clock_in_at", tEnd)
+        .order("clock_in_at", { ascending: false });
+
+      const teamTimePromise = canViewTeamClock
+        ? supabase
+            .from("time_entries")
+            .select("id, user_id, clock_in_at, clock_out_at")
+            .eq("company_id", companyId)
+            .gte("clock_in_at", tStart)
+            .lte("clock_in_at", tEnd)
+            .order("clock_in_at", { ascending: false })
+            .limit(120)
+        : Promise.resolve({ data: [] as TimeRow[], error: null });
+
+      const schedulePromise = supabase
+        .from("schedule_entries")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("date", todayIso)
+        .limit(400);
+
+      const [epRes, myTRes, teamTRes, schRes] = await Promise.all([
+        epPromise,
+        myTimePromise,
+        teamTimePromise,
+        schedulePromise,
+      ]);
+      if (cancelled) return;
+
       let projectIdsForUser: string[] = [];
-      try {
-        const { data: ej, error: ejErr } = await supabase
-          .from("employee_projects")
-          .select("project_id")
-          .eq("user_id", currentUserId)
-          .eq("company_id", companyId);
-        if (ejErr) throw ejErr;
-        projectIdsForUser = ((ej ?? []) as { project_id: string }[]).map((r) => String(r.project_id));
-      } catch (e) {
-        pushErr(e, "employee_projects");
-      }
+      if (epRes.error) pushErr(epRes.error, "employee_projects");
+      else
+        projectIdsForUser = ((epRes.data ?? []) as { project_id: string }[]).map((r) => String(r.project_id));
 
-      const corePromises: Promise<void>[] = [];
+      if (myTRes.error) pushErr(myTRes.error, L("myClockIn"));
+      else if (!cancelled) setMyTimeRows((myTRes.data ?? []) as TimeRow[]);
 
-      corePromises.push(
-        (async () => {
-          try {
-            const { data, error } = await supabase
-              .from("time_entries")
-              .select("id, user_id, clock_in_at, clock_out_at")
-              .eq("company_id", companyId)
-              .eq("user_id", currentUserId)
-              .gte("clock_in_at", tStart)
-              .lte("clock_in_at", tEnd)
-              .order("clock_in_at", { ascending: false });
-            if (error) throw error;
-            if (!cancelled) setMyTimeRows((data ?? []) as TimeRow[]);
-          } catch (e) {
-            pushErr(e, L("myClockIn"));
-          }
-        })()
-      );
-
-      if (canViewTeamClock) {
-        corePromises.push(
-          (async () => {
-            try {
-              const { data, error } = await supabase
-                .from("time_entries")
-                .select("id, user_id, clock_in_at, clock_out_at")
-                .eq("company_id", companyId)
-                .gte("clock_in_at", tStart)
-                .lte("clock_in_at", tEnd)
-                .order("clock_in_at", { ascending: false })
-                .limit(120);
-              if (error) throw error;
-              if (!cancelled) setTeamTimeRows((data ?? []) as TimeRow[]);
-            } catch (e) {
-              pushErr(e, L("dashboard_widget_team_timeclock"));
-            }
-          })()
-        );
+      if (!canViewTeamClock) {
+        if (!cancelled) setTeamTimeRows([]);
+      } else if (teamTRes.error) {
+        pushErr(teamTRes.error, L("dashboard_widget_team_timeclock"));
       } else if (!cancelled) {
-        setTeamTimeRows([]);
+        setTeamTimeRows((teamTRes.data ?? []) as TimeRow[]);
       }
 
-      corePromises.push(
-        (async () => {
-          try {
-            const { data, error } = await supabase
-              .from("schedule_entries")
-              .select("*")
-              .eq("company_id", companyId)
-              .eq("date", todayIso)
-              .limit(400);
-            if (error) throw error;
-            const rows = (data ?? []) as Record<string, unknown>[];
-            const mine = rows.filter((row) => {
-              const ids = row.employee_ids;
-              if (!Array.isArray(ids)) return false;
-              return ids.map(String).includes(currentUserId);
+      if (schRes.error) pushErr(schRes.error, "schedule");
+      else if (!cancelled) {
+        const rows = (schRes.data ?? []) as Record<string, unknown>[];
+        const mine = rows.filter((row) => {
+          const ids = row.employee_ids;
+          if (!Array.isArray(ids)) return false;
+          return ids.map(String).includes(currentUserId);
+        });
+        setScheduleToday(mine);
+      }
+
+      try {
+        const { data: drData, error: drErr } = await supabase
+          .from("daily_reports")
+          .select(
+            `id, project_id, date, status, title, daily_report_tasks (id, employee_id, description, completed)`
+          )
+          .eq("company_id", companyId)
+          .eq("date", todayIso)
+          .limit(40);
+        if (drErr) throw drErr;
+        const rows = (drData ?? []) as Record<string, unknown>[];
+        let filtered = rows;
+        if (projectIdsForUser.length > 0) {
+          const pset = new Set(projectIdsForUser);
+          const f = rows.filter((r) => pset.has(String(r.project_id ?? "")));
+          if (f.length > 0) filtered = f;
+        }
+        if (!cancelled) setDailyReportsToday(filtered);
+        const tasks: { description: string; completed: boolean }[] = [];
+        for (const r of filtered) {
+          const dt = r.daily_report_tasks;
+          if (!Array.isArray(dt)) continue;
+          for (const te of dt) {
+            const tr = te as Record<string, unknown>;
+            if (String(tr.employee_id ?? "") !== currentUserId) continue;
+            tasks.push({
+              description: String(tr.description ?? ""),
+              completed: tr.completed === true,
             });
-            if (!cancelled) setScheduleToday(mine);
-          } catch (e) {
-            pushErr(e, "schedule");
-          }
-        })()
-      );
-
-      corePromises.push(
-        (async () => {
-          try {
-            const { data, error } = await supabase
-              .from("daily_reports")
-              .select(`id, project_id, date, status, title, daily_report_tasks (id, employee_id, description, completed)`)
-              .eq("company_id", companyId)
-              .eq("date", todayIso)
-              .limit(40);
-            if (error) throw error;
-            const rows = (data ?? []) as Record<string, unknown>[];
-            let filtered = rows;
-            if (projectIdsForUser.length > 0) {
-              const set = new Set(projectIdsForUser);
-              const f = rows.filter((r) => set.has(String(r.project_id ?? "")));
-              if (f.length > 0) filtered = f;
-            }
-            if (!cancelled) setDailyReportsToday(filtered);
-            const tasks: { description: string; completed: boolean }[] = [];
-            for (const r of filtered) {
-              const dt = r.daily_report_tasks;
-              if (!Array.isArray(dt)) continue;
-              for (const t of dt) {
-                const tr = t as Record<string, unknown>;
-                if (String(tr.employee_id ?? "") !== currentUserId) continue;
-                tasks.push({
-                  description: String(tr.description ?? ""),
-                  completed: tr.completed === true,
-                });
-              }
-            }
-            if (!cancelled) setMyTasksToday(tasks);
-          } catch (e) {
-            pushErr(e, "daily_reports");
-          }
-        })()
-      );
-
-      await Promise.all(corePromises);
-
-      if (canManageEmployees) {
-        await Promise.all([
-          (async () => {
-            try {
-              const { count, error } = await supabase
-                .from("user_profiles")
-                .select("id", { count: "exact", head: true })
-                .eq("company_id", companyId);
-              if (error) throw error;
-              if (!cancelled) setEmpActiveCount(count ?? 0);
-            } catch (e) {
-              pushErr(e, "user_profiles");
-            }
-          })(),
-          (async () => {
-            try {
-              const { data, error } = await supabase
-                .from("audit_logs")
-                .select("*")
-                .eq("company_id", companyId)
-                .order("created_at", { ascending: false })
-                .limit(20);
-              if (error) throw error;
-              if (!cancelled) setActivityRows((data ?? []) as AuditLogEntry[]);
-            } catch (e) {
-              pushErr(e, L("dashboard_widget_activity"));
-            }
-          })(),
-        ]);
-
-        if (canAccessVisitors) {
-          try {
-            const { count, error } = await supabase
-              .from("visitor_logs")
-              .select("id", { count: "exact", head: true })
-              .eq("company_id", companyId)
-              .gte("check_in", tStart)
-              .lte("check_in", tEnd);
-            if (error) throw error;
-            if (!cancelled) setVisitorsTodayCount(count ?? 0);
-          } catch (e) {
-            pushErr(e, L("dashboard_widget_visitors"));
           }
         }
-      } else {
-        if (!cancelled) {
-          setEmpActiveCount(null);
-          setActivityRows([]);
-        }
-        if (canAccessVisitors) {
-          try {
-            const { count, error } = await supabase
-              .from("visitor_logs")
-              .select("id", { count: "exact", head: true })
-              .eq("company_id", companyId)
-              .gte("check_in", tStart)
-              .lte("check_in", tEnd);
-            if (error) throw error;
-            if (!cancelled) setVisitorsTodayCount(count ?? 0);
-          } catch (e) {
-            pushErr(e, L("dashboard_widget_visitors"));
-          }
-        } else if (!cancelled) setVisitorsTodayCount(0);
+        if (!cancelled) setMyTasksToday(tasks);
+      } catch (e) {
+        pushErr(e, "daily_reports");
       }
 
-      if (canAccessHazards && (canManageEmployees || canManageComplianceAlerts)) {
+      const fetchEmpCount = async () => {
+        if (!canManageEmployees) {
+          if (!cancelled) setEmpActiveCount(null);
+          return;
+        }
+        try {
+          const { count, error } = await supabase
+            .from("user_profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId);
+          if (error) throw error;
+          if (!cancelled) setEmpActiveCount(count ?? 0);
+        } catch (e) {
+          pushErr(e, "user_profiles");
+        }
+      };
+
+      const auditPipeline = async () => {
+        if (!canManageEmployees) {
+          if (!cancelled) {
+            setActivityRows([]);
+            setAuditProfileByUserId({});
+          }
+          return;
+        }
         try {
           const { data, error } = await supabase
-            .from("hazards")
+            .from("audit_logs")
             .select("*")
             .eq("company_id", companyId)
-            .in("status", ["open", "in_progress"])
-            .limit(25);
+            .order("created_at", { ascending: false })
+            .limit(20);
           if (error) throw error;
-          if (!cancelled) setHazardRows((data ?? []) as Hazard[]);
+          const rows = (data ?? []) as AuditLogEntry[];
+          const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+          const profileMap: Record<string, AuditProfileSnippet> = {};
+          if (ids.length > 0) {
+            const { data: profs, error: pErr } = await supabase
+              .from("user_profiles")
+              .select("id, full_name, display_name, email")
+              .in("id", ids)
+              .eq("company_id", companyId);
+            if (pErr) throw pErr;
+            for (const p of (profs ?? []) as {
+              id: string;
+              full_name?: string | null;
+              display_name?: string | null;
+              email?: string | null;
+            }[]) {
+              profileMap[p.id] = {
+                full_name: p.full_name,
+                display_name: p.display_name,
+                email: p.email,
+              };
+            }
+          }
+          if (!cancelled) {
+            setActivityRows(rows);
+            setAuditProfileByUserId(profileMap);
+          }
         } catch (e) {
-          pushErr(e, L("dashboard_widget_hazards"));
+          pushErr(e, L("dashboard_widget_activity"));
         }
-      } else if (!cancelled) setHazardRows([]);
+      };
+
+      const fetchVisitors = async () => {
+        if (!canAccessVisitors) {
+          if (!cancelled) setVisitorsTodayCount(0);
+          return;
+        }
+        try {
+          const { count, error } = await supabase
+            .from("visitor_logs")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId)
+            .gte("check_in", tStart)
+            .lte("check_in", tEnd);
+          if (error) throw error;
+          if (!cancelled) setVisitorsTodayCount(count ?? 0);
+        } catch (e) {
+          pushErr(e, L("dashboard_widget_visitors"));
+        }
+      };
+
+      const fetchHazards = async () => {
+        if (canAccessHazards && (canManageEmployees || canManageComplianceAlerts)) {
+          try {
+            const { data, error } = await supabase
+              .from("hazards")
+              .select("*")
+              .eq("company_id", companyId)
+              .in("status", ["open", "in_progress"])
+              .limit(25);
+            if (error) throw error;
+            if (!cancelled) setHazardRows((data ?? []) as Hazard[]);
+          } catch (e) {
+            pushErr(e, L("dashboard_widget_hazards"));
+          }
+        } else if (!cancelled) setHazardRows([]);
+      };
+
+      await Promise.all([fetchEmpCount(), auditPipeline(), fetchVisitors(), fetchHazards()]);
 
       if (!cancelled) setDataLoading(false);
     };
@@ -670,6 +701,7 @@ function CentralDashboardBody(
     canAccessVisitors,
     canAccessHazards,
     canManageComplianceAlerts,
+    loadDashboardConfig,
   ]);
 
   const orderedVisibleWidgets = useMemo(() => {
@@ -933,7 +965,7 @@ function CentralDashboardBody(
                         row,
                         labels,
                         projectNameById,
-                        L("dashboard_activity_unknown_user") || row.user_id?.slice(0, 8) || ""
+                        auditActorLabel(row, auditProfileByUserId, labels)
                       )}
                     </p>
                   </li>
