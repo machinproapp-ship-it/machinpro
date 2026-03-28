@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { Users, Briefcase, HardHat, ChevronRight, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound } from 'lucide-react';
 import type { CustomRole, RolePermissions } from '@/types/roles';
-import { ROLE_PERMISSION_KEYS, isBaseRole } from '@/types/roles';
+import { ROLE_PERMISSION_KEYS, isProtectedCustomRole } from '@/types/roles';
 import type { CentralEmployee } from '@/types/shared';
 import type { Subcontractor } from '@/types/subcontractor';
 import { getTaxIdLabel, getComplianceCertLabel, SUBCONTRACTOR_SPECIALTIES } from '@/types/subcontractor';
@@ -179,9 +179,9 @@ interface CentralModuleProps {
   canEdit?: boolean;
   canManageRoles?: boolean;
   customRoles?: CustomRole[];
-  onAddRole?: (role: CustomRole) => void;
-  onUpdateRole?: (role: CustomRole) => void;
-  onDeleteRole?: (id: string) => void;
+  onAddRole?: (role: CustomRole) => void | Promise<void>;
+  onUpdateRole?: (role: CustomRole) => void | Promise<void>;
+  onDeleteRole?: (id: string) => void | Promise<void>;
   complianceFields?: ComplianceField[];
   complianceRecords?: ComplianceRecord[];
   onComplianceRecordsChange?: (records: ComplianceRecord[]) => void;
@@ -515,23 +515,36 @@ export function CentralModule({
     }));
   };
 
-  const saveRole = () => {
+  const saveRole = async () => {
     if (!roleDraft.name.trim()) return;
-    if (editingRoleId && onUpdateRole) {
-      const existing = customRoles.find((r) => r.id === editingRoleId);
-      if (existing) {
-        onUpdateRole({ ...existing, name: roleDraft.name.trim(), color: roleDraft.color, permissions: roleDraft.permissions });
+    try {
+      if (editingRoleId && onUpdateRole) {
+        const existing = customRoles.find((r) => r.id === editingRoleId);
+        if (existing) {
+          await Promise.resolve(
+            onUpdateRole({
+              ...existing,
+              name: roleDraft.name.trim(),
+              color: roleDraft.color,
+              permissions: roleDraft.permissions,
+            })
+          );
+        }
+      } else if (onAddRole) {
+        await Promise.resolve(
+          onAddRole({
+            id: `role-custom-${Date.now()}`,
+            name: roleDraft.name.trim(),
+            color: roleDraft.color,
+            permissions: roleDraft.permissions,
+            createdAt: new Date().toISOString(),
+          })
+        );
       }
-    } else if (onAddRole) {
-      onAddRole({
-        id: `role-custom-${Date.now()}`,
-        name: roleDraft.name.trim(),
-        color: roleDraft.color,
-        permissions: roleDraft.permissions,
-        createdAt: new Date().toISOString(),
-      });
+      setRoleModalOpen(false);
+    } catch (e) {
+      console.error("[CentralModule] saveRole", e);
     }
-    setRoleModalOpen(false);
   };
 
   // PROTECCI?N CR?TICA: Aseguramos que las listas existan antes de usar .slice()
@@ -1126,7 +1139,7 @@ export function CentralModule({
               <tbody>
                 {customRoles.map((role) => {
                   const count = ROLE_PERMISSION_KEYS.filter((k) => role.permissions[k]).length;
-                  const base = isBaseRole(role.id);
+                  const base = isProtectedCustomRole(role);
                   return (
                     <tr
                       key={role.id}

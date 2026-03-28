@@ -11,6 +11,8 @@ interface UserProfile {
   role: "admin" | "supervisor" | "worker" | "logistic";
   companyId: string | null;
   companyName: string | null;
+  /** `user_profiles.custom_role_id` → `roles.id` */
+  customRoleId?: string | null;
   /** Full name when `full_name` / `display_name` is present on the row. */
   fullName?: string | null;
   /** Auth email (session). */
@@ -57,12 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: authUser } = await supabase.auth.getUser();
       const email = authUser?.user?.email ?? null;
       const superRow = row as { is_superadmin?: boolean };
+      const customRoleRaw = row.custom_role_id;
+      const customRoleId =
+        customRoleRaw != null && String(customRoleRaw).trim() ? String(customRoleRaw).trim() : null;
       setProfile({
         id: data.id,
         employeeId: data.employee_id ?? null,
         role: data.role,
         companyId: data.company_id ?? null,
         companyName: companies?.name ?? null,
+        customRoleId,
         fullName,
         email,
         isSuperadmin: superRow.is_superadmin === true,

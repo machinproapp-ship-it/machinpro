@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { getLimitsForPlan, type PlanKey } from "@/lib/stripe";
 import type { InvitationPlan } from "@/types/invitation";
+import { fullAdministratorPermissions } from "@/lib/roles-supabase";
 
 export const runtime = "nodejs";
 
@@ -157,6 +158,17 @@ export async function POST(req: NextRequest) {
       throw new Error(compErr?.message ?? "company insert failed");
     }
     companyId = (comp as { id: string }).id;
+
+    const { error: seedRoleErr } = await admin.from("roles").insert({
+      company_id: companyId,
+      name: "Administrador",
+      color: "#b45309",
+      permissions: fullAdministratorPermissions(),
+      is_system: true,
+    });
+    if (seedRoleErr) {
+      throw new Error(seedRoleErr.message);
+    }
 
     const { error: profErr } = await admin.from("user_profiles").upsert(
       {

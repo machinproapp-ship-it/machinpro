@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
-import { ROLE_PERMISSION_KEYS } from "@/types/roles";
+import { ROLE_PERMISSION_KEYS, pickDefaultWorkerRoleId } from "@/types/roles";
 import type { ComplianceField, ComplianceRecord, VacationRequestRow } from "@/app/page";
 
 export interface EmployeesModuleProps {
@@ -63,6 +63,11 @@ type ProfileRow = {
   emergency_contact_phone?: string | null;
   emergency_contact_relation?: string | null;
   custom_role_id?: string | null;
+  /** Relación `roles` vía FK custom_role_id (si existe en Supabase). */
+  roles?:
+    | { name?: string | null; permissions?: unknown; is_system?: boolean | null }
+    | { name?: string | null; permissions?: unknown; is_system?: boolean | null }[]
+    | null;
   custom_permissions?: Partial<RolePermissions> | null;
   use_role_permissions?: boolean | null;
   profile_status?: string | null;
@@ -300,7 +305,7 @@ export function EmployeesModule({
     fullName: "",
     email: "",
     phone: "",
-    customRoleId: "role-worker",
+    customRoleId: "",
     profileStatus: "active",
     emergencyName: "",
     emergencyPhone: "",
@@ -333,11 +338,19 @@ export function EmployeesModule({
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
+    const withJoin = await supabase
       .from("user_profiles")
-      .select("*")
+      .select("*, roles!custom_role_id(name, permissions, is_system)")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false });
+    const { data, error } =
+      withJoin.error?.code === "PGRST200" || withJoin.error?.message?.includes("relationship")
+        ? await supabase
+            .from("user_profiles")
+            .select("*")
+            .eq("company_id", companyId)
+            .order("created_at", { ascending: false })
+        : withJoin;
     if (error) {
       console.error(error);
       setRows([]);
@@ -359,9 +372,9 @@ export function EmployeesModule({
         : {
             ...f,
             customRoleId:
-              customRoles.find((c) => c.id === "role-worker")?.id ??
-              customRoles[0]?.id ??
-              "role-worker",
+              pickDefaultWorkerRoleId(customRoles) ||
+              customRoles[0]?.id ||
+              "",
           }
     );
   }, [createOpen, customRoles]);
@@ -751,7 +764,7 @@ export function EmployeesModule({
         fullName: "",
         email: "",
         phone: "",
-        customRoleId: customRoles.find((c) => c.id === "role-worker")?.id ?? "role-worker",
+        customRoleId: pickDefaultWorkerRoleId(customRoles) || customRoles[0]?.id || "",
         profileStatus: "active",
         emergencyName: "",
         emergencyPhone: "",
@@ -1521,9 +1534,7 @@ export function EmployeesModule({
                   email: "",
                   phone: "",
                   customRoleId:
-                    customRoles.find((c) => c.id === "role-worker")?.id ??
-                    customRoles[0]?.id ??
-                    "role-worker",
+                    pickDefaultWorkerRoleId(customRoles) || customRoles[0]?.id || "",
                   profileStatus: "active",
                   emergencyName: "",
                   emergencyPhone: "",

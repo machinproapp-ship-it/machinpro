@@ -17,11 +17,45 @@ function sanitizeCustomPermissions(input: unknown): Partial<RolePermissions> | n
   return Object.keys(out).length ? out : null;
 }
 
-function baseRoleFromCustomRoleId(customRoleId: string): "admin" | "supervisor" | "worker" | "logistic" {
+function legacyEnumFromCustomRoleId(customRoleId: string): "admin" | "supervisor" | "worker" | "logistic" | null {
   if (customRoleId === "role-admin") return "admin";
   if (customRoleId === "role-supervisor") return "supervisor";
   if (customRoleId === "role-logistic") return "logistic";
-  return "worker";
+  if (customRoleId === "role-worker") return "worker";
+  return null;
+}
+
+async function resolveRoleFields(
+  admin: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
+  companyId: string,
+  customRoleIdRaw: string | null
+): Promise<{ profileRole: "admin" | "supervisor" | "worker" | "logistic"; customRoleIdOut: string | null }> {
+  const trimmed = customRoleIdRaw?.trim() || "";
+  if (trimmed) {
+    const legacy = legacyEnumFromCustomRoleId(trimmed);
+    if (legacy) return { profileRole: legacy, customRoleIdOut: trimmed };
+    const { data: roleRow } = await admin
+      .from("roles")
+      .select("name")
+      .eq("id", trimmed)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (roleRow && typeof (roleRow as { name?: string }).name === "string") {
+      const n = String((roleRow as { name: string }).name).toLowerCase();
+      if (n.includes("administr")) return { profileRole: "admin", customRoleIdOut: trimmed };
+      if (n.includes("supervisor")) return { profileRole: "supervisor", customRoleIdOut: trimmed };
+      if (n.includes("logist")) return { profileRole: "logistic", customRoleIdOut: trimmed };
+      return { profileRole: "worker", customRoleIdOut: trimmed };
+    }
+  }
+  const { data: empRow } = await admin
+    .from("roles")
+    .select("id")
+    .eq("company_id", companyId)
+    .ilike("name", "Empleado")
+    .maybeSingle();
+  const empId = empRow && (empRow as { id?: string }).id != null ? String((empRow as { id: string }).id) : null;
+  return { profileRole: "worker", customRoleIdOut: empId };
 }
 
 export async function POST(req: NextRequest) {
@@ -59,10 +93,8 @@ export async function POST(req: NextRequest) {
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const phone = typeof body.phone === "string" ? body.phone.trim() || null : null;
-  const customRoleId =
-    typeof body.customRoleId === "string" && body.customRoleId.trim()
-      ? body.customRoleId.trim()
-      : "role-worker";
+  const customRoleIdBody =
+    typeof body.customRoleId === "string" && body.customRoleId.trim() ? body.customRoleId.trim() : null;
   const profileStatus =
     typeof body.profileStatus === "string" && body.profileStatus.trim()
       ? body.profileStatus.trim()
@@ -126,7 +158,11 @@ export async function POST(req: NextRequest) {
     }
     userId = createdUser.user.id;
 
-    const baseRole = baseRoleFromCustomRoleId(customRoleId);
+    const { profileRole: baseRole, customRoleIdOut: customRoleId } = await resolveRoleFields(
+      admin,
+      companyId,
+      customRoleIdBody
+    );
 
     const effectivePayType = payType;
     /** Columnas user_profiles: pay_*, vacation_policy_enabled, vacation_days_allowed (no usar payment_*). */

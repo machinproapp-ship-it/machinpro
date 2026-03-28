@@ -70,7 +70,19 @@ import {
 import type { Language, Currency } from "@/lib/i18n";
 import { LANGUAGES, ALL_TRANSLATIONS, loadLocale, isLazyLocale } from "@/lib/i18n";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
-import type { CustomRole, RolePermissions } from "@/types/roles";
+import {
+  type CustomRole,
+  type RolePermissions,
+  resolveActiveCustomRole,
+  pickDefaultWorkerRoleId,
+  isProtectedCustomRole,
+} from "@/types/roles";
+import {
+  customRoleFromSupabaseRow,
+  readLegacyCustomRolesFromLocalStorage,
+  clearLegacyCustomRolesLocalStorage,
+  type RolesTableRow,
+} from "@/lib/roles-supabase";
 import type { Binder, BinderDocument, BinderCategory } from "@/types/binders";
 import type { FormTemplate, FormInstance } from "@/types/forms";
 import type { Subcontractor } from "@/types/subcontractor";
@@ -982,7 +994,7 @@ export default function Home() {
   const [projectsOpenRfiSig, setProjectsOpenRfiSig] = useState(0);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
   const [currentUserRole] = useState<UserRole>("admin");
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>(INITIAL_CUSTOM_ROLES);
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -1191,6 +1203,60 @@ export default function Home() {
     };
     void loadEmployees();
   }, [session, companyId]);
+
+  useEffect(() => {
+    if (!supabase || !session) {
+      setCustomRoles(INITIAL_CUSTOM_ROLES);
+      return;
+    }
+    if (!companyId) return;
+    const cid = companyId;
+    let cancelled = false;
+    void (async () => {
+      const { data: rows, error } = await supabase
+        .from("roles")
+        .select("*")
+        .eq("company_id", cid)
+        .order("created_at", { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        console.error("[page] roles load", error);
+        return;
+      }
+      let list = (rows ?? []) as RolesTableRow[];
+      if (list.length === 0) {
+        const fromLs = readLegacyCustomRolesFromLocalStorage();
+        const seedRows = fromLs?.length
+          ? fromLs.map((r) => ({
+              company_id: cid,
+              name: r.name,
+              color: r.color,
+              permissions: r.permissions,
+              is_system: r.isSystem === true,
+            }))
+          : INITIAL_CUSTOM_ROLES.map((r) => ({
+              company_id: cid,
+              name: r.name,
+              color: r.color,
+              permissions: r.permissions,
+              is_system: true,
+            }));
+        const { data: inserted, error: insErr } = await supabase.from("roles").insert(seedRows).select("*");
+        if (cancelled) return;
+        if (insErr) {
+          console.error("[page] roles seed", insErr);
+          setCustomRoles(INITIAL_CUSTOM_ROLES);
+          return;
+        }
+        clearLegacyCustomRolesLocalStorage();
+        list = (inserted ?? []) as RolesTableRow[];
+      }
+      setCustomRoles(list.map(customRoleFromSupabaseRow));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, session, companyId]);
 
   useEffect(() => {
     if (!supabase || !session || !companyId) return;
@@ -1884,8 +1950,16 @@ export default function Home() {
   const [projectFormLng, setProjectFormLng] = useState("");
 
   const countryConfig = useMemo(() => getCountryConfig(companyCountry), [companyCountry]);
-  const activeCustomRole =
-    customRoles.find((r) => r.id === `role-${effectiveRole}`) ?? customRoles[0];
+  const activeCustomRole = useMemo(() => {
+    if (!customRoles.length) {
+      const fallbackLegacyId =
+        effectiveRole === "projectManager" ? "role-supervisor" : `role-${effectiveRole}`;
+      return (
+        INITIAL_CUSTOM_ROLES.find((r) => r.id === fallbackLegacyId) ?? INITIAL_CUSTOM_ROLES[0]!
+      );
+    }
+    return resolveActiveCustomRole(customRoles, effectiveRole, profile?.customRoleId);
+  }, [customRoles, effectiveRole, profile?.customRoleId]);
   const rolePerms = activeCustomRole.permissions;
   const perms = permissionsToModule(rolePerms);
 
@@ -2464,7 +2538,8 @@ export default function Home() {
     if (mode === "new") {
       setEditingEmployeeId("new");
       setNewEmployeeName("");
-      const defaultRole = customRoles.find((r) => r.id === "role-worker");
+      const defaultRoleId = pickDefaultWorkerRoleId(customRoles);
+      const defaultRole = defaultRoleId ? customRoles.find((r) => r.id === defaultRoleId) : undefined;
       setNewEmployeeRole(defaultRole?.name ?? "worker");
       setNewEmployeeHours("");
       setNewEmployeePayType("hourly");
@@ -2896,11 +2971,65 @@ export default function Home() {
                 auditLogs={auditLogs}
                 canManageRoles={rolePerms.canManageRoles}
                 customRoles={customRoles}
-                onAddRole={(role) => setCustomRoles((prev) => [...prev, role])}
-                onUpdateRole={(role) => setCustomRoles((prev) => prev.map((r) => (r.id === role.id ? role : r)))}
-                onDeleteRole={(id) => {
-                  const baseIds = ["role-admin", "role-supervisor", "role-worker", "role-logistic"];
-                  if (!baseIds.includes(id)) setCustomRoles((prev) => prev.filter((r) => r.id !== id));
+                onAddRole={async (role) => {
+                  if (!supabase || !companyId) {
+                    setCustomRoles((prev) => [...prev, role]);
+                    return;
+                  }
+                  const { data, error } = await supabase
+                    .from("roles")
+                    .insert({
+                      company_id: companyId,
+                      name: role.name,
+                      color: role.color,
+                      permissions: role.permissions,
+                      is_system: false,
+                    })
+                    .select("*")
+                    .single();
+                  if (error || !data) {
+                    console.error("[page] roles insert", error);
+                    return;
+                  }
+                  setCustomRoles((prev) => [...prev, customRoleFromSupabaseRow(data as RolesTableRow)]);
+                }}
+                onUpdateRole={async (role) => {
+                  if (!supabase || !companyId) {
+                    setCustomRoles((prev) => prev.map((r) => (r.id === role.id ? role : r)));
+                    return;
+                  }
+                  const { error } = await supabase
+                    .from("roles")
+                    .update({
+                      name: role.name,
+                      color: role.color,
+                      permissions: role.permissions,
+                    })
+                    .eq("id", role.id)
+                    .eq("company_id", companyId);
+                  if (error) {
+                    console.error("[page] roles update", error);
+                    return;
+                  }
+                  setCustomRoles((prev) => prev.map((r) => (r.id === role.id ? role : r)));
+                }}
+                onDeleteRole={async (id) => {
+                  const row = customRoles.find((r) => r.id === id);
+                  if (!row || isProtectedCustomRole(row)) return;
+                  if (!supabase || !companyId) {
+                    setCustomRoles((prev) => prev.filter((r) => r.id !== id));
+                    return;
+                  }
+                  const { error } = await supabase
+                    .from("roles")
+                    .delete()
+                    .eq("id", id)
+                    .eq("company_id", companyId);
+                  if (error) {
+                    console.error("[page] roles delete", error);
+                    return;
+                  }
+                  setCustomRoles((prev) => prev.filter((r) => r.id !== id));
                 }}
                 clockEntries={displayClockEntries}
                 formInstances={formInstances}
