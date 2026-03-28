@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
         const { error: mailErr } = await resend.emails.send({
           from,
           to: email,
-          replyTo: "machinpro.app@gmail.com",
+          replyTo: "info@machin.pro",
           subject,
           html,
         });

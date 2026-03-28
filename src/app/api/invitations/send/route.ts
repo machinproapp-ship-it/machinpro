@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(resendKey);
   const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
-  const replyTo = "machinpro.app@gmail.com";
+  const replyTo = "info@machin.pro";
   const { error: mailErr } = await resend.emails.send({
     from,
     to: email,

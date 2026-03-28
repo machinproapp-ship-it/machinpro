@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
           const { error: mailErr } = await resendCli.emails.send({
             from,
             to: email,
-            replyTo: "machinpro.app@gmail.com",
+            replyTo: "info@machin.pro",
             subject: employeeInviteSubject(companyDisplayName, emailLang),
             html,
           });

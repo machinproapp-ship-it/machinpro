@@ -7,14 +7,14 @@ import { Apple, PlayCircle, Star } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
 import { LANGUAGES } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
+import { detectGeo, getCurrencyForCountry, type GeoDetect } from "@/lib/geoTier";
 import {
-  applyAnnualDiscount,
-  detectGeo,
-  formatLandingPrice,
-  getLandingPlanPrices,
-  type GeoDetect,
-  type LandingPlanPrices,
-} from "@/lib/geoTier";
+  PAID_PLAN_ORDER,
+  PLANS,
+  getPriceForTier,
+  type BillingPeriod,
+  type PaidPlanKey,
+} from "@/lib/stripe";
 
 function useFadeIn() {
   const ref = useRef<HTMLElement | null>(null);
@@ -130,44 +130,42 @@ function HeroDashboardMockup() {
 
 type FeatureRow = { titleKey: string; descKey: string };
 
-function landingPlanBullets(
-  plan: "starter" | "pro" | "enterprise",
-  tx: (k: string, fb: string) => string
-): string[] {
-  const line = (s: string) => `✅ ${s}`;
-  if (plan === "starter") {
-    return [
-      line(tx("landing_plan_users", "{n} users").replace("{n}", "5")),
-      line(tx("landing_plan_projects", "{n} projects").replace("{n}", "5")),
-      line(tx("landing_plan_storage", "{n} GB storage").replace("{n}", "10")),
-      line(tx("landing_plan_modules", "All basic modules")),
-      line(tx("landing_plan_support", "Email support")),
-    ];
-  }
-  if (plan === "pro") {
-    return [
-      line(tx("landing_plan_users", "{n} users").replace("{n}", "25")),
-      line(tx("landing_plan_projects_unlimited", "Unlimited projects")),
-      line(tx("landing_plan_storage", "{n} GB storage").replace("{n}", "50")),
-      line(tx("landing_plan_audit", "Audit module")),
-      line(tx("landing_plan_blueprints", "Interactive blueprints")),
-      line(tx("landing_plan_priority_support", "Priority support")),
-    ];
-  }
-  return [
-    line(tx("landing_plan_unlimited", "Unlimited users")),
-    line(tx("landing_plan_everything_unlimited", "Everything unlimited")),
-    line(tx("landing_plan_storage", "{n} GB storage").replace("{n}", "250")),
-    line(tx("landing_plan_white_label", "White label")),
-    line(tx("landing_plan_dedicated", "Dedicated support")),
-    line(tx("landing_plan_sla", "Guaranteed SLA")),
-  ];
+function formatMoney(amount: number, currency: string): string {
+  const locale =
+    currency === "CAD"
+      ? "en-CA"
+      : currency === "GBP"
+        ? "en-GB"
+        : currency === "MXN"
+          ? "es-MX"
+          : currency === "BRL"
+            ? "pt-BR"
+            : "en-US";
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: amount >= 100 && amount % 1 !== 0 ? 2 : 0,
+  }).format(amount);
+}
+
+function landingFeatureKeys(plan: PaidPlanKey): string[] {
+  const prefix =
+    plan === "foundation"
+      ? "landing_feat_foundation_"
+      : plan === "obras"
+        ? "landing_feat_obras_"
+        : plan === "horarios"
+          ? "landing_feat_horarios_"
+          : plan === "logistica"
+            ? "landing_feat_logistica_"
+            : "landing_feat_todo_";
+  return [`${prefix}1`, `${prefix}2`, `${prefix}3`, `${prefix}4`];
 }
 
 export default function LandingPage() {
   const { language, setLanguage, tx } = useLandingLocale();
 
-  const [annual, setAnnual] = useState(false);
+  const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [dark, setDark] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
   const [geoDetect, setGeoDetect] = useState<GeoDetect | null>(null);
@@ -240,11 +238,11 @@ export default function LandingPage() {
     setDark(next);
   };
 
-  const planPrices: LandingPlanPrices | null = useMemo(() => {
-    if (!geoDetect) return null;
-    const base = getLandingPlanPrices(geoDetect.countryCode, geoDetect.tier);
-    return annual ? applyAnnualDiscount(base) : base;
-  }, [geoDetect, annual]);
+  const tierReady = geoDetect !== null;
+  const displayCurrency = tierReady
+    ? getCurrencyForCountry(geoDetect.countryCode, geoDetect.tier)
+    : "USD";
+  const showRegionNote = tierReady && geoDetect.tier !== 1;
 
   const scrollToId = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -279,16 +277,6 @@ export default function LandingPage() {
           descKey: "landing_coming_soon_integrations_desc",
         },
         { emoji: "🌍", titleKey: "landing_coming_soon_certs", descKey: "landing_coming_soon_certs_desc" },
-      ] as const,
-    []
-  );
-
-  const pioneerCards = useMemo(
-    () =>
-      [
-        { emoji: "🎯", titleKey: "landing_pioneer_price", descKey: "landing_pioneer_price_desc" },
-        { emoji: "🛠️", titleKey: "landing_pioneer_feedback", descKey: "landing_pioneer_feedback_desc" },
-        { emoji: "🏆", titleKey: "landing_pioneer_support", descKey: "landing_pioneer_support_desc" },
       ] as const,
     []
   );
@@ -484,140 +472,148 @@ export default function LandingPage() {
       </section>
 
       <section id="pricing" className="scroll-mt-24 bg-slate-100 dark:bg-slate-900/80 px-4 py-16 sm:py-24">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-7xl">
           <FadeSection>
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
               {tx("landing_pricing_title", "Pricing")}
             </h2>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {tx("landing_pricing_monthly", "Monthly")}
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={annual}
-                onClick={() => setAnnual((a) => !a)}
-                className={`relative h-9 w-16 rounded-full transition-colors ${annual ? "bg-[#1a4f5e]" : "bg-slate-300 dark:bg-slate-600"}`}
-              >
-                <span
-                  className={`absolute top-1 left-1 h-7 w-7 rounded-full bg-white shadow transition-transform ${annual ? "translate-x-7" : ""}`}
-                />
-              </button>
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {tx("landing_pricing_annual", "Annual")}{" "}
-                <span className="text-[#b8860b]">({tx("landing_pricing_save", "save 20%")})</span>
-              </span>
-            </div>
-            <div className="mt-12 grid gap-8 lg:grid-cols-3">
-              {(
-                [
-                  { key: "starter" as const, popular: false },
-                  { key: "pro" as const, popular: true },
-                  { key: "enterprise" as const, popular: false },
-                ] as const
-              ).map(({ key, popular }) => (
-                <div
-                  key={key}
-                  className={`relative flex flex-col rounded-2xl border bg-white p-8 shadow-sm dark:bg-slate-950 ${
-                    popular
-                      ? "border-[#f97316] ring-2 ring-[#f97316]/30 scale-[1.02] z-10"
-                      : "border-slate-200 dark:border-slate-800"
+            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+              {tx("landing_pricing_subtitle", "")}
+            </p>
+            <div className="mt-8 flex flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center">
+              <div className="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900 sm:w-auto sm:justify-center">
+                <button
+                  type="button"
+                  onClick={() => setPeriod("monthly")}
+                  className={`min-h-[44px] flex-1 rounded-lg px-5 text-sm font-semibold transition-colors sm:flex-none ${
+                    period === "monthly"
+                      ? "bg-[#f97316] text-white shadow"
+                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
                   }`}
                 >
-                  {popular ? (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white">
-                      <Star className="h-3.5 w-3.5 fill-white" aria-hidden />
-                      {tx("landing_pricing_popular", "Most popular")}
-                    </div>
-                  ) : null}
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                    {tx(`landing_plan_${key}_name`, key)}
-                  </h3>
-                  <p className="mt-4 flex min-h-[3.5rem] flex-wrap items-baseline gap-1">
-                    {!planPrices ? (
-                      <span className="inline-block h-10 w-28 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
-                    ) : (
-                      <>
-                        <span className="text-4xl font-extrabold text-slate-900 dark:text-white">
-                          {formatLandingPrice(planPrices[key], planPrices.currency, language)}
-                        </span>
-                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                          {planPrices.currency}
-                        </span>
-                        <span className="w-full text-slate-500 dark:text-slate-400 sm:w-auto sm:pl-1">
-                          {tx("landing_price_suffix", "/mo")}
-                        </span>
-                        {planPrices.usdEquivalent ? (
-                          <span className="w-full text-xs font-medium text-slate-500 dark:text-slate-400">
-                            {tx("landing_brl_usd_approx", "≈ {usd} USD / mo").replace(
-                              "{usd}",
-                              formatLandingPrice(planPrices.usdEquivalent[key], "USD", language)
-                            )}
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </p>
-                  <ul className="mt-6 flex-1 space-y-2 text-left text-sm text-slate-600 dark:text-slate-400">
-                    {landingPlanBullets(key, tx).map((b) => (
-                      <li key={b} className="leading-snug">
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href="/register"
-                    className="mt-8 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#1a4f5e] px-4 py-3 text-center text-sm font-semibold text-white hover:bg-[#134e5e] dark:bg-teal-800 dark:hover:bg-teal-700"
-                  >
-                    {tx("landing_cta_start", "Start free")}
-                  </Link>
-                </div>
-              ))}
+                  {tx("landing_pricing_monthly", "Monthly")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriod("annual")}
+                  className={`min-h-[44px] flex-1 rounded-lg px-5 text-sm font-semibold transition-colors sm:flex-none ${
+                    period === "annual"
+                      ? "bg-[#f97316] text-white shadow"
+                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {tx("landing_pricing_annual", "Annual")}{" "}
+                  <span className="opacity-90">({tx("landing_pricing_save", "save 20%")})</span>
+                </button>
+              </div>
             </div>
-            {planPrices ? (
-              <p className="mt-6 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
-                {tx("landing_price_region_badge", "Price adjusted for your region")}
-              </p>
-            ) : (
-              <div className="mx-auto mt-6 h-4 w-64 max-w-full animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
-            )}
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-5">
+              {PAID_PLAN_ORDER.map((key) => {
+                const plan = PLANS[key];
+                const title = tx(plan.labelKey, key);
+                const popular = key === "todo_incluido";
+                const price = tierReady
+                  ? getPriceForTier(key, period, geoDetect.tier, geoDetect.countryCode)
+                  : null;
+                return (
+                  <div
+                    key={key}
+                    className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm dark:bg-slate-950 ${
+                      popular
+                        ? "border-[#f97316] ring-2 ring-[#f97316]/35 z-[1]"
+                        : "border-slate-200 dark:border-slate-800"
+                    }`}
+                  >
+                    {popular ? (
+                      <div className="absolute -top-3 left-1/2 max-w-[90%] -translate-x-1/2">
+                        <div className="inline-flex items-center gap-1 rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white shadow">
+                          <Star className="h-3.5 w-3.5 fill-white" aria-hidden />
+                          {tx("landing_pricing_popular", "Most popular")}
+                        </div>
+                      </div>
+                    ) : null}
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
+                    <p className="mt-4 flex min-h-[3rem] flex-wrap items-baseline gap-x-1 gap-y-0">
+                      {!tierReady || price === null ? (
+                        <span className="inline-block h-10 w-28 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
+                      ) : (
+                        <>
+                          <span className="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">
+                            {formatMoney(price, displayCurrency)}
+                          </span>
+                          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                            {period === "monthly"
+                              ? tx("landing_price_suffix", "/mo")
+                              : tx("landing_price_suffix_annual", "/yr")}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                    <ul className="mt-5 flex-1 space-y-2 text-left text-sm text-slate-600 dark:text-slate-400">
+                      <li className="flex gap-2 leading-snug">
+                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                          ✓
+                        </span>
+                        <span>
+                          {plan.seats} {tx("pricing_users_included", tx("billing_limit_users", "users"))}
+                        </span>
+                      </li>
+                      <li className="flex gap-2 leading-snug">
+                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                          ✓
+                        </span>
+                        <span>
+                          {plan.storageGb} GB {tx("pricing_storage", "storage")}
+                        </span>
+                      </li>
+                      {landingFeatureKeys(key).map((fk) => (
+                        <li key={fk} className="flex gap-2 leading-snug">
+                          <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                            ✓
+                          </span>
+                          <span>{tx(fk, "")}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      href="/register"
+                      className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#f97316] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+                    >
+                      {tx("landing_pricing_plan_cta", "Start free — 14 days")}
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-8 text-center text-sm font-medium text-slate-600 dark:text-slate-400">
+              {tx("landing_pricing_extra_users", "")}
+            </p>
+            <div className="mt-4 space-y-2 text-center text-xs font-medium text-slate-500 dark:text-slate-500">
+              <p>{tx("landing_pricing_usd_note", "")}</p>
+              {showRegionNote ? <p>{tx("landing_pricing_region_note", "")}</p> : null}
+            </div>
           </FadeSection>
         </div>
       </section>
 
       <section
-        id="pioneers"
-        className="scroll-mt-24 border-y border-teal-100/80 bg-teal-50/90 px-4 py-16 dark:border-teal-900/40 dark:bg-teal-950/25 sm:py-24"
+        id="cta-landing"
+        className="scroll-mt-24 border-y border-slate-200 bg-slate-50 px-4 py-16 dark:border-slate-800 dark:bg-slate-900/50 sm:py-20"
       >
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-2xl text-center">
           <FadeSection>
-            <h2 className="text-center text-2xl font-bold text-[#1a4f5e] dark:text-teal-300 sm:text-3xl">
-              {tx("landing_pioneers_title", "Be among the first")}
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_cta_title", "")}
             </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              {tx("landing_pioneers_sub", "")}
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+              {tx("landing_cta_subtitle", "")}
             </p>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
-              {pioneerCards.map((c) => (
-                <div
-                  key={c.titleKey}
-                  className="rounded-2xl border border-teal-200/60 bg-white/90 p-6 shadow-sm dark:border-teal-800/50 dark:bg-slate-900/70"
-                >
-                  <p className="text-2xl" aria-hidden>
-                    {c.emoji}
-                  </p>
-                  <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-10 flex justify-center">
+            <div className="mt-8 flex justify-center">
               <Link
                 href="/register"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#f97316] px-8 py-3 text-base font-semibold text-white shadow-md hover:bg-orange-600"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-[#f97316] px-8 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-orange-600"
               >
-                {tx("landing_pioneer_cta", "Join now — free 14 days")}
+                {tx("landing_cta_primary", "Start free")}
               </Link>
             </div>
           </FadeSection>
@@ -628,10 +624,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl text-center">
           <p className="text-slate-600 dark:text-slate-400">{tx("landing_footer_contact", "Contact")}</p>
           <a
-            href="mailto:machinpro.app@gmail.com"
+            href={`mailto:${tx("contact_email", "info@machin.pro")}`}
             className="mt-2 inline-flex min-h-[44px] items-center text-lg font-semibold text-[#1a4f5e] dark:text-teal-400 hover:underline"
           >
-            machinpro.app@gmail.com
+            {tx("contact_email", "info@machin.pro")}
           </a>
         </div>
       </section>

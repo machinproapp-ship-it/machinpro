@@ -253,7 +253,10 @@ export default function RegisterInvitationPage() {
           <div className="space-y-4 text-center">
             <p className="text-sm text-red-600 dark:text-red-400">{invalidMessage}</p>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              <a href="mailto:machinpro.app@gmail.com" className="font-medium text-amber-700 dark:text-amber-400 underline">
+              <a
+                href={`mailto:${l("contact_email", "info@machin.pro")}`}
+                className="font-medium text-amber-700 dark:text-amber-400 underline"
+              >
                 {l("register_contact_support", "Contact support")}
               </a>
             </p>
