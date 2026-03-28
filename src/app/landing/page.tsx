@@ -585,12 +585,20 @@ export default function LandingPage() {
                 );
               })}
             </div>
+            {showRegionNote ? (
+              <div
+                role="status"
+                className="mx-auto mt-8 flex max-w-2xl min-h-[44px] items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 dark:border-amber-600 dark:bg-amber-950/35 dark:text-amber-100"
+              >
+                {tx("pricing_ppp_applied", "")}
+              </div>
+            ) : null}
             <p className="mt-8 text-center text-sm font-medium text-slate-600 dark:text-slate-400">
               {tx("landing_pricing_extra_users", "")}
             </p>
             <div className="mt-4 space-y-2 text-center text-xs font-medium text-slate-500 dark:text-slate-500">
               <p>{tx("landing_pricing_usd_note", "")}</p>
-              {showRegionNote ? <p>{tx("landing_pricing_region_note", "")}</p> : null}
+              {showRegionNote ? <p>{tx("pricing_ppp_notice", tx("landing_pricing_region_note", ""))}</p> : null}
             </div>
           </FadeSection>
         </div>

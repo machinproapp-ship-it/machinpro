@@ -240,3 +240,77 @@ export function getStripe(): Stripe {
 export function getStripePriceId(plan: PaidPlanKey, period: BillingPeriod): string {
   return period === "monthly" ? PLANS[plan].monthly.priceId : PLANS[plan].annual.priceId;
 }
+
+/**
+ * PPP Stripe Coupons — precios del checkout (Tier 1 list) se alinean con la UI vía descuento.
+ *
+ * Antes de producción, crear manualmente en Stripe Dashboard (recomendado validar en Test mode):
+ * - ID exacto: ppp_tier2 · Percent off: 20% · Duration: Forever · sin límite de redenciones
+ * - ID exacto: ppp_tier3 · Percent off: 40% · Duration: Forever · sin límite de redenciones
+ *
+ * El servidor también intenta `retrieve` + `create` vía API si faltan (IDs deben coincidir).
+ */
+export const PPP_STRIPE_COUPON_TIER2_ID = "ppp_tier2";
+export const PPP_STRIPE_COUPON_TIER3_ID = "ppp_tier3";
+
+let pppCouponsEnsurePromise: Promise<void> | null = null;
+
+async function retrieveOrCreateCoupon(
+  stripe: Stripe,
+  id: string,
+  createParams: Stripe.CouponCreateParams
+): Promise<void> {
+  try {
+    await stripe.coupons.retrieve(id);
+    return;
+  } catch (err: unknown) {
+    if (
+      err instanceof Stripe.errors.StripeInvalidRequestError &&
+      err.code === "resource_missing"
+    ) {
+      try {
+        await stripe.coupons.create({ id, ...createParams });
+      } catch (createErr: unknown) {
+        if (
+          createErr instanceof Stripe.errors.StripeInvalidRequestError &&
+          createErr.code === "resource_already_exists"
+        ) {
+          return;
+        }
+        throw createErr;
+      }
+      return;
+    }
+    throw err;
+  }
+}
+
+/** Garantiza cupones PPP en Stripe (idempotente por proceso). */
+export async function ensurePppCoupons(stripe: Stripe): Promise<void> {
+  if (!pppCouponsEnsurePromise) {
+    pppCouponsEnsurePromise = (async () => {
+      await retrieveOrCreateCoupon(stripe, PPP_STRIPE_COUPON_TIER2_ID, {
+        percent_off: 20,
+        duration: "forever",
+        name: "PPP Tier 2",
+      });
+      await retrieveOrCreateCoupon(stripe, PPP_STRIPE_COUPON_TIER3_ID, {
+        percent_off: 40,
+        duration: "forever",
+        name: "PPP Tier 3",
+      });
+    })().catch((e) => {
+      pppCouponsEnsurePromise = null;
+      throw e;
+    });
+  }
+  await pppCouponsEnsurePromise;
+}
+
+export function checkoutDiscountsForTier(
+  tier: GeoTier
+): Stripe.Checkout.SessionCreateParams.Discount[] | undefined {
+  if (tier === 2) return [{ coupon: PPP_STRIPE_COUPON_TIER2_ID }];
+  if (tier === 3) return [{ coupon: PPP_STRIPE_COUPON_TIER3_ID }];
+  return undefined;
+}

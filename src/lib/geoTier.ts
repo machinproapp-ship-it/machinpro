@@ -101,6 +101,11 @@ export function countryCodeToTier(code: string | undefined | null): GeoTier {
   return resolveRegionTier(code).tier;
 }
 
+/** PPP tier from ISO country (e.g. Vercel `x-vercel-ip-country`) — same rules as `resolveRegionTier`. */
+export function getTierFromCountry(countryCode: string | null | undefined): GeoTier {
+  return countryCodeToTier(countryCode);
+}
+
 /**
  * Reference currency for pricing UI.
  */

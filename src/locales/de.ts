@@ -1034,6 +1034,8 @@ export default {
   pricing_slash_mo: "/Mon.",
   pricing_slash_yr: "/Jahr",
   pricing_ppp_note: "PPP: Stufe 2 (80 %) · Stufe 3 (60 %) in den angezeigten Preisen.",
+  pricing_ppp_applied: "Sonderpreis für Ihre Region wird beim Bezahlen angewendet",
+  pricing_ppp_notice: "Preis für Ihre Region angepasst",
   pricing_plan_trial: "Testphase",
   pricing_feat_foundation_1: "Zentrales Dashboard",
   pricing_feat_foundation_2: "Team und Basisrollen",

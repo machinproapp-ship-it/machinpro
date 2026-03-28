@@ -1100,6 +1100,8 @@ export default {
   pricing_slash_mo: "/mo",
   pricing_slash_yr: "/yr",
   pricing_ppp_note: "PPP: Tier 2 (80%) · Tier 3 (60%) applied in displayed prices.",
+  pricing_ppp_applied: "Special regional price applied at checkout",
+  pricing_ppp_notice: "Price adjusted for your region",
   pricing_plan_trial: "Trial",
   pricing_feat_foundation_1: "Central dashboard",
   pricing_feat_foundation_2: "Team & basic roles",

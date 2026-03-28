@@ -3,8 +3,15 @@ import type Stripe from "stripe";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifyCompanyAccess } from "@/lib/verify-api-session";
-import { getStripe, getStripePriceId, paidPlanKeyFromString, type PaidPlanKey } from "@/lib/stripe";
-import type { GeoTier } from "@/lib/geoTier";
+import {
+  getStripe,
+  getStripePriceId,
+  paidPlanKeyFromString,
+  ensurePppCoupons,
+  checkoutDiscountsForTier,
+  type PaidPlanKey,
+} from "@/lib/stripe";
+import { getTierFromCountry, type GeoTier } from "@/lib/geoTier";
 
 export const runtime = "nodejs";
 
@@ -38,6 +45,12 @@ export async function POST(req: NextRequest) {
     if (!admin) {
       return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
+
+    const ipCountry = (req.headers.get("x-vercel-ip-country") ?? "").trim().toUpperCase();
+    const checkoutTier: GeoTier = ipCountry ? getTierFromCountry(ipCountry) : tier;
+
+    await ensurePppCoupons(stripe);
+    const discounts = checkoutDiscountsForTier(checkoutTier);
 
     const priceId = getStripePriceId(plan, period);
     const base = getAppBaseUrl();
@@ -96,15 +109,18 @@ export async function POST(req: NextRequest) {
           company_id: companyId,
           plan_key: plan,
           billing_period: period,
-          geo_tier: String(tier),
+          geo_tier: String(checkoutTier),
+          ...(ipCountry ? { checkout_country: ipCountry } : {}),
         },
       },
       metadata: {
         company_id: companyId,
         plan_key: plan,
         billing_period: period,
-        geo_tier: String(tier),
+        geo_tier: String(checkoutTier),
+        ...(ipCountry ? { checkout_country: ipCountry } : {}),
       },
+      ...(discounts ? { discounts } : {}),
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams);

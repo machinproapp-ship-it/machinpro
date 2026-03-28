@@ -192,8 +192,8 @@ export function PricingModule({
                 ? (lx.currency_gbp ?? "GBP (£)")
                 : displayCurrency || CURRENCY_BY_TIER[geoTier]}
             </p>
-            {lx.pricing_ppp_note ? (
-              <p className="text-[11px] opacity-90">{lx.pricing_ppp_note}</p>
+            {(lx.pricing_ppp_notice || lx.pricing_ppp_note) ? (
+              <p className="text-[11px] opacity-90">{lx.pricing_ppp_notice ?? lx.pricing_ppp_note}</p>
             ) : null}
             {displayCurrency === "GBP" && (
               <p className="text-[11px] opacity-90">
@@ -203,6 +203,15 @@ export function PricingModule({
           </div>
         )}
       </div>
+
+      {!loadingTier && geoTier > 1 ? (
+        <div
+          role="status"
+          className="mb-6 flex min-h-[44px] items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100 max-w-2xl mx-auto"
+        >
+          {lx.pricing_ppp_applied ?? ""}
+        </div>
+      ) : null}
 
       <p className="text-center text-sm text-zinc-600 dark:text-zinc-400 mb-8 max-w-xl mx-auto">
         {lx.pricing_extra_user_note ?? lx.pricing_extra_user ?? ""}

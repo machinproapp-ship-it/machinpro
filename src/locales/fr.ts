@@ -1021,6 +1021,8 @@ export default {
   pricing_slash_mo: "/mois",
   pricing_slash_yr: "/an",
   pricing_ppp_note: "PPP : palier 2 (80 %) · palier 3 (60 %) appliqués aux prix affichés.",
+  pricing_ppp_applied: "Prix spécial pour votre région appliqué au paiement",
+  pricing_ppp_notice: "Prix ajusté pour votre région",
   pricing_plan_trial: "Essai",
   pricing_feat_foundation_1: "Tableau de bord central",
   pricing_feat_foundation_2: "Équipe et rôles de base",
