@@ -1,37 +1,32 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
   UserCheck,
   AlertTriangle,
   ClipboardCheck,
   Shield,
-  CheckCircle2,
   Clock,
-  CreditCard,
   Layers,
   StickyNote,
-  MapPin,
   Plus,
   QrCode,
   FileSearch,
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  Minus,
   Briefcase,
   KeyRound,
   ShieldAlert,
   GripVertical,
   X,
   Settings2,
+  Package,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { useSubscription } from "@/lib/useSubscription";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
-import type { Hazard, HazardSeverity, HazardStatus } from "@/types/hazard";
-import type { CorrectiveAction, ActionStatus } from "@/types/correctiveAction";
+import type { Hazard } from "@/types/hazard";
 import type { MainSection } from "@/types/shared";
 import type { UserRole } from "@/types/shared";
 import {
@@ -44,8 +39,6 @@ import {
   type ResolvedDashboardConfig,
   QUICK_ACCESS_KEYS,
 } from "@/lib/dashboardConfig";
-
-type ActivityFilter = "all" | "safety" | "operations" | "hr";
 
 function startEndLocalDay(offsetDays: number): { start: string; end: string } {
   const d = new Date();
@@ -65,8 +58,12 @@ function localTodayYmd(): string {
   return `${y}-${m}-${day}`;
 }
 
-function hoursAgoIso(h: number): string {
-  return new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+function errMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
+    return (e as { message: string }).message;
+  }
+  return String(e);
 }
 
 function relativeTime(iso: string, locale: string, labels: Record<string, string>): string {
@@ -82,55 +79,12 @@ function relativeTime(iso: string, locale: string, labels: Record<string, string
   return (labels.dashboard_rel_days ?? "").replace("{n}", String(d));
 }
 
-function errMessage(e: unknown): string {
-  if (e instanceof Error) return e.message;
-  if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
-    return (e as { message: string }).message;
-  }
-  return String(e);
-}
-
-function activityBucket(action: string, entityType: string): ActivityFilter | "other" {
-  const a = action.toLowerCase();
-  const e = entityType.toLowerCase();
-  if (
-    a.includes("hazard") ||
-    a.includes("pin") ||
-    a.includes("blueprint") ||
-    a.includes("annotation") ||
-    e === "hazard" ||
-    e === "corrective_action" ||
-    e === "blueprint"
-  )
-    return "safety";
-  if (
-    a.includes("photo") ||
-    a.includes("project") ||
-    a.includes("request") ||
-    e === "photo" ||
-    e === "project"
-  )
-    return "operations";
-  if (a.includes("employee") || e === "employee") return "hr";
-  return "other";
-}
-
-function formatDurationFromMs(ms: number, labels: Record<string, string>): string {
-  if (!Number.isFinite(ms) || ms < 0) return "";
-  const totalMin = Math.round(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  const tmpl = labels.dashboard_duration_h_m ?? "{h}h {m}min";
-  return tmpl.replace("{h}", String(h)).replace("{m}", String(m));
-}
-
 function formatActivityLine(
   row: AuditLogEntry,
   labels: Record<string, string>,
   projectNames: Record<string, string>,
-  resolveWho: (userId: string, storedName?: string | null) => string
+  who: string
 ): string {
-  const who = resolveWho(row.user_id, row.user_name ?? null);
   const action = (row.action ?? "").trim();
   const ent = row.entity_name ?? "";
   const nv = row.new_value as Record<string, unknown> | undefined;
@@ -139,58 +93,12 @@ function formatActivityLine(
   const dash = labels.common_dash ?? "—";
   const byActionKey = labels[`audit_action_${action}`];
   if (byActionKey) return `${who} ${byActionKey}${pfx}`;
-
-  const fill = (s: string) => s.replace(/\{who\}/g, who).replace(/\{name\}/g, ent || dash);
   const humanAction = action.replace(/_/g, " ");
   const generic = (labels.dashboard_audit_generic ?? "{who} · {action}")
     .replace(/\{who\}/g, who)
     .replace(/\{action\}/g, humanAction);
-  const m: Record<string, string> = {
-    hazard_created: fill(labels.dashboard_audit_hazard_created ?? "") + pfx,
-    hazard_status_changed: fill(labels.dashboard_audit_hazard_status ?? ""),
-    pin_added: fill(labels.dashboard_audit_pin ?? ""),
-    blueprint_uploaded: fill(labels.dashboard_audit_blueprint ?? ""),
-    blueprint_new_version: fill(labels.dashboard_audit_blueprint_ver ?? ""),
-    annotation_added: fill(labels.dashboard_audit_note ?? ""),
-    photo_uploaded: fill(labels.dashboard_audit_photo ?? ""),
-    employee_created: fill(labels.dashboard_audit_employee ?? ""),
-    action_created: fill(labels.dashboard_audit_action ?? ""),
-  };
-  if (m[row.action]) return m[row.action];
   return ent ? `${generic} · ${ent}${pfx}` : `${generic}${pfx}`;
 }
-
-function severityTone(sev: HazardSeverity): string {
-  if (sev === "critical") return "text-red-600 dark:text-red-400";
-  if (sev === "high") return "text-orange-600 dark:text-orange-400";
-  if (sev === "medium") return "text-amber-600 dark:text-amber-400";
-  return "text-gray-600 dark:text-gray-400";
-}
-
-function BarStack({
-  segments,
-  height = 8,
-}: {
-  segments: { pct: number; className: string; key: string }[];
-  height?: number;
-}) {
-  const total = segments.reduce((s, x) => s + x.pct, 0) || 1;
-  return (
-    <div
-      className="flex w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
-      style={{ height }}
-      role="img"
-    >
-      {segments.map((s) =>
-        s.pct > 0 ? (
-          <div key={s.key} className={s.className} style={{ width: `${(s.pct / total) * 100}%` }} />
-        ) : null
-      )}
-    </div>
-  );
-}
-
-const PROF_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function WidgetSkeleton({ lines = 4 }: { lines?: number }) {
   return (
@@ -276,15 +184,16 @@ function UnifiedDashCard({
 }
 
 const WIDGET_LABEL_KEYS: Record<DashboardWidgetId, string> = {
-  timeclock: "dashboard_widget_timeclock",
+  team_timeclock: "dashboard_widget_team_timeclock",
+  my_timeclock: "myClockIn",
   activity: "dashboard_widget_activity",
-  alerts: "dashboard_widget_alerts",
+  compliance_alerts: "complianceWatchdog",
   hazards: "dashboard_widget_hazards",
-  actions: "dashboard_widget_actions",
   visitors: "dashboard_widget_visitors",
-  blueprints: "dashboard_widget_blueprints",
-  subscription: "dashboard_widget_subscription",
-  quickaccess: "dashboard_widget_quickaccess",
+  my_tasks: "myTasksToday",
+  daily_report: "dailyReportToSign",
+  critical_inventory: "criticalInventory",
+  quick_access: "quickAccess",
 };
 
 export interface CentralDashboardLiveProps {
@@ -296,6 +205,12 @@ export interface CentralDashboardLiveProps {
   projectNameById: Record<string, string>;
   currentUserRole: UserRole;
   canManageRoles: boolean;
+  /** Zona 1 gestión, personalización del panel y widgets de gestión (actividad, visitantes, equipo). */
+  canManageEmployees: boolean;
+  /** Widget fichaje del equipo. */
+  canViewTeamClock: boolean;
+  /** Alertas compliance e incidencias ampliadas. */
+  canManageComplianceAlerts: boolean;
   canAccessVisitors: boolean;
   canAccessHazards: boolean;
   canAccessCorrective: boolean;
@@ -313,56 +228,69 @@ export interface CentralDashboardLiveProps {
   customRolesCount: number;
   complianceWatchdogCount?: number;
   onOpenComplianceInCentral?: () => void;
-  /** Supabase auth user id — carga user_profiles.dashboard_config */
   currentUserId?: string | null;
-  /** Admin o permiso equivalente a ver asistencia (widget fichaje). */
-  canViewAttendance?: boolean;
+  canViewLogistics: boolean;
+  criticalInventoryCount?: number;
   onQuickNewEmployee?: () => void;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
 }
 
-type TimeclockRow = {
-  userId: string;
-  name: string;
-  status: "in" | "out" | "off" | "done";
-  clockInTime?: string;
-  clockOutTime?: string;
-  durationLabel?: string;
+type TimeRow = {
+  id: string;
+  user_id: string;
+  clock_in_at: string;
+  clock_out_at: string | null;
 };
 
-function CentralDashboardLiveInner({
-  labels: labelsProp,
-  companyId,
-  companyName,
-  language,
-  activeProjectsCount,
-  projectNameById,
-  currentUserRole,
-  canManageRoles,
-  canAccessVisitors,
-  canAccessHazards,
-  canAccessCorrective,
-  onNavigateAppSection,
-  onOpenAuditInCentral,
-  onQuickNewHazard,
-  onQuickNewAction,
-  onQuickVisitorQr,
-  onNavigateToOperationsVisitors,
-  visitorCheckInUrl,
-  canAccessEmployees = false,
-  canAccessSubcontractors = false,
-  subcontractorsCount,
-  onOpenRolesInCentral,
-  customRolesCount,
-  complianceWatchdogCount = 0,
-  onOpenComplianceInCentral,
-  currentUserId = null,
-  canViewAttendance = false,
-  onQuickNewEmployee,
-  onQuickNewRfi,
-  onQuickNewSubcontractor,
-}: CentralDashboardLiveProps) {
+export function CentralDashboardLive(props: CentralDashboardLiveProps) {
+  const companyId = props.companyId;
+  const currentUserId = props.currentUserId ?? null;
+  if (!companyId || !currentUserId) {
+    return <SkeletonLoader />;
+  }
+  return <CentralDashboardBody {...props} companyId={companyId} currentUserId={currentUserId} />;
+}
+
+function CentralDashboardBody(
+  props: CentralDashboardLiveProps & { companyId: string; currentUserId: string }
+) {
+  const {
+    labels: labelsProp,
+    companyId,
+    companyName,
+    language,
+    projectNameById,
+    currentUserRole,
+    canManageRoles,
+    canManageEmployees,
+    canViewTeamClock,
+    canManageComplianceAlerts,
+    canAccessVisitors,
+    canAccessHazards,
+    canAccessCorrective,
+    onNavigateAppSection,
+    onOpenAuditInCentral,
+    onQuickNewHazard,
+    onQuickNewAction,
+    onQuickVisitorQr,
+    onNavigateToOperationsVisitors,
+    visitorCheckInUrl,
+    canAccessEmployees = false,
+    canAccessSubcontractors = false,
+    subcontractorsCount,
+    onOpenRolesInCentral,
+    customRolesCount,
+    complianceWatchdogCount = 0,
+    onOpenComplianceInCentral,
+    currentUserId,
+    canViewLogistics,
+    criticalInventoryCount = 0,
+    onQuickNewEmployee,
+    onQuickNewRfi,
+    onQuickNewSubcontractor,
+  } = props;
+
   const labels = labelsProp;
   const L = (key: string) => labels[key] ?? "";
 
@@ -375,75 +303,81 @@ function CentralDashboardLiveInner({
     pt: "pt-PT",
   };
   const locale = localeMap[language] ?? "es-ES";
-  const formattedDate = new Date().toLocaleDateString(locale, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+
+  const todayIso = localTodayYmd();
+  const { start: tStart, end: tEnd } = startEndLocalDay(0);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return labels.goodMorning ?? "";
     if (hour < 18) return labels.goodAfternoon ?? "";
     return labels.goodEvening ?? "";
   };
+  const formattedDate = new Date().toLocaleDateString(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-  const [empCount, setEmpCount] = useState<number | null>(null);
-  const [visToday, setVisToday] = useState(0);
-  const [visYesterday, setVisYesterday] = useState(0);
-  const [hazardsOpen, setHazardsOpen] = useState(0);
-  const [hazardRows, setHazardRows] = useState<Hazard[]>([]);
-  const [actionRows, setActionRows] = useState<CorrectiveAction[]>([]);
-  const [activeVisitors, setActiveVisitors] = useState(0);
-  const [visitsByDay, setVisitsByDay] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
-  const [blueprintCount, setBlueprintCount] = useState(0);
-  const [pinCount, setPinCount] = useState(0);
-  const [noteCount, setNoteCount] = useState(0);
-  const [criticalUnassigned, setCriticalUnassigned] = useState<Hazard[]>([]);
-  const [overdueActions, setOverdueActions] = useState<CorrectiveAction[]>([]);
-  const [longVisitors, setLongVisitors] = useState<{ id: string; visitor_name: string; check_in: string }[]>([]);
-  const [activityRows, setActivityRows] = useState<AuditLogEntry[]>([]);
-  const [userNameById, setUserNameById] = useState<Record<string, string>>({});
-  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
-  const [loading, setLoading] = useState(true);
-  const [secondaryMetricsReady, setSecondaryMetricsReady] = useState(true);
-  const [tick, setTick] = useState(0);
-  const profRowsCacheRef = useRef<{
-    companyId: string;
-    at: number;
-    rows: { id: string; full_name?: string | null; display_name?: string | null; email?: string | null }[];
-  } | null>(null);
-  const [timeclockRows, setTimeclockRows] = useState<TimeclockRow[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
+
   const [resolvedConfig, setResolvedConfig] = useState<ResolvedDashboardConfig>(() => parseDashboardConfig(null));
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [draftConfig, setDraftConfig] = useState<ResolvedDashboardConfig>(() => parseDashboardConfig(null));
   const [savingConfig, setSavingConfig] = useState(false);
-  const [useDnD, setUseDnD] = useState(false);
-  const [dragWidget, setDragWidget] = useState<DashboardWidgetId | null>(null);
-  const [dashboardLoadError, setDashboardLoadError] = useState<string | null>(null);
-  const supabaseLoggedRef = useRef(false);
-  if (!supabaseLoggedRef.current) {
-    supabaseLoggedRef.current = true;
-    console.log("[CentralDashboardLive] supabase: browser client ready");
-  }
 
-  const { subscription, trialDaysLeft, loading: subscriptionLoading } = useSubscription(companyId);
+  const [myTimeRows, setMyTimeRows] = useState<TimeRow[]>([]);
+  const [teamTimeRows, setTeamTimeRows] = useState<TimeRow[]>([]);
+  const [scheduleToday, setScheduleToday] = useState<Record<string, unknown>[]>([]);
+  const [dailyReportsToday, setDailyReportsToday] = useState<Record<string, unknown>[]>([]);
+  const [myTasksToday, setMyTasksToday] = useState<{ description: string; completed: boolean }[]>([]);
+  const [empActiveCount, setEmpActiveCount] = useState<number | null>(null);
+  const [activityRows, setActivityRows] = useState<AuditLogEntry[]>([]);
+  const [hazardRows, setHazardRows] = useState<Hazard[]>([]);
+  const [visitorsTodayCount, setVisitorsTodayCount] = useState(0);
 
-  const todayIso = localTodayYmd();
+  const showZone1 = canManageEmployees;
 
-  useEffect(() => {
-    const mq = typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)") : null;
-    const apply = () => setUseDnD(mq?.matches ?? false);
-    apply();
-    mq?.addEventListener("change", apply);
-    return () => mq?.removeEventListener("change", apply);
-  }, []);
+  const canShowWidget = useCallback(
+    (id: DashboardWidgetId): boolean => {
+      switch (id) {
+        case "team_timeclock":
+          return canViewTeamClock;
+        case "my_timeclock":
+          return true;
+        case "activity":
+          return canManageEmployees;
+        case "compliance_alerts":
+          return canManageComplianceAlerts;
+        case "hazards":
+          return canAccessHazards && (canManageEmployees || canManageComplianceAlerts);
+        case "visitors":
+          return canAccessVisitors && canManageEmployees;
+        case "my_tasks":
+          return true;
+        case "daily_report":
+          return true;
+        case "critical_inventory":
+          return canViewLogistics;
+        case "quick_access":
+          return true;
+        default:
+          return false;
+      }
+    },
+    [
+      canViewTeamClock,
+      canManageEmployees,
+      canManageComplianceAlerts,
+      canAccessHazards,
+      canAccessVisitors,
+      canViewLogistics,
+    ]
+  );
 
   const loadDashboardConfig = useCallback(async () => {
-    if (!companyId) {
-      setResolvedConfig(parseDashboardConfig(null));
-      return;
-    }
     try {
       const { data: co, error: coErr } = await supabase
         .from("companies")
@@ -452,20 +386,18 @@ function CentralDashboardLiveInner({
         .maybeSingle();
       if (coErr) throw coErr;
       let userRaw: unknown = null;
-      if (currentUserId) {
-        const { data: pr, error: prErr } = await supabase
-          .from("user_profiles")
-          .select("dashboard_config")
-          .eq("id", currentUserId)
-          .maybeSingle();
-        if (prErr) throw prErr;
-        userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
-      }
+      const { data: pr, error: prErr } = await supabase
+        .from("user_profiles")
+        .select("dashboard_config")
+        .eq("id", currentUserId)
+        .maybeSingle();
+      if (prErr) throw prErr;
+      userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
       const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
       setResolvedConfig(parseDashboardConfig(merged));
     } catch (e) {
-      console.error("[CentralDashboardLive] loadDashboardConfig", e);
-      setDashboardLoadError(errMessage(e));
+      console.error("[CentralDashboard] loadDashboardConfig", e);
+      setLoadErrors((prev) => [...prev, errMessage(e)]);
       setResolvedConfig(parseDashboardConfig(null));
     }
   }, [companyId, currentUserId]);
@@ -480,7 +412,7 @@ function CentralDashboardLiveInner({
 
   const persistConfig = useCallback(
     async (next: ResolvedDashboardConfig): Promise<boolean> => {
-      if (!companyId || !canManageRoles) return false;
+      if (!companyId || !canManageEmployees) return false;
       setSavingConfig(true);
       try {
         const payload = buildDashboardConfigPayload(next);
@@ -499,567 +431,273 @@ function CentralDashboardLiveInner({
         setResolvedConfig(next);
         return true;
       } catch (e) {
-        console.error("[CentralDashboardLive] persistConfig", e);
-        setDashboardLoadError(errMessage(e));
+        console.error("[CentralDashboard] persistConfig", e);
+        setLoadErrors((prev) => [...prev, errMessage(e)]);
         return false;
       } finally {
         setSavingConfig(false);
       }
     },
-    [companyId, canManageRoles]
+    [companyId, canManageEmployees]
   );
 
-  const loadAll = useCallback(async () => {
-    if (!companyId) {
-      setEmpCount(null);
-      setVisToday(0);
-      setVisYesterday(0);
-      setHazardsOpen(0);
-      setHazardRows([]);
-      setActionRows([]);
-      setActiveVisitors(0);
-      setVisitsByDay([0, 0, 0, 0, 0, 0, 0]);
-      setBlueprintCount(0);
-      setPinCount(0);
-      setNoteCount(0);
-      setCriticalUnassigned([]);
-      setOverdueActions([]);
-      setLongVisitors([]);
-      setActivityRows([]);
-      setUserNameById({});
-      setTimeclockRows([]);
-      setSecondaryMetricsReady(true);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setSecondaryMetricsReady(false);
-    setDashboardLoadError(null);
-    const { start: tStart, end: tEnd } = startEndLocalDay(0);
-    const { start: yStart, end: yEnd } = startEndLocalDay(-1);
-    const eightH = hoursAgoIso(8);
-
-    const dayKeys: string[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      dayKeys.push(d.toISOString().slice(0, 10));
-    }
-    const weekStart = `${dayKeys[0]}T00:00:00.000Z`;
-    const weekEnd = `${dayKeys[6]}T23:59:59.999Z`;
-
-    try {
-      const batch = await Promise.all([
-        supabase.from("user_profiles").select("id", { count: "exact", head: true }).eq("company_id", companyId),
-        supabase
-          .from("hazards")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .in("status", ["open", "in_progress"]),
-        supabase.from("hazards").select("*").eq("company_id", companyId).limit(200),
-        supabase.from("corrective_actions").select("*").eq("company_id", companyId).limit(300),
-        supabase
-          .from("visitor_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .gte("check_in", tStart)
-          .lte("check_in", tEnd),
-        supabase
-          .from("visitor_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .gte("check_in", yStart)
-          .lte("check_in", yEnd),
-        supabase
-          .from("visitor_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .eq("status", "checked_in"),
-        supabase
-          .from("visitor_logs")
-          .select("id,visitor_name,check_in")
-          .eq("company_id", companyId)
-          .is("check_out", null)
-          .lt("check_in", eightH),
-        supabase
-          .from("audit_logs")
-          .select("*")
-          .eq("company_id", companyId)
-          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-          .order("created_at", { ascending: false })
-          .limit(100),
-        supabase
-          .from("hazards")
-          .select("*")
-          .eq("company_id", companyId)
-          .eq("severity", "critical")
-          .is("assigned_to", null)
-          .in("status", ["open", "in_progress"])
-          .limit(20),
-        supabase
-          .from("vacation_requests")
-          .select("user_id, start_date, end_date")
-          .eq("company_id", companyId)
-          .eq("status", "approved"),
-        supabase
-          .from("time_entries")
-          .select("user_id, clock_in_at, clock_out_at, status")
-          .eq("company_id", companyId)
-          .gte("clock_in_at", tStart)
-          .lte("clock_in_at", tEnd),
-        supabase
-          .from("visitor_logs")
-          .select("check_in")
-          .eq("company_id", companyId)
-          .gte("check_in", weekStart)
-          .lte("check_in", weekEnd),
-      ]);
-      const batchErr = batch.find((r) => r.error)?.error;
-      if (batchErr) {
-        const msg = batchErr.message || "Dashboard queries failed";
-        console.error("[CentralDashboardLive] query batch", batchErr);
-        setDashboardLoadError(msg);
-        throw batchErr;
-      }
-      const [
-        profToday,
-        hzOpen,
-        hzList,
-        caList,
-        vToday,
-        vYest,
-        vActive,
-        vLong,
-        audits,
-        critUn,
-        vacRows,
-        timeRows,
-        weekVis,
-      ] = batch;
-
-      setEmpCount(profToday.count ?? 0);
-      setVisToday(vToday.count ?? 0);
-      setVisYesterday(vYest.count ?? 0);
-      setHazardsOpen(hzOpen.count ?? 0);
-      const hzData = (hzList.data ?? []) as Hazard[];
-      setHazardRows(hzData);
-      setActionRows((caList.data ?? []) as CorrectiveAction[]);
-      setActiveVisitors(vActive.count ?? 0);
-      setLongVisitors((vLong.data ?? []) as { id: string; visitor_name: string; check_in: string }[]);
-      const auditRows = (audits.data ?? []) as AuditLogEntry[];
-      setActivityRows(auditRows);
-      const userIds = [...new Set(auditRows.map((r) => r.user_id).filter(Boolean))];
-      if (userIds.length > 0) {
-        try {
-          const { data: profs, error: auditProfErr } = await supabase
-            .from("user_profiles")
-            .select("id, full_name, display_name, email")
-            .in("id", userIds);
-          if (auditProfErr) throw auditProfErr;
-          const map: Record<string, string> = {};
-          for (const p of profs ?? []) {
-            const pr = p as {
-              id: string;
-              full_name?: string | null;
-              display_name?: string | null;
-              email?: string | null;
-            };
-            const nm = (pr.full_name || pr.display_name || "").trim();
-            const em = (pr.email ?? "").trim();
-            const local = em.includes("@") ? em.split("@")[0]!.trim() : "";
-            const disp = nm || local;
-            if (disp) map[pr.id] = disp;
-          }
-          setUserNameById(map);
-        } catch (e) {
-          console.error("[CentralDashboardLive] user_profiles (audit names)", e);
-          setUserNameById({});
-          setDashboardLoadError(e instanceof Error ? e.message : String(e));
-        }
-      } else {
-        setUserNameById({});
-      }
-      setCriticalUnassigned((critUn.data ?? []) as Hazard[]);
-
-      const ca = (caList.data ?? []) as CorrectiveAction[];
-      const overdue = ca.filter((a) => {
-        if (!a.due_date) return false;
-        if (a.status === "verified" || a.status === "closed") return false;
-        return a.due_date.slice(0, 10) < todayIso;
-      });
-      setOverdueActions(overdue.slice(0, 15));
-
-      const counts = [0, 0, 0, 0, 0, 0, 0];
-      for (const row of weekVis.data ?? []) {
-        const day = (row as { check_in: string }).check_in.slice(0, 10);
-        const idx = dayKeys.indexOf(day);
-        if (idx >= 0) counts[idx]++;
-      }
-      setVisitsByDay(counts);
-
-      const offToday = new Set<string>();
-      for (const v of vacRows.data ?? []) {
-        const row = v as { user_id: string; start_date: string; end_date: string };
-        if (row.start_date <= todayIso && row.end_date >= todayIso) offToday.add(row.user_id);
-      }
-
-      const entriesByUser = new Map<
-        string,
-        { clock_in_at: string; clock_out_at: string | null }[]
-      >();
-      for (const te of timeRows.data ?? []) {
-        const row = te as { user_id: string; clock_in_at: string; clock_out_at: string | null };
-        if (!entriesByUser.has(row.user_id)) entriesByUser.set(row.user_id, []);
-        entriesByUser.get(row.user_id)!.push({
-          clock_in_at: row.clock_in_at,
-          clock_out_at: row.clock_out_at,
-        });
-      }
-
-      type ProfLite = {
-        id: string;
-        full_name?: string | null;
-        display_name?: string | null;
-        email?: string | null;
-      };
-      let profRows: ProfLite[] = [];
-      const cached = profRowsCacheRef.current;
-      const useCache =
-        cached &&
-        cached.companyId === companyId &&
-        Date.now() - cached.at < PROF_CACHE_TTL_MS &&
-        cached.rows.length > 0;
-      if (useCache) {
-        profRows = cached!.rows as ProfLite[];
-      } else {
-        try {
-          const { data: rpcCompanyProfs, error: rpcCompanyErr } = await supabase.rpc("get_company_profiles", {
-            p_company_id: companyId,
-          });
-          if (rpcCompanyErr) {
-            console.error("[CentralDashboardLive] get_company_profiles", rpcCompanyErr);
-          }
-          if (Array.isArray(rpcCompanyProfs) && rpcCompanyProfs.length > 0) {
-            profRows = rpcCompanyProfs as ProfLite[];
-          } else {
-            const direct = await supabase
-              .from("user_profiles")
-              .select("id, full_name, display_name, email")
-              .eq("company_id", companyId)
-              .order("created_at", { ascending: false });
-            if (direct.error) {
-              console.error("[CentralDashboardLive] user_profiles list", direct.error);
-              throw direct.error;
-            }
-            profRows = (direct.data ?? []) as ProfLite[];
-            if (profRows.length === 0 && (profToday.count ?? 0) > 0) {
-              const { data: rpcRows, error: rpcErr } = await supabase.rpc("list_company_profiles_for_attendance", {
-                p_company_id: companyId,
-              });
-              if (rpcErr) {
-                console.error("[CentralDashboardLive] list_company_profiles_for_attendance", rpcErr);
-                throw rpcErr;
-              }
-              if (rpcRows?.length) {
-                profRows = rpcRows as ProfLite[];
-              }
-            }
-          }
-        } catch (e) {
-          console.error("[CentralDashboardLive] timeclock profiles load", e);
-          setDashboardLoadError(errMessage(e));
-          profRows = [];
-        }
-        profRowsCacheRef.current = { companyId, at: Date.now(), rows: profRows };
-      }
-
-      const anon =
-        (labels.employees_display_anonymous ?? labels.worker ?? "Employee").trim() || "Employee";
-      const tclock: TimeclockRow[] = [];
-      for (const p of profRows) {
-        const pr = p;
-        const name =
-          (pr.full_name || pr.display_name || "").trim() ||
-          (pr.email ?? "").trim().split("@")[0]?.trim() ||
-          `${anon} ${pr.id.replace(/-/g, "").slice(0, 4)}`;
-        if (offToday.has(pr.id)) {
-          tclock.push({ userId: pr.id, name, status: "off" });
-          continue;
-        }
-        const entries = entriesByUser.get(pr.id) ?? [];
-        const active = entries.find((e) => e.clock_out_at == null);
-        const completed = entries.filter((e) => e.clock_out_at != null);
-        const lastDone =
-          completed.length > 0
-            ? completed.reduce((a, b) =>
-                new Date(b.clock_out_at!).getTime() > new Date(a.clock_out_at!).getTime() ? b : a
-              )
-            : null;
-        if (active) {
-          const dt = new Date(active.clock_in_at);
-          const clockInTime = dt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-          const durationLabel = formatDurationFromMs(Date.now() - dt.getTime(), labels);
-          tclock.push({ userId: pr.id, name, status: "in", clockInTime, durationLabel });
-        } else if (lastDone) {
-          const dtIn = new Date(lastDone.clock_in_at);
-          const dtOut = new Date(lastDone.clock_out_at!);
-          const clockInTime = dtIn.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-          const clockOutTime = dtOut.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-          const durationLabel = formatDurationFromMs(dtOut.getTime() - dtIn.getTime(), labels);
-          tclock.push({ userId: pr.id, name, status: "done", clockInTime, clockOutTime, durationLabel });
-        } else {
-          tclock.push({ userId: pr.id, name, status: "out" });
-        }
-      }
-      setTimeclockRows(tclock);
-    } catch (e) {
-      console.error("[CentralDashboardLive] loadAll", e);
-      const msg = errMessage(e);
-      setDashboardLoadError((prev) => prev ?? msg);
-    } finally {
-      setLoading(false);
-    }
-
-    void (async () => {
-      try {
-        if (!companyId) return;
-        const [bpCt, pinCt, noteRes] = await Promise.all([
-          supabase.from("blueprints").select("id", { count: "exact", head: true }).eq("company_id", companyId),
-          supabase.from("blueprint_pins").select("id", { count: "exact", head: true }).eq("company_id", companyId),
-          supabase
-            .from("blueprint_annotations")
-            .select("id", { count: "exact", head: true })
-            .eq("company_id", companyId)
-            .eq("is_resolved", false),
-        ]);
-        const secErr = bpCt.error || pinCt.error || noteRes.error;
-        if (secErr) {
-          console.error("[CentralDashboardLive] blueprint counts", secErr);
-        }
-        setBlueprintCount(bpCt.count ?? 0);
-        setPinCount(pinCt.count ?? 0);
-        setNoteCount(noteRes.error ? 0 : noteRes.count ?? 0);
-      } catch (e) {
-        console.error("[CentralDashboardLive] blueprint counts (async)", e);
-      } finally {
-        setSecondaryMetricsReady(true);
-      }
-    })();
-  }, [companyId, todayIso, locale, labels]);
-
   useEffect(() => {
-    void loadAll();
-  }, [loadAll, tick]);
-
-  useEffect(() => {
-    if (!companyId) return;
-    const ch = supabase
-      .channel(`dash_${companyId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "visitor_logs", filter: `company_id=eq.${companyId}` },
-        () => setTick((x) => x + 1)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "hazards", filter: `company_id=eq.${companyId}` },
-        () => setTick((x) => x + 1)
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(ch);
+    let cancelled = false;
+    const pushErr = (e: unknown, label: string) => {
+      if (cancelled) return;
+      setLoadErrors((prev) => [...prev, `${label}: ${errMessage(e)}`]);
     };
-  }, [companyId]);
 
-  useEffect(() => {
-    if (!companyId) return;
-    const id = window.setInterval(() => setTick((x) => x + 1), 30_000);
-    return () => clearInterval(id);
-  }, [companyId]);
+    const run = async () => {
+      setDataLoading(true);
+      setLoadErrors([]);
 
-  const trialAlert =
-    subscription?.status === "trialing" &&
-    subscription.trial_ends_at &&
-    new Date(subscription.trial_ends_at).getTime() > Date.now() &&
-    new Date(subscription.trial_ends_at).getTime() < Date.now() + 3 * 86400000;
-
-  const alertCount =
-    criticalUnassigned.length +
-    overdueActions.length +
-    longVisitors.length +
-    (trialAlert ? 1 : 0);
-
-  const openHazards = useMemo(
-    () => hazardRows.filter((h) => h.status === "open" || h.status === "in_progress"),
-    [hazardRows]
-  );
-  const sevBuckets = useMemo(() => {
-    const m: Record<HazardSeverity, number> = { low: 0, medium: 0, high: 0, critical: 0 };
-    for (const h of openHazards) m[h.severity] = (m[h.severity] ?? 0) + 1;
-    return m;
-  }, [openHazards]);
-
-  const statusHazardParts = useMemo(() => {
-    const st: Record<HazardStatus, number> = { open: 0, in_progress: 0, resolved: 0, closed: 0 };
-    for (const h of hazardRows) st[h.status] = (st[h.status] ?? 0) + 1;
-    return [
-      { key: "open", pct: st.open, className: "bg-red-500" },
-      { key: "ip", pct: st.in_progress, className: "bg-amber-500" },
-      { key: "res", pct: st.resolved, className: "bg-emerald-500" },
-      { key: "clo", pct: st.closed, className: "bg-gray-400" },
-    ];
-  }, [hazardRows]);
-
-  const actionStatusParts = useMemo(() => {
-    const st: Partial<Record<ActionStatus, number>> = {};
-    for (const a of actionRows) st[a.status] = (st[a.status] ?? 0) + 1;
-    return [
-      { key: "open", pct: st.open ?? 0, className: "bg-red-400" },
-      { key: "ip", pct: st.in_progress ?? 0, className: "bg-amber-400" },
-      { key: "pr", pct: st.pending_review ?? 0, className: "bg-violet-400" },
-      { key: "v", pct: st.verified ?? 0, className: "bg-emerald-500" },
-      { key: "c", pct: st.closed ?? 0, className: "bg-gray-400" },
-    ];
-  }, [actionRows]);
-
-  const dueThisWeek = useMemo(() => {
-    const end = new Date();
-    end.setDate(end.getDate() + 7);
-    const endS = end.toISOString().slice(0, 10);
-    return actionRows.filter(
-      (a) =>
-        a.due_date &&
-        a.due_date.slice(0, 10) >= todayIso &&
-        a.due_date.slice(0, 10) <= endS &&
-        a.status !== "verified" &&
-        a.status !== "closed"
-    );
-  }, [actionRows, todayIso]);
-
-  const topCritical = useMemo(() => {
-    const order: HazardSeverity[] = ["critical", "high", "medium", "low"];
-    return [...openHazards]
-      .sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity))
-      .slice(0, 3);
-  }, [openHazards]);
-
-  const activityLast24h = useMemo(() => {
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    return activityRows.filter((r) => new Date(r.created_at).getTime() >= cutoff);
-  }, [activityRows]);
-
-  const activityPool = useMemo(() => {
-    if (activityLast24h.length > 0) return activityLast24h;
-    return activityRows;
-  }, [activityLast24h, activityRows]);
-
-  const activityPeriodIs24h = activityLast24h.length > 0;
-
-  const filteredActivity = useMemo(() => {
-    const src = activityPool;
-    const filtered =
-      activityFilter === "all"
-        ? src
-        : src.filter((r) => {
-            const b = activityBucket(r.action, r.entity_type);
-            if (activityFilter === "safety") return b === "safety";
-            if (activityFilter === "operations") return b === "operations";
-            if (activityFilter === "hr") return b === "hr";
-            return false;
-          });
-    return filtered.slice(0, 10);
-  }, [activityPool, activityFilter]);
-
-  const resolveActivityWho = useCallback(
-    (userId: string, storedName?: string | null) => {
-      const fromDb = userNameById[userId]?.trim();
-      if (fromDb) return fromDb;
-      const s = (storedName ?? "").trim();
-      if (s && !s.includes("@")) return s;
-      if (s.includes("@")) {
-        const local = s.split("@")[0]?.trim();
-        if (local) return local;
+      let projectIdsForUser: string[] = [];
+      try {
+        const { data: ej, error: ejErr } = await supabase
+          .from("employee_projects")
+          .select("project_id")
+          .eq("user_id", currentUserId)
+          .eq("company_id", companyId);
+        if (ejErr) throw ejErr;
+        projectIdsForUser = ((ej ?? []) as { project_id: string }[]).map((r) => String(r.project_id));
+      } catch (e) {
+        pushErr(e, "employee_projects");
       }
-      return labels.dashboard_activity_unknown_user ?? labels.common_dash ?? "—";
-    },
-    [userNameById, labels]
-  );
 
-  const seatsLimit = subscription?.seats_limit;
-  const projLimit = subscription?.projects_limit;
-  const storLimit = subscription?.storage_limit_gb;
-  const empN = empCount ?? 0;
-  const seatPct =
-    seatsLimit != null && seatsLimit > 0 && seatsLimit < 999000 ? Math.min(100, Math.round((empN / seatsLimit) * 100)) : 0;
-  const projPct =
-    projLimit != null && projLimit > 0 && projLimit < 999000
-      ? Math.min(100, Math.round((activeProjectsCount / projLimit) * 100))
-      : 0;
-  const storPct =
-    storLimit != null && storLimit > 0 && storLimit < 999000 ? Math.min(100, Math.round((0 / storLimit) * 100)) : 0;
+      const corePromises: Promise<void>[] = [];
 
-  const maxVis = Math.max(1, ...visitsByDay);
+      corePromises.push(
+        (async () => {
+          try {
+            const { data, error } = await supabase
+              .from("time_entries")
+              .select("id, user_id, clock_in_at, clock_out_at")
+              .eq("company_id", companyId)
+              .eq("user_id", currentUserId)
+              .gte("clock_in_at", tStart)
+              .lte("clock_in_at", tEnd)
+              .order("clock_in_at", { ascending: false });
+            if (error) throw error;
+            if (!cancelled) setMyTimeRows((data ?? []) as TimeRow[]);
+          } catch (e) {
+            pushErr(e, L("myClockIn"));
+          }
+        })()
+      );
 
-  const showTimeclockWidget = currentUserRole === "admin" || canViewAttendance;
+      if (canViewTeamClock) {
+        corePromises.push(
+          (async () => {
+            try {
+              const { data, error } = await supabase
+                .from("time_entries")
+                .select("id, user_id, clock_in_at, clock_out_at")
+                .eq("company_id", companyId)
+                .gte("clock_in_at", tStart)
+                .lte("clock_in_at", tEnd)
+                .order("clock_in_at", { ascending: false })
+                .limit(120);
+              if (error) throw error;
+              if (!cancelled) setTeamTimeRows((data ?? []) as TimeRow[]);
+            } catch (e) {
+              pushErr(e, L("dashboard_widget_team_timeclock"));
+            }
+          })()
+        );
+      } else if (!cancelled) {
+        setTeamTimeRows([]);
+      }
 
-  const canShowWidget = useCallback(
-    (id: DashboardWidgetId): boolean => {
-      if (id === "timeclock") return showTimeclockWidget;
-      if (id === "hazards") return canAccessHazards;
-      if (id === "actions") return canAccessCorrective;
-      if (id === "visitors") return canAccessVisitors || currentUserRole === "worker";
-      return true;
-    },
-    [showTimeclockWidget, canAccessHazards, canAccessCorrective, canAccessVisitors, currentUserRole]
-  );
+      corePromises.push(
+        (async () => {
+          try {
+            const { data, error } = await supabase
+              .from("schedule_entries")
+              .select("*")
+              .eq("company_id", companyId)
+              .eq("date", todayIso)
+              .limit(400);
+            if (error) throw error;
+            const rows = (data ?? []) as Record<string, unknown>[];
+            const mine = rows.filter((row) => {
+              const ids = row.employee_ids;
+              if (!Array.isArray(ids)) return false;
+              return ids.map(String).includes(currentUserId);
+            });
+            if (!cancelled) setScheduleToday(mine);
+          } catch (e) {
+            pushErr(e, "schedule");
+          }
+        })()
+      );
 
-  const orderedVisibleWidgets = useMemo(
-    () => resolvedConfig.orderedWidgets.filter((id) => canShowWidget(id)),
-    [resolvedConfig.orderedWidgets, canShowWidget]
-  );
+      corePromises.push(
+        (async () => {
+          try {
+            const { data, error } = await supabase
+              .from("daily_reports")
+              .select(`id, project_id, date, status, title, daily_report_tasks (id, employee_id, description, completed)`)
+              .eq("company_id", companyId)
+              .eq("date", todayIso)
+              .limit(40);
+            if (error) throw error;
+            const rows = (data ?? []) as Record<string, unknown>[];
+            let filtered = rows;
+            if (projectIdsForUser.length > 0) {
+              const set = new Set(projectIdsForUser);
+              const f = rows.filter((r) => set.has(String(r.project_id ?? "")));
+              if (f.length > 0) filtered = f;
+            }
+            if (!cancelled) setDailyReportsToday(filtered);
+            const tasks: { description: string; completed: boolean }[] = [];
+            for (const r of filtered) {
+              const dt = r.daily_report_tasks;
+              if (!Array.isArray(dt)) continue;
+              for (const t of dt) {
+                const tr = t as Record<string, unknown>;
+                if (String(tr.employee_id ?? "") !== currentUserId) continue;
+                tasks.push({
+                  description: String(tr.description ?? ""),
+                  completed: tr.completed === true,
+                });
+              }
+            }
+            if (!cancelled) setMyTasksToday(tasks);
+          } catch (e) {
+            pushErr(e, "daily_reports");
+          }
+        })()
+      );
+
+      await Promise.all(corePromises);
+
+      if (canManageEmployees) {
+        await Promise.all([
+          (async () => {
+            try {
+              const { count, error } = await supabase
+                .from("user_profiles")
+                .select("id", { count: "exact", head: true })
+                .eq("company_id", companyId);
+              if (error) throw error;
+              if (!cancelled) setEmpActiveCount(count ?? 0);
+            } catch (e) {
+              pushErr(e, "user_profiles");
+            }
+          })(),
+          (async () => {
+            try {
+              const { data, error } = await supabase
+                .from("audit_logs")
+                .select("*")
+                .eq("company_id", companyId)
+                .order("created_at", { ascending: false })
+                .limit(20);
+              if (error) throw error;
+              if (!cancelled) setActivityRows((data ?? []) as AuditLogEntry[]);
+            } catch (e) {
+              pushErr(e, L("dashboard_widget_activity"));
+            }
+          })(),
+        ]);
+
+        if (canAccessVisitors) {
+          try {
+            const { count, error } = await supabase
+              .from("visitor_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .gte("check_in", tStart)
+              .lte("check_in", tEnd);
+            if (error) throw error;
+            if (!cancelled) setVisitorsTodayCount(count ?? 0);
+          } catch (e) {
+            pushErr(e, L("dashboard_widget_visitors"));
+          }
+        }
+      } else {
+        if (!cancelled) {
+          setEmpActiveCount(null);
+          setActivityRows([]);
+        }
+        if (canAccessVisitors) {
+          try {
+            const { count, error } = await supabase
+              .from("visitor_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .gte("check_in", tStart)
+              .lte("check_in", tEnd);
+            if (error) throw error;
+            if (!cancelled) setVisitorsTodayCount(count ?? 0);
+          } catch (e) {
+            pushErr(e, L("dashboard_widget_visitors"));
+          }
+        } else if (!cancelled) setVisitorsTodayCount(0);
+      }
+
+      if (canAccessHazards && (canManageEmployees || canManageComplianceAlerts)) {
+        try {
+          const { data, error } = await supabase
+            .from("hazards")
+            .select("*")
+            .eq("company_id", companyId)
+            .in("status", ["open", "in_progress"])
+            .limit(25);
+          if (error) throw error;
+          if (!cancelled) setHazardRows((data ?? []) as Hazard[]);
+        } catch (e) {
+          pushErr(e, L("dashboard_widget_hazards"));
+        }
+      } else if (!cancelled) setHazardRows([]);
+
+      if (!cancelled) setDataLoading(false);
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    companyId,
+    currentUserId,
+    todayIso,
+    tStart,
+    tEnd,
+    canViewTeamClock,
+    canManageEmployees,
+    canAccessVisitors,
+    canAccessHazards,
+    canManageComplianceAlerts,
+  ]);
+
+  const orderedVisibleWidgets = useMemo(() => {
+    const allowed = new Set(DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id)));
+    const ordered = resolvedConfig.orderedWidgets.filter((id) => allowed.has(id));
+    const missing = DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => allowed.has(id) && !ordered.includes(id));
+    return [...ordered, ...missing];
+  }, [resolvedConfig.orderedWidgets, canShowWidget]);
 
   const moveWidget = useCallback(
     async (id: DashboardWidgetId, dir: -1 | 1) => {
-      const order = [...resolvedConfig.orderedWidgets];
+      const order = orderedVisibleWidgets.filter((w) => canShowWidget(w));
       const i = order.indexOf(id);
       const j = i + dir;
       if (i < 0 || j < 0 || j >= order.length) return;
-      [order[i], order[j]] = [order[j], order[i]];
-      const next = { ...resolvedConfig, orderedWidgets: order };
-      const prev = resolvedConfig;
+      const nextOrder = [...order];
+      [nextOrder[i], nextOrder[j]] = [nextOrder[j], nextOrder[i]];
+      const full = DEFAULT_DASHBOARD_WIDGET_ORDER.filter(
+        (w) => canShowWidget(w) && !nextOrder.includes(w as DashboardWidgetId)
+      );
+      const merged = [...nextOrder, ...full];
+      const next = { ...resolvedConfig, orderedWidgets: merged };
       setResolvedConfig(next);
       const ok = await persistConfig(next);
-      if (!ok) setResolvedConfig(prev);
+      if (!ok) void loadDashboardConfig();
     },
-    [resolvedConfig, persistConfig]
+    [orderedVisibleWidgets, canShowWidget, resolvedConfig, persistConfig, loadDashboardConfig]
   );
-
-  const onDragStartWidget = (id: DashboardWidgetId) => {
-    if (!canManageRoles || !useDnD) return;
-    setDragWidget(id);
-  };
-
-  const onDropWidget = async (overId: DashboardWidgetId) => {
-    if (!canManageRoles || !useDnD || !dragWidget || dragWidget === overId) {
-      setDragWidget(null);
-      return;
-    }
-    const order = [...resolvedConfig.orderedWidgets];
-    const from = order.indexOf(dragWidget);
-    const to = order.indexOf(overId);
-    if (from < 0 || to < 0) {
-      setDragWidget(null);
-      return;
-    }
-    order.splice(from, 1);
-    order.splice(to, 0, dragWidget);
-    const next = { ...resolvedConfig, orderedWidgets: order };
-    const prev = resolvedConfig;
-    setResolvedConfig(next);
-    const ok = await persistConfig(next);
-    if (!ok) setResolvedConfig(prev);
-    setDragWidget(null);
-  };
 
   const toggleWidgetInDraft = (id: DashboardWidgetId) => {
     const has = draftConfig.orderedWidgets.includes(id);
@@ -1071,22 +709,16 @@ function CentralDashboardLiveInner({
     setDraftConfig({ ...draftConfig, orderedWidgets: order });
   };
 
-  const toggleQuickInDraft = (k: QuickAccessKey) => {
-    const has = draftConfig.quickAccess.includes(k);
-    let qa = [...draftConfig.quickAccess];
-    if (has) {
-      if (qa.length <= 1) return;
-      qa = qa.filter((x) => x !== k);
-    } else qa.push(k);
-    setDraftConfig({ ...draftConfig, quickAccess: qa });
-  };
-
   const saveCustomize = async () => {
-    const ok = await persistConfig(draftConfig);
+    const allowed = new Set(DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id)));
+    const filtered = draftConfig.orderedWidgets.filter((id) => allowed.has(id));
+    const missing = DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => allowed.has(id) && !filtered.includes(id));
+    const next = { ...draftConfig, orderedWidgets: [...filtered, ...missing] };
+    const ok = await persistConfig(next);
     if (ok) setCustomizeOpen(false);
   };
 
-  const renderQuickAccessButtons = (quickKeys: QuickAccessKey[]) => (
+  const renderQuickButtons = (quickKeys: QuickAccessKey[]) => (
     <div className="flex flex-wrap gap-2">
       {quickKeys.map((k) => {
         if (k === "hazard" && canAccessHazards && currentUserRole !== "worker") {
@@ -1131,7 +763,7 @@ function CentralDashboardLiveInner({
             </button>
           );
         }
-        if (k === "audit" && canManageRoles) {
+        if (k === "audit" && canManageEmployees) {
           return (
             <button
               key={k}
@@ -1144,7 +776,7 @@ function CentralDashboardLiveInner({
             </button>
           );
         }
-        if (k === "employee" && canAccessEmployees && onQuickNewEmployee) {
+        if (k === "employee" && onQuickNewEmployee) {
           return (
             <button
               key={k}
@@ -1152,7 +784,7 @@ function CentralDashboardLiveInner({
               onClick={onQuickNewEmployee}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              <UserCheck className="h-4 w-4 shrink-0" aria-hidden />
               {L("dashboard_quick_employee")}
             </button>
           );
@@ -1165,12 +797,12 @@ function CentralDashboardLiveInner({
               onClick={onQuickNewRfi}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              <Layers className="h-4 w-4 shrink-0" aria-hidden />
               {L("dashboard_quick_rfi")}
             </button>
           );
         }
-        if (k === "subcontractor" && canAccessSubcontractors && onQuickNewSubcontractor) {
+        if (k === "subcontractor" && onQuickNewSubcontractor) {
           return (
             <button
               key={k}
@@ -1178,7 +810,7 @@ function CentralDashboardLiveInner({
               onClick={onQuickNewSubcontractor}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              <Briefcase className="h-4 w-4 shrink-0" aria-hidden />
               {L("dashboard_quick_subcontractor")}
             </button>
           );
@@ -1188,567 +820,261 @@ function CentralDashboardLiveInner({
     </div>
   );
 
-  const widgetChrome = (id: DashboardWidgetId, children: React.ReactNode) => {
-    const idxAll = resolvedConfig.orderedWidgets.indexOf(id);
-    const canUp = canManageRoles && idxAll > 0;
-    const canDown = canManageRoles && idxAll >= 0 && idxAll < resolvedConfig.orderedWidgets.length - 1;
-    return (
-      <div
-        className="relative rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
-        onDragOver={
-          useDnD && canManageRoles
-            ? (e) => {
-                e.preventDefault();
-              }
-            : undefined
-        }
-        onDrop={
-          useDnD && canManageRoles
-            ? (e) => {
-                e.preventDefault();
-                onDropWidget(id);
-              }
-            : undefined
-        }
-      >
+  const widgetChrome = (id: DashboardWidgetId, children: React.ReactNode) => (
+    <div className="relative rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+      {canManageEmployees ? (
         <div className="absolute top-2 right-2 flex items-center gap-1">
-          {canManageRoles && useDnD ? (
-            <div
-              role="button"
-              tabIndex={0}
-              draggable
-              onDragStart={() => onDragStartWidget(id)}
-              onDragEnd={() => setDragWidget(null)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-grab active:cursor-grabbing"
-              aria-label={L("dashboard_drag_handle")}
-            >
-              <GripVertical className="h-5 w-5" aria-hidden />
-            </div>
-          ) : null}
-          {canManageRoles && !useDnD ? (
-            <>
-              <button
-                type="button"
-                disabled={!canUp}
-                onClick={() => moveWidget(id, -1)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40"
-                aria-label={L("dashboard_move_up")}
-              >
-                <ChevronUp className="h-5 w-5" aria-hidden />
-              </button>
-              <button
-                type="button"
-                disabled={!canDown}
-                onClick={() => moveWidget(id, 1)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40"
-                aria-label={L("dashboard_move_down")}
-              >
-                <ChevronDown className="h-5 w-5" aria-hidden />
-              </button>
-            </>
-          ) : null}
+          <button
+            type="button"
+            disabled={orderedVisibleWidgets.indexOf(id) <= 0}
+            onClick={() => void moveWidget(id, -1)}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40"
+            aria-label={L("dashboard_move_up")}
+          >
+            <ChevronUp className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            disabled={orderedVisibleWidgets.indexOf(id) >= orderedVisibleWidgets.length - 1}
+            onClick={() => void moveWidget(id, 1)}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40"
+            aria-label={L("dashboard_move_down")}
+          >
+            <ChevronDown className="h-5 w-5" aria-hidden />
+          </button>
         </div>
-        {children}
-      </div>
-    );
+      ) : null}
+      {children}
+    </div>
+  );
+
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   };
 
   const renderWidget = (id: DashboardWidgetId) => {
+    const title = L(WIDGET_LABEL_KEYS[id]) || L(`dashboard_widget_${id}`) || id;
+    if (dataLoading) {
+      return widgetChrome(
+        id,
+        <>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{title}</h3>
+          <WidgetSkeleton lines={4} />
+        </>
+      );
+    }
+
     switch (id) {
-      case "timeclock":
+      case "team_timeclock":
         return widgetChrome(
           id,
-          loading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-500" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.timeclock)}
-              </h3>
-              <WidgetSkeleton lines={5} />
-            </>
-          ) : (
-            <>
+          <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <Clock className="h-4 w-4 text-blue-500" aria-hidden />
-              {L(WIDGET_LABEL_KEYS.timeclock)}
+              {title}
             </h3>
-            {timeclockRows.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">{L("dashboard_timeclock_empty")}</p>
-            ) : (
-              <ul className="space-y-2 max-h-[280px] overflow-y-auto">
-                {timeclockRows.map((r) => (
-                  <li
-                    key={r.userId}
-                    className={`flex flex-wrap items-center justify-between gap-2 text-sm rounded-lg px-2 py-2 min-h-[44px] ${
-                      r.status === "in"
-                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200"
-                        : r.status === "done"
-                          ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-200"
-                          : r.status === "off"
-                            ? "bg-gray-100 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400"
-                            : "bg-red-50 dark:bg-red-950/20 text-red-900 dark:text-red-200"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 font-medium truncate min-w-0">
-                      <span aria-hidden className="shrink-0 text-base">
-                        {r.status === "in"
-                          ? "🟢"
-                          : r.status === "done"
-                            ? "⚫"
-                            : r.status === "off"
-                              ? "⚪"
-                              : "🔴"}
-                      </span>
-                      {r.name}
-                    </span>
-                    <span className="text-xs shrink-0 text-right max-w-[65%]">
-                      {r.status === "in" && r.clockInTime
-                        ? `${r.clockInTime}${r.durationLabel ? ` · ${r.durationLabel}` : ""}`
-                        : r.status === "done" && r.clockInTime && r.clockOutTime
-                          ? `${r.clockInTime} → ${r.clockOutTime}${r.durationLabel ? ` · ${r.durationLabel}` : ""}`
-                          : r.status === "off"
-                            ? L("dashboard_day_off")
-                            : L("dashboard_not_clocked_in")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            </>
-          )
-        );
-      case "activity":
-        return widgetChrome(
-          id,
-          loading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
-                <Shield className="h-4 w-4 text-gray-400" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.activity)}
-              </h3>
-              <WidgetSkeleton lines={6} />
-            </>
-          ) : (
-            <>
-            <div className="flex flex-wrap items-center justify-between gap-2 pe-14">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-gray-400" aria-hidden />
-                  {L(WIDGET_LABEL_KEYS.activity)}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {activityPeriodIs24h ? L("dashboard_activity_period_24h") : L("dashboard_activity_period_7d")}
-                </p>
-              </div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                <span>{L("dashboard_activity_filter")}</span>
-                <select
-                  value={activityFilter}
-                  onChange={(e) => setActivityFilter(e.target.value as ActivityFilter)}
-                  className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[44px] px-2"
-                >
-                  <option value="all">{L("dashboard_filter_all")}</option>
-                  <option value="safety">{L("dashboard_filter_safety")}</option>
-                  <option value="operations">{L("dashboard_filter_operations")}</option>
-                  <option value="hr">{L("dashboard_filter_hr")}</option>
-                </select>
-              </label>
-            </div>
-            <ul className="space-y-2 max-h-[320px] overflow-y-auto mt-3">
-              {filteredActivity.length === 0 ? (
-                <li className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">{L("dashboard_activity_empty")}</li>
+            <ul className="text-sm space-y-2 text-gray-800 dark:text-gray-200 max-h-48 overflow-y-auto">
+              {teamTimeRows.length === 0 ? (
+                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
               ) : (
-                filteredActivity.map((row) => (
-                  <li
-                    key={row.id}
-                    className="flex gap-2 text-sm border-b border-gray-100 dark:border-gray-700/60 pb-2 last:border-0"
-                  >
-                    <Shield className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" aria-hidden />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-gray-800 dark:text-gray-200">
-                        {formatActivityLine(row, labels, projectNameById, resolveActivityWho)}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{relativeTime(row.created_at, locale, labels)}</p>
-                    </div>
+                teamTimeRows.slice(0, 12).map((r) => (
+                  <li key={r.id} className="flex justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-1">
+                    <span className="font-mono text-xs">{r.user_id.slice(0, 8)}…</span>
+                    <span>
+                      {fmtTime(r.clock_in_at)}
+                      {r.clock_out_at ? ` – ${fmtTime(r.clock_out_at)}` : ` · ${L("dashboard_active_now")}`}
+                    </span>
                   </li>
                 ))
               )}
             </ul>
           </>
-          )
         );
-      case "alerts":
+      case "my_timeclock":
         return widgetChrome(
           id,
-          loading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.alerts)}
-              </h3>
-              <WidgetSkeleton lines={4} />
-            </>
-          ) : (
-            <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
-              {L(WIDGET_LABEL_KEYS.alerts)}
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-emerald-500" aria-hidden />
+              {title}
+            </h3>
+            <ul className="text-sm space-y-2">
+              {myTimeRows.length === 0 ? (
+                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
+              ) : (
+                myTimeRows.map((r) => (
+                  <li key={r.id}>
+                    {fmtTime(r.clock_in_at)}
+                    {r.clock_out_at ? ` – ${fmtTime(r.clock_out_at)}` : ` · ${L("dashboard_active_now")}`}
+                  </li>
+                ))
+              )}
+            </ul>
+          </>
+        );
+      case "activity":
+        return widgetChrome(
+          id,
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-violet-500" aria-hidden />
+              {title}
+            </h3>
+            <ul className="text-sm space-y-2 max-h-56 overflow-y-auto">
+              {activityRows.length === 0 ? (
+                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
+              ) : (
+                activityRows.map((row) => (
+                  <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2">
+                    <span className="text-xs text-gray-500">{relativeTime(row.created_at, locale, labels)}</span>
+                    <p className="mt-0.5">
+                      {formatActivityLine(
+                        row,
+                        labels,
+                        projectNameById,
+                        L("dashboard_activity_unknown_user") || row.user_id?.slice(0, 8) || ""
+                      )}
+                    </p>
+                  </li>
+                ))
+              )}
+            </ul>
+          </>
+        );
+      case "compliance_alerts":
+        return widgetChrome(
+          id,
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-amber-500" aria-hidden />
+              {title}
             </h3>
             {complianceWatchdogCount > 0 && onOpenComplianceInCentral ? (
               <button
                 type="button"
                 onClick={onOpenComplianceInCentral}
-                className="w-full min-h-[44px] mb-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 text-left text-sm font-medium text-amber-900 dark:text-amber-200 flex items-center gap-2"
+                className="min-h-[44px] w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm font-medium text-amber-900 dark:text-amber-100"
               >
-                <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden />
-                <span className="flex-1 min-w-0">
-                  {L("complianceWatchdog")}
-                  <span className="ml-2 tabular-nums">({complianceWatchdogCount})</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+                {L("complianceWatchdog")} ({complianceWatchdogCount})
               </button>
-            ) : null}
-            {alertCount === 0 ? (
-              <div className="rounded-xl border border-emerald-300/60 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-4 py-3 flex items-center gap-2 text-emerald-800 dark:text-emerald-200">
-                <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
-                <span className="text-sm font-medium">{L("dashboard_all_clear")}</span>
-              </div>
             ) : (
-              <ul className="space-y-2">
-                {criticalUnassigned.map((h) => (
-                  <li
-                    key={h.id}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800/50 p-3"
-                  >
-                    <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" aria-hidden />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{L("dashboard_critical_hazards")}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{h.title}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onNavigateAppSection("security")}
-                      className="min-h-[44px] px-3 rounded-lg border border-red-300 dark:border-red-800 text-sm font-semibold text-red-700 dark:text-red-300"
-                    >
-                      {labels.viewAll ?? ""}
-                    </button>
-                  </li>
-                ))}
-                {overdueActions.slice(0, 5).map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-gray-800/50 p-3"
-                  >
-                    <Clock className="h-5 w-5 text-amber-500 shrink-0" aria-hidden />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{L("dashboard_overdue_actions")}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.title}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onNavigateAppSection("security")}
-                      className="min-h-[44px] px-3 rounded-lg border border-amber-300 dark:border-amber-800 text-sm font-semibold text-amber-800 dark:text-amber-200"
-                    >
-                      {labels.viewAll ?? ""}
-                    </button>
-                  </li>
-                ))}
-                {longVisitors.map((v) => (
-                  <li
-                    key={v.id}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-white dark:bg-gray-800/50 p-3"
-                  >
-                    <UserCheck className="h-5 w-5 text-violet-500 shrink-0" aria-hidden />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{L("dashboard_long_visitors")}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{v.visitor_name}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onNavigateToOperationsVisitors ? onNavigateToOperationsVisitors() : onNavigateAppSection("site")
-                      }
-                      className="min-h-[44px] px-3 rounded-lg border border-violet-300 dark:border-violet-800 text-sm font-semibold text-violet-800 dark:text-violet-200"
-                    >
-                      {labels.viewAll ?? ""}
-                    </button>
-                  </li>
-                ))}
-                {trialAlert && (
-                  <li className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-gray-800/50 p-3">
-                    <CreditCard className="h-5 w-5 text-amber-500 shrink-0" aria-hidden />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{L("dashboard_trial_expiring")}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {trialDaysLeft != null ? L("billing_trial_days_left").replace("{n}", String(trialDaysLeft)) : ""}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onNavigateAppSection("settings")}
-                      className="min-h-[44px] px-3 rounded-lg border border-amber-300 text-sm font-semibold text-amber-800 dark:text-amber-200"
-                    >
-                      {labels.viewAll ?? ""}
-                    </button>
-                  </li>
-                )}
-              </ul>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{L("dashboard_all_clear")}</p>
             )}
           </>
-          )
         );
       case "hazards":
         return widgetChrome(
           id,
-          loading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.hazards)}
-              </h3>
-              <WidgetSkeleton lines={5} />
-            </>
-          ) : (
-            <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden />
-              {L(WIDGET_LABEL_KEYS.hazards)}
+              {title}
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{L("dashboard_severity_open")}</p>
-            {openHazards.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-3">{L("dashboard_hazards_empty")}</p>
-            ) : (
-              <>
-                <BarStack
-                  segments={[
-                    { key: "c", pct: sevBuckets.critical, className: "bg-red-600" },
-                    { key: "h", pct: sevBuckets.high, className: "bg-orange-500" },
-                    { key: "m", pct: sevBuckets.medium, className: "bg-amber-400" },
-                    { key: "l", pct: sevBuckets.low, className: "bg-gray-400" },
-                  ]}
-                  height={10}
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-1">{L("dashboard_status_all")}</p>
-                <BarStack segments={statusHazardParts} height={8} />
-                <ul className="mt-3 space-y-1">
-                  {topCritical.map((h) => (
-                    <li key={h.id}>
-                      <button
-                        type="button"
-                        onClick={() => onNavigateAppSection("security")}
-                        className="text-left w-full flex items-center gap-2 text-xs min-h-[44px] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 px-1"
-                      >
-                        <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
-                        <span className={`font-medium truncate ${severityTone(h.severity)}`}>{h.title}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </>
-          )
-        );
-      case "actions":
-        return widgetChrome(
-          id,
-          loading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4 text-amber-500" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.actions)}
-              </h3>
-              <WidgetSkeleton lines={4} />
-            </>
-          ) : (
-            <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-              <ClipboardCheck className="h-4 w-4 text-amber-500" aria-hidden />
-              {L(WIDGET_LABEL_KEYS.actions)}
-            </h3>
-            <BarStack segments={actionStatusParts} height={10} />
-            <p className="text-xs text-rose-600 dark:text-rose-400 mt-2 font-medium">
-              {L("dashboard_actions_overdue").replace("{n}", String(overdueActions.length))}
-            </p>
-            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">{L("dashboard_due_week")}</p>
-            <ul className="space-y-1">
-              {dueThisWeek.slice(0, 4).map((a) => (
-                <li key={a.id} className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                  · {a.title} ({a.due_date?.slice(0, 10)})
-                </li>
-              ))}
-              {dueThisWeek.length === 0 && <li className="text-xs text-gray-500 dark:text-gray-400">{labels.common_dash ?? ""}</li>}
+            <ul className="text-sm space-y-2 max-h-56 overflow-y-auto">
+              {hazardRows.length === 0 ? (
+                <li className="text-gray-500">{L("dashboard_all_clear")}</li>
+              ) : (
+                hazardRows.map((h) => (
+                  <li key={h.id} className="text-gray-800 dark:text-gray-200">
+                    · {h.title || h.id}
+                  </li>
+                ))
+              )}
             </ul>
           </>
-          )
         );
       case "visitors":
         return widgetChrome(
           id,
-          loading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-                <UserCheck className="h-4 w-4 text-emerald-500" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.visitors)}
-              </h3>
-              <WidgetSkeleton lines={4} />
-            </>
-          ) : (
-            <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-emerald-500" aria-hidden />
-              {L(WIDGET_LABEL_KEYS.visitors)}
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-cyan-500" aria-hidden />
+              {title}
             </h3>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {L("dashboard_active_now")}: <span className="tabular-nums text-emerald-600">{activeVisitors}</span>
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-2">{L("dashboard_visits_7d")}</p>
-            {activeVisitors === 0 && visitsByDay.every((n) => n === 0) ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-3">{L("dashboard_visitors_empty")}</p>
-            ) : (
-              <div className="flex items-end gap-1 h-24">
-                {visitsByDay.map((n, i) => (
-                  <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1">
-                    <div
-                      className="w-full rounded-t bg-emerald-500/80 dark:bg-emerald-600/80 min-h-[4px]"
-                      style={{ height: `${Math.max(8, (n / maxVis) * 100)}%` }}
-                    />
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">{i + 1}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-          )
-        );
-      case "blueprints":
-        return widgetChrome(
-          id,
-          loading || !secondaryMetricsReady ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-                <Layers className="h-4 w-4 text-amber-500" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.blueprints)}
-              </h3>
-              <WidgetSkeleton lines={3} />
-            </>
-          ) : (
-            <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-              <Layers className="h-4 w-4 text-amber-500" aria-hidden />
-              {L(WIDGET_LABEL_KEYS.blueprints)}
-            </h3>
-            <ul className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
-              <li className="flex justify-between">
-                <span>{L("dashboard_blueprints_total")}</span>
-                <span className="font-bold tabular-nums">{blueprintCount}</span>
-              </li>
-              <li className="flex justify-between">
-                <span>{L("dashboard_pins_total")}</span>
-                <span className="font-bold tabular-nums">{pinCount}</span>
-              </li>
-              <li className="flex justify-between">
-                <span className="flex items-center gap-1">
-                  <StickyNote className="h-3.5 w-3.5" aria-hidden />
-                  {L("dashboard_notes_active")}
-                </span>
-                <span className="font-bold tabular-nums">{noteCount}</span>
-              </li>
-            </ul>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{visitorsTodayCount}</p>
             <button
               type="button"
-              onClick={() => onNavigateAppSection("site")}
-              className="mt-3 w-full min-h-[44px] rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300"
+              onClick={() => (onNavigateToOperationsVisitors ? onNavigateToOperationsVisitors() : onNavigateAppSection("visitors"))}
+              className="mt-2 min-h-[44px] text-sm text-amber-600 dark:text-amber-400 font-medium"
             >
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-4 w-4" aria-hidden />
-                {L("site")}
-              </span>
+              {L("viewAll") ?? L("dashboard_register_visitor")}
             </button>
           </>
-          )
         );
-      case "subscription":
+      case "my_tasks":
         return widgetChrome(
           id,
-          loading || subscriptionLoading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-violet-500" aria-hidden />
-                {L(WIDGET_LABEL_KEYS.subscription)}
-              </h3>
-              <WidgetSkeleton lines={5} />
-            </>
-          ) : (
-            <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-violet-500" aria-hidden />
-              {L(WIDGET_LABEL_KEYS.subscription)}
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <StickyNote className="h-4 w-4 text-indigo-500" aria-hidden />
+              {title}
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 font-semibold text-amber-900 dark:text-amber-200">
-                {subscription?.status === "trialing"
-                  ? L("subscription_status_trialing")
-                  : `${subscription?.plan ?? (labels.common_dash ?? "")} · ${subscription?.status ?? (labels.common_dash ?? "")}`}
-              </span>
+            <p className="text-xs text-gray-500 mb-2">
+              {scheduleToday.length > 0
+                ? `${scheduleToday.length} ${L("schedule_pick_employees") ?? ""}`
+                : L("dashboard_trend_neutral")}
             </p>
-            {subscription?.status === "trialing" && trialDaysLeft != null && (
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                {L("billing_trial_days_left").replace("{n}", String(trialDaysLeft))}
-              </p>
-            )}
-            <div className="space-y-2 text-xs">
-              <div>
-                <div className="flex justify-between text-gray-600 dark:text-gray-400 mb-1">
-                  <span>{L("dashboard_usage_users")}</span>
-                  <span>
-                    {empN} / {seatsLimit != null && seatsLimit < 999000 ? seatsLimit : labels.common_dash ?? ""}
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                  <div className="h-full bg-violet-500" style={{ width: `${seatPct}%` }} />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-gray-600 dark:text-gray-400 mb-1">
-                  <span>{L("dashboard_usage_projects")}</span>
-                  <span>
-                    {activeProjectsCount} / {projLimit != null && projLimit < 999000 ? projLimit : labels.common_dash ?? ""}
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                  <div className="h-full bg-amber-500" style={{ width: `${projPct}%` }} />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-gray-600 dark:text-gray-400 mb-1">
-                  <span>{L("dashboard_usage_storage")}</span>
-                  <span>
-                    0 / {storLimit != null && storLimit < 999000 ? `${storLimit} GB` : labels.common_dash ?? ""}
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                  <div className="h-full bg-blue-500" style={{ width: `${storPct}%` }} />
-                </div>
-              </div>
-            </div>
+            <ul className="text-sm space-y-2 max-h-40 overflow-y-auto">
+              {myTasksToday.length === 0 ? (
+                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
+              ) : (
+                myTasksToday.map((task, i) => (
+                  <li key={i} className={task.completed ? "line-through opacity-60" : ""}>
+                    · {task.description || L("common_dash")}
+                  </li>
+                ))
+              )}
+            </ul>
           </>
-          )
         );
-      case "quickaccess":
+      case "daily_report":
         return widgetChrome(
           id,
-          loading ? (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{L(WIDGET_LABEL_KEYS.quickaccess)}</h3>
-              <WidgetSkeleton lines={2} />
-            </>
-          ) : (
-            <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{L(WIDGET_LABEL_KEYS.quickaccess)}</h3>
-            {renderQuickAccessButtons(resolvedConfig.quickAccess)}
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <FileSearch className="h-4 w-4 text-sky-500" aria-hidden />
+              {title}
+            </h3>
+            <ul className="text-sm space-y-2 max-h-48 overflow-y-auto">
+              {dailyReportsToday.length === 0 ? (
+                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
+              ) : (
+                dailyReportsToday.map((r) => (
+                  <li key={String(r.id)} className="text-gray-800 dark:text-gray-200">
+                    · {projectNameById[String(r.project_id)] ?? String(r.project_id)}
+                    {r.status ? ` · ${String(r.status)}` : ""}
+                  </li>
+                ))
+              )}
+            </ul>
           </>
-          )
+        );
+      case "critical_inventory":
+        return widgetChrome(
+          id,
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <Package className="h-4 w-4 text-orange-500" aria-hidden />
+              {title}
+            </h3>
+            <p className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{criticalInventoryCount}</p>
+            <button
+              type="button"
+              onClick={() => onNavigateAppSection("warehouse")}
+              className="mt-2 min-h-[44px] text-sm font-medium text-amber-600 dark:text-amber-400"
+            >
+              {L("viewAll") ?? "Logistics"}
+            </button>
+          </>
+        );
+      case "quick_access":
+        return widgetChrome(
+          id,
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{title}</h3>
+            {renderQuickButtons(resolvedConfig.quickAccess)}
+          </>
         );
       default:
         return null;
@@ -1757,164 +1083,131 @@ function CentralDashboardLiveInner({
 
   return (
     <>
-      {dashboardLoadError ? (
-        <div
-          role="alert"
-          className="rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 text-sm text-amber-950 dark:text-amber-100 mb-4"
-        >
-          <p className="font-semibold">
-            {L("dashboard_error_load_title") || "Could not load some dashboard data"}
-          </p>
-          <p className="mt-1 font-mono text-xs break-all opacity-90">{dashboardLoadError}</p>
-        </div>
-      ) : null}
       <section className="space-y-2 mb-4">
-        <p className="text-lg font-medium text-gray-900 dark:text-white">
-          {getGreeting()} — {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-lg font-medium text-gray-900 dark:text-white">
+            {getGreeting()} — {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
+          </p>
+          {canManageEmployees ? (
+            <button
+              type="button"
+              onClick={() => setCustomizeOpen(true)}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              <Settings2 className="h-4 w-4" aria-hidden />
+              {L("dashboard_customize_open")}
+            </button>
+          ) : null}
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {(labels.dashboard_all_clear_named ?? "").replace("{company}", companyName ?? L("dashboard_company"))}
         </p>
-        {alertCount > 0 ? (
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">
-            {L("dashboard_alerts_attention").replace("{n}", String(alertCount))}
-          </p>
-        ) : (
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-            {L("dashboard_all_clear_named").replace("{company}", companyName ?? L("dashboard_company"))}
-          </p>
-        )}
       </section>
 
-      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {loading ? (
-          <>
-            {Array.from({ length: 4 }, (_, i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 min-h-[88px] animate-pulse"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-gray-200 dark:bg-gray-600 shrink-0" />
-                  <div className="flex-1 space-y-2 min-w-0">
-                    <div className="h-4 max-w-[120px] rounded bg-gray-200 dark:bg-gray-600" />
-                    <div className="h-7 w-14 rounded bg-gray-200 dark:bg-gray-600" />
-                  </div>
-                </div>
-              </div>
+      {loadErrors.length > 0 ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 text-sm text-amber-950 dark:text-amber-100 mb-4 space-y-1"
+        >
+          <p className="font-semibold">{L("dashboard_error_load_title")}</p>
+          <ul className="list-disc pl-5 font-mono text-xs break-all">
+            {loadErrors.map((e, i) => (
+              <li key={i}>{e}</li>
             ))}
-          </>
-        ) : (
-          <>
+          </ul>
+        </div>
+      ) : null}
+
+      {showZone1 ? (
+        <>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <UnifiedDashCard
-              icon={<Users className="h-5 w-5 text-blue-500" aria-hidden />}
-              iconWrapClassName="bg-blue-500/10"
-              label={L("employees_title") || L("personnel") || L("employees")}
-              value={empN}
-              subContent={
-                L("dashboard_kpi_hint_personnel").trim() ? (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{L("dashboard_kpi_hint_personnel")}</p>
-                ) : undefined
-              }
-              onClick={() => onNavigateAppSection(canAccessEmployees ? "employees" : "office")}
+              icon={<Users className="h-5 w-5 text-white" />}
+              iconWrapClassName="bg-blue-500"
+              label={L("personnel") ?? L("employees_title")}
+              value={dataLoading ? "—" : empActiveCount ?? "—"}
+              onClick={() => onNavigateAppSection("employees")}
+              disabled={!canAccessEmployees}
             />
             <UnifiedDashCard
-              icon={<Briefcase className="h-5 w-5 text-violet-500" aria-hidden />}
-              iconWrapClassName="bg-violet-500/10"
-              label={L("subcontractors_title") || L("subcontractors")}
+              icon={<Briefcase className="h-5 w-5 text-white" />}
+              iconWrapClassName="bg-indigo-500"
+              label={L("subcontractors") ?? ""}
               value={subcontractorsCount}
-              onClick={() => onNavigateAppSection(canAccessSubcontractors ? "subcontractors" : "office")}
+              onClick={() => onNavigateAppSection("subcontractors")}
+              disabled={!canAccessSubcontractors}
             />
             <UnifiedDashCard
-              icon={<KeyRound className="h-5 w-5 text-emerald-500" aria-hidden />}
-              iconWrapClassName="bg-emerald-500/10"
-              label={L("rolesAndPermissions")}
+              icon={<KeyRound className="h-5 w-5 text-white" />}
+              iconWrapClassName="bg-violet-500"
+              label={L("roles") ?? L("permManageRoles")}
               value={customRolesCount}
-              onClick={() => {
-                if (canManageRoles) onOpenRolesInCentral();
-                else onNavigateAppSection("office");
-              }}
-              ariaLabel={L("rolesAndPermissions")}
+              onClick={() => onOpenRolesInCentral()}
+              disabled={!canManageRoles}
             />
             <UnifiedDashCard
-              icon={<FileSearch className="h-5 w-5 text-amber-600" aria-hidden />}
-              iconWrapClassName="bg-amber-500/10"
-              label={L("auditLog")}
-              value={activityRows.length}
-              onClick={() => {
-                if (canManageRoles) onOpenAuditInCentral();
-                else onNavigateAppSection("office");
-              }}
-              ariaLabel={L("auditLog")}
+              icon={<Shield className="h-5 w-5 text-white" />}
+              iconWrapClassName="bg-emerald-500"
+              label={L("auditLog") ?? ""}
+              value="→"
+              onClick={() => onOpenAuditInCentral()}
             />
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-white">{L("dashboard_operations_panel")}</h2>
-        {canManageRoles ? (
-          <button
-            type="button"
-            onClick={() => setCustomizeOpen(true)}
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            <Settings2 className="h-4 w-4" aria-hidden />
-            {L("dashboard_customize")}
-          </button>
-        ) : null}
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {orderedVisibleWidgets.map((id) => (
-          <React.Fragment key={id}>{renderWidget(id)}</React.Fragment>
+      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {orderedVisibleWidgets.filter(canShowWidget).map((id) => (
+          <div key={id}>{renderWidget(id)}</div>
         ))}
       </div>
 
       {customizeOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={L("dashboard_customize")}
-        >
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
-            <div className="sticky top-0 flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700 px-4 py-3 bg-white dark:bg-gray-900">
-              <p className="text-base font-semibold text-gray-900 dark:text-white">{L("dashboard_customize")}</p>
+        <>
+          <div className="fixed inset-0 z-[70] bg-black/50" aria-hidden onClick={() => setCustomizeOpen(false)} />
+          <div className="fixed z-[71] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-lg max-h-[85vh] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <GripVertical className="h-4 w-4" aria-hidden />
+                {L("dashboard_customize_title")}
+              </h3>
               <button
                 type="button"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-gray-500"
                 onClick={() => setCustomizeOpen(false)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                 aria-label={L("common_close")}
               >
-                <X className="h-5 w-5" aria-hidden />
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4 space-y-4">
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{L("dashboard_operations_panel")}</p>
+            <div className="p-4 space-y-3 overflow-y-auto">
+              <p className="text-xs text-gray-500">{L("dashboard_customize_hint")}</p>
               <ul className="space-y-2">
-                {DEFAULT_DASHBOARD_WIDGET_ORDER.map((wid) => (
+                {DEFAULT_DASHBOARD_WIDGET_ORDER.filter(canShowWidget).map((id) => (
                   <li
-                    key={wid}
+                    key={id}
                     className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2"
                   >
-                    <span className="text-sm text-gray-800 dark:text-gray-200">{L(WIDGET_LABEL_KEYS[wid])}</span>
+                    <span className="text-sm text-gray-800 dark:text-gray-200">{L(WIDGET_LABEL_KEYS[id])}</span>
                     <button
                       type="button"
                       role="switch"
-                      aria-checked={draftConfig.orderedWidgets.includes(wid)}
-                      onClick={() => toggleWidgetInDraft(wid)}
+                      aria-checked={draftConfig.orderedWidgets.includes(id)}
+                      onClick={() => toggleWidgetInDraft(id)}
                       className={`min-h-[44px] min-w-[52px] rounded-full border-2 px-2 text-xs font-semibold ${
-                        draftConfig.orderedWidgets.includes(wid)
+                        draftConfig.orderedWidgets.includes(id)
                           ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200"
                           : "border-gray-300 dark:border-gray-600 text-gray-500"
                       }`}
                     >
-                      {draftConfig.orderedWidgets.includes(wid) ? L("common_on") : L("common_off")}
+                      {draftConfig.orderedWidgets.includes(id) ? L("common_on") : L("common_off")}
                     </button>
                   </li>
                 ))}
               </ul>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{L("dashboard_widget_quickaccess")}</p>
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 pt-2">{L("dashboard_widget_quickaccess")}</p>
               <ul className="space-y-2">
                 {QUICK_ACCESS_KEYS.map((k) => {
                   const labelKey =
@@ -1941,7 +1234,15 @@ function CentralDashboardLiveInner({
                         type="button"
                         role="switch"
                         aria-checked={draftConfig.quickAccess.includes(k)}
-                        onClick={() => toggleQuickInDraft(k)}
+                        onClick={() => {
+                          const has = draftConfig.quickAccess.includes(k);
+                          let qa = [...draftConfig.quickAccess];
+                          if (has) {
+                            if (qa.length <= 1) return;
+                            qa = qa.filter((x) => x !== k);
+                          } else qa.push(k);
+                          setDraftConfig({ ...draftConfig, quickAccess: qa });
+                        }}
                         className={`min-h-[44px] min-w-[52px] rounded-full border-2 px-2 text-xs font-semibold ${
                           draftConfig.quickAccess.includes(k)
                             ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200"
@@ -1973,13 +1274,8 @@ function CentralDashboardLiveInner({
               </button>
             </div>
           </div>
-        </div>
+        </>
       ) : null}
     </>
   );
-}
-
-export function CentralDashboardLive(props: CentralDashboardLiveProps) {
-  if (!props.companyId) return <SkeletonLoader />;
-  return <CentralDashboardLiveInner {...props} companyId={props.companyId} />;
 }

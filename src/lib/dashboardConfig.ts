@@ -1,21 +1,34 @@
 /**
- * Central dashboard layout (Sprint AV-6) — persisted in companies.dashboard_config
+ * Central dashboard layout — persisted in companies.dashboard_config
  * and optionally user_profiles.dashboard_config (user overrides company).
  */
 
 export const DASHBOARD_WIDGET_IDS = [
-  "timeclock",
+  "team_timeclock",
+  "my_timeclock",
   "activity",
-  "alerts",
+  "compliance_alerts",
   "hazards",
-  "actions",
   "visitors",
-  "blueprints",
-  "subscription",
-  "quickaccess",
+  "my_tasks",
+  "daily_report",
+  "critical_inventory",
+  "quick_access",
 ] as const;
 
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
+
+const LEGACY_WIDGET_EXPAND: Record<string, DashboardWidgetId[]> = {
+  timeclock: ["team_timeclock", "my_timeclock"],
+  activity: ["activity"],
+  alerts: ["compliance_alerts"],
+  hazards: ["hazards"],
+  actions: [],
+  visitors: ["visitors"],
+  blueprints: [],
+  subscription: [],
+  quickaccess: ["quick_access"],
+};
 
 export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [...DASHBOARD_WIDGET_IDS];
 
@@ -38,7 +51,6 @@ export interface DashboardConfigStored {
   v?: number;
   order?: string[];
   quickAccess?: string[];
-  /** Legacy / optional explicit hide */
   hidden?: Record<string, boolean>;
 }
 
@@ -67,6 +79,13 @@ function uniqStrings(list: string[]): string[] {
   return out;
 }
 
+function expandStoredWidgetId(id: string): DashboardWidgetId[] {
+  if (isWidgetId(id)) return [id];
+  const leg = LEGACY_WIDGET_EXPAND[id];
+  if (leg) return leg.filter((x) => (DASHBOARD_WIDGET_IDS as readonly string[]).includes(x));
+  return [];
+}
+
 export function parseDashboardConfig(raw: unknown): ResolvedDashboardConfig {
   const stored = raw && typeof raw === "object" ? (raw as DashboardConfigStored) : {};
   const hidden = stored.hidden ?? {};
@@ -74,7 +93,10 @@ export function parseDashboardConfig(raw: unknown): ResolvedDashboardConfig {
   let ordered: DashboardWidgetId[] = [];
   if (Array.isArray(stored.order) && stored.order.length > 0) {
     for (const id of uniqStrings(stored.order.filter((x) => typeof x === "string"))) {
-      if (isWidgetId(id) && !hidden[id]) ordered.push(id);
+      const expanded = expandStoredWidgetId(id);
+      for (const w of expanded) {
+        if (!hidden[w] && !ordered.includes(w)) ordered.push(w);
+      }
     }
   }
   if (ordered.length === 0) {

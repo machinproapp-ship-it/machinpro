@@ -213,6 +213,12 @@ interface CentralModuleProps {
   canAccessSubcontractors?: boolean;
   currentUserId?: string | null;
   canViewAttendance?: boolean;
+  /** Permisos efectivos para CentralDashboardLive (widgets / Zona 1). */
+  dashboardCanManageEmployees?: boolean;
+  dashboardCanViewTeamClock?: boolean;
+  dashboardCanManageComplianceAlerts?: boolean;
+  dashboardCanViewLogistics?: boolean;
+  dashboardCriticalInventoryCount?: number;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
 }
@@ -350,6 +356,11 @@ export function CentralModule({
   canAccessSubcontractors = false,
   currentUserId = null,
   canViewAttendance = false,
+  dashboardCanManageEmployees = false,
+  dashboardCanViewTeamClock = false,
+  dashboardCanManageComplianceAlerts = false,
+  dashboardCanViewLogistics = false,
+  dashboardCriticalInventoryCount = 0,
   onQuickNewRfi,
   onQuickNewSubcontractor,
 }: CentralModuleProps) {
@@ -774,12 +785,17 @@ export function CentralModule({
                 projectNameById={projectNameById}
                 currentUserRole={currentUserRole}
                 canManageRoles={canManageRoles}
+                canManageEmployees={dashboardCanManageEmployees}
+                canViewTeamClock={dashboardCanViewTeamClock}
+                canManageComplianceAlerts={dashboardCanManageComplianceAlerts}
+                canViewLogistics={dashboardCanViewLogistics}
+                criticalInventoryCount={dashboardCriticalInventoryCount}
                 canAccessVisitors={canAccessVisitors}
                 canAccessHazards={canAccessHazards}
                 canAccessCorrective={canAccessCorrective}
                 onNavigateAppSection={onNavigateAppSection}
                 onOpenAuditInCentral={() => {
-                  if (canManageRoles) setCentralView("auditlog");
+                  if (dashboardCanManageEmployees) setCentralView("auditlog");
                 }}
                 onOpenRolesInCentral={() => {
                   if (canManageRoles) setCentralView("roles");
@@ -800,7 +816,6 @@ export function CentralModule({
                 visitorCheckInUrl={visitorCheckInUrl}
                 canAccessEmployees={canAccessEmployees}
                 currentUserId={currentUserId}
-                canViewAttendance={canViewAttendance}
                 onQuickNewEmployee={onAddEmployee}
                 onQuickNewRfi={onQuickNewRfi}
                 onQuickNewSubcontractor={onQuickNewSubcontractor}
@@ -823,7 +838,7 @@ export function CentralModule({
           )}
         </>
       )}
-      {centralView === "auditlog" && canManageRoles && (
+      {centralView === "auditlog" && dashboardCanManageEmployees && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-white/10">
             <h3 className="font-semibold text-zinc-900 dark:text-white">

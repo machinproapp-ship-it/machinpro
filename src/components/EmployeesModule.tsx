@@ -23,6 +23,8 @@ import type { ComplianceField, ComplianceRecord, VacationRequestRow } from "@/ap
 
 export interface EmployeesModuleProps {
   companyId: string | null;
+  /** Moneda por defecto del perfil empresa (ajustes). */
+  defaultPayCurrency?: string;
   labels: Record<string, string>;
   customRoles: CustomRole[];
   projects: { id: string; name: string; archived?: boolean }[];
@@ -258,6 +260,7 @@ const PAY_CURRENCIES = ["CAD", "USD", "EUR", "GBP", "MXN", "BRL", "ARS", "COP", 
 
 export function EmployeesModule({
   companyId,
+  defaultPayCurrency = "CAD",
   labels: t,
   customRoles,
   projects,
@@ -304,6 +307,8 @@ export function EmployeesModule({
     payPeriod: "monthly" as "monthly" | "biweekly" | "weekly",
     manageVacations: false,
     vacationDaysAnnual: "",
+    useRolePermissions: true,
+    customPermissions: {} as Partial<RolePermissions>,
   });
   const [complianceEdit, setComplianceEdit] = useState<{
     field: ComplianceField;
@@ -318,7 +323,7 @@ export function EmployeesModule({
   );
 
   const load = useCallback(async () => {
-    if (!supabase || !companyId) {
+    if (!companyId) {
       setRows([]);
       setLoading(false);
       return;
@@ -491,8 +496,26 @@ export function EmployeesModule({
     return Boolean((draft.custom_permissions ?? {})[key]);
   };
 
+  const createSelectedRolePermissions = useMemo((): RolePermissions => {
+    const role = customRoles.find((x) => x.id === createForm.customRoleId);
+    return role?.permissions ?? emptyPermissions();
+  }, [customRoles, createForm.customRoleId]);
+
+  const createEffectivePermissionValue = (key: keyof RolePermissions): boolean => {
+    if (createForm.useRolePermissions) return Boolean(createSelectedRolePermissions[key]);
+    return Boolean((createForm.customPermissions ?? {})[key]);
+  };
+
+  const toggleCreatePermission = (key: keyof RolePermissions) => {
+    if (!canManageEmployees || createForm.useRolePermissions) return;
+    setCreateForm((f) => {
+      const base = (f.customPermissions ?? {}) as Partial<RolePermissions>;
+      return { ...f, customPermissions: { ...base, [key]: !base[key] } };
+    });
+  };
+
   const saveProfile = async () => {
-    if (!supabase || !selected) return;
+    if (!selected) return;
     const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
     const workerSelf = isSelf && !canManageEmployees;
     if (!canManageEmployees && !isSelf) return;
@@ -567,7 +590,7 @@ export function EmployeesModule({
   };
 
   const uploadEmployeeDoc = async (file: File) => {
-    if (!supabase || !cloudinaryCloudName || !cloudinaryUploadPreset || !selected || !companyId || !canManageEmployees)
+    if (!cloudinaryCloudName || !cloudinaryUploadPreset || !selected || !companyId || !canManageEmployees)
       return;
     const fd = new FormData();
     fd.append("file", file);
@@ -597,7 +620,7 @@ export function EmployeesModule({
   };
 
   const toggleProject = async (projectId: string) => {
-    if (!supabase || !selected || !companyId || !canManageEmployees) return;
+    if (!selected || !companyId || !canManageEmployees) return;
     const on = assignedProjectIds.includes(projectId);
     if (on) {
       await supabase
@@ -619,7 +642,7 @@ export function EmployeesModule({
   const confirmDeleteMsg = (t as Record<string, string>).common_confirm_delete ?? "";
 
   const deactivateProfile = async (id: string, displayNameForConfirm: string) => {
-    if (!supabase || !canDelete) return;
+    if (!canDelete) return;
     const lx = t as Record<string, string>;
     const named =
       (lx.employees_delete_confirm?.replace(/\{name\}/g, displayNameForConfirm) ?? "").trim() ||
@@ -648,11 +671,6 @@ export function EmployeesModule({
     const lx = t as Record<string, string>;
     if (!companyId || !canManageEmployees) {
       console.warn("[EmployeesModule] create blocked: missing companyId or permission");
-      setCreateError(lx.employees_create_error ?? "");
-      return;
-    }
-    if (!supabase) {
-      console.error("[EmployeesModule] create: Supabase client is null (check env)");
       setCreateError(lx.employees_create_error ?? "");
       return;
     }
@@ -696,7 +714,9 @@ export function EmployeesModule({
           payType: payT,
           payAmount: payAmt != null && !Number.isNaN(payAmt) ? payAmt : null,
           payCurrency: payT === "unspecified" ? null : createForm.payCurrency,
-          payPeriod: payT === "unspecified" ? null : createForm.payPeriod,
+          payPeriod: payT === "fixed" ? createForm.payPeriod : null,
+          useRolePermissions: createForm.useRolePermissions,
+          customPermissions: createForm.useRolePermissions ? null : createForm.customPermissions,
           vacationPolicyEnabled: createForm.manageVacations,
           vacationDaysAnnual:
             createForm.manageVacations && createForm.vacationDaysAnnual.trim() !== ""
@@ -734,10 +754,12 @@ export function EmployeesModule({
         emergencyRelation: "",
         payType: "unspecified",
         payAmount: "",
-        payCurrency: "CAD",
+        payCurrency: defaultPayCurrency,
         payPeriod: "monthly",
         manageVacations: false,
         vacationDaysAnnual: "",
+        useRolePermissions: true,
+        customPermissions: {},
       });
       void load();
     } catch (e) {
@@ -1017,23 +1039,25 @@ export function EmployeesModule({
                       ))}
                     </select>
                   </label>
-                  <label className="block text-sm sm:col-span-2">
-                    <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
-                    <select
-                      value={draft.pay_period ?? "monthly"}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          pay_period: e.target.value as ProfileRow["pay_period"],
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                    >
-                      <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
-                      <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
-                      <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
-                    </select>
-                  </label>
+                  {draft.pay_type === "fixed" ? (
+                    <label className="block text-sm sm:col-span-2">
+                      <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
+                      <select
+                        value={draft.pay_period ?? "monthly"}
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            pay_period: e.target.value as ProfileRow["pay_period"],
+                          }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                      >
+                        <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
+                        <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
+                        <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
+                      </select>
+                    </label>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -1485,10 +1509,12 @@ export function EmployeesModule({
                   emergencyRelation: "",
                   payType: "unspecified",
                   payAmount: "",
-                  payCurrency: "CAD",
+                  payCurrency: defaultPayCurrency,
                   payPeriod: "monthly",
                   manageVacations: false,
                   vacationDaysAnnual: "",
+                  useRolePermissions: true,
+                  customPermissions: {},
                 });
                 setCreateOpen(true);
               }}
@@ -1718,25 +1744,93 @@ export function EmployeesModule({
                     ))}
                   </select>
                 </label>
-                <label className="block text-sm">
-                  <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
-                  <select
-                    value={createForm.payPeriod}
-                    onChange={(e) =>
-                      setCreateForm((f) => ({
-                        ...f,
-                        payPeriod: e.target.value as typeof f.payPeriod,
-                      }))
-                    }
-                    className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                  >
-                    <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
-                    <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
-                    <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
-                  </select>
-                </label>
+                {createForm.payType === "fixed" ? (
+                  <label className="block text-sm">
+                    <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
+                    <select
+                      value={createForm.payPeriod}
+                      onChange={(e) =>
+                        setCreateForm((f) => ({
+                          ...f,
+                          payPeriod: e.target.value as typeof f.payPeriod,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    >
+                      <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
+                      <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
+                      <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
+                    </select>
+                  </label>
+                ) : null}
               </>
             ) : null}
+            <p className="text-xs font-semibold text-zinc-500 pt-2 border-t border-zinc-200 dark:border-slate-700">
+              {tl.employees_role_permissions ?? ""}
+            </p>
+            <label className="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
+              <span className="text-sm text-zinc-700 dark:text-zinc-200">{tl.employees_use_role_permissions ?? ""}</span>
+              <input
+                type="checkbox"
+                className="h-5 w-5 rounded border-zinc-300"
+                checked={createForm.useRolePermissions}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setCreateForm((f) => ({
+                    ...f,
+                    useRolePermissions: on,
+                    customPermissions: on ? {} : mergePerm(createSelectedRolePermissions, f.customPermissions),
+                  }));
+                }}
+              />
+            </label>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {ROLE_PERMISSION_KEYS.map((key) => (
+                <label
+                  key={key}
+                  className={`flex items-center justify-between gap-3 text-sm py-1 ${
+                    createForm.useRolePermissions ? "opacity-80" : ""
+                  }`}
+                >
+                  <span className="text-zinc-600 dark:text-zinc-300">{permLabel(key, t as Record<string, string>)}</span>
+                  <input
+                    type="checkbox"
+                    checked={createEffectivePermissionValue(key)}
+                    onChange={() => toggleCreatePermission(key)}
+                    disabled={createForm.useRolePermissions}
+                    className="h-5 w-5 rounded border-zinc-300"
+                  />
+                </label>
+              ))}
+            </div>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.employees_role ?? ""}</span>
+              <select
+                value={createForm.customRoleId}
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, customRoleId: e.target.value }))
+                }
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              >
+                {customRoles.map((cr) => (
+                  <option key={cr.id} value={cr.id}>
+                    {cr.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.employees_status ?? ""}</span>
+              <select
+                value={createForm.profileStatus}
+                onChange={(e) => setCreateForm((f) => ({ ...f, profileStatus: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              >
+                <option value="active">{tl.employees_status_active ?? ""}</option>
+                <option value="inactive">{tl.employees_status_inactive ?? ""}</option>
+                <option value="invited">{tl.employees_status_invited ?? ""}</option>
+              </select>
+            </label>
             <p className="text-xs font-semibold text-zinc-500 pt-2 border-t border-zinc-200 dark:border-slate-700">
               {tl.employees_section_vacation ?? ""}
             </p>
@@ -1761,32 +1855,6 @@ export function EmployeesModule({
                 />
               </label>
             ) : null}
-            <label className="block text-sm">
-              <span className="text-zinc-500">{tl.employees_role ?? ""}</span>
-              <select
-                value={createForm.customRoleId}
-                onChange={(e) => setCreateForm((f) => ({ ...f, customRoleId: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-              >
-                {customRoles.map((cr) => (
-                  <option key={cr.id} value={cr.id}>
-                    {cr.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-zinc-500">{tl.employees_status ?? ""}</span>
-              <select
-                value={createForm.profileStatus}
-                onChange={(e) => setCreateForm((f) => ({ ...f, profileStatus: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-              >
-                <option value="active">{tl.employees_status_active ?? ""}</option>
-                <option value="inactive">{tl.employees_status_inactive ?? ""}</option>
-                <option value="invited">{tl.employees_status_invited ?? ""}</option>
-              </select>
-            </label>
             <div className="flex gap-2 justify-end pt-2">
               <button
                 type="button"

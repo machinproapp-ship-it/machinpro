@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifyCanManageEmployees } from "@/lib/verify-api-session";
+import { ROLE_PERMISSION_KEYS, type RolePermissions } from "@/types/roles";
 
 export const runtime = "nodejs";
+
+function sanitizeCustomPermissions(input: unknown): Partial<RolePermissions> | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const o = input as Record<string, unknown>;
+  const out: Partial<RolePermissions> = {};
+  for (const key of ROLE_PERMISSION_KEYS) {
+    const v = o[key];
+    if (typeof v === "boolean") (out as Record<string, boolean>)[key] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 function baseRoleFromCustomRoleId(customRoleId: string): "admin" | "supervisor" | "worker" | "logistic" {
   if (customRoleId === "role-admin") return "admin";
@@ -34,6 +46,8 @@ export async function POST(req: NextRequest) {
     payPeriod?: string | null;
     vacationPolicyEnabled?: boolean;
     vacationDaysAnnual?: number | null;
+    useRolePermissions?: boolean;
+    customPermissions?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -70,6 +84,10 @@ export async function POST(req: NextRequest) {
     typeof body.payPeriod === "string" && ["monthly", "biweekly", "weekly"].includes(body.payPeriod)
       ? body.payPeriod
       : null;
+  const useRolePermissions = body.useRolePermissions !== false;
+  const customPermissionsStored = useRolePermissions
+    ? null
+    : sanitizeCustomPermissions(body.customPermissions) ?? {};
   const vacationPolicyEnabled = body.vacationPolicyEnabled === true;
   const vacationDaysAnnual =
     typeof body.vacationDaysAnnual === "number" && !Number.isNaN(body.vacationDaysAnnual)
@@ -123,14 +141,15 @@ export async function POST(req: NextRequest) {
         role: baseRole,
         custom_role_id: customRoleId,
         profile_status: profileStatus,
-        use_role_permissions: true,
+        use_role_permissions: useRolePermissions,
+        custom_permissions: customPermissionsStored,
         emergency_contact_name: emergencyName,
         emergency_contact_phone: emergencyPhone,
         emergency_contact_relation: emergencyRelation,
         pay_type: effectivePayType,
         pay_amount: effectivePayType ? payAmount : null,
         pay_currency: effectivePayType ? payCurrency : null,
-        pay_period: effectivePayType ? payPeriod : null,
+        pay_period: effectivePayType === "fixed" ? payPeriod : null,
         vacation_policy_enabled: vacationPolicyEnabled,
         vacation_days_allowed: vacationPolicyEnabled ? vacationDaysAnnual : null,
       },

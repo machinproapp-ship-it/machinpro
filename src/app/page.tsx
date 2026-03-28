@@ -1889,6 +1889,18 @@ export default function Home() {
   const rolePerms = activeCustomRole.permissions;
   const perms = permissionsToModule(rolePerms);
 
+  const criticalInventoryCount = useMemo(
+    () =>
+      inventoryItems.filter(
+        (i) =>
+          i.quantity <= 0 ||
+          (i.lowStockThreshold != null &&
+            i.lowStockThreshold > 0 &&
+            i.quantity <= i.lowStockThreshold)
+      ).length,
+    [inventoryItems]
+  );
+
   const currentUserEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : effectiveRole === "supervisor" ? effectiveEmployeeId : null;
   const visibleProjects = rolePerms.canViewOnlyAssignedProjects
     ? (projects ?? []).filter((p) =>
@@ -2963,6 +2975,21 @@ export default function Home() {
                 }
                 currentUserId={user?.id ?? null}
                 canViewAttendance={!!rolePerms.canViewAttendance}
+                dashboardCanManageEmployees={!!rolePerms.canManageEmployees}
+                dashboardCanViewTeamClock={
+                  !!(
+                    rolePerms.canManageEmployees ||
+                    rolePerms.canViewTimeclock ||
+                    rolePerms.canManageTimeclock
+                  )
+                }
+                dashboardCanManageComplianceAlerts={
+                  !!(rolePerms.canManageForms || rolePerms.canManageEmployees)
+                }
+                dashboardCanViewLogistics={
+                  !!(rolePerms.canViewLogistics || rolePerms.canEditLogistics)
+                }
+                dashboardCriticalInventoryCount={criticalInventoryCount}
                 onQuickNewRfi={() => {
                   if (!perms.site) return;
                   const vp = visibleProjects ?? [];
@@ -3093,6 +3120,7 @@ export default function Home() {
             {activeSection === "employees" && !!perms.canAccessEmployees && (
               <EmployeesModule
                 companyId={companyId}
+                defaultPayCurrency={currency}
                 labels={t as Record<string, string>}
                 customRoles={customRoles}
                 projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
