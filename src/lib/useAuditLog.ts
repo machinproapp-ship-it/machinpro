@@ -40,7 +40,8 @@ export type AuditAction =
   | "annotation_deleted"
   | "rfi_created"
   | "rfi_submitted"
-  | "rfi_answered";
+  | "rfi_answered"
+  | "inspection_report_generated";
 
 export type AuditEntityType =
   | "photo"

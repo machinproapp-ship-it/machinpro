@@ -36,6 +36,8 @@ import {
   HardHat,
   Circle,
   FileQuestion,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
@@ -47,6 +49,7 @@ import {
   type PhotoReportPhotoSize,
   type PhotoReportSortBy,
 } from "@/lib/generatePhotoReport";
+import { generateInspectionReportPDF } from "@/lib/generateInspectionReportPDF";
 import BlueprintViewer from "@/components/BlueprintViewer";
 import { ProjectTimeclockSection } from "@/components/ProjectTimeclockSection";
 import type { ToolStatus, ResourceRequest } from "@/components/LogisticsModule";
@@ -222,6 +225,14 @@ export interface ProjectsModuleProps {
   /** Desde Central: abrir pestaña RFI del proyecto seleccionado */
   openRfiTabSignal?: number;
   showProjectRfiTab?: boolean;
+  /** Informe PDF de inspección (galería → Inspección). */
+  canManageProjectGallery?: boolean;
+  onInspectionReportGenerated?: (payload: {
+    projectId: string;
+    projectName: string;
+    photoCount: number;
+    reportTitle: string;
+  }) => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -445,6 +456,8 @@ export function ProjectsModule({
   showProjectVisitorsTab = true,
   openRfiTabSignal = 0,
   showProjectRfiTab = false,
+  canManageProjectGallery = false,
+  onInspectionReportGenerated,
 }: ProjectsModuleProps) {
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const lastVisitorNavSig = useRef(0);
@@ -543,6 +556,13 @@ export function ProjectsModule({
   const [pdfIncludeNotes, setPdfIncludeNotes] = useState(true);
   const [pdfApprovedOnly, setPdfApprovedOnly] = useState(true);
   const [pdfOrientation, setPdfOrientation] = useState<PhotoReportOrientation>("portrait");
+  const [gallerySubTab, setGallerySubTab] = useState<"browse" | "inspection">("browse");
+  const [inspectionReportOpen, setInspectionReportOpen] = useState(false);
+  const [inspectionReportTitle, setInspectionReportTitle] = useState("");
+  const [inspectionInspectorName, setInspectionInspectorName] = useState("");
+  const [inspectionIncluded, setInspectionIncluded] = useState<Record<string, boolean>>({});
+  const [inspectionOrderIds, setInspectionOrderIds] = useState<string[]>([]);
+  const [inspectionPdfBusy, setInspectionPdfBusy] = useState(false);
 
   const projectForms_filtered = (projectForms ?? []).filter(
     (f) => f.projectId === selectedProjectId
@@ -670,6 +690,16 @@ export function ProjectsModule({
     [projectPhotos, selectedProjectId, galleryCategoryFilter]
   );
 
+  const inspectionPhotosPool = useMemo(() => {
+    if (!selectedProjectId || !projectPhotos?.length) return [] as ProjectPhoto[];
+    return projectPhotos.filter(
+      (p) =>
+        p.project_id === selectedProjectId &&
+        p.photo_type === "obra" &&
+        (p.photo_category === "incident" || p.photo_category === "health_safety")
+    );
+  }, [projectPhotos, selectedProjectId]);
+
   const canGeneratePdf =
     pdfApprovedOnly
       ? pdfSourcePhotos.some((p) => p.status === "approved")
@@ -716,8 +746,113 @@ export function ProjectsModule({
     });
   }, []);
 
-  const canApprove = currentUserRole === "admin" || currentUserRole === "supervisor" || currentUserRole === "projectManager";
+  useEffect(() => {
+    if (activeTab !== "galeria") setGallerySubTab("browse");
+  }, [activeTab]);
 
+  const openInspectionReportModal = useCallback(() => {
+    if (!selectedProject) return;
+    const tl = t as Record<string, string>;
+    const pool = [...inspectionPhotosPool].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    setInspectionOrderIds(pool.map((p) => p.id));
+    setInspectionIncluded(Object.fromEntries(pool.map((p) => [p.id, true])));
+    const d = new Date().toLocaleDateString();
+    setInspectionReportTitle(`${tl.inspection_report ?? ""} — ${selectedProject.name} — ${d}`);
+    setInspectionInspectorName(currentUserDisplayName ?? "");
+    setInspectionReportOpen(true);
+  }, [selectedProject, inspectionPhotosPool, t, currentUserDisplayName]);
+
+  const runInspectionPdfDownload = useCallback(async () => {
+    if (!selectedProject) return;
+    const ordered = inspectionOrderIds.filter((id) => inspectionIncluded[id]);
+    const list: ProjectPhoto[] = [];
+    for (const id of ordered) {
+      const ph = inspectionPhotosPool.find((p) => p.id === id);
+      if (ph) list.push(ph);
+    }
+    if (list.length === 0) return;
+    setInspectionPdfBusy(true);
+    try {
+      const blob = await generateInspectionReportPDF({
+        photos: list,
+        projectName: selectedProject.name,
+        companyName: companyName ?? "",
+        companyLogoUrl: companyLogoUrl ?? undefined,
+        inspectorName: inspectionInspectorName.trim() || (currentUserDisplayName ?? ""),
+        reportTitle: inspectionReportTitle.trim() || (selectedProject.name ?? ""),
+        labels: t as Record<string, string>,
+        language,
+      });
+      const ymd = new Date().toISOString().slice(0, 10);
+      const slug =
+        selectedProject.name
+          .normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, "")
+          .slice(0, 48) || "Proyecto";
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `Inspeccion_${slug}_${ymd}.pdf`;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+      onInspectionReportGenerated?.({
+        projectId: selectedProject.id,
+        projectName: selectedProject.name,
+        photoCount: list.length,
+        reportTitle: inspectionReportTitle.trim() || selectedProject.name,
+      });
+      setInspectionReportOpen(false);
+    } finally {
+      setInspectionPdfBusy(false);
+    }
+  }, [
+    selectedProject,
+    inspectionOrderIds,
+    inspectionIncluded,
+    inspectionPhotosPool,
+    companyName,
+    companyLogoUrl,
+    inspectionInspectorName,
+    inspectionReportTitle,
+    currentUserDisplayName,
+    t,
+    language,
+    onInspectionReportGenerated,
+  ]);
+
+  const sortInspectionOrderByDate = useCallback(() => {
+    setInspectionOrderIds((prev) =>
+      [...prev].sort((a, b) => {
+        const ta = new Date(
+          inspectionPhotosPool.find((p) => p.id === a)?.created_at ?? 0
+        ).getTime();
+        const tb = new Date(
+          inspectionPhotosPool.find((p) => p.id === b)?.created_at ?? 0
+        ).getTime();
+        return ta - tb;
+      })
+    );
+  }, [inspectionPhotosPool]);
+
+  const moveInspectionOrder = useCallback((id: string, delta: number) => {
+    setInspectionOrderIds((prev) => {
+      const i = prev.indexOf(id);
+      if (i < 0) return prev;
+      const j = i + delta;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      const tmp = next[i]!;
+      next[i] = next[j]!;
+      next[j] = tmp;
+      return next;
+    });
+  }, []);
+
+  const canApprove = currentUserRole === "admin" || currentUserRole === "supervisor" || currentUserRole === "projectManager";
   const progress =
     selectedProject?.budgetCAD && selectedProject.budgetCAD > 0
       ? Math.min(100, Math.round(((selectedProject.spentCAD ?? 0) / selectedProject.budgetCAD) * 100))
@@ -1459,6 +1594,40 @@ export function ProjectsModule({
               className="hidden"
               onChange={handleGalleryPhotoChange}
             />
+            <div
+              className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-slate-700 pb-3"
+              role="tablist"
+              aria-label={(t as Record<string, string>).galleryTabBrowse ?? "Gallery"}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={gallerySubTab === "browse"}
+                onClick={() => setGallerySubTab("browse")}
+                className={`min-h-[44px] rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                  gallerySubTab === "browse"
+                    ? "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-slate-800"
+                }`}
+              >
+                {(t as Record<string, string>).galleryTabBrowse ?? "Gallery"}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={gallerySubTab === "inspection"}
+                onClick={() => setGallerySubTab("inspection")}
+                className={`min-h-[44px] rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                  gallerySubTab === "inspection"
+                    ? "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-slate-800"
+                }`}
+              >
+                {(t as Record<string, string>).galleryTabInspection ?? "Inspection"}
+              </button>
+            </div>
+            {gallerySubTab === "browse" && (
+            <>
             <div className="flex flex-wrap gap-2 items-stretch">
               <button
                 type="button"
@@ -1714,6 +1883,87 @@ export function ProjectsModule({
                 </div>
               )}
             </div>
+            </>
+            )}
+            {gallerySubTab === "inspection" && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 items-stretch">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      pendingUploadCategoryRef.current = null;
+                      if (selectedProjectId) setShowCategoryModal(true);
+                    }}
+                    disabled={!selectedProjectId}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 min-h-[44px] transition-colors hover:bg-amber-100 disabled:pointer-events-none disabled:opacity-50 dark:border-amber-600/60 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60 sm:w-auto sm:justify-start"
+                  >
+                    <Camera className="h-5 w-5 shrink-0" aria-hidden />
+                    {(t as Record<string, string>).uploadPhoto ?? "Subir foto"}
+                  </button>
+                  {canManageProjectGallery && inspectionPhotosPool.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={openInspectionReportModal}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-100 min-h-[44px] transition-colors hover:bg-zinc-50 dark:hover:bg-slate-800 sm:w-auto sm:justify-start"
+                    >
+                      <FileDown className="h-5 w-5 shrink-0" aria-hidden />
+                      {(t as Record<string, string>).inspection_report_generate ?? "Generate inspection report"}
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {(t as Record<string, string>).inspection_report_tab_hint ??
+                    "Incidents and H&S photos appear here. Managers can export a printable inspection PDF."}
+                </p>
+                {inspectionPhotosPool.length === 0 ? (
+                  <EmptyState
+                    icon={<HardHat className="h-8 w-8" />}
+                    text={
+                      (t as Record<string, string>).inspection_report_empty ??
+                      "No inspection photos yet. Upload as incident or health & safety."
+                    }
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {[...inspectionPhotosPool]
+                      .sort(
+                        (a, b) =>
+                          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                      )
+                      .map((ph) => (
+                        <button
+                          key={ph.id}
+                          type="button"
+                          onClick={() =>
+                            setLightbox({ src: ph.photo_url, fallback: ph.photo_url })
+                          }
+                          className="group relative aspect-square w-full overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-100 dark:bg-slate-800 text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                        >
+                          <img
+                            src={ph.photo_url}
+                            alt=""
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                          <span
+                            className={`absolute left-2 top-2 max-w-[calc(100%-1rem)] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${
+                              ph.photo_category === "incident"
+                                ? "bg-red-600/90 text-white"
+                                : "bg-blue-600/90 text-white"
+                            }`}
+                          >
+                            {getCategoryLabel(ph.photo_category, t as Record<string, string>)}
+                          </span>
+                          {ph.notes?.trim() ? (
+                            <span className="absolute bottom-0 inset-x-0 bg-black/55 px-2 py-1 text-[10px] leading-snug text-white line-clamp-2">
+                              {ph.notes.trim()}
+                            </span>
+                          ) : null}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -3108,6 +3358,198 @@ export function ProjectsModule({
                 className="flex-1 min-h-[44px] rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50 sm:flex-none"
               >
                 {(t as Record<string, string>).generatePDF ?? "Generate PDF"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {inspectionReportOpen && selectedProject && (
+        <>
+          <div
+            className="fixed inset-0 z-[66] bg-black/50 touch-none"
+            aria-hidden
+            onClick={() => {
+              if (!inspectionPdfBusy) setInspectionReportOpen(false);
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inspection-report-modal-title"
+            className="fixed z-[67] left-4 right-4 top-4 bottom-4 max-h-[min(92vh,820px)] overflow-y-auto rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl sm:left-1/2 sm:top-1/2 sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:bottom-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
+              <h2
+                id="inspection-report-modal-title"
+                className="text-base font-semibold text-zinc-900 dark:text-white pr-2"
+              >
+                {(t as Record<string, string>).inspection_report_generate ?? "Generate inspection report"}
+              </h2>
+              <button
+                type="button"
+                disabled={inspectionPdfBusy}
+                onClick={() => setInspectionReportOpen(false)}
+                className="rounded-lg p-2.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-50"
+                aria-label={t.cancel ?? "Close"}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-5 p-4 text-sm text-zinc-800 dark:text-zinc-200">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {(t as Record<string, string>).inspection_report_title ?? "Report title"}
+                </label>
+                <input
+                  type="text"
+                  value={inspectionReportTitle}
+                  onChange={(e) => setInspectionReportTitle(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 min-h-[44px] text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {(t as Record<string, string>).inspection_report_inspector ?? "Inspector"}
+                </label>
+                <input
+                  type="text"
+                  value={inspectionInspectorName}
+                  onChange={(e) => setInspectionInspectorName(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 min-h-[44px] text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={sortInspectionOrderByDate}
+                  className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+                >
+                  {(t as Record<string, string>).inspection_report_order ?? "Sort by date"}
+                </button>
+              </div>
+              <div>
+                <p className="mb-2 font-medium text-zinc-900 dark:text-white">
+                  {(t as Record<string, string>).inspection_report_select_photos ?? "Select photos"}
+                </p>
+                <ul className="space-y-2">
+                  {inspectionOrderIds.map((id) => {
+                    const ph = inspectionPhotosPool.find((p) => p.id === id);
+                    if (!ph) return null;
+                    const idx = inspectionOrderIds.indexOf(id);
+                    return (
+                      <li
+                        key={id}
+                        className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/50 p-2"
+                      >
+                        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 sm:min-w-[200px]">
+                          <input
+                            type="checkbox"
+                            checked={inspectionIncluded[id] !== false}
+                            onChange={(e) =>
+                              setInspectionIncluded((prev) => ({
+                                ...prev,
+                                [id]: e.target.checked,
+                              }))
+                            }
+                            className="h-4 w-4 shrink-0 rounded border-zinc-300 text-amber-600"
+                          />
+                          <img
+                            src={ph.photo_url}
+                            alt=""
+                            className="h-12 w-12 shrink-0 rounded-lg object-cover border border-zinc-200 dark:border-slate-600"
+                          />
+                          <span className="min-w-0 flex-1 text-xs text-zinc-700 dark:text-zinc-300">
+                            <span className="font-medium text-zinc-900 dark:text-white">#{idx + 1}</span>
+                            {" · "}
+                            {new Date(ph.created_at).toLocaleString()}
+                            {ph.notes?.trim() ? ` · ${ph.notes.trim().slice(0, 80)}${ph.notes.length > 80 ? "…" : ""}` : ""}
+                          </span>
+                        </label>
+                        <div className="ml-auto flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveInspectionOrder(id, -1)}
+                            disabled={idx === 0}
+                            className="rounded-lg p-2.5 text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-40"
+                            aria-label={
+                              (t as Record<string, string>).inspection_report_move_up ?? "Move up"
+                            }
+                          >
+                            <ChevronUp className="h-5 w-5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveInspectionOrder(id, 1)}
+                            disabled={idx >= inspectionOrderIds.length - 1}
+                            className="rounded-lg p-2.5 text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-40"
+                            aria-label={
+                              (t as Record<string, string>).inspection_report_move_down ?? "Move down"
+                            }
+                          >
+                            <ChevronDown className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              <div>
+                <p className="mb-2 font-medium text-zinc-900 dark:text-white">
+                  {(t as Record<string, string>).inspection_report_preview ?? "Order preview"}
+                </p>
+                <HorizontalScrollFade>
+                  <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
+                    {inspectionOrderIds
+                      .filter((i) => inspectionIncluded[i] !== false)
+                      .map((id, n) => {
+                        const ph = inspectionPhotosPool.find((p) => p.id === id);
+                        if (!ph) return null;
+                        return (
+                          <div
+                            key={id}
+                            className="w-24 shrink-0 text-center"
+                          >
+                            <div className="relative aspect-square overflow-hidden rounded-lg border border-zinc-200 dark:border-slate-600">
+                              <img
+                                src={ph.photo_url}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                              <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                {n + 1}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </HorizontalScrollFade>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex flex-wrap gap-2 border-t border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+              <button
+                type="button"
+                disabled={inspectionPdfBusy}
+                onClick={() => setInspectionReportOpen(false)}
+                className="flex-1 min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:flex-none"
+              >
+                {t.cancel ?? "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={
+                  inspectionPdfBusy ||
+                  !inspectionOrderIds.some((id) => inspectionIncluded[id] !== false)
+                }
+                onClick={() => void runInspectionPdfDownload()}
+                className="flex-1 min-h-[44px] rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50 sm:flex-none"
+              >
+                {inspectionPdfBusy
+                  ? ((t as Record<string, string>).inspection_report_working ?? "…")
+                  : (t as Record<string, string>).inspection_report_generate_pdf ?? "Generate PDF"}
               </button>
             </div>
           </div>

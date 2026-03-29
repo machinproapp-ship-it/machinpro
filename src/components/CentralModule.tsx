@@ -838,6 +838,8 @@ export function CentralModule({
                         <Users className="h-4 w-4 text-blue-600" aria-hidden />
                       ) : row.action.startsWith("document_") ? (
                         <FileText className="h-4 w-4 text-zinc-600" aria-hidden />
+                      ) : row.action === "inspection_report_generated" ? (
+                        <FileText className="h-4 w-4 text-amber-600" aria-hidden />
                       ) : (
                         <Shield className="h-4 w-4 text-zinc-500" aria-hidden />
                       );

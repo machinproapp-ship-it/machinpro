@@ -4095,6 +4095,22 @@ export default function Home() {
                 openRfiTabSignal={projectsOpenRfiSig}
                 showProjectRfiTab={!!rolePerms.canViewProjectRFI}
                 showProjectVisitorsTab={!!rolePerms.canViewProjectVisitors}
+                canManageProjectGallery={!!rolePerms.canManageProjectGallery}
+                onInspectionReportGenerated={(payload) => {
+                  void logAuditEvent({
+                    company_id: companyId ?? "",
+                    user_id: user?.id ?? "",
+                    user_name: profile?.fullName ?? profile?.email ?? "admin",
+                    action: "inspection_report_generated",
+                    entity_type: "project",
+                    entity_id: payload.projectId,
+                    entity_name: payload.projectName,
+                    new_value: {
+                      photo_count: payload.photoCount,
+                      report_title: payload.reportTitle,
+                    },
+                  });
+                }}
                 onCreateForm={(projectId, form) => {
                   const newForm = {
                     ...form,
