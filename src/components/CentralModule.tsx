@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
-import { Users, Briefcase, HardHat, ChevronRight, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound } from 'lucide-react';
+import { Users, Briefcase, HardHat, ChevronRight, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound, Download } from 'lucide-react';
 import type { CustomRole, RolePermissions } from '@/types/roles';
 import {
   ROLE_PERMISSION_KEYS,
@@ -832,7 +832,9 @@ export function CentralModule({
                       timeStyle: "short",
                     });
                     const actionIcon =
-                      row.action.startsWith("photo_") ? (
+                      row.action === "photo_downloaded" || row.action === "photos_bulk_downloaded" ? (
+                        <Download className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden />
+                      ) : row.action.startsWith("photo_") ? (
                         <Camera className="h-4 w-4 text-amber-600" aria-hidden />
                       ) : row.action.startsWith("employee_") ? (
                         <Users className="h-4 w-4 text-blue-600" aria-hidden />

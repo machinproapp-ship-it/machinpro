@@ -41,7 +41,9 @@ export type AuditAction =
   | "rfi_created"
   | "rfi_submitted"
   | "rfi_answered"
-  | "inspection_report_generated";
+  | "inspection_report_generated"
+  | "photo_downloaded"
+  | "photos_bulk_downloaded";
 
 export type AuditEntityType =
   | "photo"

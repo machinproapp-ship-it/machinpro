@@ -9,7 +9,7 @@ export type ProjectPhoto = {
   photo_url: string;
   photo_category: "progress" | "incident" | "health_safety";
   photo_type: "obra" | "inventario";
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "inspection";
   notes?: string;
   submitted_by_employee_id?: string;
   submitted_by_name?: string;

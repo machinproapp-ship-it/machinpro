@@ -591,6 +591,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewProjectTeam: true,
       canViewProjectInventory: true,
       canViewProjectGallery: true,
+      canUploadPhotos: true,
       canViewProjectBlueprints: true,
       canManageProjectBlueprints: true,
       canViewProjectForms: true,
@@ -622,6 +623,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewProjectTeam: true,
       canViewProjectInventory: true,
       canViewProjectGallery: true,
+      canUploadPhotos: true,
       canViewProjectForms: true,
       canViewSettings: true,
       canViewBinders: true,
@@ -4109,6 +4111,31 @@ export default function Home() {
                       photo_count: payload.photoCount,
                       report_title: payload.reportTitle,
                     },
+                  });
+                }}
+                canUploadPhotos={!!rolePerms.canUploadPhotos}
+                onGalleryPhotoDownloaded={(payload) => {
+                  void logAuditEvent({
+                    company_id: companyId ?? "",
+                    user_id: user?.id ?? "",
+                    user_name: profile?.fullName ?? profile?.email ?? "admin",
+                    action: "photo_downloaded",
+                    entity_type: "photo",
+                    entity_id: payload.photoId,
+                    entity_name: payload.projectName,
+                    new_value: { project_id: payload.projectId },
+                  });
+                }}
+                onGalleryPhotosBulkDownloaded={(payload) => {
+                  void logAuditEvent({
+                    company_id: companyId ?? "",
+                    user_id: user?.id ?? "",
+                    user_name: profile?.fullName ?? profile?.email ?? "admin",
+                    action: "photos_bulk_downloaded",
+                    entity_type: "project",
+                    entity_id: payload.projectId,
+                    entity_name: payload.projectName,
+                    new_value: { photo_count: payload.count },
                   });
                 }}
                 onCreateForm={(projectId, form) => {

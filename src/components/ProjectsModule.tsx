@@ -38,6 +38,7 @@ import {
   FileQuestion,
   ChevronUp,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
@@ -63,6 +64,11 @@ import { generateSafetyChecklistPdf } from "@/lib/generateSafetyChecklistReport"
 import { DailyFieldReportView } from "@/components/DailyFieldReportView";
 import { formatReportDate } from "@/lib/dailyReportFormat";
 import { VisitorModule } from "@/components/VisitorModule";
+import {
+  downloadImageUrlAsFile,
+  galleryPhotoFilename,
+  formatGalleryDownloadProgress,
+} from "@/lib/galleryPhotoDownload";
 
 export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 
@@ -102,7 +108,7 @@ export interface ProjectDiaryEntry {
   createdAt: string;
   photoType?: PhotoType;
   photoCategory?: PhotoCategory;
-  status?: "pending" | "approved" | "accepted" | "rejected";
+  status?: "pending" | "approved" | "accepted" | "rejected" | "inspection";
   submittedByEmployeeId?: string;
   submittedByName?: string;
   projectName?: string;
@@ -233,6 +239,18 @@ export interface ProjectsModuleProps {
     photoCount: number;
     reportTitle: string;
   }) => void;
+  /** Descarga de fotos aprobadas / inspección (fetch + blob). */
+  canUploadPhotos?: boolean;
+  onGalleryPhotoDownloaded?: (payload: {
+    photoId: string;
+    projectId: string;
+    projectName: string;
+  }) => void;
+  onGalleryPhotosBulkDownloaded?: (payload: {
+    projectId: string;
+    projectName: string;
+    count: number;
+  }) => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -316,6 +334,10 @@ function getCategoryLabel(cat: string, tl: Record<string, string>): string {
   if (cat === "incident") return tl.photoIncident ?? "Incidencia";
   if (cat === "health_safety") return tl.photoHealthSafety ?? "H&S";
   return cat;
+}
+
+function isGalleryDownloadableStatus(status?: string): boolean {
+  return status === "approved" || status === "accepted" || status === "inspection";
 }
 
 function PhotoStatusBadge({ status, labels }: { status?: string; labels: Record<string, string> }) {
@@ -458,6 +480,9 @@ export function ProjectsModule({
   showProjectRfiTab = false,
   canManageProjectGallery = false,
   onInspectionReportGenerated,
+  canUploadPhotos = false,
+  onGalleryPhotoDownloaded,
+  onGalleryPhotosBulkDownloaded,
 }: ProjectsModuleProps) {
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const lastVisitorNavSig = useRef(0);
@@ -563,6 +588,11 @@ export function ProjectsModule({
   const [inspectionIncluded, setInspectionIncluded] = useState<Record<string, boolean>>({});
   const [inspectionOrderIds, setInspectionOrderIds] = useState<string[]>([]);
   const [inspectionPdfBusy, setInspectionPdfBusy] = useState(false);
+  const [galleryBulkProgress, setGalleryBulkProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [galleryXferBanner, setGalleryXferBanner] = useState<string | null>(null);
 
   const projectForms_filtered = (projectForms ?? []).filter(
     (f) => f.projectId === selectedProjectId
@@ -665,7 +695,10 @@ export function ProjectsModule({
   const obraPhotos = projectDiary.filter((e) => e.photoType === "obra" || !e.photoType);
   const invPhotos = projectDiary.filter((e) => e.photoType === "inventario");
   const approvedObraPhotos = obraPhotos.filter(
-    (e) => e.status === "approved" || e.status === "accepted"
+    (e) =>
+      e.status === "approved" ||
+      e.status === "accepted" ||
+      e.status === "inspection"
   );
   const pendingObraPhotos = obraPhotos.filter((e) => e.status === "pending");
   const filteredObraPhotos =
@@ -678,6 +711,111 @@ export function ProjectsModule({
   const filteredApprovedObra = approvedObraPhotos.filter(
     (e) => galleryCategoryFilter === "all" || (e.photoCategory ?? "progress") === galleryCategoryFilter
   );
+
+  const canUserDownloadThisGalleryPhoto = useCallback(
+    (submittedByEmployeeId?: string | null) => {
+      if (canManageProjectGallery) return true;
+      if (!canUploadPhotos) return false;
+      if (!currentUserEmployeeId) return false;
+      return submittedByEmployeeId === currentUserEmployeeId;
+    },
+    [canManageProjectGallery, canUploadPhotos, currentUserEmployeeId]
+  );
+
+  const downloadDiaryPhoto = useCallback(
+    async (entry: ProjectDiaryEntry) => {
+      if (!selectedProject) return;
+      const url = entry.photoUrls[0];
+      if (!url || !isGalleryDownloadableStatus(entry.status)) return;
+      if (!canUserDownloadThisGalleryPhoto(entry.submittedByEmployeeId)) return;
+      const tl = t as Record<string, string>;
+      try {
+        const fn = galleryPhotoFilename(selectedProject.name, entry.createdAt, entry.id, url);
+        await downloadImageUrlAsFile(url, fn);
+        onGalleryPhotoDownloaded?.({
+          photoId: entry.id,
+          projectId: selectedProject.id,
+          projectName: selectedProject.name,
+        });
+      } catch {
+        setGalleryXferBanner(tl.gallery_download_error ?? "Download error");
+      }
+    },
+    [selectedProject, canUserDownloadThisGalleryPhoto, t, onGalleryPhotoDownloaded]
+  );
+
+  const downloadProjectPhotoRow = useCallback(
+    async (ph: ProjectPhoto) => {
+      if (!selectedProject) return;
+      if (!isGalleryDownloadableStatus(ph.status)) return;
+      if (!canUserDownloadThisGalleryPhoto(ph.submitted_by_employee_id ?? null)) return;
+      const tl = t as Record<string, string>;
+      try {
+        const fn = galleryPhotoFilename(selectedProject.name, ph.created_at, ph.id, ph.photo_url);
+        await downloadImageUrlAsFile(ph.photo_url, fn);
+        onGalleryPhotoDownloaded?.({
+          photoId: ph.id,
+          projectId: selectedProject.id,
+          projectName: selectedProject.name,
+        });
+      } catch {
+        setGalleryXferBanner(tl.gallery_download_error ?? "Download error");
+      }
+    },
+    [selectedProject, canUserDownloadThisGalleryPhoto, t, onGalleryPhotoDownloaded]
+  );
+
+  const runBulkApprovedGalleryDownload = useCallback(async () => {
+    if (!selectedProject || !canManageProjectGallery) return;
+    const tl = t as Record<string, string>;
+    const list = filteredApprovedObra.filter(
+      (e) => isGalleryDownloadableStatus(e.status) && e.photoUrls[0]
+    );
+    const total = list.length;
+    if (total === 0) return;
+    setGalleryBulkProgress({ current: 0, total });
+    setGalleryXferBanner(tl.gallery_downloading ?? "");
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const entry = list[i]!;
+        const url = entry.photoUrls[0]!;
+        const fn = galleryPhotoFilename(selectedProject.name, entry.createdAt, entry.id, url);
+        await downloadImageUrlAsFile(url, fn);
+        const cur = i + 1;
+        setGalleryBulkProgress({ current: cur, total });
+        setGalleryXferBanner(
+          formatGalleryDownloadProgress(
+            tl.gallery_download_progress ?? "Downloading {current} of {total}",
+            cur,
+            total
+          )
+        );
+        await new Promise<void>((r) => window.setTimeout(r, 400));
+      }
+      onGalleryPhotosBulkDownloaded?.({
+        projectId: selectedProject.id,
+        projectName: selectedProject.name,
+        count: total,
+      });
+      setGalleryXferBanner(tl.gallery_download_complete ?? "");
+    } catch {
+      setGalleryXferBanner(tl.gallery_download_error ?? "");
+    } finally {
+      setGalleryBulkProgress(null);
+    }
+  }, [
+    selectedProject,
+    canManageProjectGallery,
+    filteredApprovedObra,
+    t,
+    onGalleryPhotosBulkDownloaded,
+  ]);
+
+  useEffect(() => {
+    if (!galleryXferBanner) return;
+    const id = window.setTimeout(() => setGalleryXferBanner(null), 4500);
+    return () => window.clearTimeout(id);
+  }, [galleryXferBanner]);
 
   const pdfSourcePhotos = useMemo(
     () =>
@@ -1626,6 +1764,15 @@ export function ProjectsModule({
                 {(t as Record<string, string>).galleryTabInspection ?? "Inspection"}
               </button>
             </div>
+            {galleryXferBanner ? (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-100"
+                role="status"
+                aria-live="polite"
+              >
+                {galleryXferBanner}
+              </div>
+            ) : null}
             {gallerySubTab === "browse" && (
             <>
             <div className="flex flex-wrap gap-2 items-stretch">
@@ -1841,8 +1988,9 @@ export function ProjectsModule({
 
             {/* Fotos aprobadas */}
             <div>
-                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                   {t.approvedProgressTitle ?? "Avance de obra aprobado"}
                   <span className="text-xs text-zinc-400 font-normal">
                     ({filteredApprovedObra.length}{" "}
@@ -1852,6 +2000,21 @@ export function ProjectsModule({
                     )
                   </span>
                 </h3>
+                {canManageProjectGallery &&
+                  filteredApprovedObra.some(
+                    (e) => isGalleryDownloadableStatus(e.status) && !!e.photoUrls[0]
+                  ) && (
+                    <button
+                      type="button"
+                      disabled={galleryBulkProgress !== null}
+                      onClick={() => void runBulkApprovedGalleryDownload()}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-50 motion-safe:transition-colors dark:border-zinc-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                    >
+                      <Download className="h-5 w-5 shrink-0" aria-hidden />
+                      {(t as Record<string, string>).gallery_download_all ?? "Download all"}
+                    </button>
+                  )}
+              </div>
               {filteredApprovedObra.length === 0 ? (
                 <EmptyState
                   icon={<ImageIcon className="h-8 w-8" />}
@@ -1859,27 +2022,47 @@ export function ProjectsModule({
                 />
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {filteredApprovedObra.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="rounded-lg overflow-hidden border border-gray-200"
-                    >
-                      <img
-                        src={entry.photoUrls[0]}
-                        alt="foto aprobada"
-                        className="w-full h-40 object-cover"
-                      />
-                      <div className="p-2 bg-white">
-                        <span className="text-xs font-medium">
-                          {getCategoryLabel(entry.photoCategory ?? "progress", t as Record<string, string>)}
-                        </span>
-                        <p className="text-xs text-gray-500">{entry.submittedByName}</p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(entry.createdAt).toLocaleDateString("es-ES")}
-                        </p>
+                  {filteredApprovedObra.map((entry) => {
+                    const showDl =
+                      selectedProject &&
+                      isGalleryDownloadableStatus(entry.status) &&
+                      canUserDownloadThisGalleryPhoto(entry.submittedByEmployeeId);
+                    return (
+                      <div
+                        key={entry.id}
+                        className="rounded-lg overflow-hidden border border-gray-200 dark:border-slate-600"
+                      >
+                        <div className="relative">
+                          <img
+                            src={entry.photoUrls[0]}
+                            alt=""
+                            className="w-full h-40 object-cover"
+                          />
+                          {showDl ? (
+                            <button
+                              type="button"
+                              onClick={() => void downloadDiaryPhoto(entry)}
+                              className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
+                              aria-label={
+                                (t as Record<string, string>).gallery_download ?? "Download photo"
+                              }
+                            >
+                              <Download className="h-5 w-5 shrink-0" aria-hidden />
+                            </button>
+                          ) : null}
+                        </div>
+                        <div className="p-2 bg-white dark:bg-slate-900">
+                          <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                            {getCategoryLabel(entry.photoCategory ?? "progress", t as Record<string, string>)}
+                          </span>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{entry.submittedByName}</p>
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                            {new Date(entry.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1930,36 +2113,63 @@ export function ProjectsModule({
                         (a, b) =>
                           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                       )
-                      .map((ph) => (
-                        <button
-                          key={ph.id}
-                          type="button"
-                          onClick={() =>
-                            setLightbox({ src: ph.photo_url, fallback: ph.photo_url })
-                          }
-                          className="group relative aspect-square w-full overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-100 dark:bg-slate-800 text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
-                        >
-                          <img
-                            src={ph.photo_url}
-                            alt=""
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                          />
-                          <span
-                            className={`absolute left-2 top-2 max-w-[calc(100%-1rem)] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${
-                              ph.photo_category === "incident"
-                                ? "bg-red-600/90 text-white"
-                                : "bg-blue-600/90 text-white"
-                            }`}
+                      .map((ph) => {
+                        const showDl =
+                          !!selectedProject &&
+                          isGalleryDownloadableStatus(ph.status) &&
+                          canUserDownloadThisGalleryPhoto(ph.submitted_by_employee_id ?? null);
+                        return (
+                          <div
+                            key={ph.id}
+                            className="group relative aspect-square w-full overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-100 dark:bg-slate-800"
                           >
-                            {getCategoryLabel(ph.photo_category, t as Record<string, string>)}
-                          </span>
-                          {ph.notes?.trim() ? (
-                            <span className="absolute bottom-0 inset-x-0 bg-black/55 px-2 py-1 text-[10px] leading-snug text-white line-clamp-2">
-                              {ph.notes.trim()}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLightbox({ src: ph.photo_url, fallback: ph.photo_url })
+                              }
+                              className="absolute inset-0 z-0 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                              aria-label={
+                                (t as Record<string, string>).gallery_view_photo ?? "View photo"
+                              }
+                            />
+                            <img
+                              src={ph.photo_url}
+                              alt=""
+                              className="pointer-events-none h-full w-full object-cover transition-transform group-hover:scale-105"
+                            />
+                            <span
+                              className={`pointer-events-none absolute left-2 top-2 z-[1] max-w-[calc(100%-1rem)] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${
+                                ph.photo_category === "incident"
+                                  ? "bg-red-600/90 text-white"
+                                  : "bg-blue-600/90 text-white"
+                              }`}
+                            >
+                              {getCategoryLabel(ph.photo_category, t as Record<string, string>)}
                             </span>
-                          ) : null}
-                        </button>
-                      ))}
+                            {ph.notes?.trim() ? (
+                              <span className="pointer-events-none absolute bottom-0 inset-x-0 z-[1] bg-black/55 px-2 py-1 text-[10px] leading-snug text-white line-clamp-2">
+                                {ph.notes.trim()}
+                              </span>
+                            ) : null}
+                            {showDl ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void downloadProjectPhotoRow(ph);
+                                }}
+                                className="absolute right-1 top-1 z-10 flex h-11 w-11 items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
+                                aria-label={
+                                  (t as Record<string, string>).gallery_download ?? "Download photo"
+                                }
+                              >
+                                <Download className="h-5 w-5 shrink-0" aria-hidden />
+                              </button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
               </div>

@@ -33,6 +33,8 @@ export interface RolePermissions {
   canViewProjectRFI: boolean;
   canManageProjectForms: boolean;
   canManageProjectGallery: boolean;
+  /** Subir fotos de obra / descargar sus propias fotos aprobadas en galería. */
+  canUploadPhotos: boolean;
   canManageProjectBlueprints: boolean;
   canManageProjectRFI: boolean;
   canManageProjectVisitors: boolean;
@@ -119,6 +121,7 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewProjectRFI",
   "canManageProjectForms",
   "canManageProjectGallery",
+  "canUploadPhotos",
   "canManageProjectBlueprints",
   "canManageProjectRFI",
   "canManageProjectVisitors",
@@ -204,6 +207,7 @@ export const ROLE_PERMISSION_GROUPS: {
       "canViewProjectRFI",
       "canManageProjectForms",
       "canManageProjectGallery",
+      "canUploadPhotos",
       "canManageProjectBlueprints",
       "canManageProjectRFI",
       "canManageProjectVisitors",
@@ -297,6 +301,7 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewProjectRFI: "Ver pestaña RFI del proyecto",
   canManageProjectForms: "Gestionar formularios y partes diarios",
   canManageProjectGallery: "Gestionar galería (subir/aprobar fotos)",
+  canUploadPhotos: "Subir fotos de obra y descargar sus fotos aprobadas",
   canManageProjectBlueprints: "Gestionar planos",
   canManageProjectRFI: "Gestionar RFI",
   canManageProjectVisitors: "Gestionar visitantes y QR",

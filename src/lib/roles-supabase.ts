@@ -98,6 +98,12 @@ export function mergeRolePermissions(raw: unknown): RolePermissions {
     if (typeof o[k as string] === "boolean") acc[k] = o[k as string] as boolean;
   }
   applyLegacyPermissionFields(acc, o);
+  if (
+    !Object.prototype.hasOwnProperty.call(o, "canUploadPhotos") &&
+    acc.canViewProjectGallery
+  ) {
+    acc.canUploadPhotos = true;
+  }
   return acc as RolePermissions;
 }
 
