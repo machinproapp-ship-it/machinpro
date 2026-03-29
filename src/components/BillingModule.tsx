@@ -53,9 +53,9 @@ function planDisplayName(t: Record<string, string>, plan: string | undefined): s
   const legacy: Record<string, string> = {
     trial: lx.pricing_plan_trial ?? lx.subscription_status_trialing ?? "Trial",
     starter: lx.pricing_foundation ?? "Foundation",
-    pro: lx.pricing_obras ?? "Obras",
+    pro: lx.pricing_obras ?? "Operations",
     enterprise: lx.pricing_todo_incluido ?? "Todo Incluido",
-    professional: lx.pricing_obras ?? "Obras",
+    professional: lx.pricing_obras ?? "Operations",
   };
   return legacy[plan] ?? plan;
 }

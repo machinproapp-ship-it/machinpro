@@ -269,7 +269,6 @@ export default function LandingPage() {
   const comingSoonCards = useMemo(
     () =>
       [
-        { emoji: "🤖", titleKey: "landing_coming_soon_ai", descKey: "landing_coming_soon_ai_desc" },
         { emoji: "📱", titleKey: "landing_coming_soon_app", descKey: "landing_coming_soon_app_desc" },
         {
           emoji: "🔗",

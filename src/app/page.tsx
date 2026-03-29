@@ -980,20 +980,58 @@ export default function Home() {
   });
   const [companyName, setCompanyName] = useState<string>("");
   const [logoUrl, setLogoUrl] = useState<string>("");
+  const ONBOARDING_LS_KEY = "machinpro_onboarding_complete";
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
-      return localStorage.getItem("machinpro_onboarding_complete") === "1";
+      const v = localStorage.getItem(ONBOARDING_LS_KEY);
+      return v === "true" || v === "1";
     } catch {
       return false;
     }
   });
-  const completeOnboarding = useCallback(() => {
+
+  useEffect(() => {
+    if (!supabase || !companyId || !session) return;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("onboarding_complete")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (error || !data) return;
+      const row = data as { onboarding_complete?: boolean | null };
+      if (row.onboarding_complete === true) {
+        try {
+          localStorage.setItem(ONBOARDING_LS_KEY, "true");
+        } catch {
+          /* ignore */
+        }
+        setOnboardingComplete(true);
+      }
+    })();
+  }, [supabase, companyId, session]);
+
+  const completeOnboarding = useCallback(async () => {
     setOnboardingComplete(true);
     try {
-      localStorage.setItem("machinpro_onboarding_complete", "1");
-    } catch {}
-  }, []);
+      localStorage.setItem(ONBOARDING_LS_KEY, "true");
+    } catch {
+      /* ignore */
+    }
+    const token = session?.access_token;
+    if (token && companyId) {
+      try {
+        await fetch("/api/onboarding/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ companyId }),
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [session?.access_token, companyId]);
 
   const handleLogoUpload = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -3182,12 +3220,33 @@ export default function Home() {
       {session && effectiveRole === "admin" && !onboardingComplete && (
         <OnboardingModal
           onComplete={completeOnboarding}
-          onGoToSettings={() => {
-            completeOnboarding();
-            setActiveSection("settings");
-          }}
           labels={t}
-          companyName={companyName}
+          session={session}
+          companyId={companyId}
+          language={language}
+          companyName={companyName || profile?.companyName || ""}
+          companyCountry={companyCountry}
+          currency={currency}
+          measurementSystem={measurementSystem}
+          logoUrl={logoUrl}
+          customRoles={customRoles}
+          onCompanyNameChange={setCompanyName}
+          onCountryChange={(country, defaults) => {
+            setCompanyCountry(country);
+            if (defaults) {
+              setCurrency(defaults.currency as Currency);
+              setMeasurementSystem(defaults.measurementSystem);
+            }
+            const defaultFields = getDefaultComplianceFields(country);
+            setComplianceFields((prev) => [...defaultFields, ...prev.filter((f) => !f.isDefault)]);
+          }}
+          onCurrencyChange={(c) => setCurrency(c)}
+          onMeasurementSystemChange={setMeasurementSystem}
+          onLogoUrlChange={setLogoUrl}
+          onLogoUpload={handleLogoUpload}
+          onProjectCreated={(row) => {
+            setProjects((prev) => [...prev, row as Project]);
+          }}
         />
       )}
       <div className="flex min-w-0">
@@ -4349,6 +4408,18 @@ export default function Home() {
                 profileSaveBusy={profileSaveBusy}
                 onRequestPasswordReset={() => void handleRequestPasswordReset()}
                 passwordResetBusy={passwordResetBusy}
+                onReopenOnboarding={
+                  effectiveRole === "admin"
+                    ? () => {
+                        try {
+                          localStorage.removeItem("machinpro_onboarding_complete");
+                        } catch {
+                          /* ignore */
+                        }
+                        setOnboardingComplete(false);
+                      }
+                    : undefined
+                }
               />
             )}
 

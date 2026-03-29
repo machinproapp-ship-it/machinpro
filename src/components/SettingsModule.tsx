@@ -122,6 +122,8 @@ export interface SettingsModuleProps {
   profileSaveBusy?: boolean;
   onRequestPasswordReset?: () => void | Promise<void>;
   passwordResetBusy?: boolean;
+  /** Admin: volver a mostrar el asistente de configuración inicial */
+  onReopenOnboarding?: () => void;
 }
 
 export function SettingsModule({
@@ -160,6 +162,7 @@ export function SettingsModule({
   profileSaveBusy = false,
   onRequestPasswordReset,
   passwordResetBusy = false,
+  onReopenOnboarding,
 }: SettingsModuleProps) {
   const { showToast } = useToast();
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
@@ -384,6 +387,18 @@ export function SettingsModule({
               <option value="imperial">{t.settingsImperial ?? "Imperial"}</option>
             </select>
           </div>
+
+          {onReopenOnboarding ? (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onReopenOnboarding}
+                className="w-full max-w-md min-h-[44px] rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-950 hover:bg-amber-100 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-900/40 sm:w-auto"
+              >
+                {(t as Record<string, string>).onboarding_reopen ?? ""}
+              </button>
+            </div>
+          ) : null}
 
           {session && onSignOut && (
             <div className="pt-4 border-t border-zinc-200 dark:border-slate-700">

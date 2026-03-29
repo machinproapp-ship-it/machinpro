@@ -68,6 +68,37 @@ export async function verifyCanManageEmployees(
   return null;
 }
 
+/** Empresa coincidente y perfil con rol `admin` (configuración inicial / onboarding). */
+export async function verifyCompanyAdmin(
+  req: NextRequest,
+  companyId: string
+): Promise<{ userId: string } | null> {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!token || !companyId) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  const supabase = createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin
+    .from("user_profiles")
+    .select("company_id, role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const row = data as { company_id?: string | null; role?: string | null } | null;
+  if (!row || row.company_id !== companyId) return null;
+  if (row.role !== "admin") return null;
+  return { userId: user.id };
+}
+
 /** Misma empresa + permiso de gestionar roles (personalización del dashboard Central). */
 export async function verifyCanManageRoles(
   req: NextRequest,

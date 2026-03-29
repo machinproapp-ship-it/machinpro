@@ -16,7 +16,7 @@ function planEmailLabel(plan: InvitationPlan): string {
     case "foundation":
       return "Foundation";
     case "obras":
-      return "Obras";
+      return "Operations";
     case "horarios":
       return "Horarios";
     case "logistica":
