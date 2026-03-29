@@ -25,6 +25,7 @@ import {
   Search,
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/app/page";
+import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
@@ -233,6 +234,17 @@ function daysUntilExpiry(expiryDate: string): number {
   today.setHours(0, 0, 0, 0);
   expiry.setHours(0, 0, 0, 0);
   return Math.ceil((expiry.getTime() - today.getTime()) / 86_400_000);
+}
+
+function vehicleComplianceFieldLabel(field: ComplianceField, tl: Record<string, string>): string {
+  const m: Record<string, string> = {
+    "cf-liability": "compliance_field_liability_insurance",
+    "cf-compliance": "compliance_field_provincial_compliance",
+    "cf-vehicle-inspection": "compliance_field_safety_inspection",
+    "cf-vehicle-insurance": "compliance_field_vehicle_insurance",
+  };
+  const key = m[field.id];
+  return key ? (tl[key] ?? field.name) : field.name;
 }
 
 function getVehicleComplianceStatusBadge(record: ComplianceRecord | undefined, labels: Record<string, string>): React.ReactNode {
@@ -561,25 +573,29 @@ export function LogisticsModule({
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-6">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{t.warehouse}</h2>
 
-      <div
-        className="flex overflow-x-auto scrollbar-hide gap-1 border-b border-zinc-200 dark:border-zinc-700 pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
-        role="tablist"
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            onClick={() => setWarehouseSubTab(tab.id)}
-            className={`shrink-0 min-h-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow text-blue-600 dark:text-blue-400" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
+      <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0">
+        <HorizontalScrollFade>
+          <div
+            className="flex overflow-x-auto scrollbar-hide gap-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
+            role="tablist"
           >
-            {tab.icon}
-            {tab.label}
-            {tab.badge != null && tab.badge > 0 && (
-              <span className="ml-1.5 rounded-full bg-red-500 text-white text-xs px-1.5 py-0.5 font-medium">{tab.badge}</span>
-            )}
-          </button>
-        ))}
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                onClick={() => setWarehouseSubTab(tab.id)}
+                className={`shrink-0 min-h-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow text-blue-600 dark:text-blue-400" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
+              >
+                {tab.icon}
+                {tab.label}
+                {tab.badge != null && tab.badge > 0 && (
+                  <span className="ml-1.5 rounded-full bg-red-500 text-white text-xs px-1.5 py-0.5 font-medium">{tab.badge}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </HorizontalScrollFade>
       </div>
 
       {warehouseSubTab === "inventory" && (
@@ -1379,6 +1395,29 @@ export function LogisticsModule({
                         {((t as Record<string, string>).maintenanceInDays ?? "Mantenimiento en {n} días").replace("{n}", String(daysUntil))}
                       </span>
                     )}
+                    {(complianceFields ?? []).filter((f) => f.target.includes("vehicle")).length > 0 ? (
+                      <div className="col-span-2 flex flex-wrap gap-2 pt-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 w-full">
+                          {(t as Record<string, string>).settingsCompliance ?? t.compliance ?? ""}
+                        </span>
+                        {(complianceFields ?? [])
+                          .filter((f) => f.target.includes("vehicle"))
+                          .map((field) => {
+                            const record = (complianceRecords ?? []).find(
+                              (r) => r.fieldId === field.id && r.targetType === "vehicle" && r.targetId === v.id
+                            );
+                            const tl = t as Record<string, string>;
+                            return (
+                              <div key={field.id} className="flex items-center gap-1.5 min-w-0 max-w-full">
+                                <span className="text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[40%]">
+                                  {vehicleComplianceFieldLabel(field, tl)}
+                                </span>
+                                {getVehicleComplianceStatusBadge(record, tl)}
+                              </div>
+                            );
+                          })}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-slate-700 flex-wrap">
                     {canEdit && onUpdateVehicleStatus && (

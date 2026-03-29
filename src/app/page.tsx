@@ -30,7 +30,6 @@ import type { SafetyChecklist } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask } from "@/types/projectTask";
 import { SettingsModule } from "@/components/SettingsModule";
-import { OperationsModule } from "@/components/OperationsModule";
 import ScheduleModule from "@/components/ScheduleModule";
 import { EmployeeShiftDayView } from "@/components/EmployeeShiftDayView";
 import { FormsModule } from "@/components/FormsModule";
@@ -42,6 +41,7 @@ import { EmployeesModule } from "@/components/EmployeesModule";
 import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/Toast";
 import type { AuthChangeEvent, PostgrestResponse, Session } from "@supabase/supabase-js";
@@ -1355,7 +1355,10 @@ export default function Home() {
         console.error("[page] projects", error);
         return;
       }
-      if (!data?.length) return;
+      if (!data?.length) {
+        setProjects([]);
+        return;
+      }
       setProjects(
         data.map((p: Record<string, unknown>) => ({
           id: String(p.id),
@@ -2070,11 +2073,15 @@ export default function Home() {
   );
 
   const currentUserEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : effectiveRole === "supervisor" ? effectiveEmployeeId : null;
-  const visibleProjects = rolePerms.canViewOnlyAssignedProjects
-    ? (projects ?? []).filter((p) =>
-        (p.assignedEmployeeIds ?? []).includes(effectiveEmployeeId ?? "")
-      )
-    : projects ?? [];
+  /** Admins (y project managers) ven todos los proyectos; el flag canViewOnlyAssignedProjects también es true en admin y no debe vaciar la lista. */
+  const visibleProjects =
+    effectiveRole === "admin" || effectiveRole === "projectManager"
+      ? (projects ?? [])
+      : rolePerms.canViewOnlyAssignedProjects
+        ? (projects ?? []).filter((p) =>
+            (p.assignedEmployeeIds ?? []).includes(effectiveEmployeeId ?? "")
+          )
+        : (projects ?? []);
 
   const canViewProjectsTab =
     rolePerms.canViewProjects || rolePerms.canViewOnlyAssignedProjects;
@@ -3841,11 +3848,12 @@ export default function Home() {
             {activeSection === "site" && perms.site && (
               <>
                 {canViewProjectsTab && perms.canAccessSubcontractors ? (
-                  <div
-                    className="flex flex-wrap gap-2 mb-4"
-                    role="tablist"
-                    aria-label={(t as Record<string, string>).nav_operations ?? ""}
-                  >
+                  <HorizontalScrollFade className="mb-4 max-md:-mx-1" variant="inherit">
+                    <div
+                      className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+                      role="tablist"
+                      aria-label={(t as Record<string, string>).nav_operations ?? ""}
+                    >
                     <button
                       type="button"
                       role="tab"
@@ -3872,7 +3880,8 @@ export default function Home() {
                     >
                       {t.subcontractors ?? "Subcontratistas"}
                     </button>
-                  </div>
+                    </div>
+                  </HorizontalScrollFade>
                 ) : null}
                 {!canViewProjectsTab && perms.canAccessSubcontractors ? (
                   <SubcontractorsModule

@@ -17,6 +17,7 @@ import {
   X,
   ChevronLeft,
 } from "lucide-react";
+import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
 import {
@@ -198,6 +199,17 @@ function complianceTone(
   };
 }
 
+function employeeComplianceFieldLabel(field: ComplianceField, t: Record<string, string>): string {
+  const m: Record<string, string> = {
+    "cf-liability": "compliance_field_liability_insurance",
+    "cf-compliance": "compliance_field_provincial_compliance",
+    "cf-vehicle-inspection": "compliance_field_safety_inspection",
+    "cf-vehicle-insurance": "compliance_field_vehicle_insurance",
+  };
+  const lk = m[field.id];
+  return lk ? (t[lk] ?? field.name) : field.name;
+}
+
 function recordStatusFromInputs(
   expiryDate: string | undefined,
   alertDaysBefore: number,
@@ -281,6 +293,7 @@ export function EmployeesModule({
   const [employeeDeleteModalOpen, setEmployeeDeleteModalOpen] = useState(false);
   const [hardDeleteConfirmInput, setHardDeleteConfirmInput] = useState("");
   const [hardDeleteBusy, setHardDeleteBusy] = useState(false);
+  const [employeesBrowseTab, setEmployeesBrowseTab] = useState<"people" | "compliance">("people");
 
   const activeProjects = useMemo(
     () => projects.filter((p) => !p.archived),
@@ -403,6 +416,11 @@ export function EmployeesModule({
 
   const complianceTargetId = (profileId: string) =>
     userProfileToEmployeeId[profileId] ?? profileId;
+
+  const employeeTargetComplianceFields = useMemo(
+    () => complianceFields.filter((f) => f.target.includes("employee")),
+    [complianceFields]
+  );
 
   const roleLabel = (r: ProfileRow) => {
     const cr = r.custom_role_id ? customRoles.find((x) => x.id === r.custom_role_id) : undefined;
@@ -819,16 +837,8 @@ export function EmployeesModule({
     const isDeletedProfile = (selected.profile_status ?? "") === "deleted";
     const canEditBasicFields = (canManageEmployees || isSelf) && !isDeletedProfile;
 
-    const complianceFieldLabel = (field: ComplianceField): string => {
-      const m: Record<string, string> = {
-        "cf-liability": "compliance_field_liability_insurance",
-        "cf-compliance": "compliance_field_provincial_compliance",
-        "cf-vehicle-inspection": "compliance_field_safety_inspection",
-        "cf-vehicle-insurance": "compliance_field_vehicle_insurance",
-      };
-      const lk = m[field.id];
-      return lk ? (tl[lk] ?? field.name) : field.name;
-    };
+    const complianceFieldLabel = (field: ComplianceField): string =>
+      employeeComplianceFieldLabel(field, tl);
 
     const formatPayReadOnly = (sel: ProfileRow): string => {
       const pt = (sel.pay_type ?? "unspecified").trim().toLowerCase();
@@ -1624,6 +1634,43 @@ export function EmployeesModule({
         )}
       </div>
 
+      {employeeTargetComplianceFields.length > 0 ? (
+        <HorizontalScrollFade className="max-md:-mx-1" variant="inherit">
+          <div
+            className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+            role="tablist"
+            aria-label={tl.employees_compliance ?? tl.compliance ?? ""}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={employeesBrowseTab === "people"}
+              onClick={() => setEmployeesBrowseTab("people")}
+              className={`shrink-0 min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                employeesBrowseTab === "people"
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                  : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+              }`}
+            >
+              {tl.employees_title ?? t.personnel ?? ""}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={employeesBrowseTab === "compliance"}
+              onClick={() => setEmployeesBrowseTab("compliance")}
+              className={`shrink-0 min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                employeesBrowseTab === "compliance"
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                  : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+              }`}
+            >
+              {tl.employees_compliance ?? t.compliance ?? ""}
+            </button>
+          </div>
+        </HorizontalScrollFade>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
@@ -1665,6 +1712,57 @@ export function EmployeesModule({
 
       {loading ? (
         <p className="text-sm text-zinc-500">{t.loading ?? ""}</p>
+      ) : employeesBrowseTab === "compliance" && employeeTargetComplianceFields.length > 0 ? (
+        <HorizontalScrollFade>
+          <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
+            <table className="min-w-max w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/80">
+                  <th className="sticky left-0 z-10 bg-zinc-50 dark:bg-slate-800/95 px-3 py-3 text-left font-medium text-zinc-700 dark:text-zinc-200">
+                    {tl.employees_title ?? t.personnel ?? ""}
+                  </th>
+                  {employeeTargetComplianceFields.map((field) => (
+                    <th
+                      key={field.id}
+                      className="px-3 py-3 text-left font-medium text-zinc-700 dark:text-zinc-200 whitespace-nowrap"
+                    >
+                      {employeeComplianceFieldLabel(field, tl)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.id} className="border-b border-zinc-100 dark:border-slate-800 last:border-b-0">
+                    <td className="sticky left-0 z-[1] bg-white dark:bg-slate-900 px-3 py-2.5 align-middle">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(r.id)}
+                        className="min-h-[44px] w-full text-left font-medium text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400"
+                      >
+                        {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
+                      </button>
+                    </td>
+                    {employeeTargetComplianceFields.map((field) => {
+                      const tid = complianceTargetId(r.id);
+                      const rec = complianceRecords.find(
+                        (x) => x.fieldId === field.id && x.targetType === "employee" && x.targetId === tid
+                      );
+                      const tone = complianceTone(rec?.status ?? "missing", tl);
+                      return (
+                        <td key={field.id} className="px-3 py-2.5 align-middle">
+                          <span className={`inline-flex text-xs rounded-full px-2 py-0.5 font-medium ${tone.cls}`}>
+                            {tone.label}
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </HorizontalScrollFade>
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-slate-700 rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
           {filtered.map((r) => (

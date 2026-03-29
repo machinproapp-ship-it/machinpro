@@ -38,6 +38,7 @@ import {
   FileQuestion,
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
+import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { RFIModule } from "@/components/RFIModule";
 import {
   generatePhotoReport,
@@ -908,7 +909,8 @@ export function ProjectsModule({
             0
           );
         return (
-          <div className="border-b border-zinc-200 dark:border-slate-700 px-6 flex flex-nowrap gap-0 overflow-x-auto">
+          <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700">
+            <div className="px-6 flex flex-nowrap gap-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
             {TABS.filter(
               (tab) =>
                 (showProjectVisitorsTab || tab.id !== "visitantes") &&
@@ -970,7 +972,8 @@ export function ProjectsModule({
                 </button>
               );
             })}
-          </div>
+            </div>
+          </HorizontalScrollFade>
         );
       })()}
 
@@ -1581,7 +1584,8 @@ export function ProjectsModule({
                             </div>
                             <PhotoStatusBadge status={entry.status} labels={t} />
                           </div>
-                          <div className="flex gap-2 overflow-x-auto pb-1 mb-3">
+                          <HorizontalScrollFade>
+                            <div className="flex gap-2 overflow-x-auto pb-1 mb-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
                             {(entry.photoUrls || []).map((url, i) => (
                               <button
                                 key={i}
@@ -1592,7 +1596,8 @@ export function ProjectsModule({
                                 <img src={url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
                               </button>
                             ))}
-                          </div>
+                            </div>
+                          </HorizontalScrollFade>
                           <img
                             src={entry.photoUrls[0]}
                             alt=""

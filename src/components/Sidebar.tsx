@@ -6,7 +6,6 @@ import type { MainSection, SidebarLabels } from "@/types/shared";
 
 const MOBILE_SHORT: Partial<Record<MainSection, string>> = {
   office: "Central",
-  site: "Obra",
   schedule: "Horario",
   warehouse: "Logíst.",
   security: "Segur.",

@@ -14,6 +14,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 
 export interface SchedEmployee {
   id: string;
@@ -1020,7 +1021,8 @@ export default function ScheduleModule({
             </button>
           </div>
 
-          <div className="overflow-x-auto -mx-4 px-4 sm:overflow-visible sm:mx-0 sm:px-0">
+          <HorizontalScrollFade className="-mx-4 px-0 sm:mx-0 sm:px-0">
+            <div className="overflow-x-auto px-4 sm:overflow-visible sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
             <div className="grid grid-cols-7 gap-1 min-w-[320px]">
               {["monShort", "tueShort", "wedShort", "thuShort", "friShort", "satShort", "sunShort"].map((key, i) => (
                 <div
@@ -1137,7 +1139,8 @@ export default function ScheduleModule({
                 );
               })}
             </div>
-          </div>
+            </div>
+          </HorizontalScrollFade>
 
           <div className="flex flex-wrap gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             {[

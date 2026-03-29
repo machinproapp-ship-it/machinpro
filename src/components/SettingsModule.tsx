@@ -197,6 +197,8 @@ export function SettingsModule({
   };
 
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("general");
+  /** Compliance (config obligatorios) solo en nav de escritorio; en móvil se gestiona desde Empleados / Logística. */
+  const [settingsWideNav, setSettingsWideNav] = useState(false);
   const [settingsMobileMenu, setSettingsMobileMenu] = useState(true);
   const [regionalTimezone, setRegionalTimezone] = useState("Europe/Madrid");
   const [regionalDateFormat, setRegionalDateFormat] = useState("DD/MM/YYYY");
@@ -244,6 +246,20 @@ export function SettingsModule({
     const id = window.setTimeout(() => setAutoSetupMessage(null), 4000);
     return () => window.clearTimeout(id);
   }, [autoSetupMessage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setSettingsWideNav(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (settingsWideNav) return;
+    if (activeSettingsSection === "compliance") setActiveSettingsSection("general");
+  }, [settingsWideNav, activeSettingsSection]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -304,7 +320,7 @@ export function SettingsModule({
               if (id === "company") return canEditCompanyProfile;
               if (id === "notifications") return !!(session?.access_token && companyId);
               if (id === "regional") return canManageRegionalConfig;
-              if (id === "compliance") return canManageCompliance;
+              if (id === "compliance") return canManageCompliance && settingsWideNav;
               if (id === "billing") return showBillingSection && !!billingSection;
               return true;
             })

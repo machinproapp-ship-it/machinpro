@@ -91,12 +91,6 @@ function auditActorLabel(
   profileByUserId: Record<string, AuditProfileSnippet>,
   labels: Record<string, string>
 ): string {
-  const rawName = (row.user_name ?? "").trim();
-  const badGeneric =
-    /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
-  const un =
-    rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
-  if (un) return un;
   const uid = (row.user_id ?? "").trim();
   const p = uid ? profileByUserId[uid] : undefined;
   if (p) {
@@ -107,6 +101,11 @@ function auditActorLabel(
     const em = (p.email ?? "").trim();
     if (em) return em;
   }
+  const rawName = (row.user_name ?? "").trim();
+  const badGeneric =
+    /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
+  const un = rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
+  if (un) return un;
   return (labels.dashboard_activity_unknown_user ?? "").trim() || "—";
 }
 
@@ -648,26 +647,49 @@ function CentralDashboardBody(
             .limit(20);
           if (error) throw error;
           const rows = (data ?? []) as AuditLogEntry[];
-          const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+          const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
           const profileMap: Record<string, AuditProfileSnippet> = {};
           if (ids.length > 0) {
-            const { data: profs, error: pErr } = await supabase
-              .from("user_profiles")
-              .select("id, full_name, display_name, email")
-              .in("id", ids)
-              .eq("company_id", companyId);
-            if (pErr) throw pErr;
-            for (const p of (profs ?? []) as {
-              id: string;
-              full_name?: string | null;
-              display_name?: string | null;
-              email?: string | null;
-            }[]) {
-              profileMap[p.id] = {
-                full_name: p.full_name,
-                display_name: p.display_name,
-                email: p.email,
-              };
+            const idSet = new Set(ids);
+            const { data: rpcProfs, error: rpcErr } = await supabase.rpc("get_company_profiles", {
+              p_company_id: companyId,
+            });
+            if (!rpcErr && Array.isArray(rpcProfs)) {
+              for (const p of rpcProfs as {
+                id: string;
+                full_name?: string | null;
+                display_name?: string | null;
+                email?: string | null;
+              }[]) {
+                if (idSet.has(p.id)) {
+                  profileMap[p.id] = {
+                    full_name: p.full_name,
+                    display_name: p.display_name,
+                    email: p.email,
+                  };
+                }
+              }
+            }
+            const missing = ids.filter((id) => !profileMap[id]);
+            if (missing.length > 0) {
+              const { data: profs, error: pErr } = await supabase
+                .from("user_profiles")
+                .select("id, full_name, display_name, email")
+                .in("id", missing)
+                .eq("company_id", companyId);
+              if (pErr) throw pErr;
+              for (const p of (profs ?? []) as {
+                id: string;
+                full_name?: string | null;
+                display_name?: string | null;
+                email?: string | null;
+              }[]) {
+                profileMap[p.id] = {
+                  full_name: p.full_name,
+                  display_name: p.display_name,
+                  email: p.email,
+                };
+              }
             }
           }
           if (!cancelled) {
