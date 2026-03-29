@@ -211,6 +211,7 @@ export default {
   insuranceExpiredBadge: "Assicurazione scaduta",
   inspectionExpiredBadge: "Revisione scaduta",
   whInspectionExpiry: "Scadenza revisione",
+  logistics_safety_inspection: "Ispezione di sicurezza",
   docsSectionTitle: "Documentazione",
   docInsurance: "Assicurazione",
   docInspection: "Revisione",

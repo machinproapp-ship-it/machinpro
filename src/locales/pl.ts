@@ -144,6 +144,7 @@ export default {
   "insuranceExpiredBadge": "Ubezpieczenie wygasło",
   "inspectionExpiredBadge": "Kontrola wygasła",
   "whInspectionExpiry": "Termin ważności inspekcji",
+  "logistics_safety_inspection": "Inspekcja bezpieczeństwa",
   "docsSectionTitle": "Dokumentacja",
   "docInsurance": "Ubezpieczenie",
   "docInspection": "Inspekcji",

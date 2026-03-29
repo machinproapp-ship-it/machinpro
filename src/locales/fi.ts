@@ -144,6 +144,7 @@ export default {
   "insuranceExpiredBadge": "Insurance expired",
   "inspectionExpiredBadge": "Inspection expired",
   "whInspectionExpiry": "Inspection expiry",
+  "logistics_safety_inspection": "Turvatarkastus",
   "docsSectionTitle": "Documentation",
   "docInsurance": "Insurance",
   "docInspection": "Inspection",

@@ -5,8 +5,9 @@ import type { ReactNode } from "react";
 type FadeVariant = "card" | "inherit";
 
 const VARIANT_STOPS: Record<FadeVariant, string> = {
-  card: "from-white to-transparent dark:from-slate-900 dark:to-transparent",
-  inherit: "from-zinc-50 to-transparent dark:from-slate-800/60 dark:to-transparent",
+  /** Dark: slate-950 + faint scrim so the fade contrasts with card bg (slate-900). */
+  card: "from-white to-transparent dark:from-slate-950 dark:via-slate-950/85 dark:to-transparent",
+  inherit: "from-zinc-50 to-transparent dark:from-slate-950/90 dark:via-slate-900/50 dark:to-transparent",
 };
 
 /**
@@ -28,7 +29,7 @@ export function HorizontalScrollFade({
     <div className={`relative ${className}`}>
       {children}
       <div
-        className={`pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 md:hidden bg-gradient-to-l ${fade}`}
+        className={`pointer-events-none absolute inset-y-0 right-0 z-[1] w-10 md:hidden bg-gradient-to-l ${fade}`}
         aria-hidden
       />
     </div>

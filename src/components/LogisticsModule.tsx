@@ -388,7 +388,12 @@ export function LogisticsModule({
   onUpdateResourceRequestStatus,
   onMarkResourceItemReady,
 }: LogisticsModuleProps) {
-  const vehicleInspectionLabel = vehicleInspectionLabelProp ?? (t as Record<string, string>).whInspectionExpiry ?? "Venc. inspección";
+  const tlLabels = t as Record<string, string>;
+  const vehicleInspectionLabel =
+    vehicleInspectionLabelProp ??
+    tlLabels.logistics_safety_inspection ??
+    tlLabels.whInspectionExpiry ??
+    "";
   const [editingVehicleCompliance, setEditingVehicleCompliance] = useState<{ field: ComplianceField; targetId: string } | null>(null);
   const [vehicleComplianceDraft, setVehicleComplianceDraft] = useState<{ value?: string; expiryDate?: string; documentUrl?: string }>({});
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
@@ -573,10 +578,10 @@ export function LogisticsModule({
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-6">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{t.warehouse}</h2>
 
-      <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0">
-        <HorizontalScrollFade>
+      <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0 max-md:-mx-2 max-md:px-2 md:mx-0 md:px-0">
+        <HorizontalScrollFade variant="card">
           <div
-            className="flex overflow-x-auto scrollbar-hide gap-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
+            className="flex overflow-x-auto scrollbar-hide gap-1 pe-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
             role="tablist"
           >
             {tabs.map((tab) => (

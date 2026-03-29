@@ -214,6 +214,7 @@ export default {
   insuranceExpiredBadge: "Seguro vencido",
   inspectionExpiredBadge: "ITV vencida",
   whInspectionExpiry: "Venc. inspección",
+  logistics_safety_inspection: "Inspección de seguridad",
   docsSectionTitle: "Documentación",
   docInsurance: "Seguro",
   docInspection: "Inspección",

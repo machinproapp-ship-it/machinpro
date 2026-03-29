@@ -211,6 +211,7 @@ export default {
   insuranceExpiredBadge: "Versicherung abgelaufen",
   inspectionExpiredBadge: "TÜV abgelaufen",
   whInspectionExpiry: "TÜV läuft ab",
+  logistics_safety_inspection: "Sicherheitsinspektion",
   docsSectionTitle: "Dokumentation",
   docInsurance: "Versicherung",
   docInspection: "TÜV",

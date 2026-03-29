@@ -3716,7 +3716,6 @@ export default function Home() {
                 suppliers={suppliers}
                 employees={logisticsEmployees}
                 labels={t}
-                vehicleInspectionLabel={countryConfig.vehicleInspectionLabel}
                 complianceFields={complianceFields}
                 complianceRecords={complianceRecords}
                 onComplianceRecordsChange={setComplianceRecords}

@@ -144,6 +144,7 @@ export default {
   "insuranceExpiredBadge": "Verzekering verlopen",
   "inspectionExpiredBadge": "Inspectie verlopen",
   "whInspectionExpiry": "Inspectie vervalt",
+  "logistics_safety_inspection": "Veiligheidsinspectie",
   "docsSectionTitle": "Documentatie",
   "docInsurance": "Verzekering",
   "docInspection": "Inspection",
