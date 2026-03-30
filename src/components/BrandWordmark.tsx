@@ -4,6 +4,11 @@ import { type ReactNode } from "react";
 
 export const BRAND_GOLD = "#C9A84C";
 
+const MACHIN_ORANGE = "#f97316";
+/** Darker orange on light / inherited surfaces for contrast */
+const MACHIN_ORANGE_LIGHT = "#ea6c00";
+const PRO_WHITE = "#FFFFFF";
+
 export type BrandWordmarkTone = "onDark" | "onLight" | "inherit";
 
 export function BrandWordmark({
@@ -13,16 +18,13 @@ export function BrandWordmark({
   tone: BrandWordmarkTone;
   className?: string;
 }) {
-  const letterClass =
-    tone === "onDark"
-      ? "text-white"
-      : tone === "onLight"
-        ? "text-slate-900 dark:text-white"
-        : "text-inherit";
+  const machinColor = tone === "onDark" ? MACHIN_ORANGE : MACHIN_ORANGE_LIGHT;
   return (
     <span className={className}>
-      <span className={`font-bold ${letterClass}`}>Machin</span>
-      <span className={`font-bold ${letterClass}`}>
+      <span className="font-bold" style={{ color: machinColor }}>
+        Machin
+      </span>
+      <span className="font-bold" style={{ color: PRO_WHITE }}>
         Pr<span style={{ color: BRAND_GOLD }}>o</span>
       </span>
     </span>
