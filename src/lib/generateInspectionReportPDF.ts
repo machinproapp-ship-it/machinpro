@@ -1,37 +1,11 @@
 import jsPDF from "jspdf";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
+import { dateLocaleForUser, resolveUserTimezone, formatDateLong, formatDateTime } from "@/lib/dateUtils";
 
 const MM = 20;
 const PAGE_W = 210;
 const PAGE_H = 297;
 const INNER_W = PAGE_W - 2 * MM;
-
-function localeForLanguage(lang?: string): string {
-  const m: Record<string, string> = {
-    es: "es-ES",
-    en: "en-GB",
-    fr: "fr-FR",
-    de: "de-DE",
-    it: "it-IT",
-    pt: "pt-PT",
-    nl: "nl-NL",
-    pl: "pl-PL",
-    sv: "sv-SE",
-    no: "nb-NO",
-    da: "da-DK",
-    fi: "fi-FI",
-    cs: "cs-CZ",
-    ro: "ro-RO",
-    hu: "hu-HU",
-    el: "el-GR",
-    tr: "tr-TR",
-    uk: "uk-UA",
-    hr: "hr-HR",
-    sk: "sk-SK",
-    bg: "bg-BG",
-  };
-  return m[lang ?? "es"] ?? "en-GB";
-}
 
 function imageFormatFromDataUrl(dataUrl: string): "PNG" | "JPEG" {
   if (dataUrl.includes("image/png")) return "PNG";
@@ -63,13 +37,26 @@ export async function generateInspectionReportPDF(params: {
   reportTitle: string;
   labels: Record<string, string>;
   language?: string;
+  countryCode?: string;
+  timeZone?: string;
 }): Promise<Blob> {
-  const { photos, projectName, companyName, companyLogoUrl, inspectorName, reportTitle, labels: t, language } =
-    params;
-  const locale = localeForLanguage(language);
+  const {
+    photos,
+    projectName,
+    companyName,
+    companyLogoUrl,
+    inspectorName,
+    reportTitle,
+    labels: t,
+    language,
+    countryCode = "CA",
+    timeZone,
+  } = params;
+  const locale = dateLocaleForUser(language ?? "es", countryCode);
+  const tz = resolveUserTimezone(timeZone ?? null);
   const reportDate = new Date();
-  const reportDateLong = reportDate.toLocaleDateString(locale, { dateStyle: "long" });
-  const footerStamp = reportDate.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+  const reportDateLong = formatDateLong(reportDate, locale, tz);
+  const footerStamp = formatDateTime(reportDate, locale, tz);
 
   const totalPages = 1 + photos.length;
 
@@ -184,7 +171,7 @@ export async function generateInspectionReportPDF(params: {
     const captured = new Date(photo.created_at);
     doc.setFontSize(9);
     doc.setTextColor(60, 60, 60);
-    doc.text(captured.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }), MM, y);
+    doc.text(formatDateTime(captured, locale, tz), MM, y);
     y += 6;
 
     if (photo.gps_lat != null && photo.gps_lng != null) {

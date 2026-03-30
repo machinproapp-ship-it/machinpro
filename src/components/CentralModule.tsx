@@ -22,6 +22,14 @@ import type { MainSection } from '@/types/shared';
 import { CentralDashboardLive } from '@/components/CentralDashboardLive';
 import { HorizontalScrollFade } from '@/components/HorizontalScrollFade';
 import { auditActionDescription } from '@/lib/auditActionLabel';
+import {
+  dateLocaleForUser,
+  resolveUserTimezone,
+  formatDateLong,
+  formatDateTime,
+  formatDateMedium,
+  getClockHourInTimeZone,
+} from '@/lib/dateUtils';
 
 interface Certificate {
   id: string;
@@ -126,11 +134,11 @@ type CentralProject = {
   lifecycleStatus?: "active" | "paused" | "completed";
 };
 
-function formatProjectListDate(iso: string | undefined, locale: string): string {
+function formatProjectListDate(iso: string | undefined, locale: string, timeZone: string): string {
   if (!iso) return "—";
   const d = new Date(iso.includes("T") ? iso : `${iso}T12:00:00`);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  return formatDateMedium(d, locale, timeZone);
 }
 
 function resolveProjectLifecycleStatus(
@@ -165,11 +173,6 @@ function daysUntilProjectEnd(estimatedEnd?: string): number | null {
   return Math.ceil((end.getTime() - today.getTime()) / 86_400_000);
 }
 
-function formatMoneyCAD(n: number): string {
-  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })} CAD`;
-}
-
-
 function initialsFromName(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
   if (p.length === 0) return "?";
@@ -184,11 +187,15 @@ interface CentralModuleProps {
   displayProjects?: Array<{ id: string; name?: string; location?: string; archived?: boolean }>;
   subcontractors?: Subcontractor[];
   subcontractorCountryCode?: string;
+  /** Company country for date/number locale (MM/DD vs DD/MM); defaults to subcontractorCountryCode. */
+  regionCountryCode?: string;
   taxIdLabel?: string;
   complianceCertLabel?: string;
   clockEntries?: Array<{ date: string; clockIn?: string }>;
   formInstances?: Array<{ id: string; status: string; createdAt: string; date?: string }>;
   language?: string;
+  /** IANA timezone for audit logs / dates (defaults: profile → browser → America/Toronto). */
+  timeZone?: string;
   onAddProject?: () => void;
   onEditProject?: (id: string) => void;
   onArchiveProject?: (id: string) => void;
@@ -328,11 +335,13 @@ export function CentralModule({
   displayProjects = [], 
   subcontractors = [],
   subcontractorCountryCode = "CA",
+  regionCountryCode: regionCountryCodeProp,
   taxIdLabel: taxIdLabelProp,
   complianceCertLabel: complianceCertLabelProp,
   clockEntries = [],
   formInstances = [],
   language = "es",
+  timeZone: timeZoneProp,
   onAddProject,
   onEditProject,
   onArchiveProject,
@@ -410,18 +419,12 @@ export function CentralModule({
   const canDeleteProjects = canDeleteProjectsProp ?? canEdit;
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
-  const auditLocale =
-    language === "es"
-      ? "es-ES"
-      : language === "fr"
-        ? "fr-FR"
-        : language === "de"
-          ? "de-DE"
-          : language === "it"
-            ? "it-IT"
-            : language === "pt"
-              ? "pt-PT"
-              : "en-GB";
+  const timeZone = timeZoneProp ?? resolveUserTimezone(null);
+  const countryForDates = (regionCountryCodeProp ?? subcontractorCountryCode) || "CA";
+  const dateLoc = useMemo(
+    () => dateLocaleForUser(language, countryForDates),
+    [language, countryForDates]
+  );
   const [employeePanelId, setEmployeePanelId] = useState<string | null>(null);
   const [centralView, setCentralView] = useState<
     "dashboard" | "projects" | "personnel" | "roles" | "auditlog" | "compliance"
@@ -554,16 +557,14 @@ export function CentralModule({
   const recentProjects = safeDisplayProjects.filter((p) => !p.archived).slice(0, 3);
 
   const getGreeting = (t: Record<string, string>) => {
-    const hour = new Date().getHours();
+    const hour = getClockHourInTimeZone(new Date(), timeZone);
     if (hour < 12) return t.goodMorning ?? "Buenos d?as";
     if (hour < 18) return t.goodAfternoon ?? "Buenas tardes";
     return t.goodEvening ?? "Buenas noches";
   };
 
   const today = new Date().toISOString().split("T")[0];
-  const localeMap: Record<string, string> = { es: "es-ES", en: "en-GB", fr: "fr-FR", de: "de-DE", it: "it-IT", pt: "pt-PT" };
-  const locale = localeMap[language] ?? "es-ES";
-  const formattedDate = new Date().toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const formattedDate = formatDateLong(new Date(), dateLoc, timeZone);
 
   const projectsWithBudget = (projects ?? []) as CentralProject[];
   const expiredCerts = safeEmployees.filter((e) =>
@@ -762,6 +763,8 @@ export function CentralModule({
                 companyId={companyId}
                 companyName={companyName ?? undefined}
                 language={language}
+                countryCode={countryForDates}
+                timeZone={timeZone}
                 activeProjectsCount={safeDisplayProjects.filter((p) => !p.archived).length}
                 canViewProjectsManagement={dashboardCanViewProjectsManagement}
                 projectNameById={projectNameById}
@@ -866,10 +869,7 @@ export function CentralModule({
                 <tbody>
                   {auditLogs.map((row) => {
                     const tl = labels as Record<string, string>;
-                    const when = new Date(row.created_at).toLocaleString(auditLocale, {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    });
+                    const when = formatDateTime(row.created_at, dateLoc, timeZone);
                     const actionIcon =
                       row.action === "photo_downloaded" || row.action === "photos_bulk_downloaded" ? (
                         <Download className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden />
@@ -944,11 +944,7 @@ export function CentralModule({
                       .filter((a) => a.severity === "expired")
                       .map((a) => {
                         const tl = labels as Record<string, string>;
-                        const expStr = new Date(a.expiryDate).toLocaleDateString(auditLocale, {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        });
+                        const expStr = formatDateMedium(new Date(a.expiryDate), dateLoc, timeZone);
                         const overdue = Math.abs(a.daysLeft);
                         return (
                           <li
@@ -997,11 +993,7 @@ export function CentralModule({
                       .filter((a) => a.severity === "critical")
                       .map((a) => {
                         const tl = labels as Record<string, string>;
-                        const expStr = new Date(a.expiryDate).toLocaleDateString(auditLocale, {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        });
+                        const expStr = formatDateMedium(new Date(a.expiryDate), dateLoc, timeZone);
                         return (
                           <li
                             key={`crit-${a.employeeId}-${a.certName}-${a.expiryDate}`}
@@ -1049,11 +1041,7 @@ export function CentralModule({
                       .filter((a) => a.severity === "warning")
                       .map((a) => {
                         const tl = labels as Record<string, string>;
-                        const expStr = new Date(a.expiryDate).toLocaleDateString(auditLocale, {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        });
+                        const expStr = formatDateMedium(new Date(a.expiryDate), dateLoc, timeZone);
                         return (
                           <li
                             key={`warn-${a.employeeId}-${a.certName}-${a.expiryDate}`}
@@ -1351,7 +1339,7 @@ export function CentralModule({
                   const p = getCentralProjectById(project.id) ?? (project as CentralProject);
                   const tl = labels as Record<string, string>;
                   const life = resolveProjectLifecycleStatus(p, today);
-                  const startStr = formatProjectListDate(p.estimatedStart, auditLocale);
+                  const startStr = formatProjectListDate(p.estimatedStart, dateLoc, timeZone);
                   const nEmp = (p.assignedEmployeeIds ?? []).length;
                   const statusText =
                     life === "paused"

@@ -59,6 +59,15 @@ import type { UserRole } from "@/types/shared";
 import type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask, TaskPriority } from "@/types/projectTask";
+import type { Currency } from "@/lib/i18n";
+import {
+  dateLocaleForUser,
+  resolveUserTimezone,
+  formatDate as formatDateIntl,
+  formatDateTime as formatDateTimeIntl,
+  formatCalendarYmd,
+  formatCurrency,
+} from "@/lib/dateUtils";
 import { getTemplatesForCountry } from "@/lib/safetyChecklistTemplates";
 import { generateSafetyChecklistPdf } from "@/lib/generateSafetyChecklistReport";
 import { DailyFieldReportView } from "@/components/DailyFieldReportView";
@@ -212,6 +221,9 @@ export interface ProjectsModuleProps {
   dailyReports?: DailyFieldReport[];
   onRefreshDailyReports?: () => void | Promise<void>;
   onDailyReportPublished?: (report: DailyFieldReport) => void;
+  /** IANA; fechas de galería, parte diario y proyecto */
+  timeZone?: string;
+  companyCurrency?: Currency;
   teamProfiles?: { id: string; employeeId: string | null; name: string }[];
   /** Admin/supervisor o permiso canManageDailyReports */
   canManageDailyReports?: boolean;
@@ -280,13 +292,6 @@ function daysLeft(dateStr: string): number {
   today.setHours(0, 0, 0, 0);
   d.setHours(0, 0, 0, 0);
   return Math.ceil((d.getTime() - today.getTime()) / 86_400_000);
-}
-
-function formatDate(iso: string): string {
-  if (!iso) return "—";
-  const parts = iso.split("-");
-  if (parts.length !== 3) return iso;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 function todayYmdLocal(d = new Date()): string {
@@ -466,6 +471,8 @@ export function ProjectsModule({
   dailyReports = [],
   onRefreshDailyReports,
   onDailyReportPublished,
+  timeZone: timeZoneProp,
+  companyCurrency = "CAD",
   teamProfiles = [],
   canManageDailyReports = false,
   companyId = "",
@@ -660,6 +667,17 @@ export function ProjectsModule({
 
   const canEdit = canEditProp ?? (currentUserRole === "admin" || currentUserRole === "supervisor" || currentUserRole === "projectManager");
   const canAnnotate = canAnnotateBlueprints ?? canEdit;
+
+  const userTz = timeZoneProp ?? resolveUserTimezone(null);
+  const dateLoc = useMemo(() => dateLocaleForUser(language, countryCode), [language, countryCode]);
+  const fmtYmd = useCallback(
+    (iso: string) => {
+      if (!iso) return "—";
+      const ymd = iso.includes("T") ? iso.split("T")[0]! : iso.slice(0, 10);
+      return formatCalendarYmd(ymd, dateLoc, userTz);
+    },
+    [dateLoc, userTz]
+  );
 
   const selectedProject = selectedProjectId
     ? (projects ?? []).find((p) => p.id === selectedProjectId)
@@ -908,11 +926,11 @@ export function ProjectsModule({
     );
     setInspectionOrderIds(pool.map((p) => p.id));
     setInspectionIncluded(Object.fromEntries(pool.map((p) => [p.id, true])));
-    const d = new Date().toLocaleDateString();
+    const d = formatDateIntl(new Date(), dateLoc, userTz);
     setInspectionReportTitle(`${tl.inspection_report ?? ""} — ${selectedProject.name} — ${d}`);
     setInspectionInspectorName(currentUserDisplayName ?? "");
     setInspectionReportOpen(true);
-  }, [selectedProject, inspectionPhotosPool, t, currentUserDisplayName]);
+  }, [selectedProject, inspectionPhotosPool, t, currentUserDisplayName, dateLoc, userTz]);
 
   const runInspectionPdfDownload = useCallback(async () => {
     if (!selectedProject) return;
@@ -934,6 +952,8 @@ export function ProjectsModule({
         reportTitle: inspectionReportTitle.trim() || (selectedProject.name ?? ""),
         labels: t as Record<string, string>,
         language,
+        countryCode,
+        timeZone: userTz,
       });
       const ymd = new Date().toISOString().slice(0, 10);
       const slug =
@@ -971,6 +991,8 @@ export function ProjectsModule({
     currentUserDisplayName,
     t,
     language,
+    countryCode,
+    userTz,
     onInspectionReportGenerated,
   ]);
 
@@ -1086,7 +1108,7 @@ export function ProjectsModule({
                     <Users className="h-3.5 w-3.5" />
                     {assigned.length} persona{assigned.length !== 1 ? "s" : ""}
                   </span>
-                  <span>{formatDate(proj.estimatedEnd)}</span>
+                  <span>{fmtYmd(proj.estimatedEnd)}</span>
                 </div>
               </button>
             );
@@ -1166,7 +1188,7 @@ export function ProjectsModule({
                 <p className={`text-sm font-semibold ${daysRemaining < 0 ? "text-red-500" : daysRemaining < 30 ? "text-amber-600 dark:text-amber-400" : "text-zinc-900 dark:text-zinc-100"}`}>
                   {daysRemaining < 0 ? `${Math.abs(daysRemaining)}d vencido` : `${daysRemaining}d`}
                 </p>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(selectedProject.estimatedEnd)}</p>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">{fmtYmd(selectedProject.estimatedEnd)}</p>
               </div>
             )}
             <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
@@ -1308,13 +1330,19 @@ export function ProjectsModule({
                 selectedProject.type === "industrial" ? "Industrial" : selectedProject.type
               } />
               <InfoRow label="Ubicación" value={selectedProject.location || "—"} />
-              <InfoRow label="Fecha de inicio" value={formatDate(selectedProject.estimatedStart)} />
-              <InfoRow label="Fecha de cierre" value={formatDate(selectedProject.estimatedEnd)} />
+              <InfoRow label="Fecha de inicio" value={fmtYmd(selectedProject.estimatedStart)} />
+              <InfoRow label="Fecha de cierre" value={fmtYmd(selectedProject.estimatedEnd)} />
               {selectedProject.budgetCAD != null && (
-                <InfoRow label="Presupuesto total" value={`$${selectedProject.budgetCAD.toLocaleString("en-US")} CAD`} />
+                <InfoRow
+                  label="Presupuesto total"
+                  value={formatCurrency(selectedProject.budgetCAD, companyCurrency, dateLoc)}
+                />
               )}
               {selectedProject.spentCAD != null && (
-                <InfoRow label="Presupuesto consumido" value={`$${selectedProject.spentCAD.toLocaleString("en-US")} CAD (${progress}%)`} />
+                <InfoRow
+                  label="Presupuesto consumido"
+                  value={`${formatCurrency(selectedProject.spentCAD, companyCurrency, dateLoc)} (${progress}%)`}
+                />
               )}
             </div>
 
@@ -1487,7 +1515,7 @@ export function ProjectsModule({
                                           ? "⚠ Vencido"
                                           : expiringSoon
                                           ? `⚡ ${daysLeft(cert.expiryDate)}d`
-                                          : `✓ ${formatDate(cert.expiryDate)}`
+                                          : `✓ ${fmtYmd(cert.expiryDate ?? "")}`
                                         : "Sin fecha"}
                                     </span>
                                   </div>
@@ -1932,8 +1960,7 @@ export function ProjectsModule({
                             className="w-full h-48 object-cover rounded-lg mb-3"
                           />
                           <p className="text-xs text-gray-500 mb-2">
-                            {entry.submittedByName} · {new Date(entry.createdAt).toLocaleDateString()} ·{" "}
-                            {new Date(entry.createdAt).toLocaleTimeString()}
+                            {entry.submittedByName} · {formatDateTimeIntl(entry.createdAt, dateLoc, userTz)}
                           </p>
                           {(currentUserRole === "admin" || currentUserRole === "supervisor") && (
                             <div className="flex gap-2 flex-wrap">
@@ -2069,7 +2096,7 @@ export function ProjectsModule({
                           </span>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">{entry.submittedByName}</p>
                           <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                            {new Date(entry.createdAt).toLocaleDateString()}
+                            {formatDateIntl(new Date(entry.createdAt), dateLoc, userTz)}
                           </p>
                         </div>
                       </div>
@@ -2462,7 +2489,7 @@ export function ProjectsModule({
                               </span>
                               {due && (
                                 <span className={dueClass}>
-                                  {formatDate(due)}
+                                  {fmtYmd(due)}
                                   {dueExtra ? ` · ${dueExtra}` : ""}
                                 </span>
                               )}
@@ -3164,6 +3191,7 @@ export function ProjectsModule({
                   language={language ?? "es"}
                   labels={t as Record<string, string>}
                   countryCode={countryCode}
+                  timeZone={userTz}
                   companyLogoUrl={companyLogoUrl}
                   cloudinaryCloudName={
                     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
@@ -3686,7 +3714,7 @@ export function ProjectsModule({
                           <span className="min-w-0 flex-1 text-xs text-zinc-700 dark:text-zinc-300">
                             <span className="font-medium text-zinc-900 dark:text-white">#{idx + 1}</span>
                             {" · "}
-                            {new Date(ph.created_at).toLocaleString()}
+                            {formatDateTimeIntl(ph.created_at, dateLoc, userTz)}
                             {ph.notes?.trim() ? ` · ${ph.notes.trim().slice(0, 80)}${ph.notes.length > 80 ? "…" : ""}` : ""}
                           </span>
                         </label>
@@ -3833,8 +3861,7 @@ export function ProjectsModule({
                       <span className="font-medium">{entry.submittedByName}</span>
                       <span className="text-zinc-500">
                         {" "}
-                        · {new Date(entry.createdAt).toLocaleDateString()} ·{" "}
-                        {new Date(entry.createdAt).toLocaleTimeString()}
+                        · {formatDateTimeIntl(entry.createdAt, dateLoc, userTz)}
                       </span>
                     </p>
                     {entry.notes ? (

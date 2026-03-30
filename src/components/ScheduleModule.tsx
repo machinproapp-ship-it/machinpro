@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { resolveUserTimezone } from "@/lib/dateUtils";
 
 export interface SchedEmployee {
   id: string;
@@ -227,6 +228,9 @@ export interface ScheduleModuleProps {
   scheduleSelfIds?: string[];
   /** AW-6: vista completa de jornada (solo turnos propios, !viewAll). */
   onOpenMyShiftView?: (date: string, entryId: string) => void;
+  /** BCP 47 + IANA for calendar labels (from `dateLocaleForUser` + `resolveUserTimezone`). */
+  dateLocale?: string;
+  timeZone?: string;
 }
 
 function startOfWeek(date: Date): Date {
@@ -246,13 +250,6 @@ function addDays(date: Date, n: number): Date {
 
 function toYMD(date: Date): string {
   return date.toISOString().split("T")[0];
-}
-
-function formatDay(date: Date): string {
-  return date.toLocaleDateString("es", {
-    weekday: "short",
-    day: "numeric",
-  });
 }
 
 // Monday = first column (0). Returns the Monday of the week containing the given date.
@@ -660,8 +657,11 @@ export default function ScheduleModule({
   employeeLabels = {},
   scheduleSelfIds = [],
   onOpenMyShiftView,
+  dateLocale = "es-ES",
+  timeZone: scheduleTimeZoneProp,
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
+  const scheduleTz = scheduleTimeZoneProp ?? resolveUserTimezone(null);
   const today = new Date();
   const todayYmd = toYMD(today);
   const todayEntry = clockEntries.find(
@@ -722,7 +722,9 @@ export default function ScheduleModule({
   );
 
   const monthNameKey = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"][viewMonth] as keyof typeof labels;
-  const monthName = (labels[monthNameKey] as string) ?? new Date(viewYear, viewMonth).toLocaleDateString("default", { month: "long" });
+  const monthName =
+    (labels[monthNameKey] as string) ??
+    new Intl.DateTimeFormat(dateLocale, { timeZone: scheduleTz, month: "long" }).format(new Date(viewYear, viewMonth, 1));
 
   const visibleEntries = useMemo(() => {
     if (viewAll) return entries;
@@ -1214,11 +1216,12 @@ export default function ScheduleModule({
           <div className="fixed z-50 inset-x-0 bottom-0 rounded-t-2xl max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-700 shadow-xl sm:inset-y-0 sm:left-auto sm:right-0 sm:top-0 sm:bottom-auto sm:max-w-md sm:rounded-none sm:rounded-l-2xl sm:max-h-full">
             <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-zinc-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                {new Date(selectedDay + "T12:00:00").toLocaleDateString("es", {
+                {new Intl.DateTimeFormat(dateLocale, {
+                  timeZone: scheduleTz,
                   weekday: "long",
                   day: "numeric",
                   month: "long",
-                })}
+                }).format(new Date(`${selectedDay}T12:00:00`))}
               </h3>
               <button
                 type="button"

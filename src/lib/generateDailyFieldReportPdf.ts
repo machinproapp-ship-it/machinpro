@@ -1,5 +1,6 @@
 import type { DailyFieldReport, DailyReportPpeKey, DailyReportWeather } from "@/types/dailyFieldReport";
-import { dateLocaleForUser } from "@/lib/dailyReportFormat";
+import { formatReportDate, formatReportDateTime } from "@/lib/dailyReportFormat";
+import { resolveUserTimezone } from "@/lib/dateUtils";
 
 function escapeHtml(s: string): string {
   return s
@@ -32,25 +33,6 @@ function ppeLabel(key: DailyReportPpeKey, t: Record<string, string>): string {
   return m[key] ?? key;
 }
 
-function formatDateYmd(dateYmd: string, language: string, countryCode: string): string {
-  const loc = dateLocaleForUser(language, countryCode);
-  const d = new Date(`${dateYmd}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return dateYmd;
-  return new Intl.DateTimeFormat(loc, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(d);
-}
-
-function formatDt(iso: string, language: string, countryCode: string): string {
-  const loc = dateLocaleForUser(language, countryCode);
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat(loc, { dateStyle: "medium", timeStyle: "short" }).format(d);
-}
-
 export function generateDailyFieldReportPdf(params: {
   report: DailyFieldReport;
   companyName: string;
@@ -58,8 +40,18 @@ export function generateDailyFieldReportPdf(params: {
   language?: string;
   labels: Record<string, string>;
   countryCode?: string;
+  timeZone?: string;
 }): void {
-  const { report, companyName, companyLogoUrl, language = "en", labels: tl, countryCode = "CA" } = params;
+  const {
+    report,
+    companyName,
+    companyLogoUrl,
+    language = "en",
+    labels: tl,
+    countryCode = "CA",
+    timeZone,
+  } = params;
+  const tz = resolveUserTimezone(timeZone ?? null);
   const title = tl.dailyReport ?? tl.dailyFieldReport ?? "Daily report";
   const footerLine = `${escapeHtml(companyName)} · MachinPro`;
 
@@ -137,7 +129,7 @@ export function generateDailyFieldReportPdf(params: {
     sigHtml += `<tr>
       <td>${escapeHtml(s.employeeName ?? "—")}${extra}</td>
       <td>${escapeHtml(s.method)}</td>
-      <td>${escapeHtml(formatDt(s.signedAt, language, countryCode))}</td>
+      <td>${escapeHtml(formatReportDateTime(s.signedAt, language, countryCode, tz))}</td>
     </tr>`;
   }
   const sigTable =
@@ -154,7 +146,7 @@ export function generateDailyFieldReportPdf(params: {
     photosHtml += `<div class="ph"><img src="${escapeHtml(ph.url)}" alt="" crossorigin="anonymous" /></div>`;
   }
 
-  const dateStr = formatDateYmd(report.date, language, countryCode);
+  const dateStr = formatReportDate(report.date, language, countryCode, tz);
   const statusStr =
     report.status === "draft"
       ? tl.reportStatusDraft ?? "Draft"

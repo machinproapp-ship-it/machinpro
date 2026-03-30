@@ -9,6 +9,8 @@ import type { CustomRole } from "@/types/roles";
 import { pickDefaultWorkerRoleId } from "@/types/roles";
 import type { Language } from "@/types/shared";
 import { CURRENCY_META, type Currency } from "@/lib/i18n";
+import { IANA_TIMEZONE_OPTIONS, resolveUserTimezone } from "@/lib/dateUtils";
+import { supabase } from "@/lib/supabase";
 
 export type TranslationEntry = Record<string, string>;
 
@@ -97,19 +99,6 @@ const TZ_BY_COUNTRY: Record<string, string> = {
   TR: "Europe/Istanbul",
 };
 
-const TIMEZONE_OPTIONS = [
-  "Europe/Madrid",
-  "Europe/London",
-  "America/Toronto",
-  "America/New_York",
-  "America/Mexico_City",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Rome",
-  "Europe/Lisbon",
-  "UTC",
-] as const;
-
 export interface OnboardingModalProps {
   onComplete: () => void | Promise<void>;
   labels: TranslationEntry;
@@ -141,6 +130,10 @@ export interface OnboardingModalProps {
     archived: boolean;
     assignedEmployeeIds: string[];
   }) => void;
+  /** Saved `user_profiles.timezone` when present (onboarding TZ picker default). */
+  profileTimeZone?: string | null;
+  /** After persisting timezone to user_profiles (step 1). */
+  onUserTimezoneSaved?: () => void | Promise<void>;
 }
 
 type Phase = "welcome" | "wizard" | "finished";
@@ -164,6 +157,8 @@ export function OnboardingModal({
   onLogoUrlChange,
   onLogoUpload,
   onProjectCreated,
+  profileTimeZone = null,
+  onUserTimezoneSaved,
 }: OnboardingModalProps) {
   const lx = t as Record<string, string>;
   const [phase, setPhase] = useState<Phase>("welcome");
@@ -174,14 +169,7 @@ export function OnboardingModal({
   const [step1Name, setStep1Name] = useState(companyName);
   const [step1Country, setStep1Country] = useState(companyCountry || "ES");
   const [step1Currency, setStep1Currency] = useState<Currency>(currency);
-  const [step1Tz, setStep1Tz] = useState(() => {
-    if (typeof window === "undefined") return "Europe/Madrid";
-    try {
-      return localStorage.getItem("machinpro_tz") || "Europe/Madrid";
-    } catch {
-      return "Europe/Madrid";
-    }
-  });
+  const [step1Tz, setStep1Tz] = useState(() => resolveUserTimezone(profileTimeZone));
   const [step1Logo, setStep1Logo] = useState(logoUrl);
 
   useEffect(() => {
@@ -196,6 +184,9 @@ export function OnboardingModal({
   useEffect(() => {
     setStep1Logo(logoUrl);
   }, [logoUrl]);
+  useEffect(() => {
+    setStep1Tz(resolveUserTimezone(profileTimeZone));
+  }, [profileTimeZone]);
 
   const roleOptions = useMemo(() => customRoles.filter((r) => r.id !== "role-admin"), [customRoles]);
   const defaultRoleId = useMemo(() => {
@@ -297,6 +288,11 @@ export function OnboardingModal({
       onCurrencyChange(step1Currency);
       onLogoUrlChange(step1Logo.trim());
       persistTimezone(step1Tz);
+      const uid = session?.user?.id;
+      if (uid) {
+        await supabase.from("user_profiles").update({ timezone: step1Tz }).eq("id", uid);
+        await onUserTimezoneSaved?.();
+      }
       setWizardStep(2);
     } finally {
       setBusy(false);
@@ -317,6 +313,8 @@ export function OnboardingModal({
     onLogoUrlChange,
     persistTimezone,
     step1Tz,
+    session?.user?.id,
+    onUserTimezoneSaved,
   ]);
 
   const sendInviteAndNext = useCallback(async () => {
@@ -584,7 +582,7 @@ export function OnboardingModal({
                       onChange={(e) => persistTimezone(e.target.value)}
                       className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                     >
-                      {Array.from(new Set<string>([...TIMEZONE_OPTIONS, step1Tz])).map((tz) => (
+                      {Array.from(new Set<string>([...IANA_TIMEZONE_OPTIONS, step1Tz])).map((tz) => (
                         <option key={tz} value={tz}>
                           {tz.replace(/_/g, " ")}
                         </option>

@@ -5,6 +5,7 @@ import { supabase, type AuthGetSessionResult } from "./supabase";
 import type { AuthChangeEvent, User, Session } from "@supabase/supabase-js";
 import type { Language } from "@/types/shared";
 import { isValidLanguage } from "@/lib/localePreference";
+import { isValidIanaTimeZone } from "@/lib/dateUtils";
 
 /** Mirrors `user_profiles` in Supabase; optional name fields if columns exist. */
 interface UserProfile {
@@ -23,6 +24,8 @@ interface UserProfile {
   isSuperadmin?: boolean;
   /** Preferencia de idioma (`user_profiles.locale`). */
   locale?: Language | null;
+  /** IANA timezone (`user_profiles.timezone`). */
+  timezone?: string | null;
   phone?: string | null;
   avatarUrl?: string | null;
 }
@@ -71,6 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const localeRaw =
         row.locale != null && String(row.locale).trim() ? String(row.locale).trim() : null;
       const locale = isValidLanguage(localeRaw) ? localeRaw : null;
+      const tzRaw = row.timezone != null && String(row.timezone).trim() ? String(row.timezone).trim() : null;
+      const timezone = tzRaw && isValidIanaTimeZone(tzRaw) ? tzRaw : null;
       const phoneRaw = row.phone;
       const avatarRaw = row.avatar_url;
       setProfile({
@@ -84,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         isSuperadmin: superRow.is_superadmin === true,
         locale,
+        timezone,
         phone: typeof phoneRaw === "string" && phoneRaw.trim() ? phoneRaw.trim() : null,
         avatarUrl: typeof avatarRaw === "string" && avatarRaw.trim() ? avatarRaw.trim() : null,
       });

@@ -118,6 +118,8 @@ export type DailyFieldReportViewProps = {
   language: string;
   labels: Record<string, string>;
   countryCode?: string;
+  /** IANA; mismo criterio que perfil de usuario */
+  timeZone?: string;
   cloudinaryCloudName: string;
   cloudinaryUploadPreset: string;
   onBack: () => void;
@@ -142,6 +144,7 @@ export function DailyFieldReportView({
   language,
   labels: rawLabels,
   countryCode = "CA",
+  timeZone,
   cloudinaryCloudName,
   cloudinaryUploadPreset,
   onBack,
@@ -380,8 +383,9 @@ export function DailyFieldReportView({
       language,
       labels: tl,
       countryCode,
+      timeZone,
     });
-  }, [draft, companyName, companyLogoUrl, language, tl, countryCode]);
+  }, [draft, companyName, companyLogoUrl, language, tl, countryCode, timeZone]);
 
   const toggleMyTask = useCallback(
     async (taskId: string, completed: boolean) => {
@@ -485,7 +489,7 @@ export function DailyFieldReportView({
             {tl.dailyReport ?? tl.dailyFieldReport ?? "Daily report"}
           </h1>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {projectName} · {formatReportDate(draft.date, language, countryCode)}
+            {projectName} · {formatReportDate(draft.date, language, countryCode, timeZone)}
           </p>
         </header>
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-28">
@@ -528,7 +532,8 @@ export function DailyFieldReportView({
                 {formatReportDateTime(
                   draft.signatures.find((s) => s.employeeId === currentUserProfileId)?.signedAt ?? "",
                   language,
-                  countryCode
+                  countryCode,
+                  timeZone
                 )}
               </p>
             ) : (
@@ -1079,7 +1084,7 @@ export function DailyFieldReportView({
                         : ""}
                     </span>
                     <span className="text-zinc-500">
-                      {formatReportDateTime(s.signedAt, language, countryCode)}
+                      {formatReportDateTime(s.signedAt, language, countryCode, timeZone)}
                     </span>
                   </li>
                 ))}

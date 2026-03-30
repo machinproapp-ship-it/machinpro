@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import {
   Sliders,
   Lock,
@@ -23,6 +23,11 @@ import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotific
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { LANGUAGES, CURRENCY_META } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
+import {
+  DEFAULT_IANA_TIMEZONE,
+  IANA_TIMEZONE_OPTIONS,
+  resolveUserTimezone,
+} from "@/lib/dateUtils";
 import type { ComplianceField, ComplianceFieldType, ComplianceTarget } from "@/app/page";
 
 const COUNTRY_DEFAULTS: Record<
@@ -125,6 +130,9 @@ export interface SettingsModuleProps {
   passwordResetBusy?: boolean;
   /** Admin: volver a mostrar el asistente de configuración inicial */
   onReopenOnboarding?: () => void;
+  /** Perfil: zona IANA guardada en `user_profiles.timezone`. */
+  savedProfileTimeZone?: string | null;
+  onPersistUserTimeZone?: (tz: string) => void | Promise<void>;
 }
 
 export function SettingsModule({
@@ -164,6 +172,8 @@ export function SettingsModule({
   onRequestPasswordReset,
   passwordResetBusy = false,
   onReopenOnboarding,
+  savedProfileTimeZone = null,
+  onPersistUserTimeZone,
 }: SettingsModuleProps) {
   const { showToast } = useToast();
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
@@ -201,8 +211,7 @@ export function SettingsModule({
   /** Compliance (config obligatorios) solo en nav de escritorio; en móvil se gestiona desde Empleados / Logística. */
   const [settingsWideNav, setSettingsWideNav] = useState(false);
   const [settingsMobileMenu, setSettingsMobileMenu] = useState(true);
-  const [regionalTimezone, setRegionalTimezone] = useState("Europe/Madrid");
-  const [regionalDateFormat, setRegionalDateFormat] = useState("DD/MM/YYYY");
+  const [regionalTimezone, setRegionalTimezone] = useState(DEFAULT_IANA_TIMEZONE);
 
   const persistPushPref = useCallback((key: "hazard" | "action" | "visitor", on: boolean) => {
     const map = { hazard: "machinpro_push_hazard", action: "machinpro_push_action", visitor: "machinpro_push_visitor" };
@@ -263,27 +272,28 @@ export function SettingsModule({
   }, [settingsWideNav, activeSettingsSection]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const tz = localStorage.getItem("machinpro_tz");
-      const df = localStorage.getItem("machinpro_date_fmt");
-      if (tz) setRegionalTimezone(tz);
-      if (df) setRegionalDateFormat(df);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    const resolved = resolveUserTimezone(savedProfileTimeZone);
+    setRegionalTimezone(resolved);
+  }, [savedProfileTimeZone]);
 
-  const handleRegionalChange = useCallback((tz: string, df: string) => {
-    setRegionalTimezone(tz);
-    setRegionalDateFormat(df);
-    try {
-      localStorage.setItem("machinpro_tz", tz);
-      localStorage.setItem("machinpro_date_fmt", df);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const handleRegionalTimezoneChange = useCallback(
+    (tz: string) => {
+      setRegionalTimezone(tz);
+      try {
+        localStorage.setItem("machinpro_tz", tz);
+      } catch {
+        /* ignore */
+      }
+      void onPersistUserTimeZone?.(tz);
+    },
+    [onPersistUserTimeZone]
+  );
+
+  const timezoneSelectOptions = useMemo(() => {
+    const base = [...IANA_TIMEZONE_OPTIONS];
+    if (regionalTimezone && !base.includes(regionalTimezone)) base.unshift(regionalTimezone);
+    return base;
+  }, [regionalTimezone]);
 
   const handleCountryChange = (country: string) => {
     const defaults = COUNTRY_DEFAULTS[country];
@@ -722,29 +732,14 @@ export function SettingsModule({
                 </label>
                 <select
                   value={regionalTimezone}
-                  onChange={(e) => handleRegionalChange(e.target.value, regionalDateFormat)}
+                  onChange={(e) => handleRegionalTimezoneChange(e.target.value)}
                   className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                 >
-                  <option value="Europe/Madrid">Europe / Madrid</option>
-                  <option value="Europe/London">Europe / London</option>
-                  <option value="America/Toronto">America / Toronto</option>
-                  <option value="America/New_York">America / New York</option>
-                  <option value="America/Mexico_City">America / Mexico City</option>
-                  <option value="UTC">UTC</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  {(t as Record<string, string>).settingsDateFormat ?? "Date format"}
-                </label>
-                <select
-                  value={regionalDateFormat}
-                  onChange={(e) => handleRegionalChange(regionalTimezone, e.target.value)}
-                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
-                >
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                  {timezoneSelectOptions.map((z) => (
+                    <option key={z} value={z}>
+                      {z.replace(/_/g, " ")}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

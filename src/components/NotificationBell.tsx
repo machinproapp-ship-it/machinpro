@@ -4,19 +4,18 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bell, X } from "lucide-react";
 import { useNotifications, type AppNotificationRow } from "@/hooks/useNotifications";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  formatNotificationRelative,
-  notificationDisplayBody,
-  notificationDisplayTitle,
-} from "@/lib/notificationUi";
+import { notificationDisplayBody, notificationDisplayTitle } from "@/lib/notificationUi";
+import { formatRelative } from "@/lib/dateUtils";
 
 type Props = {
   supabase: SupabaseClient | null;
   labels: Record<string, string>;
   enabled: boolean;
+  /** BCP 47 (`dateLocaleForUser`) for relative timestamps. */
+  localeBcp47: string;
 };
 
-export function NotificationBell({ supabase, labels, enabled }: Props) {
+export function NotificationBell({ supabase, labels, enabled, localeBcp47 }: Props) {
   const tl = labels;
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -125,7 +124,7 @@ export function NotificationBell({ supabase, labels, enabled }: Props) {
                       n.data as Record<string, unknown> | null | undefined,
                       tl
                     );
-                    const rel = formatNotificationRelative(n.created_at, tl);
+                    const rel = formatRelative(n.created_at, localeBcp47);
                     return (
                       <li key={n.id}>
                         <button

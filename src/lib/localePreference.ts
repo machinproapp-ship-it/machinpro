@@ -32,3 +32,14 @@ export async function persistUserLocale(
   const { error } = await client.from("user_profiles").update({ locale }).eq("id", userId);
   if (error) console.error("[locale] user_profiles update", error);
 }
+
+export async function persistUserTimezone(
+  client: SupabaseClient,
+  userId: string,
+  timezone: string
+): Promise<void> {
+  const tz = timezone.trim();
+  if (!tz) return;
+  const { error } = await client.from("user_profiles").update({ timezone: tz }).eq("id", userId);
+  if (error) console.error("[timezone] user_profiles update", error);
+}

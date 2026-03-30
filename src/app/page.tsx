@@ -79,7 +79,9 @@ import {
   isValidLanguage,
   detectLanguageFromNavigator,
   persistUserLocale,
+  persistUserTimezone,
 } from "@/lib/localePreference";
+import { dateLocaleForUser, resolveUserTimezone } from "@/lib/dateUtils";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import {
   type CustomRole,
@@ -926,6 +928,20 @@ export default function Home() {
     [user?.id, syncSession]
   );
 
+  const applyUserTimezone = useCallback(
+    async (tz: string) => {
+      if (!user?.id) return;
+      await persistUserTimezone(supabase, user.id, tz);
+      try {
+        localStorage.setItem("machinpro_tz", tz);
+      } catch {
+        /* ignore */
+      }
+      await syncSession();
+    },
+    [user?.id, syncSession]
+  );
+
   useEffect(() => {
     if (!user?.id || !profile || profile.id !== user.id) return;
     if (profile.locale && isValidLanguage(profile.locale)) {
@@ -986,6 +1002,8 @@ export default function Home() {
   const [currency, setCurrency] = useState<Currency>("CAD");
   const [measurementSystem, setMeasurementSystem] = useState<"metric" | "imperial">("metric");
   const [companyCountry, setCompanyCountry] = useState<string>("CA");
+  const userTimeZone = useMemo(() => resolveUserTimezone(profile?.timezone ?? null), [profile?.timezone]);
+  const dateLocaleBcp47 = useMemo(() => dateLocaleForUser(language, companyCountry), [language, companyCountry]);
   const [complianceFields, setComplianceFields] = useState<ComplianceField[]>(() => getDefaultComplianceFields("CA"));
   const [complianceRecords, setComplianceRecords] = useState<ComplianceRecord[]>([]);
   const [employeeDocs, setEmployeeDocs] = useState<EmployeeDocument[]>(() => {
@@ -3330,6 +3348,8 @@ export default function Home() {
           onMeasurementSystemChange={setMeasurementSystem}
           onLogoUrlChange={setLogoUrl}
           onLogoUpload={handleLogoUpload}
+          profileTimeZone={profile?.timezone ?? null}
+          onUserTimezoneSaved={() => void syncSession()}
           onProjectCreated={(row) => {
             setProjects((prev) => [...prev, row as Project]);
           }}
@@ -3368,6 +3388,7 @@ export default function Home() {
                   supabase={supabase}
                   labels={labels as Record<string, string>}
                   enabled
+                  localeBcp47={dateLocaleBcp47}
                 />
               ) : null}
               {pendingSync.length > 0 ? (
@@ -3661,6 +3682,8 @@ export default function Home() {
                 clockEntries={displayClockEntries}
                 formInstances={formInstances}
                 language={language}
+                timeZone={userTimeZone}
+                regionCountryCode={companyCountry}
                 complianceFields={complianceFields}
                 complianceRecords={complianceRecords}
                 onComplianceRecordsChange={setComplianceRecords}
@@ -4184,6 +4207,8 @@ export default function Home() {
                   );
                 }}
                 countryCode={companyCountry ?? "CA"}
+                timeZone={userTimeZone}
+                companyCurrency={currency}
                 dailyReports={dailyReports}
                 onRefreshDailyReports={reloadDailyReports}
                 onDailyReportPublished={handleDailyReportPublished}
@@ -4424,6 +4449,8 @@ export default function Home() {
                 onOpenMyShiftView={openEmployeeShiftDay}
                 scheduleSelfIds={scheduleSelfIds}
                 assignedClockInProjects={assignedClockInProjects}
+                dateLocale={dateLocaleBcp47}
+                timeZone={userTimeZone}
               />
             )}
 
@@ -4601,6 +4628,8 @@ export default function Home() {
                       }
                     : undefined
                 }
+                savedProfileTimeZone={profile?.timezone ?? null}
+                onPersistUserTimeZone={(tz) => void applyUserTimezone(tz)}
               />
             )}
 

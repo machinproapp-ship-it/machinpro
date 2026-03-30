@@ -1,57 +1,41 @@
-/**
- * Locale BCP 47 para fechas: MM/DD en US/CA, día primero en Europa y Latinoamérica.
- */
-export function dateLocaleForUser(language: string, countryCode: string): string {
-  const cc = (countryCode || "CA").toUpperCase();
-  if (cc === "US" || cc === "CA") {
-    if (language === "en") return "en-US";
-    if (language === "es") return "es-US";
-    if (language === "fr") return "fr-CA";
-    return "en-US";
-  }
-  const m: Record<string, string> = {
-    es: "es-ES",
-    en: "en-GB",
-    fr: "fr-FR",
-    de: "de-DE",
-    it: "it-IT",
-    pt: "pt-PT",
-    nl: "nl-NL",
-    pl: "pl-PL",
-    sv: "sv-SE",
-    no: "nb-NO",
-    da: "da-DK",
-    fi: "fi-FI",
-    cs: "cs-CZ",
-    ro: "ro-RO",
-    hu: "hu-HU",
-    el: "el-GR",
-    tr: "tr-TR",
-    uk: "uk-UA",
-    hr: "hr-HR",
-    sk: "sk-SK",
-    bg: "bg-BG",
-  };
-  return m[language] ?? "en-GB";
-}
+import { dateLocaleForUser, resolveUserTimezone } from "@/lib/dateUtils";
 
-export function formatReportDate(dateYmd: string, language: string, countryCode: string): string {
+export { dateLocaleForUser };
+
+/** Long written date for daily report header (weekday, month long). */
+export function formatReportDate(
+  dateYmd: string,
+  language: string,
+  countryCode: string,
+  timeZone?: string
+): string {
   const locale = dateLocaleForUser(language, countryCode);
-  const d = new Date(`${dateYmd}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return dateYmd;
+  const tz = timeZone ?? resolveUserTimezone(null);
+  const [y, m, d] = dateYmd.split("-").map((x) => parseInt(x, 10));
+  if (!y || !m || !d || Number.isNaN(y + m + d)) return dateYmd;
+  const utcNoon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  if (Number.isNaN(utcNoon.getTime())) return dateYmd;
   return new Intl.DateTimeFormat(locale, {
+    timeZone: tz,
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-  }).format(d);
+  }).format(utcNoon);
 }
 
-export function formatReportDateTime(iso: string, language: string, countryCode: string): string {
+export function formatReportDateTime(
+  iso: string,
+  language: string,
+  countryCode: string,
+  timeZone?: string
+): string {
   const locale = dateLocaleForUser(language, countryCode);
+  const tz = timeZone ?? resolveUserTimezone(null);
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return new Intl.DateTimeFormat(locale, {
+    timeZone: tz,
     dateStyle: "medium",
     timeStyle: "short",
   }).format(d);

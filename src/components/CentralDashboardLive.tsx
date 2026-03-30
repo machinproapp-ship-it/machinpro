@@ -38,6 +38,14 @@ import {
   type ResolvedDashboardConfig,
   QUICK_ACCESS_KEYS,
 } from "@/lib/dashboardConfig";
+import {
+  dateLocaleForUser,
+  resolveUserTimezone,
+  formatDateLong,
+  formatTime,
+  formatRelative,
+  getClockHourInTimeZone,
+} from "@/lib/dateUtils";
 
 function startEndLocalDay(offsetDays: number): { start: string; end: string } {
   const d = new Date();
@@ -63,19 +71,6 @@ function errMessage(e: unknown): string {
     return (e as { message: string }).message;
   }
   return String(e);
-}
-
-function relativeTime(iso: string, locale: string, labels: Record<string, string>): string {
-  const t = new Date(iso).getTime();
-  const diff = Date.now() - t;
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return labels.dashboard_rel_now ?? "";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return (labels.dashboard_rel_minutes ?? "").replace("{n}", String(min));
-  const h = Math.floor(min / 60);
-  if (h < 24) return (labels.dashboard_rel_hours ?? "").replace("{n}", String(h));
-  const d = Math.floor(h / 24);
-  return (labels.dashboard_rel_days ?? "").replace("{n}", String(d));
 }
 
 type AuditProfileSnippet = {
@@ -231,6 +226,10 @@ export interface CentralDashboardLiveProps {
   companyId: string | null;
   companyName?: string | null;
   language: string;
+  /** ISO 3166-1 alpha-2 for regional date/number patterns with `language`. */
+  countryCode?: string;
+  /** IANA timezone for clocks and formatted timestamps. */
+  timeZone?: string;
   activeProjectsCount: number;
   /** Zona gestión: tarjeta Proyectos (ver/crear proyectos o admin). */
   canViewProjectsManagement: boolean;
@@ -304,6 +303,8 @@ function CentralDashboardBody(
     companyId,
     companyName,
     language,
+    countryCode = "CA",
+    timeZone: timeZoneProp,
     activeProjectsCount,
     canViewProjectsManagement,
     projectNameById,
@@ -346,31 +347,19 @@ function CentralDashboardBody(
   const labels = labelsProp;
   const L = (key: string) => labels[key] ?? "";
 
-  const localeMap: Record<string, string> = {
-    es: "es-ES",
-    en: "en-GB",
-    fr: "fr-FR",
-    de: "de-DE",
-    it: "it-IT",
-    pt: "pt-PT",
-  };
-  const locale = localeMap[language] ?? "es-ES";
+  const timeZone = timeZoneProp ?? resolveUserTimezone(null);
+  const dateLoc = dateLocaleForUser(language, countryCode);
 
   const todayIso = localTodayYmd();
   const { start: tStart, end: tEnd } = startEndLocalDay(0);
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
+    const hour = getClockHourInTimeZone(new Date(), timeZone);
     if (hour < 12) return labels.goodMorning ?? "";
     if (hour < 18) return labels.goodAfternoon ?? "";
     return labels.goodEvening ?? "";
   };
-  const formattedDate = new Date().toLocaleDateString(locale, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedDate = formatDateLong(new Date(), dateLoc, timeZone);
 
   const [dataLoading, setDataLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
@@ -938,10 +927,7 @@ function CentralDashboardBody(
     </div>
   );
 
-  const fmtTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-  };
+  const fmtTime = (iso: string) => formatTime(iso, dateLoc, timeZone);
 
   const renderWidget = (id: DashboardWidgetId) => {
     const title = L(WIDGET_LABEL_KEYS[id]) || L(`dashboard_widget_${id}`) || id;
@@ -1054,7 +1040,7 @@ function CentralDashboardBody(
               ) : (
                 activityRows.map((row) => (
                   <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2">
-                    <span className="text-xs text-gray-500">{relativeTime(row.created_at, locale, labels)}</span>
+                    <span className="text-xs text-gray-500">{formatRelative(row.created_at, dateLoc)}</span>
                     <p className="mt-0.5">
                       {formatActivityLine(
                         row,
