@@ -873,15 +873,10 @@ export default function Home() {
     }
     return m;
   }, [photos]);
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") return "es";
-    try {
-      const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
-      return raw && isValidLanguage(raw) ? raw : detectLanguageFromNavigator();
-    } catch {
-      return detectLanguageFromNavigator();
-    }
-  });
+  /** Never seed from localStorage: avoids showing the previous account's language after login. */
+  const [language, setLanguage] = useState<Language>(() =>
+    typeof window === "undefined" ? "es" : detectLanguageFromNavigator()
+  );
   const [lazyLocaleT, setLazyLocaleT] = useState<Record<string, string> | null>(null);
   const lazyLocaleCacheRef = useRef<Map<string, Record<string, string>>>(new Map());
 
@@ -932,7 +927,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    if (!user?.id || !profile) return;
+    if (!user?.id || !profile || profile.id !== user.id) return;
     if (profile.locale && isValidLanguage(profile.locale)) {
       setLanguage((prev) => (prev === profile.locale ? prev : profile.locale!));
       try {
@@ -3445,11 +3440,13 @@ export default function Home() {
                   )}
                 </div>
               )}
-              <div className="hidden lg:block">
+              <label className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial">
+                <span className="sr-only">{(t as Record<string, string>).language ?? "Language"}</span>
                 <select
                   value={language}
                   onChange={(e) => void applyLanguage(e.target.value as Language)}
-                  className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1 text-sm"
+                  aria-label={(t as Record<string, string>).language ?? "Language"}
+                  className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:min-w-[10rem] sm:flex-none"
                 >
                   {LANGUAGES.map((lang) => (
                     <option key={lang.code} value={lang.code}>
@@ -3457,7 +3454,7 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
               <button
                 type="button"
                 onClick={() => {

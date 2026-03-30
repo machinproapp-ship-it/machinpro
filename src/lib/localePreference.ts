@@ -10,18 +10,18 @@ export function isValidLanguage(code: string | null | undefined): code is Langua
   return code != null && CODES.has(code as Language);
 }
 
-/** Map navigator.language to a supported Language (e.g. es-MX → es). */
+/** Map navigator.language to a supported Language (e.g. es-MX → es). Unsupported → es. */
 export function detectLanguageFromNavigator(): Language {
-  if (typeof navigator === "undefined") return "en";
+  if (typeof navigator === "undefined") return "es";
   const raw =
     navigator.language ||
     (navigator as unknown as { userLanguage?: string }).userLanguage ||
     "";
   const primary = raw.split(",")[0]?.trim().toLowerCase() || "";
-  const base = primary.split("-")[0] || "en";
+  const base = primary.split("-")[0] || "";
   if (isValidLanguage(base)) return base;
   if (primary.startsWith("pt")) return "pt";
-  return "en";
+  return "es";
 }
 
 export async function persistUserLocale(

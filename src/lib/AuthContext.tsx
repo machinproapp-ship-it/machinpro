@@ -97,8 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const s = data.session ?? null;
     setSession(s);
     setUser(s?.user ?? null);
-    if (s?.user) await fetchProfile(s.user.id);
-    else setProfile(null);
+    if (s?.user) {
+      setProfile(null);
+      await fetchProfile(s.user.id);
+    } else {
+      setProfile(null);
+    }
   };
 
   useEffect(() => {
@@ -115,8 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) void fetchProfile(session.user.id);
-      else setProfile(null);
+      if (session?.user) {
+        setProfile(null);
+        void fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -378,20 +378,6 @@ export function SettingsModule({
                   {autoSetupMessage}
                 </div>
               )}
-          <div>
-            <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.language}</label>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
-              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
-            >
-              {LANGUAGES.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.flag} {lang.label}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.measurementSystem}</label>
