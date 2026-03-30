@@ -12,6 +12,10 @@ export async function PATCH(req: NextRequest) {
     currency?: string;
     language?: string;
     logo_url?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    website?: string | null;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -36,6 +40,17 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.language === "string" && body.language.trim()) patch.language = body.language.trim();
   if (typeof body.logo_url === "string" && body.logo_url.trim()) patch.logo_url = body.logo_url.trim();
   if (body.logo_url === null) patch.logo_url = null;
+
+  const strOrNull = (v: unknown): string | null => {
+    if (v === null || v === undefined) return null;
+    if (typeof v !== "string") return null;
+    const s = v.trim();
+    return s ? s : null;
+  };
+  if ("address" in body) patch.address = strOrNull(body.address);
+  if ("phone" in body) patch.phone = strOrNull(body.phone);
+  if ("email" in body) patch.email = strOrNull(body.email);
+  if ("website" in body) patch.website = strOrNull(body.website);
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

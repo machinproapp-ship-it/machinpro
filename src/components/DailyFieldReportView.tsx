@@ -112,6 +112,10 @@ export type DailyFieldReportViewProps = {
   companyName: string;
   companyId: string;
   companyLogoUrl?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
   projectAssignees: { profileId: string; name: string }[];
   currentUserProfileId: string;
   currentUserName: string;
@@ -138,6 +142,10 @@ export function DailyFieldReportView({
   companyName,
   companyId,
   companyLogoUrl,
+  companyAddress,
+  companyPhone,
+  companyEmail,
+  companyWebsite,
   projectAssignees,
   currentUserProfileId,
   currentUserName,
@@ -380,12 +388,28 @@ export function DailyFieldReportView({
       report: draft,
       companyName,
       companyLogoUrl,
+      companyAddress,
+      companyPhone,
+      companyEmail,
+      companyWebsite,
       language,
       labels: tl,
       countryCode,
       timeZone,
     });
-  }, [draft, companyName, companyLogoUrl, language, tl, countryCode, timeZone]);
+  }, [
+    draft,
+    companyName,
+    companyLogoUrl,
+    companyAddress,
+    companyPhone,
+    companyEmail,
+    companyWebsite,
+    language,
+    tl,
+    countryCode,
+    timeZone,
+  ]);
 
   const toggleMyTask = useCallback(
     async (taskId: string, completed: boolean) => {

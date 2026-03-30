@@ -33,6 +33,10 @@ export async function generateInspectionReportPDF(params: {
   projectName: string;
   companyName: string;
   companyLogoUrl?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
   inspectorName: string;
   reportTitle: string;
   labels: Record<string, string>;
@@ -45,6 +49,10 @@ export async function generateInspectionReportPDF(params: {
     projectName,
     companyName,
     companyLogoUrl,
+    companyAddress,
+    companyPhone,
+    companyEmail,
+    companyWebsite,
     inspectorName,
     reportTitle,
     labels: t,
@@ -59,6 +67,10 @@ export async function generateInspectionReportPDF(params: {
   const footerStamp = formatDateTime(reportDate, locale, tz);
 
   const totalPages = 1 + photos.length;
+  const poweredBy = t.company_powered_by ?? "Powered by MachinPro";
+  const contactBits = [companyAddress, companyPhone, companyEmail, companyWebsite]
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .filter(Boolean);
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
@@ -67,9 +79,11 @@ export async function generateInspectionReportPDF(params: {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(90, 90, 90);
-    const left = `MachinPro · ${companyName} · ${t.inspection_report_page ?? "Page"} ${p} ${t.inspection_report_of ?? "of"} ${totalPages}`;
-    doc.text(left, MM, PAGE_H - MM);
-    doc.text(footerStamp, PAGE_W - MM, PAGE_H - MM, { align: "right" });
+    const left = `${t.inspection_report_page ?? "Page"} ${p} ${t.inspection_report_of ?? "of"} ${totalPages}`;
+    doc.text(left, MM, PAGE_H - MM - 4);
+    doc.text(footerStamp, PAGE_W - MM, PAGE_H - MM - 4, { align: "right" });
+    doc.setFontSize(7);
+    doc.text(`${companyName} · ${poweredBy}`, PAGE_W / 2, PAGE_H - MM + 1.5, { align: "center" });
     doc.setTextColor(0, 0, 0);
   };
 
@@ -92,13 +106,22 @@ export async function generateInspectionReportPDF(params: {
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text("MachinPro", MM, y);
+  doc.setFontSize(11);
+  doc.text(`${companyName} · MachinPro`, MM, y);
+  y += 6;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(companyName, MM, y + 5);
-
-  y += 22;
+  doc.setFontSize(9);
+  doc.setTextColor(70, 70, 70);
+  for (const line of contactBits) {
+    const lines = doc.splitTextToSize(line, INNER_W);
+    doc.text(lines, MM, y);
+    y += lines.length * 4.2;
+  }
+  doc.setTextColor(0, 0, 0);
+  y += 2;
+  doc.setDrawColor(180, 180, 180);
+  doc.line(MM, y, PAGE_W - MM, y);
+  y += 8;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(17);
   doc.text(t.inspection_report_cover ?? "Inspection Report", PAGE_W / 2, y, { align: "center" });

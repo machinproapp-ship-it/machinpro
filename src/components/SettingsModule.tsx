@@ -109,6 +109,16 @@ export interface SettingsModuleProps {
   onCompanyNameChange: (name: string) => void;
   logoUrl: string;
   onLogoUpload: () => void;
+  companyAddress?: string;
+  onCompanyAddressChange?: (v: string) => void;
+  companyPhone?: string;
+  onCompanyPhoneChange?: (v: string) => void;
+  companyEmail?: string;
+  onCompanyEmailChange?: (v: string) => void;
+  companyWebsite?: string;
+  onCompanyWebsiteChange?: (v: string) => void;
+  onSaveCompanyProfile?: () => void | Promise<void>;
+  companyProfileSaveBusy?: boolean;
   complianceFields?: ComplianceField[];
   onComplianceFieldsChange?: (fields: ComplianceField[]) => void;
   session?: Session | null;
@@ -153,6 +163,16 @@ export function SettingsModule({
   onCompanyNameChange,
   logoUrl,
   onLogoUpload,
+  companyAddress = "",
+  onCompanyAddressChange,
+  companyPhone = "",
+  onCompanyPhoneChange,
+  companyEmail = "",
+  onCompanyEmailChange,
+  companyWebsite = "",
+  onCompanyWebsiteChange,
+  onSaveCompanyProfile,
+  companyProfileSaveBusy = false,
   complianceFields = [],
   onComplianceFieldsChange,
   session = null,
@@ -713,6 +733,69 @@ export function SettingsModule({
                       {t.uploadLogo ?? "Subir logo"}
                     </button>
                   </div>
+                  {onCompanyAddressChange ? (
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                        {(t as Record<string, string>).company_address ?? "Address"}
+                      </label>
+                      <textarea
+                        value={companyAddress}
+                        onChange={(e) => onCompanyAddressChange(e.target.value)}
+                        rows={2}
+                        className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  ) : null}
+                  {onCompanyPhoneChange ? (
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                        {(t as Record<string, string>).company_phone ?? "Phone"}
+                      </label>
+                      <input
+                        type="tel"
+                        value={companyPhone}
+                        onChange={(e) => onCompanyPhoneChange(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  ) : null}
+                  {onCompanyEmailChange ? (
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                        {(t as Record<string, string>).company_email ?? "Contact email"}
+                      </label>
+                      <input
+                        type="email"
+                        value={companyEmail}
+                        onChange={(e) => onCompanyEmailChange(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  ) : null}
+                  {onCompanyWebsiteChange ? (
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                        {(t as Record<string, string>).company_website ?? "Website"}
+                      </label>
+                      <input
+                        type="url"
+                        value={companyWebsite}
+                        onChange={(e) => onCompanyWebsiteChange(e.target.value)}
+                        placeholder="https://"
+                        className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  ) : null}
+                  {onSaveCompanyProfile ? (
+                    <button
+                      type="button"
+                      onClick={() => void onSaveCompanyProfile()}
+                      disabled={companyProfileSaveBusy}
+                      className="w-full max-w-md min-h-[44px] rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-60 sm:w-auto"
+                    >
+                      {companyProfileSaveBusy ? "…" : (t.save ?? "Save")}
+                    </button>
+                  ) : null}
                 </div>
               </section>
             </div>

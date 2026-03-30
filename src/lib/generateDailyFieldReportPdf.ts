@@ -37,6 +37,10 @@ export function generateDailyFieldReportPdf(params: {
   report: DailyFieldReport;
   companyName: string;
   companyLogoUrl?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
   language?: string;
   labels: Record<string, string>;
   countryCode?: string;
@@ -46,6 +50,10 @@ export function generateDailyFieldReportPdf(params: {
     report,
     companyName,
     companyLogoUrl,
+    companyAddress,
+    companyPhone,
+    companyEmail,
+    companyWebsite,
     language = "en",
     labels: tl,
     countryCode = "CA",
@@ -53,7 +61,18 @@ export function generateDailyFieldReportPdf(params: {
   } = params;
   const tz = resolveUserTimezone(timeZone ?? null);
   const title = tl.dailyReport ?? tl.dailyFieldReport ?? "Daily report";
-  const footerLine = `${escapeHtml(companyName)} · MachinPro`;
+  const poweredBy = tl.company_powered_by ?? "Powered by MachinPro";
+  const footerLine = `${escapeHtml(companyName)} · ${escapeHtml(poweredBy)}`;
+
+  const contactLines = [
+    companyAddress?.trim(),
+    companyPhone?.trim(),
+    companyEmail?.trim(),
+    companyWebsite?.trim(),
+  ]
+    .filter(Boolean)
+    .map((line) => `<p class="contact-line">${escapeHtml(line!)}</p>`)
+    .join("");
 
   const section = (h: string, inner: string) =>
     `<section class="sec"><h2 class="h2">${escapeHtml(h)}</h2>${inner}</section>`;
@@ -184,12 +203,14 @@ export function generateDailyFieldReportPdf(params: {
   <style>
     @page { margin: 14mm; }
     body { font-family: system-ui, sans-serif; color: #18181b; font-size: 11pt; line-height: 1.45; padding-bottom: 28px; }
-    .hdr { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; border-bottom: 2px solid #b45309; padding-bottom: 12px; }
+    .hdr { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; padding-bottom: 12px; }
+    .hdr-rule { border: 0; border-top: 2px solid #b45309; margin: 12px 0 16px; }
     .logo { max-height: 56px; max-width: 160px; object-fit: contain; }
     .h1 { font-size: 1.35rem; margin: 8px 0 4px; }
     .co { font-weight: 700; margin: 0; }
     .mp { color: #b45309; font-weight: 600; margin: 0 0 8px; font-size: 0.85rem; }
     .sub { margin: 2px 0; font-size: 0.9rem; color: #52525b; }
+    .contact-line { margin: 1px 0; font-size: 0.82rem; color: #52525b; }
     .sec { margin-bottom: 18px; page-break-inside: avoid; }
     .h2 { font-size: 1rem; border-bottom: 1px solid #e4e4e7; padding-bottom: 4px; margin: 0 0 8px; }
     .line { margin: 4px 0; }
@@ -212,13 +233,14 @@ export function generateDailyFieldReportPdf(params: {
   <header class="hdr">
     ${logoBlock}
     <div>
-      <p class="co">${escapeHtml(companyName)}</p>
-      <p class="mp">MachinPro</p>
+      <p class="co">${escapeHtml(companyName)} <span class="mp">· MachinPro</span></p>
+      ${contactLines}
       <h1 class="h1">${escapeHtml(title)}</h1>
       <p class="sub">${escapeHtml(report.projectName)} · ${escapeHtml(dateStr)}</p>
       <p class="sub">${escapeHtml(tl.preparedBy ?? "Prepared by")}: ${escapeHtml(report.createdByName)} · ${escapeHtml(statusStr)}</p>
     </div>
   </header>
+  <hr class="hdr-rule" />
   ${bodyParts}
   <footer class="foot">${footerLine}</footer>
   <script>window.onload = function() { window.print(); };</script>

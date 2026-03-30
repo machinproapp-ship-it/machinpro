@@ -1017,6 +1017,11 @@ export default function Home() {
   });
   const [companyName, setCompanyName] = useState<string>("");
   const [logoUrl, setLogoUrl] = useState<string>("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [companyPhone, setCompanyPhone] = useState("");
+  const [companyEmail, setCompanyEmail] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
+  const [companyProfileSaveBusy, setCompanyProfileSaveBusy] = useState(false);
   const ONBOARDING_LS_KEY = "machinpro_onboarding_complete";
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -1821,6 +1826,76 @@ export default function Home() {
   useEffect(() => {
     if (profile?.companyName && !companyName) setCompanyName(profile.companyName);
   }, [profile?.companyName]);
+
+  useEffect(() => {
+    if (!supabase || !companyId || !session) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("name, logo_url, address, phone, email, website")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (cancelled || error || !data) return;
+      const row = data as Record<string, unknown>;
+      if (typeof row.name === "string") setCompanyName(row.name);
+      if (typeof row.logo_url === "string" && row.logo_url.trim()) setLogoUrl(row.logo_url.trim());
+      const addr = row.address;
+      const ph = row.phone;
+      const em = row.email;
+      const web = row.website;
+      setCompanyAddress(typeof addr === "string" ? addr : "");
+      setCompanyPhone(typeof ph === "string" ? ph : "");
+      setCompanyEmail(typeof em === "string" ? em : "");
+      setCompanyWebsite(typeof web === "string" ? web : "");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, companyId, session]);
+
+  const handleSaveCompanyProfile = useCallback(async () => {
+    if (!companyId || !session?.access_token) return;
+    setCompanyProfileSaveBusy(true);
+    try {
+      const res = await fetch("/api/onboarding/company", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          companyId,
+          name: companyName.trim(),
+          country: companyCountry,
+          currency,
+          language,
+          logo_url: logoUrl.trim() || null,
+          address: companyAddress.trim() || null,
+          phone: companyPhone.trim() || null,
+          email: companyEmail.trim() || null,
+          website: companyWebsite.trim() || null,
+        }),
+      });
+      if (!res.ok) return;
+      await syncSession();
+    } finally {
+      setCompanyProfileSaveBusy(false);
+    }
+  }, [
+    companyId,
+    session?.access_token,
+    companyName,
+    companyCountry,
+    currency,
+    language,
+    logoUrl,
+    companyAddress,
+    companyPhone,
+    companyEmail,
+    companyWebsite,
+    syncSession,
+  ]);
 
   // Efecto 1: leer preferencia guardada al montar
   useEffect(() => {
@@ -4057,6 +4132,10 @@ export default function Home() {
                 }))}
                 companyName={profile?.companyName ?? companyName ?? "Canariense Inc"}
                 companyLogoUrl={logoUrl || undefined}
+                companyAddress={companyAddress}
+                companyPhone={companyPhone}
+                companyEmail={companyEmail}
+                companyWebsite={companyWebsite}
                 projectPhotos={photos}
                 language={language}
                 currentUserDisplayName={
@@ -4589,6 +4668,20 @@ export default function Home() {
                 onCompanyNameChange={setCompanyName}
                 logoUrl={logoUrl}
                 onLogoUpload={handleLogoUpload}
+                companyAddress={companyAddress}
+                onCompanyAddressChange={setCompanyAddress}
+                companyPhone={companyPhone}
+                onCompanyPhoneChange={setCompanyPhone}
+                companyEmail={companyEmail}
+                onCompanyEmailChange={setCompanyEmail}
+                companyWebsite={companyWebsite}
+                onCompanyWebsiteChange={setCompanyWebsite}
+                onSaveCompanyProfile={
+                  rolePerms.canEditCompanyProfile && companyId
+                    ? () => void handleSaveCompanyProfile()
+                    : undefined
+                }
+                companyProfileSaveBusy={companyProfileSaveBusy}
                 session={session}
                 onSignOut={() => void handleLogout()}
                 companyId={companyId}
