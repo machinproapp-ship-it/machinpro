@@ -4535,6 +4535,8 @@ export default function Home() {
                   });
                 }}
                 onRequestFocusHazard={(id) => setFocusHazardId(id)}
+                dateLocale={dateLocaleBcp47}
+                timeZone={userTimeZone}
               />
             )}
 
@@ -4602,6 +4604,8 @@ export default function Home() {
                       projectsCount={(projects ?? []).filter((p) => !p.archived).length}
                       storageUsedGb={0}
                       userRole={effectiveRole}
+                      dateLocale={dateLocaleBcp47}
+                      timeZone={userTimeZone}
                     />
                   ) : null
                 }

@@ -7,6 +7,7 @@ import { useSubscription } from "@/lib/useSubscription";
 import type { PlanKey } from "@/lib/stripe";
 import { PricingModule } from "@/components/PricingModule";
 import type { UserRole } from "@/types/shared";
+import { formatDate } from "@/lib/dateUtils";
 
 export interface BillingModuleProps {
   t: Record<string, string>;
@@ -18,6 +19,8 @@ export interface BillingModuleProps {
   storageUsedGb: number;
   /** Rol efectivo en la app (p. ej. admin para facturación). */
   userRole: UserRole;
+  dateLocale: string;
+  timeZone: string;
 }
 
 const TRIAL_TOTAL_DAYS = 14;
@@ -69,6 +72,8 @@ export function BillingModule({
   projectsCount,
   storageUsedGb,
   userRole,
+  dateLocale,
+  timeZone,
 }: BillingModuleProps) {
   const {
     subscription,
@@ -279,7 +284,7 @@ export function BillingModule({
             <dt className="text-gray-500 dark:text-gray-400">{t.billing_next_charge ?? "Next billing"}</dt>
             <dd className="font-medium text-gray-900 dark:text-white mt-1">
               {subscription?.current_period_end
-                ? new Date(subscription.current_period_end).toLocaleDateString()
+                ? formatDate(subscription.current_period_end, dateLocale, timeZone)
                 : (t.billing_no_payment_scheduled ?? "—")}
             </dd>
           </div>

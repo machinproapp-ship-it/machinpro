@@ -3219,6 +3219,8 @@ export function ProjectsModule({
               openQrSignal={visitorOpenQrSignal}
               lockedProjectId={selectedProject.id}
               lockedProjectName={selectedProject.name}
+              dateLocale={dateLoc}
+              timeZone={userTz}
             />
           </div>
         )}

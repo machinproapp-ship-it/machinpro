@@ -25,6 +25,7 @@ import {
 import { useToast } from "@/components/Toast";
 import { requestCompanyPushNotification } from "@/lib/clientCompanyPush";
 import { FilterGrid } from "@/components/FilterGrid";
+import { formatDateTime } from "@/lib/dateUtils";
 
 const CLOUDINARY_CLOUD = "dwdlmxmkt";
 const CLOUDINARY_PRESET = "i5dmd07o";
@@ -63,6 +64,8 @@ export interface HazardModuleProps {
   onFocusHazardConsumed?: () => void;
   /** Increment from parent (p. ej. dashboard) para abrir el formulario de alta. */
   openCreateSignal?: number;
+  dateLocale: string;
+  timeZone: string;
 }
 
 type SortKey = "date" | "score" | "severity" | "status";
@@ -128,6 +131,8 @@ export function HazardModule({
   focusHazardId,
   onFocusHazardConsumed,
   openCreateSignal = 0,
+  dateLocale,
+  timeZone,
 }: HazardModuleProps) {
   const readOnly = userRole === "worker";
   const { showToast } = useToast();
@@ -1325,7 +1330,7 @@ export function HazardModule({
                   {history.map((h) => (
                     <li key={h.id} className="border-b border-gray-100 dark:border-gray-800 pb-2">
                       <span className="font-medium text-gray-800 dark:text-gray-200">{h.action}</span> ·{" "}
-                      {h.user_name ?? "—"} · {new Date(h.created_at).toLocaleString()}
+                      {h.user_name ?? "—"} · {formatDateTime(h.created_at, dateLocale, timeZone)}
                       {h.new_value != null && (
                         <pre className="mt-1 text-[10px] overflow-x-auto whitespace-pre-wrap break-all opacity-80">
                           {JSON.stringify(h.new_value, null, 0).slice(0, 200)}

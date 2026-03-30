@@ -59,6 +59,8 @@ export interface SecurityModuleProps {
   onRequestFocusHazard: (hazardId: string) => void;
   /** User changed tab — clear dashboard “open form” signals so remounting Hazards/Actions does not reopen modals. */
   onSecurityTabInteraction?: () => void;
+  dateLocale: string;
+  timeZone: string;
 }
 
 const TAB_CONFIG: { id: SecurityTabId; icon: typeof AlertTriangle; labelKey: string }[] = [
@@ -102,6 +104,8 @@ export function SecurityModule({
   onOpenCorrectiveFromHazard,
   onRequestFocusHazard,
   onSecurityTabInteraction,
+  dateLocale,
+  timeZone,
 }: SecurityModuleProps) {
   const firstAllowed =
     (canShowHazards ? "hazards" : null) ||
@@ -197,6 +201,8 @@ export function SecurityModule({
               if (canShowActions) setTab("actions");
             }}
             openCreateSignal={openHazardSignal}
+            dateLocale={dateLocale}
+            timeZone={timeZone}
           />
         )}
 
@@ -217,6 +223,8 @@ export function SecurityModule({
               if (canShowHazards) setTab("hazards");
             }}
             openCreateSignal={openActionSignal}
+            dateLocale={dateLocale}
+            timeZone={timeZone}
           />
         )}
 

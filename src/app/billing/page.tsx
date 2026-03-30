@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { BillingModule } from "@/components/BillingModule";
 import { ALL_TRANSLATIONS, loadLocale, isLazyLocale, type Language } from "@/lib/i18n";
+import { dateLocaleForUser, resolveUserTimezone } from "@/lib/dateUtils";
 import type { UserRole } from "@/types/shared";
 
 const TRANSLATIONS = ALL_TRANSLATIONS;
@@ -56,6 +57,8 @@ export default function BillingPage() {
   }, [language, lazyLocaleT]);
 
   const companyId = profile?.companyId ?? null;
+  const billingDateLocale = useMemo(() => dateLocaleForUser(language, "CA"), [language]);
+  const billingTimeZone = useMemo(() => resolveUserTimezone(profile?.timezone ?? null), [profile?.timezone]);
 
   if (authLoading) {
     return (
@@ -105,6 +108,8 @@ export default function BillingPage() {
         projectsCount={0}
         storageUsedGb={0}
         userRole={(profile?.role as UserRole) ?? "admin"}
+        dateLocale={billingDateLocale}
+        timeZone={billingTimeZone}
       />
     </div>
   );

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { FilterGrid } from "@/components/FilterGrid";
 import type { Visitor, VisitorStatus } from "@/types/visitor";
+import { formatDateTime } from "@/lib/dateUtils";
 
 export interface VisitorModuleProps {
   t: Record<string, string>;
@@ -18,6 +19,8 @@ export interface VisitorModuleProps {
   /** Cuando está definido: solo visitas de ese proyecto, QR con ?project=, sin selector de obra. */
   lockedProjectId?: string | null;
   lockedProjectName?: string | null;
+  dateLocale: string;
+  timeZone: string;
 }
 
 function dayInputValue(d: Date): string {
@@ -41,6 +44,8 @@ export function VisitorModule({
   openQrSignal = 0,
   lockedProjectId = null,
   lockedProjectName = null,
+  dateLocale,
+  timeZone,
 }: VisitorModuleProps) {
   const lastQrSig = useRef(0);
   const [filterDate, setFilterDate] = useState(() => dayInputValue(new Date()));
@@ -382,10 +387,10 @@ export function VisitorModule({
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.host_name ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {new Date(r.check_in).toLocaleString()}
+                    {formatDateTime(r.check_in, dateLocale, timeZone)}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {r.check_out ? new Date(r.check_out).toLocaleString() : "—"}
+                    {r.check_out ? formatDateTime(r.check_out, dateLocale, timeZone) : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <span

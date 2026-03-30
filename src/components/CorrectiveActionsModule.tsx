@@ -14,6 +14,7 @@ import {
   type ActionStatus,
   type ActionType,
 } from "@/types/correctiveAction";
+import { formatDateTime } from "@/lib/dateUtils";
 
 const CLOUDINARY_CLOUD = "dwdlmxmkt";
 const CLOUDINARY_PRESET = "i5dmd07o";
@@ -49,6 +50,8 @@ export interface CorrectiveActionsModuleProps {
   onNavigateToHazard?: (hazardId: string) => void;
   /** Increment desde el dashboard para abrir el alta de acción. */
   openCreateSignal?: number;
+  dateLocale: string;
+  timeZone: string;
 }
 
 type AuditRow = {
@@ -117,6 +120,8 @@ export function CorrectiveActionsModule({
   onConsumePrefill,
   onNavigateToHazard,
   openCreateSignal = 0,
+  dateLocale,
+  timeZone,
 }: CorrectiveActionsModuleProps) {
   const readOnly = userRole === "worker";
   const { showToast } = useToast();
@@ -1155,7 +1160,7 @@ export function CorrectiveActionsModule({
                   {history.map((h) => (
                     <li key={h.id} className="border-b border-gray-100 dark:border-gray-700 pb-2">
                       <span className="font-medium text-gray-800 dark:text-gray-200">{h.action}</span> ·{" "}
-                      {h.user_name ?? "—"} · {new Date(h.created_at).toLocaleString()}
+                      {h.user_name ?? "—"} · {formatDateTime(h.created_at, dateLocale, timeZone)}
                     </li>
                   ))}
                 </ul>
