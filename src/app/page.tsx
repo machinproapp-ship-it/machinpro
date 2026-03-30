@@ -236,6 +236,8 @@ export interface Project {
   locationLng?: number;
   archived?: boolean;
   projectCode?: string;
+  /** Estado operativo (lista Central / formulario). */
+  lifecycleStatus?: "active" | "paused" | "completed";
 }
 
 export type ProjectType = "residential" | "commercial" | "industrial";
@@ -2062,6 +2064,7 @@ export default function Home() {
   const [projectFormBudget, setProjectFormBudget] = useState("");
   const [projectFormStart, setProjectFormStart] = useState("");
   const [projectFormEnd, setProjectFormEnd] = useState("");
+  const [projectFormLifecycle, setProjectFormLifecycle] = useState<"active" | "paused" | "completed">("active");
   const [projectFormLat, setProjectFormLat] = useState("");
   const [projectFormLng, setProjectFormLng] = useState("");
 
@@ -2132,10 +2135,6 @@ export default function Home() {
     },
     [perms.site, visibleProjects]
   );
-
-  const handleProjectsManagementCardClick = useCallback(() => {
-    setOperationsMainTab("projects");
-  }, []);
 
   const scheduleSelfIds = useMemo(
     () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),
@@ -3164,6 +3163,7 @@ export default function Home() {
     setProjectFormBudget(String(p?.budgetCAD ?? ""));
     setProjectFormStart(p?.estimatedStart ?? "");
     setProjectFormEnd(p?.estimatedEnd ?? "");
+    setProjectFormLifecycle(p?.lifecycleStatus ?? "active");
     setProjectFormLat(String(p?.locationLat ?? ""));
     setProjectFormLng(String(p?.locationLng ?? ""));
     setProjectFormOpen(true);
@@ -3192,6 +3192,7 @@ export default function Home() {
       locationLat: parseFloat(projectFormLat) || undefined,
       locationLng: parseFloat(projectFormLng) || undefined,
       archived: false,
+      lifecycleStatus: projectFormLifecycle,
       assignedEmployeeIds: [] as string[],
     };
     if (editingProjectId) {
@@ -3708,7 +3709,10 @@ export default function Home() {
                   if (mine.length >= 1) openEmployeeShiftDay(ymd, mine[0]!.id);
                 }}
                 myShiftCentralCard={myShiftCentralCard}
-                onProjectsManagementCardClick={handleProjectsManagementCardClick}
+                canViewProjects={!!rolePerms.canViewProjects}
+                canCreateProjects={!!rolePerms.canCreateProjects}
+                canEditProjects={!!rolePerms.canEditProjects}
+                canDeleteProjects={!!rolePerms.canDeleteProjects}
               />
             )}
 
@@ -4836,6 +4840,21 @@ export default function Home() {
                     onChange={(e) => setProjectFormEnd(e.target.value)}
                     className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).projects_status_field ?? "Estado"}
+                </label>
+                <select
+                  value={projectFormLifecycle}
+                  onChange={(e) => setProjectFormLifecycle(e.target.value as "active" | "paused" | "completed")}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="active">{(t as Record<string, string>).projects_status_active ?? "Active"}</option>
+                  <option value="paused">{(t as Record<string, string>).projects_status_paused ?? "Paused"}</option>
+                  <option value="completed">{(t as Record<string, string>).projects_status_completed ?? "Completed"}</option>
+                </select>
               </div>
 
               <div>

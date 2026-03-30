@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
-import { Users, Briefcase, HardHat, ChevronRight, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound, Download } from 'lucide-react';
+import { Users, Briefcase, HardHat, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound, Download } from 'lucide-react';
 import type { CustomRole, RolePermissions } from '@/types/roles';
 import {
   ROLE_PERMISSION_KEYS,
@@ -20,6 +20,7 @@ import type { ComplianceAlert } from '@/lib/complianceWatchdog';
 import type { UserRole } from '@/types/shared';
 import type { MainSection } from '@/types/shared';
 import { CentralDashboardLive } from '@/components/CentralDashboardLive';
+import { HorizontalScrollFade } from '@/components/HorizontalScrollFade';
 import { auditActionDescription } from '@/lib/auditActionLabel';
 
 interface Certificate {
@@ -119,9 +120,29 @@ type CentralProject = {
   archived?: boolean;
   budgetCAD?: number;
   spentCAD?: number;
+  estimatedStart?: string;
   estimatedEnd?: string;
   assignedEmployeeIds?: string[];
+  lifecycleStatus?: "active" | "paused" | "completed";
 };
+
+function formatProjectListDate(iso: string | undefined, locale: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso.includes("T") ? iso : `${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+}
+
+function resolveProjectLifecycleStatus(
+  p: CentralProject,
+  todayYmd: string
+): "active" | "paused" | "completed" {
+  const explicit = p.lifecycleStatus;
+  if (explicit === "paused" || explicit === "completed" || explicit === "active") return explicit;
+  const end = p.estimatedEnd?.slice(0, 10);
+  if (end && end < todayYmd) return "completed";
+  return "active";
+}
 
 function projectBudgetPct(spent: number | undefined, budget: number | undefined): number {
   if (budget == null || budget <= 0) return 0;
@@ -184,6 +205,11 @@ interface CentralModuleProps {
   /** Pending obra photos per project id (e.g. from useProjectPhotos). */
   pendingPhotoCountByProject?: Record<string, number>;
   canEdit?: boolean;
+  /** Permisos granulares de proyectos (Central). Si omiten, se deducen de `canEdit`. */
+  canViewProjects?: boolean;
+  canCreateProjects?: boolean;
+  canEditProjects?: boolean;
+  canDeleteProjects?: boolean;
   canManageRoles?: boolean;
   canViewRoles?: boolean;
   canViewAuditLog?: boolean;
@@ -321,6 +347,10 @@ export function CentralModule({
   onOpenProjectInOperations,
   pendingPhotoCountByProject = {},
   canEdit = true,
+  canViewProjects: canViewProjectsProp,
+  canCreateProjects: canCreateProjectsProp,
+  canEditProjects: canEditProjectsProp,
+  canDeleteProjects: canDeleteProjectsProp,
   canManageRoles = false,
   canViewRoles = false,
   canViewAuditLog = false,
@@ -374,6 +404,10 @@ export function CentralModule({
   onProjectsManagementCardClick,
   myShiftCentralCard,
 }: CentralModuleProps) {
+  const canViewProjects = canViewProjectsProp ?? canEdit;
+  const canCreateProjects = canCreateProjectsProp ?? canEdit;
+  const canEditProjects = canEditProjectsProp ?? canEdit;
+  const canDeleteProjects = canDeleteProjectsProp ?? canEdit;
   const taxLabel = taxIdLabelProp ?? getTaxIdLabel(subcontractorCountryCode ?? "CA");
   const certLabel = complianceCertLabelProp ?? getComplianceCertLabel(subcontractorCountryCode ?? "CA");
   const auditLocale =
@@ -401,8 +435,8 @@ export function CentralModule({
   const [editingComplianceRecord, setEditingComplianceRecord] = useState<{ field: ComplianceField; targetId: string; targetType: "employee" | "subcontractor" | "vehicle" } | null>(null);
   const [complianceRecordDraft, setComplianceRecordDraft] = useState<{ value?: string; expiryDate?: string; documentUrl?: string }>({});
   const [roleDetailDrawerId, setRoleDetailDrawerId] = useState<string | null>(null);
-  const [projectDrawerId, setProjectDrawerId] = useState<string | null>(null);
   const [employeeDocUploadOpen, setEmployeeDocUploadOpen] = useState(false);
+  const [projectsMgmtTab, setProjectsMgmtTab] = useState<"active" | "archived">("active");
   const [edDocTitle, setEdDocTitle] = useState("");
   const [edDocType, setEdDocType] = useState<EmployeeDocument["type"]>("other");
   const [edDocExpiry, setEdDocExpiry] = useState("");
@@ -488,14 +522,18 @@ export function CentralModule({
     return { ...(fromDisplay ?? {}), ...(fromProjects ?? {}) } as CentralProject;
   };
 
+  const projectsManagementList = useMemo(
+    () =>
+      safeDisplayProjects.filter((p) =>
+        projectsMgmtTab === "active" ? !p.archived : !!p.archived
+      ),
+    [safeDisplayProjects, projectsMgmtTab]
+  );
+
   useEffect(() => {
-    if (!projectDrawerId) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setProjectDrawerId(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [projectDrawerId]);
+    if (centralView !== "projects" || dashboardCanViewProjectsManagement) return;
+    setCentralView("dashboard");
+  }, [centralView, dashboardCanViewProjectsManagement]);
 
   useEffect(() => {
     if (!pendingOpenEmployeeId) return;
@@ -709,7 +747,8 @@ export function CentralModule({
             onClick={() => setCentralView("dashboard")}
             className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
           >
-            <ChevronLeft className="h-4 w-4" /> {labels.back ?? "Volver"}
+            <ChevronLeft className="h-4 w-4" />{" "}
+            {(labels as Record<string, string>).nav_back ?? labels.back ?? "Back"}
           </button>
         </div>
       )}
@@ -766,7 +805,7 @@ export function CentralModule({
                 onQuickNewSubcontractor={onQuickNewSubcontractor}
                 onOpenSubcontractorsInOperations={onOpenSubcontractorsInOperations}
                 onOpenMyShiftView={onOpenMyShiftView}
-                onProjectsManagementCardClick={onProjectsManagementCardClick}
+                onProjectsManagementCardClick={onProjectsManagementCardClick ?? (() => setCentralView("projects"))}
                 myShiftCentralCard={myShiftCentralCard}
               />
             </div>
@@ -1253,128 +1292,143 @@ export function CentralModule({
         );
       })()}
 
-      {centralView === "projects" && (
+      {centralView === "projects" && dashboardCanViewProjectsManagement && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex flex-wrap justify-between items-center gap-3">
-            <h3 className="font-semibold">{labels.activeProjects || "Proyectos Activos"}</h3>
-            {canEdit && onAddProject && (
-              <button type="button" onClick={onAddProject} className="flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-2.5 text-sm font-medium hover:bg-blue-500 min-h-[44px]">
-                <Plus className="h-4 w-4" /> {labels.addNew ?? "Crear"}
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+              {(labels as Record<string, string>).projects_management ?? "Project management"}
+            </h3>
+            {canCreateProjects && onAddProject ? (
+              <button
+                type="button"
+                onClick={onAddProject}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#f97316] px-3 py-2.5 text-sm font-medium text-white hover:bg-orange-600 dark:hover:bg-orange-500 min-h-[44px] min-w-[44px]"
+              >
+                <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                <span className="whitespace-nowrap">
+                  {(labels as Record<string, string>).projects_new ?? "New project"}
+                </span>
               </button>
-            )}
+            ) : null}
+          </div>
+          <div className="border-b border-zinc-200 dark:border-white/10 px-2 sm:px-4">
+            <HorizontalScrollFade className="-mx-2 px-2 sm:mx-0 sm:px-0" variant="inherit">
+              <div className="flex gap-1 min-h-[48px] items-stretch">
+                <button
+                  type="button"
+                  onClick={() => setProjectsMgmtTab("active")}
+                  className={`shrink-0 rounded-t-lg px-4 py-3 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                    projectsMgmtTab === "active"
+                      ? "border-[#f97316] text-zinc-900 dark:text-white"
+                      : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  {(labels as Record<string, string>).projects_active ?? "Active"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectsMgmtTab("archived")}
+                  className={`shrink-0 rounded-t-lg px-4 py-3 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                    projectsMgmtTab === "archived"
+                      ? "border-[#f97316] text-zinc-900 dark:text-white"
+                      : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  {(labels as Record<string, string>).projects_archived ?? "Archived"}
+                </button>
+              </div>
+            </HorizontalScrollFade>
           </div>
           <div className="divide-y divide-zinc-200 dark:divide-white/10">
-            {(safeDisplayProjects ?? []).length === 0 ? (
-              <p className="p-8 text-center text-zinc-500 italic text-sm">{labels.noProjects ?? "No hay proyectos activos"}</p>
+            {projectsManagementList.length === 0 ? (
+              <p className="p-8 text-center text-zinc-500 dark:text-zinc-400 italic text-sm">
+                {projectsMgmtTab === "active"
+                  ? (labels as Record<string, string>).projects_no_active ?? "No active projects"
+                  : (labels as Record<string, string>).projects_no_archived ?? "No archived projects"}
+              </p>
             ) : (
-              (safeDisplayProjects ?? []).map((project) => {
-                const p = getCentralProjectById(project.id) ?? (project as CentralProject);
-                const pct = projectBudgetPct(p.spentCAD, p.budgetCAD);
-                const dr = daysUntilProjectEnd(p.estimatedEnd);
-                const nEmp = (p.assignedEmployeeIds ?? []).length;
-                const nPending = pendingPhotoCountByProject[p.id] ?? 0;
-                const hasBudget = (p.budgetCAD ?? 0) > 0;
-                const tl = labels as Record<string, string>;
-                const daysLine =
-                  dr === null
-                    ? "—"
-                    : dr < 0
-                      ? `−${Math.abs(dr)}d`
-                      : `${dr}d`;
-                return (
-                <div key={project.id} className="flex flex-wrap items-stretch justify-between gap-2 min-h-[64px]">
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setProjectDrawerId(project.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setProjectDrawerId(project.id);
-                      }
-                    }}
-                    className="min-w-0 flex-1 flex items-start gap-2 px-4 py-4 text-left rounded-lg transition-colors cursor-pointer hover:bg-zinc-50 dark:hover:bg-slate-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
-                  >
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium">{p.name ?? "?"}</p>
-                          <p className="text-sm text-zinc-500">{p.location ?? ""}</p>
-                          {p.archived && (
-                            <span className="inline-block mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                              Archivado
-                            </span>
-                          )}
-                        </div>
-                        <ChevronRight className="h-5 w-5 shrink-0 text-zinc-400 mt-0.5" aria-hidden />
-                      </div>
-                      {hasBudget && (
-                        <div className="h-1.5 w-full max-w-md rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${budgetBarToneClass(pct)}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      )}
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        <span
-                          className={`inline-flex items-center gap-1 ${dr !== null && dr < 0 ? "text-red-600 dark:text-red-400 font-medium" : ""}`}
-                          title={tl.daysRemaining}
-                        >
-                          <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                          <span>{daysLine}</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1" title={tl.teamMembers}>
-                          <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                          <span>{nEmp}</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1" title={tl.pendingPhotosReview}>
-                          <Camera className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                          <span>{nPending}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  {canEdit && (
+              projectsManagementList.map((project) => {
+                  const p = getCentralProjectById(project.id) ?? (project as CentralProject);
+                  const tl = labels as Record<string, string>;
+                  const life = resolveProjectLifecycleStatus(p, today);
+                  const startStr = formatProjectListDate(p.estimatedStart, auditLocale);
+                  const nEmp = (p.assignedEmployeeIds ?? []).length;
+                  const statusText =
+                    life === "paused"
+                      ? tl.projects_status_paused ?? "Paused"
+                      : life === "completed"
+                        ? tl.projects_status_completed ?? "Completed"
+                        : tl.projects_status_active ?? "Active";
+                  const statusClass =
+                    life === "paused"
+                      ? "bg-amber-100 dark:bg-amber-900/35 text-amber-900 dark:text-amber-200"
+                      : life === "completed"
+                        ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100"
+                        : "bg-emerald-100 dark:bg-emerald-900/35 text-emerald-900 dark:text-emerald-200";
+                  return (
                     <div
-                      className="flex items-center gap-1 px-2 self-center shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      key={project.id}
+                      className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                     >
-                      {onEditProject && (
-                        <button
-                          type="button"
-                          onClick={() => onEditProject(project.id)}
-                          className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          title={labels.edit ?? "Editar"}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                      )}
-                      {onArchiveProject && (
-                        <button
-                          type="button"
-                          onClick={() => onArchiveProject(project.id)}
-                          className="p-2.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          title="Archivar"
-                        >
-                          Archivar
-                        </button>
-                      )}
-                      {onDeleteProject && (
-                        <button
-                          type="button"
-                          onClick={() => onDeleteProject(project.id)}
-                          className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          title={labels["delete"] ?? "Eliminar"}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <p className="font-medium text-zinc-900 dark:text-white">{p.name ?? "—"}</p>
+                        {p.location ? (
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">{p.location}</p>
+                        ) : null}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-zinc-600 dark:text-zinc-300">
+                          <span className="inline-flex items-center gap-1" title={tl.projectFormDateStart ?? ""}>
+                            <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            <span>{startStr}</span>
+                          </span>
+                          <span
+                            className="inline-flex items-center gap-1"
+                            title={tl.teamMembers ?? tl.project_kpi_team ?? ""}
+                          >
+                            <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            <span>{nEmp}</span>
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
+                          >
+                            {statusText}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 shrink-0 sm:justify-end">
+                        {onOpenProjectInOperations &&
+                        (canViewProjects || canCreateProjects || currentUserRole === "admin") ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenProjectInOperations(p)}
+                            className="inline-flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center rounded-lg bg-amber-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-amber-500 dark:bg-amber-500 sm:flex-none"
+                          >
+                            {tl.projects_view_detail ?? "View detail"}
+                          </button>
+                        ) : null}
+                        {canEditProjects && onEditProject ? (
+                          <button
+                            type="button"
+                            onClick={() => onEditProject(project.id)}
+                            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-300 bg-white p-2.5 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-300 dark:hover:bg-slate-700"
+                            title={labels.edit ?? "Edit"}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                        {canDeleteProjects && onArchiveProject ? (
+                          <button
+                            type="button"
+                            onClick={() => onArchiveProject(project.id)}
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:border-zinc-600 dark:bg-slate-800 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                          >
+                            {p.archived
+                              ? tl.projects_unarchive ?? "Unarchive"
+                              : tl.projects_archive ?? "Archive"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  )}
-                </div>
-                );
+                 );
               })
             )}
           </div>
@@ -2375,159 +2429,6 @@ export function CentralModule({
         );
       })()}
 
-      {projectDrawerId && (() => {
-        const p = getCentralProjectById(projectDrawerId);
-        if (!p) return null;
-        const pct = projectBudgetPct(p.spentCAD, p.budgetCAD);
-        const dr = daysUntilProjectEnd(p.estimatedEnd);
-        const nPending = pendingPhotoCountByProject[p.id] ?? 0;
-        const teamIds = p.assignedEmployeeIds ?? [];
-        const teamMembers = teamIds
-          .map((id) => safeEmployees.find((e) => e.id === id))
-          .filter((e): e is CentralEmployee => typeof e !== "undefined");
-        const tl = labels as Record<string, string>;
-        const localeMap: Record<string, string> = {
-          es: "es-ES",
-          en: "en-GB",
-          fr: "fr-FR",
-          de: "de-DE",
-          it: "it-IT",
-          pt: "pt-PT",
-        };
-        const locale = localeMap[language ?? "es"] ?? "en-GB";
-        const endDateStr = p.estimatedEnd
-          ? new Date(p.estimatedEnd.includes("T") ? p.estimatedEnd : `${p.estimatedEnd}T12:00:00`).toLocaleDateString(locale, {
-              dateStyle: "long",
-            })
-          : "—";
-        const daysLinePrimary =
-          dr === null
-            ? "—"
-            : dr < 0
-              ? `−${Math.abs(dr)}d`
-              : `${dr}d · ${tl.daysRemaining ?? ""}`.trim();
-        return (
-          <>
-            <div
-              className="fixed inset-0 z-[100] bg-black/50"
-              aria-hidden
-              onClick={() => setProjectDrawerId(null)}
-            />
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="project-drawer-title"
-              className="fixed inset-y-0 right-0 z-[101] flex w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-lg"
-            >
-              <div className="flex items-start justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-slate-700">
-                <div className="min-w-0">
-                  <h2 id="project-drawer-title" className="text-lg font-semibold text-zinc-900 dark:text-white">
-                    {p.name ?? "—"}
-                  </h2>
-                  {p.location ? (
-                    <p className="mt-1 flex items-start gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                      <span>{p.location}</span>
-                    </p>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setProjectDrawerId(null)}
-                  className="shrink-0 rounded-lg p-2.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  aria-label={tl.whClose ?? "Close"}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {(p.budgetCAD ?? 0) > 0 && (
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                      {tl.budgetProgress ?? "Budget"}
-                    </p>
-                    <div className="mb-2 flex items-baseline justify-between gap-2">
-                      <span className="text-3xl font-bold text-zinc-900 dark:text-white">{pct}%</span>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {formatMoneyCAD(p.spentCAD ?? 0)} / {formatMoneyCAD(p.budgetCAD ?? 0)}
-                      </span>
-                    </div>
-                    <div className="h-3 w-full rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${budgetBarToneClass(pct)}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-                <div>
-                  <p className="mb-1 flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                    <Calendar className="h-4 w-4 shrink-0" aria-hidden />
-                    {tl.daysRemaining ?? ""}
-                  </p>
-                  <p className={`text-sm ${dr !== null && dr < 0 ? "text-red-600 dark:text-red-400" : "text-zinc-600 dark:text-zinc-300"}`}>
-                    {daysLinePrimary}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{endDateStr}</p>
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                    {tl.teamMembers ?? ""}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {teamMembers.length === 0 ? (
-                      <span className="text-sm text-zinc-400">—</span>
-                    ) : (
-                      teamMembers.slice(0, 8).map((emp) => (
-                        <div
-                          key={emp.id}
-                          className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
-                          title={emp.name ?? emp.id}
-                        >
-                          {(emp.name ?? "?").charAt(0).toUpperCase()}
-                        </div>
-                      ))
-                    )}
-                    {teamMembers.length > 8 ? (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                        +{teamMembers.length - 8}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-                    <Camera className="h-4 w-4" aria-hidden />
-                    {nPending}
-                  </span>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{tl.pendingPhotosReview ?? ""}</span>
-                </div>
-              </div>
-              <div className="border-t border-zinc-200 p-4 space-y-2 dark:border-slate-700">
-                {onOpenProjectInOperations && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenProjectInOperations(p);
-                      setProjectDrawerId(null);
-                    }}
-                    className="flex w-full min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-500"
-                  >
-                    {tl.viewInOperations ?? ""}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setProjectDrawerId(null)}
-                  className="flex w-full min-h-[44px] items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-100 dark:hover:bg-slate-700"
-                >
-                  {tl.whClose ?? "Close"}
-                </button>
-              </div>
-            </div>
-          </>
-        );
-      })()}
     </div>
   );
 }
