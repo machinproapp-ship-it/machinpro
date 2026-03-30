@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { useParams, useSearchParams } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -322,7 +323,9 @@ export default function VisitorCheckInPage() {
               sizes="40px"
             />
             <div className="min-w-0">
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">MachinPro</p>
+              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                <BrandWordmark tone="inherit" className="inline text-xs" />
+              </p>
               <p className="font-semibold truncate">{companyName || "—"}</p>
             </div>
           </div>

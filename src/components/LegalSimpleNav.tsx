@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { useAppLocale } from "@/hooks/useAppLocale";
 
 export function LegalSimpleNav() {
@@ -38,10 +39,7 @@ export function LegalSimpleNav() {
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href="/landing" className="flex items-center gap-2 min-h-[44px]">
           <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-9 w-9" sizes="36px" />
-          <span className="text-lg font-bold">
-            <span className="text-[#f97316]">Machin</span>
-            <span className="text-slate-900 dark:text-white">Pro</span>
-          </span>
+          <BrandWordmark tone="onLight" className="text-lg font-bold tracking-tight" />
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">

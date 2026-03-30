@@ -2,6 +2,7 @@
 
 import { Building2, Warehouse, MapPin, Briefcase, Cloud, CloudOff, Bell, ChevronDown } from "lucide-react";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import type { UserRole } from "@/types/shared";
 
 export interface HeaderProps {
@@ -42,8 +43,6 @@ export interface HeaderProps {
   };
 }
 
-const BRAND = "MachinPro";
-
 export function Header({
   companyName,
   logoUrl,
@@ -81,7 +80,11 @@ export function Header({
             />
           ) : null}
           <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            {companyName.trim() || BRAND}
+            {companyName.trim() ? (
+              companyName.trim()
+            ) : (
+              <BrandWordmark tone="onLight" />
+            )}
           </h1>
         </div>
         <div className="flex items-center gap-2">

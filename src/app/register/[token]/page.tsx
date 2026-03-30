@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { TextWithBrandMarks } from "@/components/BrandWordmark";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { COUNTRY_CONFIG } from "@/lib/countryConfig";
@@ -243,7 +244,9 @@ export default function RegisterInvitationPage() {
               onError={() => setLogoSrc("/icons/icon-192x192.png")}
             />
           </div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-white">{l("register_title", "Create account")}</h1>
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
+            <TextWithBrandMarks text={l("register_title", "Create account")} tone="onLight" className="contents" />
+          </h1>
         </div>
 
         {verifyLoading ? (

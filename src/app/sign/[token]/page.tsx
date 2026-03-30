@@ -9,6 +9,7 @@ import {
   getSignPageTranslations,
   type SignPageLocale,
 } from "@/lib/signPageTranslations";
+import { BrandWordmark } from "@/components/BrandWordmark";
 
 function SignatureCanvas({
   onChange,
@@ -284,7 +285,7 @@ export default function SignPage() {
       <div className="max-w-lg mx-auto space-y-6">
         <header className="text-center py-6 border-b border-zinc-200 dark:border-slate-700">
           <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
-            Machinpro
+            <BrandWordmark tone="onLight" className="inline" />
           </h1>
           <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 mt-1">
             {template.name}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { TextWithBrandMarks } from "@/components/BrandWordmark";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppLocale } from "@/hooks/useAppLocale";
@@ -69,7 +70,7 @@ export default function RegisterPublicPage() {
           />
         </div>
         <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-          {tx("register_public_title", "Request access")}
+          <TextWithBrandMarks text={tx("register_public_title", "Request access")} tone="onLight" className="contents" />
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
           {tx("register_public_body", "")}

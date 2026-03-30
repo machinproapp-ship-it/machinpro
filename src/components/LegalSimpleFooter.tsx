@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { useAppLocale } from "@/hooks/useAppLocale";
 
 export function LegalSimpleFooter() {
@@ -14,10 +15,7 @@ export function LegalSimpleFooter() {
           <div className="max-w-sm">
             <Link href="/landing" className="flex items-center gap-2 min-h-[44px]">
               <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-8 w-8" sizes="32px" />
-              <span className="text-base font-bold">
-                <span className="text-[#f97316]">Machin</span>
-                <span className="text-slate-900 dark:text-white">Pro</span>
-              </span>
+              <BrandWordmark tone="onLight" className="text-base font-bold tracking-tight" />
             </Link>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{tx("landing_footer_desc", "")}</p>
           </div>

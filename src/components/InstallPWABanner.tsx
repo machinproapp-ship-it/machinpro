@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { TextWithBrandMarks } from "@/components/BrandWordmark";
 
 type BeforeInstallPromptEvent = Event & {
   preventDefault: () => void;
@@ -104,7 +105,13 @@ export function InstallPWABanner({ labels, isDark }: Props) {
           className="mt-0.5 h-10 w-10 shrink-0 rounded-xl"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-snug">{t("pwa_install_title", "MachinPro")}</p>
+          <p className="text-sm font-semibold leading-snug">
+            <TextWithBrandMarks
+              text={t("pwa_install_title", "MachinPro")}
+              tone={isDark ? "onDark" : "onLight"}
+              className="contents"
+            />
+          </p>
           <p className={`mt-0.5 text-xs leading-relaxed ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
             {t("pwa_install_desc", "Instala MachinPro en tu dispositivo")}
           </p>

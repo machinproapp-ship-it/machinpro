@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { useParams } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 import { useVisitorPublicT } from "@/lib/visitorPublicLocale";
@@ -158,7 +159,9 @@ export default function VisitorCheckoutPage() {
               sizes="40px"
             />
             <div className="min-w-0">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">MachinPro</p>
+              <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                <BrandWordmark tone="inherit" className="inline text-xs" />
+              </p>
               <p className="font-semibold truncate">{companyName || "—"}</p>
             </div>
           </div>

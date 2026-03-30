@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { TextWithBrandMarks } from "@/components/BrandWordmark";
 import { Check, ChevronLeft } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import type { CustomRole } from "@/types/roles";
@@ -469,7 +470,11 @@ export function OnboardingModal({
                 />
               </div>
               <h2 id="onboarding-title" className="text-xl font-bold text-zinc-900 dark:text-white sm:text-2xl">
-                {lx.onboarding_welcome_title ?? ""}
+                <TextWithBrandMarks
+                  text={lx.onboarding_welcome_title ?? ""}
+                  tone="onLight"
+                  className="contents"
+                />
               </h2>
               <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-sm mx-auto">
                 {lx.onboarding_welcome_subtitle ?? ""}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { Apple, PlayCircle, Star } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
 import { LANGUAGES } from "@/lib/i18n";
@@ -72,7 +73,8 @@ function HeroDashboardMockup() {
       <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 bg-[#0f3a45] px-3 py-2.5 dark:border-slate-700 dark:bg-[#0a3038]">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-bold text-white">
-            <span className="text-[#f97316]">Machin</span>Pro <span className="font-semibold text-teal-100/90">Dashboard</span>
+            <BrandWordmark tone="onDark" className="inline" />{" "}
+            <span className="font-semibold text-teal-100/90">Dashboard</span>
           </span>
         </div>
         <div className="flex gap-1.5">
@@ -292,12 +294,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link href="/landing" className="flex items-center gap-2 min-h-[44px]">
             <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-10 w-10" sizes="40px" />
-            <span
-              className={`text-lg font-bold tracking-tight ${navSolid ? "text-slate-900 dark:text-white" : "text-white"}`}
-            >
-              <span className="text-[#f97316]">Machin</span>
-              <span className={navSolid ? "text-slate-900 dark:text-white" : "text-white"}>Pro</span>
-            </span>
+            <BrandWordmark tone={navSolid ? "onLight" : "onDark"} className="text-lg font-bold tracking-tight" />
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             <button
@@ -450,7 +447,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <FadeSection>
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_coming_soon_title", "Coming soon to MachinPro")}
+              <TextWithBrandMarks
+                text={tx("landing_coming_soon_title", "Coming soon to MachinPro")}
+                tone="onLight"
+                className="contents"
+              />
             </h2>
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {comingSoonCards.map((c) => (
@@ -645,10 +646,7 @@ export default function LandingPage() {
             <div className="max-w-sm">
               <div className="flex items-center gap-2">
                 <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-9 w-9" sizes="36px" />
-                <span className="text-lg font-bold">
-                  <span className="text-[#f97316]">Machin</span>
-                  <span className="text-slate-900 dark:text-white">Pro</span>
-                </span>
+                <BrandWordmark tone="onLight" className="text-lg font-bold tracking-tight" />
               </div>
               <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
                 {tx("landing_footer_desc", "Construction SaaS")}
@@ -705,7 +703,11 @@ export default function LandingPage() {
           </div>
           <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-8 dark:border-slate-800 sm:flex-row">
             <p className="text-center text-xs text-slate-500 dark:text-slate-500">
-              {tx("landing_footer_copyright", "© 2026 MachinPro · machin.pro")}
+              <TextWithBrandMarks
+                text={tx("landing_footer_copyright", "© 2026 MachinPro · machin.pro")}
+                tone="inherit"
+                className="inline"
+              />
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               <a

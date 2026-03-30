@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import type { CentralEmployee, MainSection, UserRole } from "@/types/shared";
 import { CentralModule } from "@/components/CentralModule";
 import {
@@ -3285,10 +3286,7 @@ export default function Home() {
                     {companyName || profile?.companyName}
                   </span>
                 ) : (
-                  <span className="text-lg font-bold tracking-tight">
-                    <span className="text-amber-500">Machin</span>
-                    <span className="text-zinc-900 dark:text-white">Pro</span>
-                  </span>
+                  <BrandWordmark tone="onLight" className="text-lg font-bold tracking-tight" />
                 )}
               </div>
             </div>
@@ -3400,8 +3398,8 @@ export default function Home() {
               </button>
               {session && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-amber-500 hidden sm:block">
-                    Machin<span className="text-zinc-500">Pro</span>
+                  <span className="hidden sm:block">
+                    <BrandWordmark tone="onLight" className="text-xs font-semibold" />
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:block">
                     {profile?.role ?? ""}

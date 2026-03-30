@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { TextWithBrandMarks } from "@/components/BrandWordmark";
 import { supabase } from "@/lib/supabase";
 
 export type LoginDemoAccount = {
@@ -59,7 +60,7 @@ export default function LoginScreen({
             />
           </div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-            {l("login_title", "MachinPro")}
+            <TextWithBrandMarks text={l("login_title", "MachinPro")} tone="onLight" />
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
             {l("login_subtitle", "")}

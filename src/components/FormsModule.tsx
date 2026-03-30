@@ -19,6 +19,7 @@ import type {
   AttendeeRecord,
 } from "@/types/forms";
 import { generateFormPDF } from "@/lib/generateFormPDF";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import QRCode from "qrcode";
 
 type FormsView = "list" | "template" | "fill" | "detail";
@@ -664,7 +665,11 @@ export function FormsModule({
                         : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                     }`}
                   >
-                    {template.isBase ? "Machinpro" : "Empresa"}
+                    {template.isBase ? (
+                      <BrandWordmark tone="onLight" className="inline text-xs font-medium" />
+                    ) : (
+                      "Empresa"
+                    )}
                   </span>
                 </div>
                 <h3 className="font-semibold text-zinc-900 dark:text-white">
