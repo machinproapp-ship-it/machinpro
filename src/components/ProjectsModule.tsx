@@ -67,6 +67,9 @@ import { VisitorModule } from "@/components/VisitorModule";
 import {
   downloadImageUrlAsFile,
   galleryPhotoFilename,
+  galleryBulkZipFilename,
+  buildGalleryPhotosZip,
+  triggerBlobDownload,
   formatGalleryDownloadProgress,
 } from "@/lib/galleryPhotoDownload";
 
@@ -776,22 +779,29 @@ export function ProjectsModule({
     setGalleryBulkProgress({ current: 0, total });
     setGalleryXferBanner(tl.gallery_downloading ?? "");
     try {
-      for (let i = 0; i < list.length; i++) {
-        const entry = list[i]!;
+      const files = list.map((entry) => {
         const url = entry.photoUrls[0]!;
-        const fn = galleryPhotoFilename(selectedProject.name, entry.createdAt, entry.id, url);
-        await downloadImageUrlAsFile(url, fn);
-        const cur = i + 1;
-        setGalleryBulkProgress({ current: cur, total });
+        return {
+          url,
+          pathInZip: galleryPhotoFilename(
+            selectedProject.name,
+            entry.createdAt,
+            entry.id,
+            url
+          ),
+        };
+      });
+      const zipBlob = await buildGalleryPhotosZip(files, (cur, tot) => {
+        setGalleryBulkProgress({ current: cur, total: tot });
         setGalleryXferBanner(
           formatGalleryDownloadProgress(
             tl.gallery_download_progress ?? "Downloading {current} of {total}",
             cur,
-            total
+            tot
           )
         );
-        await new Promise<void>((r) => window.setTimeout(r, 400));
-      }
+      });
+      triggerBlobDownload(zipBlob, galleryBulkZipFilename(selectedProject.name));
       onGalleryPhotosBulkDownloaded?.({
         projectId: selectedProject.id,
         projectName: selectedProject.name,
