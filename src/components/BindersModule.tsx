@@ -112,8 +112,14 @@ export function BindersModule({
       {view === "list" && (
         <>
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-            {labels.binders ?? "Documentos"}
+            {labels.binders ?? "Documents"}
           </h2>
+          {binders.length === 0 && (
+            <p className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 bg-zinc-50/50 dark:bg-slate-800/50 px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+              {(labels as Record<string, string>).binders_list_empty ??
+                "No document folders yet."}
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {binders.map((binder) => {
               const IconComp = BINDER_ICONS[binder.icon] ?? FolderOpen;
@@ -151,8 +157,8 @@ export function BindersModule({
                       <button
                         type="button"
                         onClick={(e) => deleteBinder(e, binder.id)}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        aria-label={labels.delete ?? "Eliminar"}
+                        className="min-h-[44px] min-w-[44px] p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center"
+                        aria-label={labels.delete ?? "Delete"}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -169,7 +175,7 @@ export function BindersModule({
               >
                 <Plus className="h-6 w-6" />
                 <span className="text-sm font-medium">
-                  {labels.newBinder ?? "Nueva carpeta"}
+                  {labels.newBinder ?? "New folder"}
                 </span>
               </button>
             )}
@@ -183,7 +189,7 @@ export function BindersModule({
             <button
               type="button"
               onClick={goBack}
-              className="p-2 rounded-lg border border-zinc-200 dark:border-slate-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="min-h-[44px] min-w-[44px] p-2 rounded-lg border border-zinc-200 dark:border-slate-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -194,10 +200,10 @@ export function BindersModule({
               <button
                 type="button"
                 onClick={() => setAddDocumentOpen(true)}
-                className="flex items-center gap-2 rounded-lg border border-amber-500 text-amber-600 dark:text-amber-400 px-3 py-2 text-sm font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                className="flex min-h-[44px] items-center gap-2 rounded-lg border border-orange-500 text-orange-600 dark:text-orange-400 px-3 py-2 text-sm font-medium hover:bg-orange-50 dark:hover:bg-orange-950/30"
               >
                 <Plus className="h-4 w-4" />
-                {labels.addDocument ?? "Añadir documento"}
+                {labels.addDocument ?? "Add document"}
               </button>
             )}
           </div>
@@ -214,7 +220,7 @@ export function BindersModule({
                   className="inline-flex items-center gap-2 rounded-lg bg-amber-500 text-white px-4 py-2 text-sm font-medium hover:bg-amber-600"
                 >
                   <Plus className="h-4 w-4" />
-                  {labels.addDocument ?? "Añadir documento"}
+                  {labels.addDocument ?? "Add document"}
                 </button>
               )}
             </div>
@@ -260,7 +266,7 @@ export function BindersModule({
                           type="button"
                           onClick={(e) => deleteDoc(e, doc.id)}
                           className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          aria-label={labels.delete ?? "Eliminar"}
+                          aria-label={labels.delete ?? "Delete"}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -482,7 +488,7 @@ function AddDocumentModal({
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md max-h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-            {labels.addDocument ?? "Añadir documento"}
+            {labels.addDocument ?? "Add document"}
           </h3>
           <button
             type="button"

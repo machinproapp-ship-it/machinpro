@@ -549,6 +549,10 @@ export function SettingsModule({
                   (t as Record<string, string>).push_section_title ??
                   ""}
               </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-lg">
+                {(t as Record<string, string>).settings_notifications_empty ??
+                  "Enable push to receive alerts on this device."}
+              </p>
               <section className="space-y-4">
               <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]">
                 <span className="text-sm text-zinc-800 dark:text-zinc-200">
@@ -637,7 +641,7 @@ export function SettingsModule({
                 {canManageProjectVisitors ? (
                   <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer">
                     <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                      {(t as Record<string, string>).push_type_visitor ?? "push_type_visitor"}
+                      {(t as Record<string, string>).push_type_visitor ?? "Visitor alerts"}
                     </span>
                     <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
                       <input

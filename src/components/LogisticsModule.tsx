@@ -252,24 +252,24 @@ function getVehicleComplianceStatusBadge(record: ComplianceRecord | undefined, l
   if (status === "valid")
     return (
       <span className="inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-        {labels.valid ?? "Al día"}
+        {labels.valid ?? "Valid"}
       </span>
     );
   if (status === "expiring")
     return (
       <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-        {labels.expiring ?? "Vence pronto"}
+        {labels.expiring ?? "Expiring soon"}
       </span>
     );
   if (status === "expired")
     return (
       <span className="inline-flex rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
-        {labels.expired ?? "Vencido"}
+        {labels.expired ?? "Expired"}
       </span>
     );
   return (
     <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-      {labels.missing ?? "Sin datos"}
+      {labels.missing ?? "Missing"}
     </span>
   );
 }
@@ -314,16 +314,16 @@ function toolStatusBadgeClass(status: ToolStatus | undefined): string {
 const INVENTORY_PAGE_SIZE = 20;
 
 function formatInventoryUnitOnly(item: InventoryItem, t: Record<string, string>): string {
-  const plural = (t as Record<string, string>).wh_units_plural ?? "unidades";
-  const singular = (t as Record<string, string>).wh_unit_singular ?? "unidad";
+  const plural = (t as Record<string, string>).wh_units_plural ?? "units";
+  const singular = (t as Record<string, string>).wh_unit_singular ?? "unit";
   if (item.quantity !== 1) return item.unit;
   if (item.unit.trim().toLowerCase() === plural.trim().toLowerCase()) return singular;
   return item.unit;
 }
 
 function formatInventoryUnitLabel(item: InventoryItem, t: Record<string, string>): string {
-  const plural = (t as Record<string, string>).wh_units_plural ?? "unidades";
-  const singular = (t as Record<string, string>).wh_unit_singular ?? "unidad";
+  const plural = (t as Record<string, string>).wh_units_plural ?? "units";
+  const singular = (t as Record<string, string>).wh_unit_singular ?? "unit";
   if (item.quantity !== 1) return `${item.quantity} ${item.unit}`;
   if (item.unit.trim().toLowerCase() === plural.trim().toLowerCase()) {
     return `${item.quantity} ${singular}`;
@@ -444,12 +444,12 @@ export function LogisticsModule({
   };
 
   const getProjectName = (id: string | null | undefined) => {
-    if (!id) return t.noProject ?? "Sin proyecto";
-    return (projects ?? []).find((p) => p.id === id)?.name ?? t.noProject ?? "Sin proyecto";
+    if (!id) return tlLabels.noProject ?? "No project";
+    return (projects ?? []).find((p) => p.id === id)?.name ?? tlLabels.noProject ?? "No project";
   };
   const getEmployeeName = (id: string | null | undefined) => {
-    if (!id) return (t as Record<string, string>).noEmployeeAssigned ?? "Sin empleado";
-    return (employees ?? []).find((e) => e.id === id)?.name ?? (t as Record<string, string>).noEmployeeAssigned ?? "Sin empleado";
+    if (!id) return tlLabels.noEmployeeAssigned ?? "No employee";
+    return (employees ?? []).find((e) => e.id === id)?.name ?? tlLabels.noEmployeeAssigned ?? "No employee";
   };
 
   const isTrackedAsset = (i: InventoryItem) => i.type === "tool" || i.type === "equipment";
@@ -509,12 +509,14 @@ export function LogisticsModule({
     setReturnNotes("");
     setReturnCondition("good");
     setReturnPhotoUrl(null);
-    setReturnToast((t as Record<string, string>).toolReturnedToast ?? "Herramienta devuelta al almacén");
+    setReturnToast(tlLabels.toolReturnedToast ?? "Tool returned to warehouse");
     setTimeout(() => setReturnToast(null), 3000);
   };
 
   const closeReturnModal = () => {
     setReturnModalItem(null);
+    setReturnNotes("");
+    setReturnCondition("good");
     setReturnPhotoUrl(null);
   };
   const vehicleStatusCounts = {
@@ -541,7 +543,7 @@ export function LogisticsModule({
     {
       key: "equipment",
       match: (i) => i.type === "equipment",
-      label: (t as Record<string, string>).equipment ?? "Equipment",
+      label: tlLabels.equipment ?? "Equipment",
     },
   ];
 
@@ -553,13 +555,13 @@ export function LogisticsModule({
 
   type TabEntry = { id: WarehouseSubTabId; label: string; icon: React.ReactNode; badge?: number };
   const tabs: TabEntry[] = [];
-  if (warehouseSectionsEnabled.inventory) tabs.push({ id: "inventory", label: t.whTabInventory ?? "Inventario", icon: <Package className="h-4 w-4" /> });
-  if (warehouseSectionsEnabled.fleet) tabs.push({ id: "fleet", label: t.whTabFleet ?? "Flota", icon: <Truck className="h-4 w-4" /> });
-  if (warehouseSectionsEnabled.rentals) tabs.push({ id: "rentals", label: t.whTabRentals ?? "Alquileres", icon: <ClipboardList className="h-4 w-4" /> });
+  if (warehouseSectionsEnabled.inventory) tabs.push({ id: "inventory", label: t.whTabInventory ?? "Inventory", icon: <Package className="h-4 w-4" /> });
+  if (warehouseSectionsEnabled.fleet) tabs.push({ id: "fleet", label: t.whTabFleet ?? "Fleet", icon: <Truck className="h-4 w-4" /> });
+  if (warehouseSectionsEnabled.rentals) tabs.push({ id: "rentals", label: t.whTabRentals ?? "Rentals", icon: <ClipboardList className="h-4 w-4" /> });
   if (warehouseSectionsEnabled.inventory || warehouseSectionsEnabled.fleet || warehouseSectionsEnabled.rentals) {
-    tabs.push({ id: "byProject", label: t.filterByProject ?? "Filtrar por proyecto", icon: <Filter className="h-4 w-4" /> });
+    tabs.push({ id: "byProject", label: t.filterByProject ?? "Filter by project", icon: <Filter className="h-4 w-4" /> });
   }
-  if (warehouseSectionsEnabled.suppliers) tabs.push({ id: "suppliers", label: t.whTabSuppliers ?? "Proveedores", icon: <Warehouse className="h-4 w-4" /> });
+  if (warehouseSectionsEnabled.suppliers) tabs.push({ id: "suppliers", label: t.whTabSuppliers ?? "Suppliers", icon: <Warehouse className="h-4 w-4" /> });
   const pendingOrders =
     (resourceRequests ?? []).filter(
       (r: ResourceRequest) => r.status === "pending" || r.status === "preparing"
@@ -568,11 +570,11 @@ export function LogisticsModule({
   if (warehouseSectionsEnabled.inventory)
     tabs.push({
       id: "orders",
-      label: (t as Record<string, string>).resourceRequests ?? "Pedidos",
+      label: tlLabels.resourceRequests ?? "Orders",
       icon: <ClipboardList className="h-4 w-4" />,
       badge: pendingOrders,
     });
-  if (warehouseSectionsEnabled.inventory) tabs.push({ id: "incidents", label: (t as Record<string, string>).incidents ?? "Incidencias", icon: <AlertTriangle className="h-4 w-4" />, badge: unreviewedIncidents });
+  if (warehouseSectionsEnabled.inventory) tabs.push({ id: "incidents", label: tlLabels.incidents ?? "Incidents", icon: <AlertTriangle className="h-4 w-4" />, badge: unreviewedIncidents });
 
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-6">
@@ -609,39 +611,39 @@ export function LogisticsModule({
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-xs text-zinc-400 mr-1">
-                  {(t as Record<string, string>).type ?? "Tipo"}:
+                  {tlLabels.type ?? "Type"}:
                 </span>
                 {(["all", "consumable", "tool", "equipment"] as const).map((f) => (
                   <button
                     key={f}
                     type="button"
                     onClick={() => setInventoryFilter(f)}
-                    className={`rounded-lg px-3 py-2.5 text-sm font-medium min-h-[44px] ${inventoryFilter === f ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"}`}
+                    className={`rounded-lg px-3 py-2.5 text-sm font-medium min-h-[44px] ${inventoryFilter === f ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"}`}
                   >
                     {f === "all"
-                      ? (t.whFilterAll ?? "Todos")
+                      ? (t.whFilterAll ?? "All")
                       : f === "consumable"
-                      ? ((t as Record<string, string>).consumable ?? "Material")
+                      ? (tlLabels.consumable ?? "Consumables")
                       : f === "tool"
-                      ? (t.whTabTools ?? "Herramientas")
-                      : ((t as Record<string, string>).equipment ?? "Equipo")}
+                      ? (t.whTabTools ?? "Tools")
+                      : (tlLabels.equipment ?? "Equipment")}
                   </button>
                 ))}
               </div>
               {(inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all") && (
                 <div className="flex flex-wrap gap-2 items-center">
                   <span className="text-xs text-zinc-400 mr-1">
-                    {(t as Record<string, string>).status ?? "Estado"}:
+                    {tlLabels.status ?? "Status"}:
                   </span>
                   {(["all", "available", "in_use", "maintenance", "out_of_service", "lost"] as const).map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => setFilterStatus(s)}
-                      className={`rounded-lg px-2.5 py-2 text-xs font-medium min-h-[36px] ${filterStatus === s ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"}`}
+                      className={`rounded-lg px-2.5 py-2 text-xs font-medium min-h-[44px] ${filterStatus === s ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"}`}
                     >
                       {s === "all"
-                        ? (t.whFilterAll ?? "Todos")
+                        ? (t.whFilterAll ?? "All")
                         : getStatusLabel(
                             s === "available"
                               ? "available"
@@ -663,10 +665,10 @@ export function LogisticsModule({
               <button
                 type="button"
                 onClick={onAddInventory}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 dark:bg-blue-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-blue-500 dark:hover:bg-blue-600"
+                className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600"
               >
                 <Plus className="h-4 w-4" />
-                {t.addNewItem ?? t.addNew ?? "Añadir nuevo"}
+                {t.addNewItem ?? t.addNew ?? "Add new"}
               </button>
             )}
           </div>
@@ -741,7 +743,7 @@ export function LogisticsModule({
                         </span>
                       )}
                       {item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold && (
-                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">({t.whLowStock ?? "Stock bajo"})</span>
+                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">({t.whLowStock ?? "Low stock"})</span>
                       )}
                     </div>
                     {isTrackedAsset(item) && (
@@ -751,7 +753,7 @@ export function LogisticsModule({
                     )}
                     {isTrackedAsset(item) && item.incidentPhotoUrl && (
                       <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5 shrink-0">
-                        ⚠ {(t as Record<string, string>).incidentReported ?? "Incidencia"}
+                        ⚠ {(tlLabels.incidentReported ?? "Incident")}
                       </span>
                     )}
                   </div>
@@ -776,22 +778,22 @@ export function LogisticsModule({
                     {(!isTrackedAsset(item) || (item.toolStatus ?? "available") === "available") && (
                       <>
                         <button type="button" onClick={() => onOpenAdjust(item.id, "add")} className="flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 px-3 py-2.5 min-h-[44px] text-xs font-medium border border-emerald-200 dark:border-emerald-800/40">
-                          <ArrowUpCircle className="h-4 w-4" /> {t.addUnits ?? "Entrada"}
+                          <ArrowUpCircle className="h-4 w-4" /> {t.addUnits ?? "Stock in"}
                         </button>
                         <button type="button" onClick={() => onOpenAdjust(item.id, "remove")} className="flex items-center gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-3 py-2.5 min-h-[44px] text-xs font-medium border border-amber-200 dark:border-amber-800/40">
-                          <ArrowDownCircle className="h-4 w-4" /> {t.removeUnits ?? "Salida"}
+                          <ArrowDownCircle className="h-4 w-4" /> {t.removeUnits ?? "Stock out"}
                         </button>
                       </>
                     )}
                     {(item.toolStatus ?? "available") === "in_use" && onReturnTool && (
-                      <button type="button" onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }} className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 min-h-[36px] transition-colors">
+                      <button type="button" onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }} className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 min-h-[44px] transition-colors">
                         <RotateCcw className="h-3.5 w-3.5" />
-                        {(t as Record<string, string>).returnItem ?? "Retornar"}
+                        {tlLabels.returnItem ?? "Return"}
                       </button>
                     )}
                     {(item.toolStatus ?? "available") === "maintenance" && canEdit && onUpdateItemStatus && (
-                      <button type="button" onClick={() => onUpdateItemStatus(item.id, "available")} className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-600 px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[36px] transition-colors">
-                        {(t as Record<string, string>).markAvailable ?? "Marcar disponible"}
+                      <button type="button" onClick={() => onUpdateItemStatus(item.id, "available")} className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-600 px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] transition-colors">
+                        {tlLabels.markAvailable ?? "Mark available"}
                       </button>
                     )}
                     </div>
@@ -826,15 +828,15 @@ export function LogisticsModule({
               <table className="w-full text-sm text-left">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
                 <tr>
-                  <th className="px-4 py-3 font-medium">{t.category ?? "Tipo"}</th>
-                  <th className="px-4 py-3 font-medium">{t.quantity ?? "Cantidad"}</th>
-                  <th className="px-4 py-3 font-medium">{t.unit ?? "Unidad"}</th>
-                  <th className="px-4 py-3 font-medium">{t.purchasePrice ?? "Precio"}</th>
-                  <th className="px-4 py-3 font-medium">{t.assignedProject ?? "Proyecto asignado"}</th>
-                  <th className="px-4 py-3 font-medium">{(t as Record<string, string>).assignedEmployee ?? "Empleado asignado"}</th>
-                  {(inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all") && <th className="px-4 py-3 font-medium">{(t as Record<string, string>).status ?? "Estado"}</th>}
-                  <th className="px-4 py-3 font-medium text-center">{t.addUnits ?? "Entrada"}/{t.removeUnits ?? "Salida"}</th>
-                  <th className="px-4 py-3 w-24 text-right">{t.edit ?? "Acciones"}</th>
+                  <th className="px-4 py-3 font-medium">{t.category ?? "Category"}</th>
+                  <th className="px-4 py-3 font-medium">{t.quantity ?? "Quantity"}</th>
+                  <th className="px-4 py-3 font-medium">{t.unit ?? "Unit"}</th>
+                  <th className="px-4 py-3 font-medium">{t.purchasePrice ?? "Price"}</th>
+                  <th className="px-4 py-3 font-medium">{t.assignedProject ?? "Assigned project"}</th>
+                  <th className="px-4 py-3 font-medium">{tlLabels.assignedEmployee ?? "Assigned employee"}</th>
+                  {(inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all") && <th className="px-4 py-3 font-medium">{tlLabels.status ?? "Status"}</th>}
+                  <th className="px-4 py-3 font-medium text-center">{t.addUnits ?? "Stock in"}/{t.removeUnits ?? "Stock out"}</th>
+                  <th className="px-4 py-3 w-24 text-right">{t.edit ?? "Actions"}</th>
                 </tr>
               </thead>
               {invSections.map((section) => {
@@ -890,7 +892,7 @@ export function LogisticsModule({
                           <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{item.name}</span>
                         )}
                         {item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold && (
-                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">({t.whLowStock ?? "Stock bajo"})</span>
+                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">({t.whLowStock ?? "Low stock"})</span>
                         )}
                       </div>
                     </td>
@@ -920,14 +922,14 @@ export function LogisticsModule({
                             </span>
                             {item.incidentPhotoUrl && (
                               <span className="ml-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">
-                                ⚠ {(t as Record<string, string>).incidentReported ?? "Incidencia"}
+                                ⚠ {(tlLabels.incidentReported ?? "Incident")}
                               </span>
                             )}
                             {canEdit && onUpdateItemStatus && (
                               <select
                                 value={item.toolStatus ?? "available"}
                                 onChange={(e) => onUpdateItemStatus(item.id, e.target.value)}
-                                className="ml-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[36px]"
+                                className="ml-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[44px]"
                               >
                                 {TOOL_STATUS_OPTIONS.map((o) => (
                                   <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>
@@ -942,18 +944,18 @@ export function LogisticsModule({
                       <div className="flex items-center justify-center gap-1">
                         {(!isTrackedAsset(item) || (item.toolStatus ?? "available") === "available") && (
                           <>
-                            <button type="button" onClick={() => onOpenAdjust(item.id, "add")} className="p-2.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.addUnits ?? "Sumar unidades"}>
+                            <button type="button" onClick={() => onOpenAdjust(item.id, "add")} className="p-2.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.addUnits ?? "Add units"}>
                               <ArrowUpCircle className="h-4 w-4" />
                             </button>
-                            <button type="button" onClick={() => onOpenAdjust(item.id, "remove")} className="p-2.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.removeUnits ?? "Restar unidades"}>
+                            <button type="button" onClick={() => onOpenAdjust(item.id, "remove")} className="p-2.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.removeUnits ?? "Remove units"}>
                               <ArrowDownCircle className="h-4 w-4" />
                             </button>
                           </>
                         )}
                         {(item.toolStatus ?? "available") === "in_use" && onReturnTool && (
-                          <button type="button" onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }} className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 min-h-[36px] transition-colors">
+                          <button type="button" onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }} className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 min-h-[44px] transition-colors">
                             <RotateCcw className="h-3.5 w-3.5" />
-                            {(t as Record<string, string>).returnItem ?? "Retornar"}
+                            {tlLabels.returnItem ?? "Return"}
                           </button>
                         )}
                       </div>
@@ -961,8 +963,8 @@ export function LogisticsModule({
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         {(item.toolStatus ?? "available") === "maintenance" && canEdit && onUpdateItemStatus && (
-                          <button type="button" onClick={() => onUpdateItemStatus(item.id, "available")} className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-600 px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[36px] transition-colors">
-                            {(t as Record<string, string>).markAvailable ?? "Marcar disponible"}
+                          <button type="button" onClick={() => onUpdateItemStatus(item.id, "available")} className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-600 px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] transition-colors">
+                            {tlLabels.markAvailable ?? "Mark available"}
                           </button>
                         )}
                         {canEdit && (
@@ -1010,7 +1012,7 @@ export function LogisticsModule({
           {/* Registro de movimientos */}
           {(inventoryMovements ?? []).length > 0 && (
             <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
-              <h3 className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-slate-700">{t.movementsLog ?? "Registro de movimientos"}</h3>
+              <h3 className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-slate-700">{t.movementsLog ?? "Movement log"}</h3>
               <ul className="divide-y divide-zinc-200 dark:divide-slate-700 max-h-48 overflow-y-auto">
                 {(inventoryMovements ?? []).slice(-20).reverse().map((mov) => (
                   <li key={mov.id} className="px-4 py-2 text-sm flex items-center justify-between gap-2">
@@ -1031,7 +1033,7 @@ export function LogisticsModule({
               <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                    {adjustModal.type === "add" ? (t.addUnits ?? "Sumar unidades") : (t.removeUnits ?? "Restar unidades")}
+                    {adjustModal.type === "add" ? (t.addUnits ?? "Add units") : (t.removeUnits ?? "Remove units")}
                   </h3>
                   <button type="button" onClick={onCloseAdjustModal} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center">
                     <X className="h-4 w-4" />
@@ -1042,7 +1044,7 @@ export function LogisticsModule({
                 </p>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.quantity ?? "Cantidad"}</label>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.quantity ?? "Quantity"}</label>
                     <input
                       type="number"
                       min="1"
@@ -1052,7 +1054,7 @@ export function LogisticsModule({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.movementNote ?? "Nota"}</label>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.movementNote ?? "Note"}</label>
                     <input
                       type="text"
                       value={adjustNote}
@@ -1064,10 +1066,10 @@ export function LogisticsModule({
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <button type="button" onClick={onCloseAdjustModal} className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">
-                    {t.whClose ?? t.cancel ?? "Cerrar"}
+                    {t.whClose ?? t.cancel ?? "Cancel"}
                   </button>
-                  <button type="button" onClick={onApplyAdjustment} className="rounded-lg bg-blue-600 dark:bg-blue-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-blue-500 dark:hover:bg-blue-600">
-                    {t.accept ?? "Aplicar"}
+                  <button type="button" onClick={onApplyAdjustment} className="rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
+                    {t.accept ?? "Apply"}
                   </button>
                 </div>
               </div>
@@ -1086,25 +1088,43 @@ export function LogisticsModule({
               />
               <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeReturnModal} />
               <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-4">
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{(t as Record<string, string>).returnToWarehouse ?? "Devolver al almacén"}</h3>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
+                    {tlLabels.returnToWarehouse ?? "Return to warehouse"}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={closeReturnModal}
+                    className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    aria-label={tlLabels.whClose ?? tlLabels.cancel ?? "Close"}
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">{returnModalItem.name}</p>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">{(t as Record<string, string>).conditionOnReturn ?? "Estado al devolver"}</label>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                    {tlLabels.conditionOnReturn ?? "Condition on return"}
+                  </label>
                   <div className="grid grid-cols-3 gap-2 mt-2">
                     {(["good", "damaged", "maintenance"] as const).map((cond) => (
                       <button
                         key={cond}
                         type="button"
                         onClick={() => setReturnCondition(cond)}
-                        className={`rounded-xl py-2 text-sm font-medium border transition-colors min-h-[44px] ${returnCondition === cond ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300" : "border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"}`}
+                        className={`rounded-xl py-2 text-sm font-medium border transition-colors min-h-[44px] ${returnCondition === cond ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200" : "border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"}`}
                       >
-                        {cond === "good" ? ((t as Record<string, string>).conditionGood ?? "Sana") : cond === "damaged" ? ((t as Record<string, string>).conditionDamaged ?? "Dañada") : ((t as Record<string, string>).conditionMaintenance ?? "Requiere mantenimiento")}
+                        {cond === "good"
+                          ? (tlLabels.conditionGood ?? "Good")
+                          : cond === "damaged"
+                            ? (tlLabels.conditionDamaged ?? "Damaged")
+                            : (tlLabels.conditionMaintenance ?? "Needs maintenance")}
                       </button>
                     ))}
                   </div>
                 </div>
                 <textarea
-                  placeholder={(t as Record<string, string>).notes ?? "Notas opcionales"}
+                  placeholder={tlLabels.notes ?? "Optional notes"}
                   value={returnNotes}
                   onChange={(e) => setReturnNotes(e.target.value)}
                   className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm min-h-[80px] bg-white dark:bg-slate-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
@@ -1112,16 +1132,16 @@ export function LogisticsModule({
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                     {returnCondition === "good"
-                      ? ((t as Record<string, string>).returnPhotoConfirm ?? "Foto de confirmación (opcional)")
+                      ? (tlLabels.returnPhotoConfirm ?? "Confirmation photo (optional)")
                       : returnCondition === "damaged"
-                        ? ((t as Record<string, string>).returnPhotoDamage ?? "Foto del daño (obligatoria)")
-                        : ((t as Record<string, string>).returnPhotoMaintenance ?? "Foto del problema (opcional)")}
+                        ? (tlLabels.returnPhotoDamage ?? "Damage photo (required)")
+                        : (tlLabels.returnPhotoMaintenance ?? "Issue photo (optional)")}
                   </label>
                   {returnPhotoUrl ? (
                     <div className="relative">
                       <img
                         src={returnPhotoUrl}
-                        alt="Estado"
+                        alt={tlLabels.wh_return_condition_photo_alt ?? "Return condition photo"}
                         className="w-full h-32 object-cover rounded-xl border border-zinc-200 dark:border-slate-700"
                       />
                       <button
@@ -1136,20 +1156,29 @@ export function LogisticsModule({
                     <button
                       type="button"
                       onClick={openReturnPhotoCapture}
-                      className="w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 py-4 text-sm text-zinc-500 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-500 flex items-center justify-center gap-2 min-h-[44px]"
+                      className="w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 py-4 text-sm text-zinc-500 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-600 dark:hover:text-orange-400 flex items-center justify-center gap-2 min-h-[44px]"
                     >
                       <Camera className="h-4 w-4" />
-                      {(t as Record<string, string>).takePhoto ?? "Tomar foto"}
+                      {tlLabels.takePhoto ?? "Take photo"}
                     </button>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={confirmReturn}
-                  className="w-full rounded-xl bg-amber-600 text-white py-3 font-medium min-h-[44px] hover:bg-amber-500"
-                >
-                  {(t as Record<string, string>).confirmReturn ?? "Confirmar devolución"}
-                </button>
+                <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={closeReturnModal}
+                    className="w-full sm:w-auto rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  >
+                    {tlLabels.whClose ?? tlLabels.cancel ?? "Cancel"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmReturn}
+                    className="w-full sm:w-auto rounded-xl bg-orange-500 text-white py-3 px-4 font-medium min-h-[44px] hover:bg-orange-600"
+                  >
+                    {tlLabels.confirmReturn ?? "Confirm return"}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -1161,7 +1190,9 @@ export function LogisticsModule({
           {(resourceRequests ?? []).length === 0 ? (
             <div className="text-center py-12 text-zinc-400">
               <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>{(t as Record<string, string>).noOrders ?? "Sin pedidos"}</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-300 max-w-sm mx-auto">
+                {tlLabels.noOrders ?? "No resource orders yet."}
+              </p>
             </div>
           ) : (
             (resourceRequests ?? [])
@@ -1181,17 +1212,15 @@ export function LogisticsModule({
                 };
                 const statusLabels: Record<ResourceRequestStatus, string> = {
                   pending:
-                    (t as Record<string, string>).pending ?? "Pendiente",
+                    tlLabels.pending ?? "Pending",
                   preparing:
-                    (t as Record<string, string>).startPreparing ??
-                    "Preparando",
+                    tlLabels.startPreparing ?? "Preparing",
                   ready:
-                    (t as Record<string, string>).markReady ?? "Listo",
+                    tlLabels.markReady ?? "Ready",
                   dispatched:
-                    (t as Record<string, string>).dispatch ?? "Despachado",
+                    tlLabels.dispatch ?? "Dispatched",
                   received:
-                    (t as Record<string, string>).confirmReception ??
-                    "Recibido",
+                    tlLabels.confirmReception ?? "Received",
                 };
                 return (
                   <div
@@ -1205,8 +1234,7 @@ export function LogisticsModule({
                         </p>
                         <p className="text-xs text-zinc-500 mt-0.5">
                           {request.requestedByName} ·{" "}
-                          {(t as Record<string, string>).neededBy ??
-                            "Para"}
+                          {tlLabels.neededBy ?? "Needed by"}
                           : {request.neededBy}
                         </p>
                       </div>
@@ -1245,15 +1273,15 @@ export function LogisticsModule({
                                     item.id
                                   )
                                 }
-                                className={`text-xs rounded-full px-2 py-0.5 transition-colors ${
+                                className={`text-xs rounded-full px-3 py-2 min-h-[44px] inline-flex items-center transition-colors ${
                                   item.status === "ready"
                                     ? "bg-emerald-100 text-emerald-700"
                                     : "bg-zinc-100 text-zinc-600 hover:bg-emerald-100 hover:text-emerald-700"
                                 }`}
                               >
                                 {item.status === "ready"
-                                  ? "✓ Listo"
-                                  : "Marcar listo"}
+                                  ? `✓ ${tlLabels.resource_order_line_ready ?? "Ready"}`
+                                  : (tlLabels.resource_order_line_mark ?? "Mark ready")}
                               </button>
                             )}
                         </div>
@@ -1271,10 +1299,9 @@ export function LogisticsModule({
                                 "preparing"
                               )
                             }
-                            className="flex-1 rounded-xl border border-blue-300 text-blue-600 py-2.5 text-sm min-h-[44px] hover:bg-blue-50 transition-colors"
+                            className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 py-2.5 text-sm min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                           >
-                            {(t as Record<string, string>).startPreparing ??
-                              "Iniciar preparación"}
+                            {tlLabels.startPreparing ?? "Start preparing"}
                           </button>
                         )}
                         {request.status === "preparing" && (
@@ -1288,8 +1315,7 @@ export function LogisticsModule({
                             }
                             className="flex-1 rounded-xl border border-emerald-300 text-emerald-600 py-2.5 text-sm min-h-[44px] hover:bg-emerald-50 transition-colors"
                           >
-                            {(t as Record<string, string>).markReady ??
-                              "Marcar listo"}
+                            {tlLabels.markReady ?? "Mark as ready"}
                           </button>
                         )}
                         {request.status === "ready" && (
@@ -1301,18 +1327,15 @@ export function LogisticsModule({
                                 "dispatched"
                               )
                             }
-                            className="flex-1 rounded-xl bg-amber-600 text-white py-2.5 text-sm font-medium min-h-[44px] hover:bg-amber-500 transition-colors"
+                            className="flex-1 rounded-xl bg-orange-500 text-white py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600 transition-colors"
                           >
-                            🚚{" "}
-                            {(t as Record<string, string>).dispatch ??
-                              "Despachar"}
+                            🚚 {tlLabels.dispatch ?? "Dispatch"}
                           </button>
                         )}
                         {request.status === "dispatched" && (
                           <p className="text-sm text-zinc-500 italic py-2">
                             🚚{" "}
-                            {(t as Record<string, string>).inTransit ??
-                              "En camino a obra"}
+                            {tlLabels.inTransit ?? "In transit to site"}
                           </p>
                         )}
                       </div>
@@ -1332,17 +1355,17 @@ export function LogisticsModule({
                   key={s}
                   type="button"
                   onClick={() => setFilterStatus(s)}
-                  className={`rounded-lg px-2.5 py-2 text-xs font-medium min-h-[36px] ${filterStatus === s ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"}`}
+                  className={`rounded-lg px-2.5 py-2 text-xs font-medium min-h-[44px] ${filterStatus === s ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"}`}
                 >
-                  {s === "all" ? (t.whFilterAll ?? "Todos") : getStatusLabel(s === "available" ? "available" : s === "in_use" ? "inUse" : s === "maintenance" ? "maintenance" : "outOfService")}
+                  {s === "all" ? (t.whFilterAll ?? "All") : getStatusLabel(s === "available" ? "available" : s === "in_use" ? "inUse" : s === "maintenance" ? "maintenance" : "outOfService")}
                   {s !== "all" && ` (${vehicleStatusCounts[s] ?? 0})`}
                 </button>
               ))}
             </div>
             {canEdit && (
-              <button type="button" onClick={onAddFleet} className="flex items-center gap-2 rounded-lg bg-blue-600 dark:bg-blue-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-blue-500 dark:hover:bg-blue-600">
+              <button type="button" onClick={onAddFleet} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
                 <Plus className="h-4 w-4" />
-                {t.addNew ?? "Añadir vehículo"}
+                {t.addNew ?? "Add vehicle"}
               </button>
             )}
           </div>
@@ -1377,12 +1400,12 @@ export function LogisticsModule({
                     <span>{t.whInsuranceExpiry}: {v.insuranceExpiry}</span>
                     {(v.insuranceExpiry && v.insuranceExpiry < today) && (
                       <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        {(t as Record<string, string>).insuranceExpiredBadge ?? "Seguro vencido"}
+                        {tlLabels.insuranceExpiredBadge ?? "Insurance expired"}
                       </span>
                     )}
                     {(v.inspectionExpiry && v.inspectionExpiry < today) && (
                       <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        {(t as Record<string, string>).inspectionExpiredBadge ?? "ITV vencida"}
+                        {tlLabels.inspectionExpiredBadge ?? "Inspection expired"}
                       </span>
                     )}
                     <span className="col-span-2">
@@ -1392,12 +1415,12 @@ export function LogisticsModule({
                     </span>
                     {maintenanceSoon && (
                       <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        {(t as Record<string, string>).maintenanceSoon ?? "Mantenimiento próximo"}
+                        {tlLabels.maintenanceSoon ?? "Maintenance due soon"}
                       </span>
                     )}
                     {maintenanceWarning && !maintenanceSoon && daysUntil != null && (
                       <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        {((t as Record<string, string>).maintenanceInDays ?? "Mantenimiento en {n} días").replace("{n}", String(daysUntil))}
+                        {(tlLabels.maintenanceInDays ?? "Maintenance in {n} days").replace("{n}", String(daysUntil))}
                       </span>
                     )}
                     {(complianceFields ?? []).filter((f) => f.target.includes("vehicle")).length > 0 ? (
@@ -1426,7 +1449,7 @@ export function LogisticsModule({
                   </div>
                   <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-slate-700 flex-wrap">
                     {canEdit && onUpdateVehicleStatus && (
-                      <select value={v.vehicleStatus ?? "available"} onChange={(e) => onUpdateVehicleStatus(v.id, e.target.value)} className="text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[36px]">
+                      <select value={v.vehicleStatus ?? "available"} onChange={(e) => onUpdateVehicleStatus(v.id, e.target.value)} className="text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[44px]">
                         {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                       </select>
                     )}
@@ -1440,21 +1463,25 @@ export function LogisticsModule({
                 </div>
               );
             })}
-            {filteredVehicles.length === 0 && <p className="text-center text-zinc-500 dark:text-zinc-400 text-sm py-4">No hay vehículos registrados.</p>}
+            {filteredVehicles.length === 0 && (
+              <p className="text-center text-zinc-500 dark:text-zinc-400 text-sm py-4">
+                {tlLabels.wh_fleet_empty ?? "No vehicles registered yet."}
+              </p>
+            )}
           </div>
           {/* Tabla Flota solo en desktop */}
           <div className="hidden lg:block rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
             <table className="w-full text-sm text-left">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Matrícula</th>
-                  <th className="px-4 py-3 font-medium">{t.whUsualDriver ?? "Conductor"}</th>
-                  <th className="px-4 py-3 font-medium">{t.whInsuranceExpiry ?? "Venc. seguro"}</th>
+                  <th className="px-4 py-3 font-medium">{tlLabels.wh_vehicle_plate ?? "License plate"}</th>
+                  <th className="px-4 py-3 font-medium">{t.whUsualDriver ?? "Usual driver"}</th>
+                  <th className="px-4 py-3 font-medium">{t.whInsuranceExpiry ?? "Insurance expiry"}</th>
                   <th className="px-4 py-3 font-medium">{vehicleInspectionLabel}</th>
-                  <th className="px-4 py-3 font-medium">{(t as Record<string, string>).project ?? "Proyecto"}</th>
-                  <th className="px-4 py-3 font-medium">{(t as Record<string, string>).status ?? "Estado"}</th>
-                  <th className="px-4 py-3 font-medium">Mantenimiento</th>
-                  <th className="px-4 py-3 text-right">{t.edit ?? "Acciones"}</th>
+                  <th className="px-4 py-3 font-medium">{tlLabels.project ?? "Project"}</th>
+                  <th className="px-4 py-3 font-medium">{tlLabels.status ?? "Status"}</th>
+                  <th className="px-4 py-3 font-medium">{tlLabels.wh_maintenance_column ?? "Maintenance"}</th>
+                  <th className="px-4 py-3 text-right">{t.edit ?? "Actions"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-slate-700">
@@ -1481,7 +1508,7 @@ export function LogisticsModule({
                         <span className="flex flex-col gap-1">
                           <span>{v.insuranceExpiry}</span>
                           {v.insuranceExpiry && v.insuranceExpiry < today && (
-                            <span className="inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{(t as Record<string, string>).insuranceExpiredBadge ?? "Seguro vencido"}</span>
+                            <span className="inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{tlLabels.insuranceExpiredBadge ?? "Insurance expired"}</span>
                           )}
                         </span>
                       </td>
@@ -1489,7 +1516,7 @@ export function LogisticsModule({
                         <span className="flex flex-col gap-1">
                           <span>{v.inspectionExpiry}</span>
                           {v.inspectionExpiry && v.inspectionExpiry < today && (
-                            <span className="inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{(t as Record<string, string>).inspectionExpiredBadge ?? "ITV vencida"}</span>
+                            <span className="inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{tlLabels.inspectionExpiredBadge ?? "Inspection expired"}</span>
                           )}
                         </span>
                       </td>
@@ -1504,14 +1531,18 @@ export function LogisticsModule({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">
-                        {maintenanceSoon && <span className="text-red-600 dark:text-red-400 text-xs">{(t as Record<string, string>).maintenanceSoon ?? "Próximo"}</span>}
-                        {maintenanceWarning && !maintenanceSoon && daysUntil != null && <span className="text-amber-600 dark:text-amber-400 text-xs">{daysUntil} días</span>}
+                        {maintenanceSoon && <span className="text-red-600 dark:text-red-400 text-xs">{tlLabels.maintenanceSoon ?? "Due soon"}</span>}
+                        {maintenanceWarning && !maintenanceSoon && daysUntil != null && (
+                          <span className="text-amber-600 dark:text-amber-400 text-xs">
+                            {(tlLabels.wh_maintenance_days_short ?? "{n} days").replace("{n}", String(daysUntil))}
+                          </span>
+                        )}
                         {!maintenanceSoon && !maintenanceWarning && "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           {canEdit && onUpdateVehicleStatus && (
-                            <select value={v.vehicleStatus ?? "available"} onChange={(e) => onUpdateVehicleStatus(v.id, e.target.value)} className="text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[36px]">
+                            <select value={v.vehicleStatus ?? "available"} onChange={(e) => onUpdateVehicleStatus(v.id, e.target.value)} className="text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[44px]">
                               {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                             </select>
                           )}
@@ -1528,7 +1559,11 @@ export function LogisticsModule({
                 })}
               </tbody>
             </table>
-            {filteredVehicles.length === 0 && <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">No hay vehículos registrados.</p>}
+            {filteredVehicles.length === 0 && (
+              <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+                {tlLabels.wh_fleet_empty ?? "No vehicles registered yet."}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1537,9 +1572,9 @@ export function LogisticsModule({
         <div className="space-y-4">
           {canEdit && (
           <div className="flex justify-end">
-            <button type="button" onClick={onAddRental} className="flex items-center gap-2 rounded-lg bg-blue-600 dark:bg-blue-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-blue-500 dark:hover:bg-blue-600">
+            <button type="button" onClick={onAddRental} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
               <Plus className="h-4 w-4" />
-              {t.addNew ?? "Añadir alquiler"}
+              {t.addNew ?? "Add rental"}
             </button>
           </div>
           )}
@@ -1562,7 +1597,11 @@ export function LogisticsModule({
                 )}
               </div>
             ))}
-            {(rentals ?? []).length === 0 && <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">No hay alquileres registrados.</p>}
+            {(rentals ?? []).length === 0 && (
+              <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+                {tlLabels.wh_rentals_empty ?? "No rentals recorded yet."}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1593,12 +1632,13 @@ export function LogisticsModule({
             return (
               <div className="space-y-4">
                 <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {projName} — {inv.length} {t.whTabInventory ?? "ítems"} ({toolsCount} {t.whTabTools ?? "herramientas"} · {materialsCount} {t.whTabMaterial ?? "materiales"}) · {veh.length} {t.whTabFleet ?? "vehículos"} · {rent.length} {t.whTabRentals ?? "alquileres"}
+                  {projName} — {inv.length} {t.whTabInventory ?? "items"} ({toolsCount} {t.whTabTools ?? "tools"} · {materialsCount} {t.whTabMaterial ?? "materials"}) · {veh.length}{" "}
+                  {t.whTabFleet ?? "vehicles"} · {rent.length} {t.whTabRentals ?? "rentals"}
                 </p>
                 <div className="rounded-xl border border-zinc-200 dark:border-slate-700 divide-y divide-zinc-200 dark:divide-slate-700 overflow-hidden">
                   {inv.length > 0 && (
                     <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50">
-                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabInventory ?? "Inventario"}</h4>
+                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabInventory ?? "Inventory"}</h4>
                       <ul className="space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
                         {inv.map((i) => (
                           <li key={i.id} className="flex items-center gap-2">
@@ -1611,7 +1651,7 @@ export function LogisticsModule({
                   )}
                   {veh.length > 0 && (
                     <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50">
-                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabFleet ?? "Flota"}</h4>
+                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabFleet ?? "Fleet"}</h4>
                       <ul className="space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
                         {veh.map((v) => (
                           <li key={v.id} className="flex items-center gap-2">
@@ -1624,7 +1664,7 @@ export function LogisticsModule({
                   )}
                   {rent.length > 0 && (
                     <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50">
-                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabRentals ?? "Alquileres"}</h4>
+                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabRentals ?? "Rentals"}</h4>
                       <ul className="space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
                         {rent.map((r) => (
                           <li key={r.id}>{r.name} · {r.supplier}</li>
@@ -1633,13 +1673,17 @@ export function LogisticsModule({
                     </div>
                   )}
                   {inv.length === 0 && veh.length === 0 && rent.length === 0 && (
-                    <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">{t.noResourcesForProject ?? "Sin recursos asignados a este proyecto."}</p>
+                    <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+                      {tlLabels.noResourcesForProject ?? "No resources assigned to this project."}
+                    </p>
                   )}
                 </div>
               </div>
             );
           })() : (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.filterByProject ?? "Selecciona un proyecto para ver sus recursos."}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {tlLabels.logistics_filter_project_hint ?? "Select a project to view its resources."}
+            </p>
           )}
         </div>
       )}
@@ -1648,9 +1692,9 @@ export function LogisticsModule({
         <div className="space-y-4">
           {canEdit && (
           <div className="flex justify-end">
-            <button type="button" onClick={onAddSupplier} className="flex items-center gap-2 rounded-lg bg-blue-600 dark:bg-blue-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-blue-500 dark:hover:bg-blue-600">
+            <button type="button" onClick={onAddSupplier} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
               <Plus className="h-4 w-4" />
-              {t.addNew ?? "Añadir proveedor"}
+              {t.addNew ?? "Add supplier"}
             </button>
           </div>
           )}
@@ -1670,7 +1714,11 @@ export function LogisticsModule({
                 )}
               </div>
             ))}
-            {(suppliers ?? []).length === 0 && <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">No hay proveedores registrados.</p>}
+            {(suppliers ?? []).length === 0 && (
+              <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+                {tlLabels.wh_suppliers_empty ?? "No suppliers registered yet."}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1678,9 +1726,9 @@ export function LogisticsModule({
       {warehouseSubTab === "incidents" && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-            {(t as Record<string, string>).controlCenter ?? "Centro de Control"}
+            {tlLabels.controlCenter ?? "Control center"}
             <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
-              ({(inventoryItems ?? []).filter((i) => i.incidentPhotoUrl).length} {(t as Record<string, string>).incidents ?? "incidencias"})
+              ({(inventoryItems ?? []).filter((i) => i.incidentPhotoUrl).length} {tlLabels.incidents ?? "incidents"})
             </span>
           </h3>
           {(() => {
@@ -1689,7 +1737,7 @@ export function LogisticsModule({
               return (
                 <div className="text-center py-12 text-zinc-500 dark:text-zinc-400">
                   <Shield className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">{(t as Record<string, string>).noIncidents ?? "Sin incidencias activas"}</p>
+                  <p className="text-sm">{tlLabels.noIncidents ?? "No active incidents"}</p>
                 </div>
               );
             }
@@ -1711,13 +1759,13 @@ export function LogisticsModule({
                           </div>
                         </div>
                         <span className="text-xs rounded-full px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium">
-                          {(t as Record<string, string>).maintenanceRequired ?? "Requiere mantenimiento"}
+                          {tlLabels.maintenanceRequired ?? "Maintenance required"}
                         </span>
                       </div>
                       {item.incidentPhotoUrl && (
                         <img
                           src={item.incidentPhotoUrl}
-                          alt="Incidencia"
+                          alt={tlLabels.logistics_incident_photo_alt ?? "Incident photo"}
                           className="w-full h-48 object-cover rounded-xl cursor-pointer border border-zinc-200 dark:border-slate-700"
                           onClick={() => setLightboxUrl(item.incidentPhotoUrl!)}
                         />
@@ -1729,7 +1777,7 @@ export function LogisticsModule({
                             onClick={() => onMarkIncidentReviewed(item.id)}
                             className="flex-1 rounded-xl border border-emerald-300 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 py-2 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] transition-colors"
                           >
-                            ✓ {(t as Record<string, string>).markReviewed ?? "Marcar revisado"}
+                            ✓ {tlLabels.markReviewed ?? "Mark reviewed"}
                           </button>
                         )}
                         {onReturnTool && (
@@ -1738,7 +1786,7 @@ export function LogisticsModule({
                             onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }}
                             className="flex-1 rounded-xl bg-amber-600 text-white py-2 text-sm font-medium hover:bg-amber-500 min-h-[44px] transition-colors"
                           >
-                            {(t as Record<string, string>).returnItem ?? "Retornar"}
+                            {tlLabels.returnItem ?? "Return"}
                           </button>
                         )}
                       </div>
@@ -1776,7 +1824,7 @@ export function LogisticsModule({
                 <div>
                   <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{tl.supplierContacts ?? "Contactos"}</h4>
                   {(s.contacts ?? []).length === 0 ? (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{tl.addContact ?? "Añadir contacto"}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{tl.addContact ?? "Add contact"}</p>
                   ) : (
                     <ul className="space-y-2">
                       {(s.contacts ?? []).map((c) => (
@@ -1791,14 +1839,14 @@ export function LogisticsModule({
                   )}
                   {canEdit && (
                     <button type="button" onClick={() => { setSelectedSupplierId(null); onEditSupplier(s); }} className="mt-2 text-sm text-amber-600 hover:text-amber-500">
-                      + {tl.addContact ?? "Añadir contacto"}
+                      + {tl.addContact ?? "Add contact"}
                     </button>
                   )}
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{tl.whTabInventory ?? "Inventario"}</h4>
                   {supplierItems.length === 0 ? (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{(t as Record<string, string>).noItemsFromSupplier ?? "Sin ítems de este proveedor"}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{tlLabels.noItemsFromSupplier ?? "No items from this supplier"}</p>
                   ) : (
                     <ul className="space-y-2">
                       {supplierItems.map((i) => (
@@ -1839,12 +1887,14 @@ export function LogisticsModule({
                   if (!it) return null;
                   return (
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">{it.type === "equipment" ? ((t as Record<string, string>).equipment ?? "Equipo") : (t.whTabTools ?? "Herramienta")}</span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {it.type === "equipment" ? (tlLabels.equipment ?? "Equipment") : (t.whTabTools ?? "Tool")}
+                      </span>
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toolStatusBadgeClass(it.toolStatus)}`}>
                         {getStatusLabel(it.toolStatus === "available" ? "available" : it.toolStatus === "in_use" ? "inUse" : it.toolStatus === "maintenance" ? "maintenance" : it.toolStatus === "out_of_service" ? "outOfService" : "lost")}
                       </span>
                       {it.incidentPhotoUrl && (
-                        <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">⚠ {(t as Record<string, string>).incidentReported ?? "Incidencia"}</span>
+                        <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">⚠ {tlLabels.incidentReported ?? "Incident"}</span>
                       )}
                     </div>
                   );
@@ -1860,7 +1910,7 @@ export function LogisticsModule({
               const tl = t as Record<string, string>;
               const toolLogs = logsForAsset(selectedAsset.id, "tool");
               const galleryPhotos: { url: string; type: "incident" | "return"; condition?: "good" | "damaged" | "maintenance"; label: string; date: string }[] = [];
-              if (item?.incidentPhotoUrl) galleryPhotos.push({ url: item.incidentPhotoUrl, type: "incident", label: tl.incidentReported ?? "Incidencia", date: "—" });
+              if (item?.incidentPhotoUrl) galleryPhotos.push({ url: item.incidentPhotoUrl, type: "incident", label: tl.incidentReported ?? "Incident", date: "—" });
               toolLogs.forEach((log) => {
                 if (log.returnPhotoUrl) galleryPhotos.push({ url: log.returnPhotoUrl, type: "return", condition: log.returnCondition, label: log.returnCondition === "good" ? (tl.conditionGood ?? "Sana") : log.returnCondition === "damaged" ? (tl.conditionDamaged ?? "Dañada") : (tl.conditionMaintenance ?? "Mantenimiento"), date: log.endDate ?? log.startDate ?? "—" });
               });
@@ -1900,7 +1950,7 @@ export function LogisticsModule({
                     <div className="p-4 border-b border-zinc-200 dark:border-slate-700">
                       <h4 className="text-sm font-medium text-zinc-900 dark:text-white mb-3">{tl.assetGallery ?? "Galería"}</h4>
                       {galleryPhotos.length === 0 ? (
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">{(t as Record<string, string>).noAssetPhotos ?? "Sin fotos registradas para este activo"}</p>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">{tlLabels.noAssetPhotos ?? "No photos for this asset yet"}</p>
                       ) : (
                         <div className="grid grid-cols-2 gap-2">
                           {galleryPhotos.map((photo, idx) => (
@@ -1978,7 +2028,7 @@ export function LogisticsModule({
                       ) : (
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="text-zinc-600 dark:text-zinc-400">{tl.docInsurance ?? "Seguro"}: {v.insuranceExpiry || "—"}</span>
+                            <span className="text-zinc-600 dark:text-zinc-400">{tl.docInsurance ?? "Insurance"}: {v.insuranceExpiry || "—"}</span>
                             <span className="flex items-center gap-1.5 shrink-0">
                               {v.insuranceDocUrl ? <FileCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <FileX className="h-4 w-4 text-red-500 dark:text-red-400" />}
                               {v.insuranceDocUrl && (
@@ -2024,7 +2074,7 @@ export function LogisticsModule({
               </h4>
               {logsForAsset(selectedAsset.id, selectedAsset.type).length === 0 ? (
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {t.noUsageHistory ?? "Sin historial"}
+                  {t.noUsageHistory ?? "No usage history"}
                 </p>
               ) : (
                 logsForAsset(selectedAsset.id, selectedAsset.type).map((log) => {
@@ -2040,7 +2090,7 @@ export function LogisticsModule({
                           {log.startDate} → {log.endDate ?? (t.inUse ?? "En uso")}
                         </p>
                         {log.returnPhotoUrl && (
-                          <img src={log.returnPhotoUrl} alt="Estado devolución" className="h-16 w-16 rounded-lg object-cover mt-1 border border-zinc-200 dark:border-slate-700" />
+                          <img src={log.returnPhotoUrl} alt={tlLabels.wh_return_condition_photo_alt ?? "Return photo"} className="h-16 w-16 rounded-lg object-cover mt-1 border border-zinc-200 dark:border-slate-700" />
                         )}
                       </div>
                     </div>

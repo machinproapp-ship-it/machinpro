@@ -514,7 +514,7 @@ export function CorrectiveActionsModule({
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-3 text-sm w-full sm:w-auto"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-3 text-sm w-full sm:w-auto"
           >
             <Plus className="h-5 w-5" />
             {t.actions_new ?? "New"}
@@ -699,7 +699,7 @@ export function CorrectiveActionsModule({
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50 py-14 px-4 text-center">
             <ClipboardCheck className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {t.empty_no_actions ?? t.actions_no_results ?? "—"}
+              {t.empty_no_actions ?? t.actions_no_results ?? "No corrective actions yet"}
             </h3>
             <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
               {t.empty_actions_sub ?? ""}
@@ -708,7 +708,7 @@ export function CorrectiveActionsModule({
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
               >
                 {t.empty_add_first ?? t.actions_new ?? "Add"}
               </button>
@@ -765,7 +765,7 @@ export function CorrectiveActionsModule({
           <div className="flex flex-col items-center py-14 px-4 text-center">
             <ClipboardCheck className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {t.empty_no_actions ?? t.actions_no_results ?? "—"}
+              {t.empty_no_actions ?? t.actions_no_results ?? "No corrective actions yet"}
             </h3>
             <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
               {t.empty_actions_sub ?? ""}
@@ -774,7 +774,7 @@ export function CorrectiveActionsModule({
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
               >
                 {t.empty_add_first ?? t.actions_new ?? "Add"}
               </button>
@@ -948,7 +948,7 @@ export function CorrectiveActionsModule({
               </span>
               <input
                 className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm font-mono text-xs"
-                placeholder="uuid"
+                placeholder={(t as Record<string, string>).hazards_hazard_id_placeholder ?? "Hazard UUID"}
                 value={form.hazard_id}
                 onChange={(e) => setForm((f) => ({ ...f, hazard_id: e.target.value }))}
               />
@@ -991,14 +991,24 @@ export function CorrectiveActionsModule({
                 onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
               />
             </label>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void submitCreate()}
-              className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-semibold text-sm py-3"
-            >
-              {t.hazards_save ?? "Save"}
-            </button>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setCreateOpen(false)}
+                className="w-full sm:w-auto min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                {t.cancel ?? "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void submitCreate()}
+                className="w-full sm:w-auto min-h-[44px] rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold text-sm py-3 px-4"
+              >
+                {saving ? `${t.hazards_save ?? "Save"}…` : (t.hazards_save ?? "Save")}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1030,7 +1040,7 @@ export function CorrectiveActionsModule({
                       onNavigateToHazard(detail.hazard_id!);
                       setDetail(null);
                     }}
-                    className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-amber-600 text-amber-800 dark:text-amber-300 px-3 py-2 text-xs font-medium"
+                    className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 px-3 py-2 text-xs font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     {t.actions_open_hazard ?? "Open"}
@@ -1112,7 +1122,7 @@ export function CorrectiveActionsModule({
                 <button
                   type="button"
                   onClick={() => void saveDetailStatus()}
-                  className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-sm py-3"
+                  className="w-full min-h-[44px] rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm py-3"
                 >
                   {t.hazards_save_status ?? "Save"}
                 </button>

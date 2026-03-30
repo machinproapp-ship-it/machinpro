@@ -429,6 +429,7 @@ export function HazardModule({
     setSaving(false);
     if (error) {
       console.error(error);
+      showToast("error", t.toast_error ?? "Error");
       return;
     }
     const id = data?.id as string;
@@ -480,8 +481,11 @@ export function HazardModule({
     const { error } = await supabase.from("hazards").update(patch).eq("id", detail.id);
     if (error) {
       console.error(error);
+      showToast("error", t.toast_error ?? "Error");
       return;
     }
+
+    showToast("success", t.toast_saved ?? "Saved");
 
     const becameResolved =
       isResolved && prev !== "resolved" && prev !== "closed";
@@ -525,10 +529,13 @@ export function HazardModule({
       .from("hazards")
       .update({ photos: next })
       .eq("id", detail.id);
-    if (!error) {
-      setDetail({ ...detail, photos: next });
-      void load();
+    if (error) {
+      showToast("error", t.toast_error ?? "Error");
+      return;
     }
+    setDetail({ ...detail, photos: next });
+    showToast("success", t.toast_saved ?? "Saved");
+    void load();
   };
 
   const addCorrective = async () => {
@@ -538,11 +545,14 @@ export function HazardModule({
       .from("hazards")
       .update({ corrective_actions: next })
       .eq("id", detail.id);
-    if (!error) {
-      setDetail({ ...detail, corrective_actions: next });
-      setCorrectiveDraft("");
-      void load();
+    if (error) {
+      showToast("error", t.toast_error ?? "Error");
+      return;
     }
+    setDetail({ ...detail, corrective_actions: next });
+    setCorrectiveDraft("");
+    showToast("success", t.toast_saved ?? "Saved");
+    void load();
   };
 
   const maxCat = Math.max(1, ...Object.values(stats.catCounts));
@@ -579,7 +589,7 @@ export function HazardModule({
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-3 text-sm w-full sm:w-auto"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-3 text-sm w-full sm:w-auto"
           >
             <Plus className="h-5 w-5" />
             {t.hazards_new ?? "New"}
@@ -818,7 +828,7 @@ export function HazardModule({
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50 py-14 px-4 text-center">
             <AlertTriangle className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {t.empty_no_hazards ?? t.hazards_no_results ?? "—"}
+              {t.empty_no_hazards ?? t.hazards_no_results ?? "No hazards recorded"}
             </h3>
             <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
               {t.empty_hazards_sub ?? ""}
@@ -827,7 +837,7 @@ export function HazardModule({
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
               >
                 {t.empty_add_first ?? t.hazards_new ?? "Add"}
               </button>
@@ -884,7 +894,7 @@ export function HazardModule({
           <div className="flex flex-col items-center py-14 px-4 text-center">
             <AlertTriangle className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {t.empty_no_hazards ?? t.hazards_no_results ?? "—"}
+              {t.empty_no_hazards ?? t.hazards_no_results ?? "No hazards recorded"}
             </h3>
             <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
               {t.empty_hazards_sub ?? ""}
@@ -893,7 +903,7 @@ export function HazardModule({
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
               >
                 {t.empty_add_first ?? t.hazards_new ?? "Add"}
               </button>
@@ -1131,14 +1141,24 @@ export function HazardModule({
               {t.hazards_risk_score ?? "Score"}: {getRiskScore(form.severity, form.probability)} (
               {getRiskLevel(getRiskScore(form.severity, form.probability))})
             </p>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void submitCreate()}
-              className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-semibold text-sm py-3"
-            >
-              {t.hazards_save ?? "Save"}
-            </button>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setCreateOpen(false)}
+                className="w-full sm:w-auto min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                {t.cancel ?? "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void submitCreate()}
+                className="w-full sm:w-auto min-h-[44px] rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold text-sm py-3 px-4"
+              >
+                {saving ? `${t.hazards_save ?? "Save"}…` : (t.hazards_save ?? "Save")}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1218,7 +1238,7 @@ export function HazardModule({
                   });
                   setDetail(null);
                 }}
-                className="w-full min-h-[44px] rounded-xl border border-cyan-600/60 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 font-semibold text-sm py-3 hover:bg-cyan-100 dark:hover:bg-cyan-900/50"
+                className="w-full min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-gray-800 text-zinc-800 dark:text-zinc-100 font-semibold text-sm py-3 hover:bg-zinc-50 dark:hover:bg-gray-700"
               >
                 {t.hazards_new_corrective_action ?? t.actions_new ?? "Nueva acción correctiva"}
               </button>
@@ -1253,7 +1273,7 @@ export function HazardModule({
                 <button
                   type="button"
                   onClick={() => void saveDetailStatus()}
-                  className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-sm py-3"
+                  className="w-full min-h-[44px] rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm py-3"
                 >
                   {t.hazards_save_status ?? "Save status"}
                 </button>

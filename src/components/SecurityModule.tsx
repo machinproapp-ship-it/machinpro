@@ -152,13 +152,13 @@ export function SecurityModule({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{L("nav_security", "Seguridad")}</h2>
+      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{L("nav_security", "Security")}</h2>
 
       <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 pb-2" variant="inherit">
         <div
           className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
           role="tablist"
-          aria-label={L("nav_security", "Seguridad")}
+          aria-label={L("nav_security", "Security")}
         >
           {visibleTabs.map(({ id, icon: Icon, labelKey }) => {
             const active = tab === id;
