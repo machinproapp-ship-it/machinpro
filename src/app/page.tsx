@@ -3598,7 +3598,7 @@ export default function Home() {
                     className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
                   >
                     <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">Cerrar sesión</span>
+                    <span className="hidden sm:inline">{(t as Record<string, string>).settings_sign_out ?? "Sign out"}</span>
                   </button>
                 </div>
               )}
@@ -4428,7 +4428,9 @@ export default function Home() {
                   shift: (t as Record<string, string>).shift ?? "Turno",
                   event: (t as Record<string, string>).event ?? "Evento",
                   addEntry: (t as Record<string, string>).addEntry ?? "Añadir turno",
-                  noEntries: (t as Record<string, string>).noEntries ?? "Sin entradas",
+                  noEntries: (t as Record<string, string>).noEntries ?? "No entries",
+                  schedule_no_sheets: (t as Record<string, string>).schedule_no_sheets ?? "No timesheets",
+                  schedule_no_shifts_day: (t as Record<string, string>).schedule_no_shifts_day ?? "No shifts on this day",
                   today: (t as Record<string, string>).today ?? "Hoy",
                   clockInTitle: (t as Record<string, string>).clockInTitle ?? "Fichaje de hoy",
                   clockIn: (t as Record<string, string>).clockIn ?? "Fichar Entrada",

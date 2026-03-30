@@ -504,6 +504,7 @@ export function ProjectsModule({
   onGalleryPhotoDownloaded,
   onGalleryPhotosBulkDownloaded,
 }: ProjectsModuleProps) {
+  const tl = t as Record<string, string>;
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const lastVisitorNavSig = useRef(0);
   const lastRfiNavSig = useRef(0);
@@ -1101,14 +1102,19 @@ export function ProjectsModule({
                   </div>
                   {pendingCount > 0 && canApprove && (
                     <span className="shrink-0 rounded-full bg-amber-500 text-white text-xs font-bold px-2 py-0.5">
-                      {pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}
+                      {pendingCount === 1
+                        ? (tl.project_photos_pending_one ?? "1 pending")
+                        : (tl.project_photos_pending_many ?? "{{n}} pending").replace(
+                            /\{\{n\}\}/g,
+                            String(pendingCount)
+                          )}
                     </span>
                   )}
                 </div>
 
                 <div className="mb-3">
                   <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                    <span>Presupuesto consumido</span>
+                    <span>{tl.project_budget_consumed_progress ?? "Budget consumed"}</span>
                     <span className="font-medium text-zinc-700 dark:text-zinc-300">{prog}%</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
@@ -1122,7 +1128,9 @@ export function ProjectsModule({
                 <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" />
-                    {assigned.length} persona{assigned.length !== 1 ? "s" : ""}
+                    {assigned.length === 1
+                      ? (tl.project_team_one ?? "1 person")
+                      : (tl.project_team_many ?? "{{n}} people").replace(/\{\{n\}\}/g, String(assigned.length))}
                   </span>
                   <span>{fmtYmd(proj.estimatedEnd)}</span>
                 </div>
@@ -1173,9 +1181,9 @@ export function ProjectsModule({
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedProject.location)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-lg px-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  <ExternalLink className="h-3 w-3" /> Maps
+                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden /> {tl.openInMaps ?? "Open in Maps"}
                 </a>
               </div>
             </div>
@@ -1186,12 +1194,13 @@ export function ProjectsModule({
             {selectedProject.budgetCAD != null && (
               <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" /> Presupuesto
+                  <DollarSign className="h-3 w-3" aria-hidden /> {tl.project_budget_short_label ?? "Budget"}
                 </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{formatBudget(selectedProject.budgetCAD)}</p>
                 {selectedProject.spentCAD != null && (
                   <p className={`text-xs font-medium ${progress > 80 ? "text-red-500" : "text-zinc-500 dark:text-zinc-400"}`}>
-                    {progress}% usado
+                    {progress}
+                    {tl.project_budget_pct_used ?? "% used"}
                   </p>
                 )}
               </div>
@@ -1340,23 +1349,33 @@ export function ProjectsModule({
         {activeTab === "general" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InfoRow label="Tipo de proyecto" value={
-                selectedProject.type === "residential" ? "Residencial" :
-                selectedProject.type === "commercial" ? "Comercial" :
-                selectedProject.type === "industrial" ? "Industrial" : selectedProject.type
-              } />
-              <InfoRow label="Ubicación" value={selectedProject.location || "—"} />
-              <InfoRow label="Fecha de inicio" value={fmtYmd(selectedProject.estimatedStart)} />
-              <InfoRow label="Fecha de cierre" value={fmtYmd(selectedProject.estimatedEnd)} />
+              <InfoRow
+                label={tl.projectFormTypeLabel ?? "Project type"}
+                value={
+                  selectedProject.type === "residential"
+                    ? (tl.projectTypeResidential ?? "Residential")
+                    : selectedProject.type === "commercial"
+                      ? (tl.projectTypeCommercial ?? "Commercial")
+                      : selectedProject.type === "industrial"
+                        ? (tl.projectTypeIndustrial ?? "Industrial")
+                        : selectedProject.type
+                }
+              />
+              <InfoRow
+                label={tl.projectFormLocationLabel ?? "Location"}
+                value={selectedProject.location || (tl.common_dash ?? "—")}
+              />
+              <InfoRow label={tl.projectFormDateStart ?? "Start date"} value={fmtYmd(selectedProject.estimatedStart)} />
+              <InfoRow label={tl.projectFormDateEnd ?? "End date"} value={fmtYmd(selectedProject.estimatedEnd)} />
               {selectedProject.budgetCAD != null && (
                 <InfoRow
-                  label="Presupuesto total"
+                  label={tl.projectFormBudgetTotal ?? "Total budget"}
                   value={formatCurrency(selectedProject.budgetCAD, companyCurrency, dateLoc)}
                 />
               )}
               {selectedProject.spentCAD != null && (
                 <InfoRow
-                  label="Presupuesto consumido"
+                  label={tl.project_budget_consumed_progress ?? "Budget consumed"}
                   value={`${formatCurrency(selectedProject.spentCAD, companyCurrency, dateLoc)} (${progress}%)`}
                 />
               )}
@@ -1378,7 +1397,7 @@ export function ProjectsModule({
             {selectedProject.budgetCAD != null && (
               <div>
                 <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
-                  <span>Ejecución presupuestaria</span>
+                  <span>{tl.project_budget_progress_label ?? "Budget execution"}</span>
                   <span className="font-medium">{progress}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
@@ -1389,8 +1408,11 @@ export function ProjectsModule({
                 </div>
                 {progress > 80 && (
                   <p className="flex items-center gap-1 text-xs text-red-500 mt-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Alerta: presupuesto al {progress}% de capacidad
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {(tl.project_budget_alert_capacity ?? "Warning: budget at {{pct}}% capacity").replace(
+                      /\{\{pct\}\}/g,
+                      String(progress)
+                    )}
                   </p>
                 )}
               </div>
@@ -1405,7 +1427,7 @@ export function ProjectsModule({
                   <button
                     type="button"
                     onClick={() => { setPhotoCategoryModal({ projectId: selectedProject.id }); setPhotoCategoryToSubmit("progress"); }}
-                    className="flex items-center gap-3 rounded-xl border-2 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-700 dark:text-blue-300 px-5 py-4 transition-colors"
+                    className="flex min-h-[44px] items-center gap-3 rounded-xl border-2 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-700 dark:text-blue-300 px-5 py-4 transition-colors"
                   >
                     <Camera className="h-5 w-5 shrink-0" />
                     <div className="text-left">
@@ -1420,7 +1442,7 @@ export function ProjectsModule({
                   <button
                     type="button"
                     onClick={() => onPhotoInventario(selectedProject.id)}
-                    className="flex items-center gap-3 rounded-xl border-2 border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-950/50 text-orange-700 dark:text-orange-300 px-5 py-4 transition-colors"
+                    className="flex min-h-[44px] items-center gap-3 rounded-xl border-2 border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-950/50 text-orange-700 dark:text-orange-300 px-5 py-4 transition-colors"
                   >
                     <Package className="h-5 w-5 shrink-0" />
                     <div className="text-left">

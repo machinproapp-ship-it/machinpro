@@ -183,6 +183,8 @@ export interface ScheduleModuleProps {
     schedule_filter_by_role?: string;
     schedule_pick_employees?: string;
     schedule_pick_employees_error?: string;
+    schedule_no_sheets?: string;
+    schedule_no_shifts_day?: string;
     /** Pestaña Vacaciones (móvil) */
     schedule_tab_vacations?: string;
     admin?: string;
@@ -1234,7 +1236,9 @@ export default function ScheduleModule({
             <div className="p-4 space-y-4">
               {entriesForDay(selectedDay).length === 0 ? (
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 italic">
-                  {labels.noEntries ?? "Sin turnos este día"}
+                  {(labels as Record<string, string>).schedule_no_shifts_day ??
+                    labels.noEntries ??
+                    "No shifts on this day"}
                 </p>
               ) : (
                 <ul className="space-y-3">

@@ -58,7 +58,7 @@ function SectionCard({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800/50 transition-colors"
+        className="flex min-h-[44px] w-full items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800/50 transition-colors"
       >
         {open ? <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500" /> : <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" />}
         {icon}
@@ -81,7 +81,9 @@ function EmptyRow({ text }: { text: string }) {
 export function OperationsModule({ projects = [], employees = [], clockEntries = [], labels: t }: OperationsModuleProps) {
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-4">
-      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Operaciones</h2>
+      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
+        {t.nav_operations ?? "Operations"}
+      </h2>
 
       {clockEntries != null && clockEntries.length > 0 && (
         <SectionCard
@@ -153,10 +155,15 @@ export function OperationsModule({ projects = [], employees = [], clockEntries =
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1 flex-wrap">
                       <Users className="h-3 w-3 shrink-0" />
-                      {assigned.length} persona{assigned.length !== 1 ? "s" : ""}
+                      {assigned.length === 1
+                        ? (t.project_team_one ?? "1 person")
+                        : (t.project_team_many ?? "{{n}} people").replace(/\{\{n\}\}/g, String(assigned.length))}
                       {withAlerts.length > 0 && (
                         <span className="text-amber-600 dark:text-amber-400 font-medium">
-                          · {withAlerts.length} con alerta cert.
+                          {(t.ops_cert_expiring_count ?? "· {{n}} with expiring certificates").replace(
+                            /\{\{n\}\}/g,
+                            String(withAlerts.length)
+                          )}
                         </span>
                       )}
                     </p>

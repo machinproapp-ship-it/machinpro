@@ -63,8 +63,12 @@ function BriefingCard({ type, icon, title, description, count, action, actionLab
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${badgeClass}`}>{count}</span>
       )}
       {action && (
-        <button type="button" onClick={action} className="shrink-0 text-xs font-medium text-amber-600 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300">
-          {actionLabel ?? "Ver ?"}
+        <button
+          type="button"
+          onClick={action}
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center px-2 text-xs font-medium text-amber-600 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300"
+        >
+          {actionLabel ?? "View all"}
         </button>
       )}
     </div>
@@ -558,9 +562,9 @@ export function CentralModule({
 
   const getGreeting = (t: Record<string, string>) => {
     const hour = getClockHourInTimeZone(new Date(), timeZone);
-    if (hour < 12) return t.goodMorning ?? "Buenos d?as";
-    if (hour < 18) return t.goodAfternoon ?? "Buenas tardes";
-    return t.goodEvening ?? "Buenas noches";
+    if (hour < 12) return t.goodMorning ?? "Good morning";
+    if (hour < 18) return t.goodAfternoon ?? "Good afternoon";
+    return t.goodEvening ?? "Good evening";
   };
 
   const today = new Date().toISOString().split("T")[0];
@@ -625,40 +629,53 @@ export function CentralModule({
     briefingItems.push({
       type: "red",
       icon: <ShieldOff className="h-5 w-5 text-red-500" />,
-      title: labels.expiredCerts ?? "Certificados vencidos",
-      description: replaceCount(labels.expiredCertsDescription ?? "{count} empleado(s) con certificados vencidos ? requieren renovaci?n inmediata", expiredCerts.length),
+      title: labels.expiredCerts ?? "Expired certificates",
+      description: replaceCount(
+        labels.expiredCertsDescription ?? "{count} employee(s) with expired certificates — require immediate renewal",
+        expiredCerts.length
+      ),
       count: expiredCerts.length,
       action: () => setCentralView("personnel"),
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (overBudgetProjects.length > 0) {
     briefingItems.push({
       type: "red",
       icon: <AlertTriangle className="h-5 w-5 text-red-500" />,
-      title: labels.overBudget ?? "Presupuesto superado",
-      description: replaceCount(labels.overBudgetDescription ?? "{count} proyecto(s) han superado el presupuesto asignado", overBudgetProjects.length),
+      title: labels.overBudget ?? "Over budget",
+      description: replaceCount(
+        labels.overBudgetDescription ?? "{count} project(s) have exceeded the assigned budget",
+        overBudgetProjects.length
+      ),
       count: overBudgetProjects.length,
       action: () => setCentralView("projects"),
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (formsPendingOver24h.length > 0) {
     briefingItems.push({
       type: "red",
       icon: <FileCheck className="h-5 w-5 text-red-500" />,
-      title: labels.formsPendingSignature ?? "Firmas pendientes",
-      description: replaceCount(labels.formsPendingSignatureDescription ?? "{count} formulario(s) llevan m?s de 24h esperando firma", formsPendingOver24h.length),
+      title: labels.formsPendingSignature ?? "Forms pending signature",
+      description: replaceCount(
+        labels.formsPendingSignatureDescription ?? "{count} form(s) have been waiting for signature for over 24h",
+        formsPendingOver24h.length
+      ),
       count: formsPendingOver24h.length,
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (complianceRecordAlerts.length > 0) {
     briefingItems.push({
       type: hasComplianceExpired ? "red" : "amber",
       icon: hasComplianceExpired ? <ShieldOff className="h-5 w-5 text-red-500" /> : <ShieldAlert className="h-5 w-5 text-amber-500" />,
-      title: (labels as Record<string, string>).complianceAlert ?? "Compliance pendiente",
-      description: `${complianceRecordAlerts.length} registro(s) requieren atenci?n`,
+      title: (labels as Record<string, string>).complianceAlert ?? "Compliance pending",
+      description: replaceCount(
+        (labels as Record<string, string>).complianceAlertDescription ??
+          "{count} record(s) require attention",
+        complianceRecordAlerts.length
+      ),
       count: complianceRecordAlerts.length,
     });
   }
@@ -666,64 +683,84 @@ export function CentralModule({
     briefingItems.push({
       type: "amber",
       icon: <ShieldAlert className="h-5 w-5 text-amber-500" />,
-      title: (labels as Record<string, string>).subcontractorInsuranceExpiring ?? "Seguro de subcontratista pr?ximo a vencer",
-      description: replaceCount((labels as Record<string, string>).subcontractorInsuranceExpiringDescription ?? "{count} subcontratista(s) con seguro pr?ximo a vencer", subcontractorsInsuranceExpiring.length),
+      title: (labels as Record<string, string>).subcontractorInsuranceExpiring ?? "Subcontractor insurance expiring soon",
+      description: replaceCount(
+        (labels as Record<string, string>).subcontractorInsuranceExpiringDescription ??
+          "{count} subcontractor(s) with insurance expiring soon",
+        subcontractorsInsuranceExpiring.length
+      ),
       count: subcontractorsInsuranceExpiring.length,
       action: () => onOpenSubcontractorsInOperations?.(),
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (soonCerts.length > 0) {
     briefingItems.push({
       type: "amber",
       icon: <ShieldAlert className="h-5 w-5 text-amber-500" />,
-      title: labels.certsSoonExpiring ?? "Certificados pr?ximos a vencer",
-      description: replaceCount(labels.certsSoonExpiringDescription ?? "{count} empleado(s) tienen certificados que vencen en los pr?ximos 30 d?as", soonCerts.length),
+      title: labels.certsSoonExpiring ?? "Certificates expiring soon",
+      description: replaceCount(
+        labels.certsSoonExpiringDescription ??
+          "{count} employee(s) have certificates expiring in the next 30 days",
+        soonCerts.length
+      ),
       count: soonCerts.length,
       action: () => setCentralView("personnel"),
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (nearBudgetProjects.length > 0) {
     briefingItems.push({
       type: "amber",
       icon: <AlertTriangle className="h-5 w-5 text-amber-500" />,
-      title: labels.nearBudget ?? "Presupuesto al l?mite",
-      description: replaceCount(labels.nearBudgetDescription ?? "{count} proyecto(s) han consumido m?s del 80% del presupuesto", nearBudgetProjects.length),
+      title: labels.nearBudget ?? "Near budget limit",
+      description: replaceCount(
+        labels.nearBudgetDescription ?? "{count} project(s) have consumed over 80% of the budget",
+        nearBudgetProjects.length
+      ),
       count: nearBudgetProjects.length,
       action: () => setCentralView("projects"),
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (urgentDeadlines.length > 0) {
     briefingItems.push({
       type: "amber",
       icon: <Clock className="h-5 w-5 text-amber-500" />,
-      title: labels.urgentDeadline ?? "Entrega urgente",
-      description: replaceCount(labels.urgentDeadlineDescription ?? "{count} proyecto(s) tienen fecha de entrega en menos de 7 d?as", urgentDeadlines.length),
+      title: labels.urgentDeadline ?? "Urgent deadline",
+      description: replaceCount(
+        labels.urgentDeadlineDescription ?? "{count} project(s) have a delivery date in less than 7 days",
+        urgentDeadlines.length
+      ),
       count: urgentDeadlines.length,
       action: () => setCentralView("projects"),
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (clockedInTodayCount > 0) {
     briefingItems.push({
       type: "green",
       icon: <Users className="h-5 w-5 text-emerald-500" />,
-      title: labels.clockedInToday ?? "Empleados fichados hoy",
-      description: replaceCount(labels.clockedInTodayDescription ?? "{count} empleado(s) han registrado entrada hoy", clockedInTodayCount),
+      title: labels.clockedInToday ?? "Employees clocked in today",
+      description: replaceCount(
+        labels.clockedInTodayDescription ?? "{count} employee(s) have clocked in today",
+        clockedInTodayCount
+      ),
       count: clockedInTodayCount,
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   if (formsCompletedToday.length > 0) {
     briefingItems.push({
       type: "green",
       icon: <FileCheck className="h-5 w-5 text-emerald-500" />,
-      title: labels.formsCompletedToday ?? "Formularios completados hoy",
-      description: replaceCount(labels.formsCompletedTodayDescription ?? "{count} formulario(s) completados y firmados hoy", formsCompletedToday.length),
+      title: labels.formsCompletedToday ?? "Forms completed today",
+      description: replaceCount(
+        labels.formsCompletedTodayDescription ?? "{count} form(s) completed and signed today",
+        formsCompletedToday.length
+      ),
       count: formsCompletedToday.length,
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
   const activeProjectsNoIssue = safeDisplayProjects.filter((p) => !p.archived).length;
@@ -731,11 +768,14 @@ export function CentralModule({
     briefingItems.push({
       type: "green",
       icon: <Briefcase className="h-5 w-5 text-emerald-500" />,
-      title: labels.activeProjectsNoIssues ?? "Proyectos activos",
-      description: replaceCount(labels.activeProjectsNoIssuesDescription ?? "{count} proyecto(s) activos sin alertas ni incidencias", activeProjectsNoIssue),
+      title: labels.activeProjectsNoIssues ?? "Active projects with no issues",
+      description: replaceCount(
+        labels.activeProjectsNoIssuesDescription ?? "{count} active project(s) with no alerts or issues",
+        activeProjectsNoIssue
+      ),
       count: activeProjectsNoIssue,
       action: () => setCentralView("projects"),
-      actionLabel: labels.viewAll ?? "Ver",
+      actionLabel: labels.viewAll ?? "View all",
     });
   }
 
