@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { useParams, useSearchParams } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -315,9 +315,12 @@ export default function VisitorCheckInPage() {
       <header className="border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative h-10 w-10 shrink-0">
-              <Image src="/logo.png" alt="MachinPro" width={40} height={40} className="object-contain" />
-            </div>
+            <BrandLogoImage
+              src="/logo.png"
+              alt="MachinPro"
+              boxClassName="h-10 w-10 shrink-0"
+              sizes="40px"
+            />
             <div className="min-w-0">
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">MachinPro</p>
               <p className="font-semibold truncate">{companyName || "—"}</p>

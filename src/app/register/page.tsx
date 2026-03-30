@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppLocale } from "@/hooks/useAppLocale";
@@ -61,7 +61,12 @@ export default function RegisterPublicPage() {
       </div>
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/90 dark:border-slate-700 p-8 shadow-2xl backdrop-blur-sm text-center space-y-6">
         <div className="flex justify-center">
-          <Image src="/logo-source.png" alt="" width={88} height={88} className="h-[88px] w-[88px] object-contain" />
+          <BrandLogoImage
+            src="/logo-source.png"
+            alt=""
+            boxClassName="h-[88px] w-[88px]"
+            sizes="88px"
+          />
         </div>
         <h1 className="text-xl font-bold text-slate-900 dark:text-white">
           {tx("register_public_title", "Request access")}

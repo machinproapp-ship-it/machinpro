@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { useAppLocale } from "@/hooks/useAppLocale";
 
 export function LegalSimpleFooter() {
@@ -13,7 +13,7 @@ export function LegalSimpleFooter() {
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-sm">
             <Link href="/landing" className="flex items-center gap-2 min-h-[44px]">
-              <Image src="/logo-source.png" alt="" width={32} height={32} className="h-8 w-8 object-contain" />
+              <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-8 w-8" sizes="32px" />
               <span className="text-base font-bold">
                 <span className="text-[#f97316]">Machin</span>
                 <span className="text-slate-900 dark:text-white">Pro</span>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { COUNTRY_CONFIG } from "@/lib/countryConfig";
@@ -233,13 +233,12 @@ export default function RegisterInvitationPage() {
 
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/90 dark:border-slate-700 p-8 shadow-2xl backdrop-blur-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-20 w-20 items-center justify-center">
-            <Image
+          <div className="mb-3 flex justify-center">
+            <BrandLogoImage
               src={logoSrc}
               alt=""
-              width={80}
-              height={80}
-              className="h-20 w-20 object-contain"
+              boxClassName="h-20 w-20"
+              sizes="80px"
               priority
               onError={() => setLogoSrc("/icons/icon-192x192.png")}
             />

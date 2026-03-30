@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { Check, ChevronLeft } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import type { CustomRole } from "@/types/roles";
@@ -459,7 +459,14 @@ export function OnboardingModal({
           <>
             <div className="px-6 pt-8 pb-6 text-center space-y-4">
               <div className="flex justify-center">
-                <Image src="/logo-source.png" alt="" width={120} height={120} className="h-14 w-auto" priority />
+                <BrandLogoImage
+                  src="/logo-source.png"
+                  alt=""
+                  boxClassName="h-16 w-16 sm:h-[72px] sm:w-[72px]"
+                  sizes="72px"
+                  priority
+                  scale={1.2}
+                />
               </div>
               <h2 id="onboarding-title" className="text-xl font-bold text-zinc-900 dark:text-white sm:text-2xl">
                 {lx.onboarding_welcome_title ?? ""}
@@ -586,8 +593,15 @@ export function OnboardingModal({
                     </label>
                     <div className="flex flex-wrap items-center gap-2">
                       {step1Logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={step1Logo} alt="" className="h-12 w-12 rounded-lg object-cover border border-zinc-200 dark:border-slate-600" />
+                        <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-slate-600">
+                          <BrandLogoImage
+                            src={step1Logo}
+                            alt=""
+                            boxClassName="h-12 w-12"
+                            sizes="48px"
+                            scale={1.18}
+                          />
+                        </div>
                       ) : null}
                       <button
                         type="button"

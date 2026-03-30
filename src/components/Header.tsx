@@ -1,6 +1,7 @@
 "use client";
 
 import { Building2, Warehouse, MapPin, Briefcase, Cloud, CloudOff, Bell, ChevronDown } from "lucide-react";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import type { UserRole } from "@/types/shared";
 
 export interface HeaderProps {
@@ -71,7 +72,13 @@ export function Header({
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           {logoUrl ? (
-            <img src={logoUrl} alt="" className="h-8 w-auto max-w-[120px] object-contain" />
+            <BrandLogoImage
+              src={logoUrl}
+              alt=""
+              boxClassName="h-8 w-[128px]"
+              sizes="128px"
+              scale={1.2}
+            />
           ) : null}
           <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
             {companyName.trim() || BRAND}

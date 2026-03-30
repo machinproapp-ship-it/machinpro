@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 
 const SPLASH_KEY = "machinpro_splash_seen";
 
@@ -35,13 +35,14 @@ export function SplashScreenOverlay() {
       aria-label="Loading"
     >
       <div className="mb-6 animate-pulse">
-        <Image
+        <BrandLogoImage
           src="/logo-source.png"
           alt=""
-          width={120}
-          height={120}
-          className="h-24 w-24 object-contain drop-shadow-lg"
+          boxClassName="h-24 w-24"
+          sizes="96px"
           priority
+          scale={1.18}
+          imageClassName="drop-shadow-lg"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = "none";
           }}

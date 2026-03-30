@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { useParams } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 import { useVisitorPublicT } from "@/lib/visitorPublicLocale";
@@ -129,9 +129,7 @@ export default function VisitorCheckoutPage() {
   if (bye) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-zinc-50 dark:bg-zinc-950 px-4 py-12">
-        <div className="relative h-12 w-12">
-          <Image src="/logo.png" alt="" width={48} height={48} />
-        </div>
+        <BrandLogoImage src="/logo.png" alt="" boxClassName="h-12 w-12" sizes="48px" />
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-white text-center">
           {t.visitors_goodbye ?? "Goodbye"}, {visitorName}
         </h1>
@@ -153,9 +151,12 @@ export default function VisitorCheckoutPage() {
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative h-10 w-10 shrink-0">
-              <Image src="/logo.png" alt="MachinPro" width={40} height={40} className="object-contain" />
-            </div>
+            <BrandLogoImage
+              src="/logo.png"
+              alt="MachinPro"
+              boxClassName="h-10 w-10 shrink-0"
+              sizes="40px"
+            />
             <div className="min-w-0">
               <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">MachinPro</p>
               <p className="font-semibold truncate">{companyName || "—"}</p>

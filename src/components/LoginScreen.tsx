@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { supabase } from "@/lib/supabase";
 
 export type LoginDemoAccount = {
@@ -48,13 +48,12 @@ export default function LoginScreen({
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-b from-[#0f3a45] via-[#134e5e] to-[#1a4f5e] dark:from-[#071a20] dark:via-[#0c2f38] dark:to-[#0f3a45]">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/90 dark:border-slate-700 p-8 shadow-2xl backdrop-blur-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-24 w-24 items-center justify-center">
-            <Image
+          <div className="mb-4 flex justify-center">
+            <BrandLogoImage
               src={logoSrc}
               alt=""
-              width={96}
-              height={96}
-              className="h-24 w-24 object-contain"
+              boxClassName="h-24 w-24"
+              sizes="96px"
               priority
               onError={() => setLogoSrc("/icons/icon-192x192.png")}
             />

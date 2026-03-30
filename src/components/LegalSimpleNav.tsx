@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { useAppLocale } from "@/hooks/useAppLocale";
 
 export function LegalSimpleNav() {
@@ -37,7 +37,7 @@ export function LegalSimpleNav() {
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href="/landing" className="flex items-center gap-2 min-h-[44px]">
-          <Image src="/logo-source.png" alt="" width={36} height={36} className="h-9 w-9 object-contain" />
+          <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-9 w-9" sizes="36px" />
           <span className="text-lg font-bold">
             <span className="text-[#f97316]">Machin</span>
             <span className="text-slate-900 dark:text-white">Pro</span>

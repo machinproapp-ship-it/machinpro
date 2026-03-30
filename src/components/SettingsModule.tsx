@@ -20,6 +20,7 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
 import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotifications";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { LANGUAGES, CURRENCY_META } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
 import type { ComplianceField, ComplianceFieldType, ComplianceTarget } from "@/app/page";
@@ -697,13 +698,17 @@ export function SettingsModule({
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
                       {t.logoHint ?? "El logo aparecerá en los reportes y formularios PDF"}
                     </p>
-                    {logoUrl && (
-                      <img
-                        src={logoUrl}
-                        alt="Logo"
-                        className="h-16 w-auto object-contain mb-3 rounded-lg border border-zinc-200 dark:border-slate-700 p-2 bg-white dark:bg-slate-800"
-                      />
-                    )}
+                    {logoUrl ? (
+                      <div className="mb-3 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+                        <BrandLogoImage
+                          src={logoUrl}
+                          alt={t.companyLogo ?? "Logo"}
+                          boxClassName="h-16 w-full max-w-[280px]"
+                          sizes="280px"
+                          scale={1.15}
+                        />
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       onClick={onLogoUpload}

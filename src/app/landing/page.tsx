@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { Apple, PlayCircle, Star } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
 import { LANGUAGES } from "@/lib/i18n";
@@ -291,7 +291,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link href="/landing" className="flex items-center gap-2 min-h-[44px]">
-            <Image src="/logo-source.png" alt="" width={40} height={40} className="h-10 w-10 object-contain" />
+            <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-10 w-10" sizes="40px" />
             <span
               className={`text-lg font-bold tracking-tight ${navSolid ? "text-slate-900 dark:text-white" : "text-white"}`}
             >
@@ -376,14 +376,15 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <FadeSection>
             <div className="flex flex-col items-center text-center">
-              <div className="mb-6 flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32">
-                <Image
+              <div className="mb-6 flex justify-center">
+                <BrandLogoImage
                   src="/logo-source.png"
                   alt=""
-                  width={128}
-                  height={128}
-                  className="object-contain drop-shadow-lg"
+                  boxClassName="h-28 w-28 sm:h-32 sm:w-32"
+                  sizes="(max-width: 640px) 112px, 128px"
+                  scale={1.2}
                   priority
+                  imageClassName="drop-shadow-lg"
                 />
               </div>
               <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-4xl md:text-5xl">
@@ -644,7 +645,7 @@ export default function LandingPage() {
           <div className="flex flex-col gap-10 md:flex-row md:justify-between">
             <div className="max-w-sm">
               <div className="flex items-center gap-2">
-                <Image src="/logo-source.png" alt="" width={36} height={36} className="h-9 w-9 object-contain" />
+                <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-9 w-9" sizes="36px" />
                 <span className="text-lg font-bold">
                   <span className="text-[#f97316]">Machin</span>
                   <span className="text-slate-900 dark:text-white">Pro</span>
