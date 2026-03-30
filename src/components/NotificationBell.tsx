@@ -4,7 +4,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bell, X } from "lucide-react";
 import { useNotifications, type AppNotificationRow } from "@/hooks/useNotifications";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { formatNotificationRelative, notificationDisplayTitle } from "@/lib/notificationUi";
+import {
+  formatNotificationRelative,
+  notificationDisplayBody,
+  notificationDisplayTitle,
+} from "@/lib/notificationUi";
 
 type Props = {
   supabase: SupabaseClient | null;
@@ -115,6 +119,12 @@ export function NotificationBell({ supabase, labels, enabled }: Props) {
                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
                   {notifications.map((n) => {
                     const title = notificationDisplayTitle(n.type, n.title, tl);
+                    const body = notificationDisplayBody(
+                      n.type,
+                      n.body,
+                      n.data as Record<string, unknown> | null | undefined,
+                      tl
+                    );
                     const rel = formatNotificationRelative(n.created_at, tl);
                     return (
                       <li key={n.id}>
@@ -128,8 +138,8 @@ export function NotificationBell({ supabase, labels, enabled }: Props) {
                           <span className={`font-medium ${!n.read ? "text-zinc-900 dark:text-white" : "text-zinc-700 dark:text-zinc-300"}`}>
                             {title}
                           </span>
-                          {n.body ? (
-                            <span className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">{n.body}</span>
+                          {body ? (
+                            <span className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">{body}</span>
                           ) : null}
                           <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{rel}</span>
                         </button>

@@ -7,8 +7,28 @@ export function notificationDisplayTitle(type: string, storedTitle: string, tl: 
     shift_created: tl.notif_shift_created_title ?? storedTitle,
     shift_updated: tl.notif_shift_updated_title ?? storedTitle,
     daily_report_pending: tl.notif_daily_report_title ?? storedTitle,
+    cert_expiring_15: tl.notif_cert_expiring_15_title ?? storedTitle,
+    cert_expiring_7: tl.notif_cert_expiring_7_title ?? storedTitle,
+    cert_expired: tl.notif_cert_expired_title ?? storedTitle,
   };
   return map[type] ?? storedTitle ?? "";
+}
+
+export function notificationDisplayBody(
+  type: string,
+  storedBody: string | null | undefined,
+  data: Record<string, unknown> | null | undefined,
+  tl: Record<string, string>
+): string | null {
+  const cert = typeof data?.cert_name === "string" ? data.cert_name : "";
+  const map: Record<string, string> = {
+    cert_expiring_15: (tl.notif_cert_expiring_15_body ?? "").replace(/\{cert\}/g, cert),
+    cert_expiring_7: (tl.notif_cert_expiring_7_body ?? "").replace(/\{cert\}/g, cert),
+    cert_expired: (tl.notif_cert_expired_body ?? "").replace(/\{cert\}/g, cert),
+  };
+  const localized = map[type];
+  if (localized) return localized || null;
+  return storedBody ?? null;
 }
 
 export function formatNotificationRelative(iso: string, tl: Record<string, string>): string {

@@ -36,7 +36,12 @@ export default {
   "notif_shift_created_title": "New shift",
   "notif_shift_updated_title": "Shift updated",
   "notif_daily_report_title": "Daily report pending",
-
+  "notif_cert_expiring_15_title": "Certificate expiring soon",
+  "notif_cert_expiring_15_body": "{cert} expires in 15 days",
+  "notif_cert_expiring_7_title": "Certificate expiring soon",
+  "notif_cert_expiring_7_body": "{cert} expires in 7 days",
+  "notif_cert_expired_title": "Certificate expired",
+  "notif_cert_expired_body": "{cert} has expired",
 
   "recentStaff": "Recent personeel",
   "viewAll": "Alles zien",

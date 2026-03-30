@@ -53,6 +53,14 @@ export async function verifyInternalSecret(req: NextRequest): Promise<boolean> {
   return h === secret;
 }
 
+/** Vercel / external cron: header x-cron-secret must match CRON_SECRET. */
+export function verifyCronSecret(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) return false;
+  const h = req.headers.get("x-cron-secret")?.trim();
+  return h === secret;
+}
+
 /** Resuelve perfil auth UUID o user_profiles.employee_id (texto) al id de auth. */
 export async function resolveTargetUserId(
   admin: SupabaseClient,

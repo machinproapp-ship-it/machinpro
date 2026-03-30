@@ -102,6 +102,7 @@ import type { Subcontractor } from "@/types/subcontractor";
 import { INITIAL_FORM_TEMPLATES } from "@/lib/formTemplates";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
+import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
 
 type ResourceRequestStatus =
   | "pending"
@@ -193,6 +194,15 @@ export interface Certificate {
   name: string;
   status: "valid" | "expired";
   expiryDate?: string;
+}
+
+function certificatesFromProfileJson(raw: unknown): Certificate[] {
+  return parseProfileCertificates(raw).map((c) => ({
+    id: c.id,
+    name: c.name,
+    status: c.status?.toLowerCase() === "expired" ? "expired" : "valid",
+    expiryDate: c.expiryDate,
+  }));
 }
 
 export interface Employee {
@@ -1265,7 +1275,7 @@ export default function Home() {
       const { data, error } = await client
         .from("user_profiles")
         .select(
-          "id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at"
+          "id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates"
         )
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
@@ -1305,7 +1315,7 @@ export default function Home() {
             monthlySalary,
             phone: row.phone != null ? String(row.phone) : undefined,
             email: em || undefined,
-            certificates: [],
+            certificates: certificatesFromProfileJson(row.certificates),
             hoursLog: [],
             customRoleId: row.custom_role_id != null ? String(row.custom_role_id) : undefined,
             customPermissions: row.custom_permissions as Employee["customPermissions"],
