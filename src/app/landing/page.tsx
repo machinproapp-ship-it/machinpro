@@ -380,8 +380,8 @@ export default function LandingPage() {
                 <BrandLogoImage
                   src="/logo-source.png"
                   alt=""
-                  boxClassName="h-24 w-24"
-                  sizes="96px"
+                  boxClassName="h-16 w-16"
+                  sizes="64px"
                   priority
                   imageClassName="drop-shadow-lg"
                 />

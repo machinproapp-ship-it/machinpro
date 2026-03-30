@@ -25,7 +25,7 @@ export function BrandLogoImage({
   src,
   alt = "",
   boxClassName,
-  scale = 1.6,
+  scale = 1,
   priority,
   sizes = "96px",
   imageClassName,
