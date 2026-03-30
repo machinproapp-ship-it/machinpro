@@ -8,7 +8,7 @@ export type BrandLogoImageProps = {
   alt?: string;
   /** Fixed outer box (Tailwind), e.g. `h-10 w-10`. Must set explicit height & width. */
   boxClassName: string;
-  /** Zoom inside the clip rect to hide typical transparent padding in PNG logos. */
+  /** Zoom inside the clip rect; default `1` (no zoom). */
   scale?: number;
   priority?: boolean;
   sizes?: string;
@@ -18,14 +18,14 @@ export type BrandLogoImageProps = {
 };
 
 /**
- * Logo display: clips transparent margins via overflow + scale zoom, `object-contain` inside.
+ * Logo display: `object-contain` inside a clipped, rounded box (no border/ring).
  * Remote URLs use `unoptimized` so `next.config` remotePatterns are not required.
  */
 export function BrandLogoImage({
   src,
   alt = "",
   boxClassName,
-  scale = 1,
+  scale = 1.0,
   priority,
   sizes = "96px",
   imageClassName,
@@ -35,7 +35,10 @@ export function BrandLogoImage({
     src.startsWith("http://") || src.startsWith("https://") || src.startsWith("//");
 
   return (
-    <div className={`relative shrink-0 overflow-hidden ${boxClassName}`} style={{ padding: 0 }}>
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-2xl ${boxClassName}`}
+      style={{ padding: 0 }}
+    >
       <Image
         src={src}
         alt={alt}

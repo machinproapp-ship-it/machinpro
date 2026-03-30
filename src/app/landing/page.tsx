@@ -373,14 +373,13 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <FadeSection>
             <div className="flex flex-col items-center text-center">
-              <div className="mb-6 flex justify-center">
+              <div className="mb-6 flex justify-center overflow-hidden rounded-2xl">
                 <BrandLogoImage
                   src="/logo-source.png"
                   alt=""
-                  boxClassName="h-16 w-16"
-                  sizes="64px"
+                  boxClassName="h-24 w-24"
+                  sizes="96px"
                   priority
-                  imageClassName="drop-shadow-lg"
                 />
               </div>
               <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-4xl md:text-5xl">
