@@ -37,7 +37,7 @@ import { FormsModule } from "@/components/FormsModule";
 import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
-import { SecurityModule } from "@/components/SecurityModule";
+import { SecurityModule, type SecurityTabId } from "@/components/SecurityModule";
 import { EmployeesModule } from "@/components/EmployeesModule";
 import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
@@ -1087,10 +1087,22 @@ export default function Home() {
   const [focusHazardId, setFocusHazardId] = useState<string | null>(null);
   const [dashHazardCreateSig, setDashHazardCreateSig] = useState(0);
   const [dashActionCreateSig, setDashActionCreateSig] = useState(0);
+  const [securityInitialTab, setSecurityInitialTab] = useState<SecurityTabId | null>(null);
   const [dashVisitorQrSig, setDashVisitorQrSig] = useState(0);
   const [dashVisitorTabSig, setDashVisitorTabSig] = useState(0);
   const [projectsOpenRfiSig, setProjectsOpenRfiSig] = useState(0);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
+  const resetSecurityDashSignals = useCallback(() => {
+    setDashHazardCreateSig(0);
+    setDashActionCreateSig(0);
+  }, []);
+
+  useEffect(() => {
+    if (activeSection !== "security") {
+      resetSecurityDashSignals();
+      setSecurityInitialTab(null);
+    }
+  }, [activeSection, resetSecurityDashSignals]);
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
@@ -2122,7 +2134,6 @@ export default function Home() {
   );
 
   const handleProjectsManagementCardClick = useCallback(() => {
-    setActiveSection("site");
     setOperationsMainTab("projects");
   }, []);
 
@@ -3624,10 +3635,12 @@ export default function Home() {
                 companyName={(profile?.companyName ?? companyName) || null}
                 onNavigateAppSection={(s) => setActiveSection(s)}
                 onQuickNewHazard={() => {
+                  setSecurityInitialTab("hazards");
                   setActiveSection("security");
                   setDashHazardCreateSig((n) => n + 1);
                 }}
                 onQuickNewAction={() => {
+                  setSecurityInitialTab("actions");
                   setActiveSection("security");
                   setDashActionCreateSig((n) => n + 1);
                 }}
@@ -4343,6 +4356,9 @@ export default function Home() {
                 onFocusHazardConsumed={() => setFocusHazardId(null)}
                 correctivePrefill={correctivePrefill}
                 onConsumeCorrectivePrefill={consumeCorrectivePrefill}
+                initialTab={securityInitialTab}
+                onInitialTabConsumed={() => setSecurityInitialTab(null)}
+                onSecurityTabInteraction={resetSecurityDashSignals}
                 openHazardSignal={dashHazardCreateSig}
                 openActionSignal={dashActionCreateSig}
                 binders={binders}

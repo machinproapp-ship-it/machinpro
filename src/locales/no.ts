@@ -313,6 +313,7 @@ export default {
   "satShort": "S",
   "sunShort": "S",
   "timesheets": "Timesheets",
+  "schedule_tab_vacations": "Vacations",
   "weekly": "Weekly",
   "biweekly": "Biweekly",
   "monthly": "Monthly",

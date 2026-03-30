@@ -121,7 +121,6 @@ export function CorrectiveActionsModule({
   const readOnly = userRole === "worker";
   const { showToast } = useToast();
   const lastCreateSig = useRef(0);
-  const createSigBootstrapped = useRef(false);
   const [rows, setRows] = useState<CorrectiveAction[]>([]);
   const [hazardTitles, setHazardTitles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -134,14 +133,10 @@ export function CorrectiveActionsModule({
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
-    if (!createSigBootstrapped.current) {
-      createSigBootstrapped.current = true;
-      lastCreateSig.current = openCreateSignal;
-      return;
+    if (openCreateSignal > lastCreateSig.current && !readOnly) {
+      setCreateOpen(true);
     }
-    if (!openCreateSignal || openCreateSignal <= lastCreateSig.current) return;
     lastCreateSig.current = openCreateSignal;
-    if (!readOnly) setCreateOpen(true);
   }, [openCreateSignal, readOnly]);
 
   const [detail, setDetail] = useState<CorrectiveAction | null>(null);
@@ -194,6 +189,11 @@ export function CorrectiveActionsModule({
 
   useEffect(() => {
     if (!prefill || !companyId) return;
+    const hasLink = Boolean(prefill.hazardId || prefill.projectId);
+    if (!hasLink) {
+      onConsumePrefill?.();
+      return;
+    }
     setForm({
       ...emptyForm(),
       hazard_id: prefill.hazardId ?? "",

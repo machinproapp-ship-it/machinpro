@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, ClipboardCheck, FolderOpen, ScrollText } from "lucide-react";
 import type { UserRole } from "@/types/shared";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
@@ -57,6 +57,8 @@ export interface SecurityModuleProps {
   }) => void;
   /** Parent sets focus hazard id; we switch to Hazards tab. */
   onRequestFocusHazard: (hazardId: string) => void;
+  /** User changed tab — clear dashboard “open form” signals so remounting Hazards/Actions does not reopen modals. */
+  onSecurityTabInteraction?: () => void;
 }
 
 const TAB_CONFIG: { id: SecurityTabId; icon: typeof AlertTriangle; labelKey: string }[] = [
@@ -99,6 +101,7 @@ export function SecurityModule({
   onInitialTabConsumed,
   onOpenCorrectiveFromHazard,
   onRequestFocusHazard,
+  onSecurityTabInteraction,
 }: SecurityModuleProps) {
   const firstAllowed =
     (canShowHazards ? "hazards" : null) ||
@@ -118,6 +121,14 @@ export function SecurityModule({
     [canShowHazards, canShowActions, canShowDocuments, canShowAudit]
   );
 
+  const selectSecurityTab = useCallback(
+    (id: SecurityTabId) => {
+      onSecurityTabInteraction?.();
+      setTab(id);
+    },
+    [onSecurityTabInteraction]
+  );
+
   useEffect(() => {
     if (!allowed(tab)) setTab(firstAllowed as SecurityTabId);
   }, [allowed, tab, firstAllowed]);
@@ -128,23 +139,6 @@ export function SecurityModule({
       onInitialTabConsumed?.();
     }
   }, [initialTab, allowed, onInitialTabConsumed]);
-
-  const lastOpenHazardNav = useRef(0);
-  const lastOpenActionNav = useRef(0);
-
-  useEffect(() => {
-    if (openHazardSignal > lastOpenHazardNav.current && canShowHazards) {
-      lastOpenHazardNav.current = openHazardSignal;
-      setTab("hazards");
-    }
-  }, [openHazardSignal, canShowHazards]);
-
-  useEffect(() => {
-    if (openActionSignal > lastOpenActionNav.current && canShowActions) {
-      lastOpenActionNav.current = openActionSignal;
-      setTab("actions");
-    }
-  }, [openActionSignal, canShowActions]);
 
   const L = (k: string, fb: string) => t[k] ?? fb;
   const auditLocale =
@@ -170,7 +164,7 @@ export function SecurityModule({
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setTab(id)}
+                onClick={() => selectSecurityTab(id)}
                 className={`inline-flex shrink-0 items-center gap-2 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
                     ? "bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100"

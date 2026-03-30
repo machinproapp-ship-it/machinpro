@@ -313,6 +313,7 @@ export default {
   "satShort": "R",
   "sunShort": "R",
   "timesheets": "Grafik prac",
+  "schedule_tab_vacations": "Urlop",
   "weekly": "Co tydzień",
   "biweekly": "Dwutygodniowy",
   "monthly": "Co miesiąc",

@@ -1279,8 +1279,8 @@ function CentralDashboardBody(
                 <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{L("activeProjects")}</span>
               }
               onClick={() => {
-                if (onProjectsManagementCardClick) onProjectsManagementCardClick();
-                else onNavigateAppSection("site");
+                onNavigateAppSection("site");
+                onProjectsManagementCardClick?.();
               }}
             />
             ) : null}

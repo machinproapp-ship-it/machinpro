@@ -313,6 +313,7 @@ export default {
   "satShort": "S",
   "sunShort": "S",
   "timesheets": "Urenstaten",
+  "schedule_tab_vacations": "Vakantie",
   "weekly": "Wekelijks",
   "biweekly": "Tweewekelijks",
   "monthly": "Maandelijks",
