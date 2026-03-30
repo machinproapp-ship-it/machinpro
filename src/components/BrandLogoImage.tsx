@@ -18,14 +18,14 @@ export type BrandLogoImageProps = {
 };
 
 /**
- * Logo display: clips transparent margins via overflow + slight scale, `object-contain` inside.
+ * Logo display: clips transparent margins via overflow + scale zoom, `object-contain` inside.
  * Remote URLs use `unoptimized` so `next.config` remotePatterns are not required.
  */
 export function BrandLogoImage({
   src,
   alt = "",
   boxClassName,
-  scale = 1.22,
+  scale = 1.6,
   priority,
   sizes = "96px",
   imageClassName,

@@ -380,9 +380,8 @@ export default function LandingPage() {
                 <BrandLogoImage
                   src="/logo-source.png"
                   alt=""
-                  boxClassName="h-28 w-28 sm:h-32 sm:w-32"
-                  sizes="(max-width: 640px) 112px, 128px"
-                  scale={1.2}
+                  boxClassName="h-24 w-24"
+                  sizes="96px"
                   priority
                   imageClassName="drop-shadow-lg"
                 />
