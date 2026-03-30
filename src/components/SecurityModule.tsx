@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AlertTriangle, ClipboardCheck, FolderOpen, ScrollText } from "lucide-react";
 import type { UserRole } from "@/types/shared";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
@@ -129,12 +129,21 @@ export function SecurityModule({
     }
   }, [initialTab, allowed, onInitialTabConsumed]);
 
+  const lastOpenHazardNav = useRef(0);
+  const lastOpenActionNav = useRef(0);
+
   useEffect(() => {
-    if (openHazardSignal > 0 && canShowHazards) setTab("hazards");
+    if (openHazardSignal > lastOpenHazardNav.current && canShowHazards) {
+      lastOpenHazardNav.current = openHazardSignal;
+      setTab("hazards");
+    }
   }, [openHazardSignal, canShowHazards]);
 
   useEffect(() => {
-    if (openActionSignal > 0 && canShowActions) setTab("actions");
+    if (openActionSignal > lastOpenActionNav.current && canShowActions) {
+      lastOpenActionNav.current = openActionSignal;
+      setTab("actions");
+    }
   }, [openActionSignal, canShowActions]);
 
   const L = (k: string, fb: string) => t[k] ?? fb;

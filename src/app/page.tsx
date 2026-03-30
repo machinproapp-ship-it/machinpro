@@ -814,8 +814,22 @@ export default function Home() {
   }, []);
 
   const handleLogout = async () => {
+    try {
+      localStorage.removeItem(LOCALE_STORAGE_KEY);
+      if (typeof sessionStorage !== "undefined") {
+        const toRemove: string[] = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const k = sessionStorage.key(i);
+          if (k?.startsWith("machinpro_locale_bootstrapped_")) toRemove.push(k);
+        }
+        for (const k of toRemove) sessionStorage.removeItem(k);
+      }
+    } catch {
+      /* ignore */
+    }
     await signOut();
     setSession(null);
+    setLanguage(detectLanguageFromNavigator());
   };
   const companyId = profile?.companyId ?? null;
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -848,9 +862,9 @@ export default function Home() {
     if (typeof window === "undefined") return "es";
     try {
       const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
-      return raw && isValidLanguage(raw) ? raw : "es";
+      return raw && isValidLanguage(raw) ? raw : detectLanguageFromNavigator();
     } catch {
-      return "es";
+      return detectLanguageFromNavigator();
     }
   });
   const [lazyLocaleT, setLazyLocaleT] = useState<Record<string, string> | null>(null);
@@ -922,14 +936,7 @@ export default function Home() {
     } catch {
       /* ignore */
     }
-    let fromLs: string | null = null;
-    try {
-      fromLs = localStorage.getItem(LOCALE_STORAGE_KEY);
-    } catch {
-      fromLs = null;
-    }
-    const chosen =
-      fromLs && isValidLanguage(fromLs) ? fromLs : detectLanguageFromNavigator();
+    const chosen = detectLanguageFromNavigator();
     void (async () => {
       setLanguage(chosen);
       try {
@@ -2114,12 +2121,9 @@ export default function Home() {
   );
 
   const handleProjectsManagementCardClick = useCallback(() => {
-    if (effectiveRole === "admin" || rolePerms.canCreateProjects) {
-      openProjectForm();
-      return;
-    }
     setActiveSection("site");
-  }, [effectiveRole, rolePerms.canCreateProjects]);
+    setOperationsMainTab("projects");
+  }, []);
 
   const scheduleSelfIds = useMemo(
     () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),

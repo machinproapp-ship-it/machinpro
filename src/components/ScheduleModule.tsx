@@ -182,6 +182,8 @@ export interface ScheduleModuleProps {
     schedule_filter_by_role?: string;
     schedule_pick_employees?: string;
     schedule_pick_employees_error?: string;
+    /** Pestaña Vacaciones (móvil) */
+    schedule_tab_vacations?: string;
     admin?: string;
     supervisor?: string;
     worker?: string;
@@ -667,7 +669,10 @@ export default function ScheduleModule({
       e.employeeId === (currentUserEmployeeId ?? "") &&
       e.date === todayYmd
   );
-  const [scheduleSubTab, setScheduleSubTab] = useState<"calendar" | "timesheets">("calendar");
+  const [scheduleSubTab, setScheduleSubTab] = useState<
+    "calendar" | "timesheets" | "vacations"
+  >("calendar");
+  const showVacationsTab = canRequestVacation || canApproveVacations;
   const [viewMonth, setViewMonth] = useState(() => today.getMonth());
   const [viewYear, setViewYear] = useState(() => today.getFullYear());
   const [formOpen, setFormOpen] = useState(false);
@@ -865,135 +870,160 @@ export default function ScheduleModule({
         )}
       </div>
 
-      <div className="flex border-b border-zinc-200 dark:border-zinc-700 gap-0">
-        <button
-          type="button"
-          onClick={() => setScheduleSubTab("calendar")}
-          className={`px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
-            scheduleSubTab === "calendar"
-              ? "border-amber-500 text-amber-600 dark:text-amber-400"
-              : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-          }`}
+      <HorizontalScrollFade
+        className="border-b border-zinc-200 dark:border-zinc-700"
+        variant="inherit"
+      >
+        <div
+          className="flex flex-nowrap gap-0 overflow-x-auto pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+          role="tablist"
+          aria-label={labels.schedule ?? "Schedule"}
         >
-          {labels.schedule ?? "Calendario"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setScheduleSubTab("timesheets")}
-          className={`px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
-            scheduleSubTab === "timesheets"
-              ? "border-amber-500 text-amber-600 dark:text-amber-400"
-              : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-          }`}
-        >
-          {labels.timesheets ?? "Hojas de horas"}
-        </button>
-      </div>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scheduleSubTab === "calendar"}
+            onClick={() => setScheduleSubTab("calendar")}
+            className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+              scheduleSubTab === "calendar"
+                ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            {labels.schedule ?? "Calendario"}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scheduleSubTab === "timesheets"}
+            onClick={() => setScheduleSubTab("timesheets")}
+            className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+              scheduleSubTab === "timesheets"
+                ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            {labels.timesheets ?? "Hojas de horas"}
+          </button>
+          {showVacationsTab ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={scheduleSubTab === "vacations"}
+              onClick={() => setScheduleSubTab("vacations")}
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                scheduleSubTab === "vacations"
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {lx.schedule_tab_vacations ?? lx.schedule_type_vacation ?? lx.schedule_vacation_request ?? "Vacaciones"}
+            </button>
+          ) : null}
+        </div>
+      </HorizontalScrollFade>
+
+      {scheduleSubTab === "vacations" && showVacationsTab && (
+        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
+          {onRequestVacation && canRequestVacation && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                {(labels as Record<string, string>).schedule_vacation_request ?? "Solicitud de vacaciones"}
+              </h4>
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                <input
+                  type="date"
+                  value={vacReqStart}
+                  onChange={(e) => setVacReqStart(e.target.value)}
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                  aria-label={(labels as Record<string, string>).date ?? "Fecha inicio"}
+                />
+                <input
+                  type="date"
+                  value={vacReqEnd}
+                  onChange={(e) => setVacReqEnd(e.target.value)}
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                  aria-label={(labels as Record<string, string>).date ?? "Fecha fin"}
+                />
+                <input
+                  type="text"
+                  value={vacReqNote}
+                  onChange={(e) => setVacReqNote(e.target.value)}
+                  placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Nota (opcional)"}
+                  className="flex-1 min-w-[200px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!vacReqStart || !vacReqEnd) return;
+                    void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote);
+                    setVacReqNote("");
+                  }}
+                  className="rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium min-h-[44px] min-w-[44px]"
+                >
+                  {(labels as Record<string, string>).employees_request_vacation ?? "Solicitar vacaciones"}
+                </button>
+              </div>
+            </div>
+          )}
+          {canApproveVacations && vacationRequests.filter((v) => v.status === "pending").length > 0 && (
+            <div className="space-y-2 border-t border-zinc-200 dark:border-slate-700 pt-4">
+              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                {(labels as Record<string, string>).schedule_vacation_pending_list ?? "Solicitudes pendientes"}
+              </h4>
+              <ul className="space-y-3">
+                {vacationRequests
+                  .filter((v) => v.status === "pending")
+                  .map((v) => (
+                    <li
+                      key={v.id}
+                      className="rounded-lg border border-zinc-200 dark:border-slate-700 p-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+                    >
+                      <div className="min-w-0 text-sm">
+                        <p className="font-medium text-zinc-900 dark:text-white">
+                          {vacationEmployeeNames[v.user_id] ?? "—"}
+                        </p>
+                        <p className="text-zinc-600 dark:text-zinc-400">
+                          {v.start_date} → {v.end_date} · {v.total_days}{" "}
+                          {(labels as Record<string, string>).days ?? "días"}
+                        </p>
+                        {v.notes ? <p className="text-xs text-zinc-500 mt-1">{v.notes}</p> : null}
+                        <input
+                          type="text"
+                          value={vacAdminComment[v.id] ?? ""}
+                          onChange={(e) =>
+                            setVacAdminComment((prev) => ({ ...prev, [v.id]: e.target.value }))
+                          }
+                          placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Comentario"}
+                          className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-xs min-h-[44px]"
+                        />
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => void onApproveVacation?.(v.id, vacAdminComment[v.id] ?? "")}
+                          className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                        >
+                          {labels.approve ?? "Aprobar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void onRejectVacation?.(v.id, vacAdminComment[v.id] ?? "")}
+                          className="rounded-lg bg-red-600 hover:bg-red-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                        >
+                          {labels.reject ?? "Rechazar"}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {scheduleSubTab === "calendar" && (
         <>
-          {((onRequestVacation && canRequestVacation) ||
-            (canApproveVacations && vacationRequests.some((v) => v.status === "pending"))) && (
-            <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
-              {onRequestVacation && canRequestVacation && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                    {(labels as Record<string, string>).schedule_vacation_request ?? "Solicitud de vacaciones"}
-                  </h4>
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                    <input
-                      type="date"
-                      value={vacReqStart}
-                      onChange={(e) => setVacReqStart(e.target.value)}
-                      className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                      aria-label={(labels as Record<string, string>).date ?? "Fecha inicio"}
-                    />
-                    <input
-                      type="date"
-                      value={vacReqEnd}
-                      onChange={(e) => setVacReqEnd(e.target.value)}
-                      className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                      aria-label={(labels as Record<string, string>).date ?? "Fecha fin"}
-                    />
-                    <input
-                      type="text"
-                      value={vacReqNote}
-                      onChange={(e) => setVacReqNote(e.target.value)}
-                      placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Nota (opcional)"}
-                      className="flex-1 min-w-[200px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!vacReqStart || !vacReqEnd) return;
-                        void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote);
-                        setVacReqNote("");
-                      }}
-                      className="rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium min-h-[44px] min-w-[44px]"
-                    >
-                      {(labels as Record<string, string>).employees_request_vacation ?? "Solicitar vacaciones"}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {canApproveVacations && vacationRequests.filter((v) => v.status === "pending").length > 0 && (
-                <div className="space-y-2 border-t border-zinc-200 dark:border-slate-700 pt-4">
-                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                    {(labels as Record<string, string>).schedule_vacation_pending_list ?? "Solicitudes pendientes"}
-                  </h4>
-                  <ul className="space-y-3">
-                    {vacationRequests
-                      .filter((v) => v.status === "pending")
-                      .map((v) => (
-                        <li
-                          key={v.id}
-                          className="rounded-lg border border-zinc-200 dark:border-slate-700 p-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
-                        >
-                          <div className="min-w-0 text-sm">
-                            <p className="font-medium text-zinc-900 dark:text-white">
-                              {vacationEmployeeNames[v.user_id] ?? "—"}
-                            </p>
-                            <p className="text-zinc-600 dark:text-zinc-400">
-                              {v.start_date} → {v.end_date} · {v.total_days}{" "}
-                              {(labels as Record<string, string>).days ?? "días"}
-                            </p>
-                            {v.notes ? (
-                              <p className="text-xs text-zinc-500 mt-1">{v.notes}</p>
-                            ) : null}
-                            <input
-                              type="text"
-                              value={vacAdminComment[v.id] ?? ""}
-                              onChange={(e) =>
-                                setVacAdminComment((prev) => ({ ...prev, [v.id]: e.target.value }))
-                              }
-                              placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Comentario"}
-                              className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-xs min-h-[44px]"
-                            />
-                          </div>
-                          <div className="flex gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => void onApproveVacation?.(v.id, vacAdminComment[v.id] ?? "")}
-                              className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                            >
-                              {labels.approve ?? "Aprobar"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void onRejectVacation?.(v.id, vacAdminComment[v.id] ?? "")}
-                              className="rounded-lg bg-red-600 hover:bg-red-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                            >
-                              {labels.reject ?? "Rechazar"}
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="flex flex-nowrap items-center gap-2 mb-4 w-full">
             <button
               type="button"
