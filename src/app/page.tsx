@@ -61,6 +61,8 @@ import {
   Settings,
 } from "lucide-react";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
+import { postAppNotification } from "@/lib/clientNotifications";
+import { NotificationBell } from "@/components/NotificationBell";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
 import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
@@ -2557,8 +2559,48 @@ export default function Home() {
     );
   }, [displayClockEntries, currentUserEmployeeId, supabase]);
 
+  const handleDailyReportPublished = useCallback(
+    (report: DailyFieldReport) => {
+      if (!companyId || !supabase) return;
+      const tl = t as Record<string, string>;
+      const ids = new Set<string>();
+      for (const a of report.attendance) {
+        if (a.employeeId) ids.add(a.employeeId);
+      }
+      for (const tk of report.tasks) {
+        if (tk.employeeId) ids.add(tk.employeeId);
+      }
+      ids.delete(report.createdBy);
+      const title = tl.notif_daily_report_title ?? "Daily report pending";
+      for (const pid of ids) {
+        void postAppNotification(supabase, {
+          companyId,
+          targetEmployeeKey: pid,
+          type: "daily_report_pending",
+          title,
+          data: { reportId: report.id, projectId: report.projectId, date: report.date },
+        });
+      }
+    },
+    [companyId, supabase, t]
+  );
+
   const handleAddScheduleEntry = (entry: Omit<ScheduleEntry, "id">) => {
-    setScheduleEntries((prev) => [...prev, { ...entry, id: `se${Date.now()}` }]);
+    const newId = `se${Date.now()}`;
+    setScheduleEntries((prev) => [...prev, { ...entry, id: newId }]);
+    if (companyId && supabase && entry.type === "shift") {
+      const tl = t as Record<string, string>;
+      const title = tl.notif_shift_created_title ?? "";
+      for (const eid of entry.employeeIds ?? []) {
+        void postAppNotification(supabase, {
+          companyId,
+          targetEmployeeKey: eid,
+          type: "shift_created",
+          title,
+          data: { scheduleEntryId: newId, date: entry.date, projectId: entry.projectId },
+        });
+      }
+    }
   };
 
   const handleDeleteScheduleEntry = (id: string) => {
@@ -2569,6 +2611,19 @@ export default function Home() {
     setScheduleEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...entry, id } : e))
     );
+    if (companyId && supabase && entry.type === "shift") {
+      const tl = t as Record<string, string>;
+      const title = tl.notif_shift_updated_title ?? "";
+      for (const eid of entry.employeeIds ?? []) {
+        void postAppNotification(supabase, {
+          companyId,
+          targetEmployeeKey: eid,
+          type: "shift_updated",
+          title,
+          data: { scheduleEntryId: id, date: entry.date, projectId: entry.projectId },
+        });
+      }
+    }
   };
 
   const handleApproveVacation = useCallback(
@@ -3303,6 +3358,13 @@ export default function Home() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+              {session && companyId ? (
+                <NotificationBell
+                  supabase={supabase}
+                  labels={labels as Record<string, string>}
+                  enabled
+                />
+              ) : null}
               {pendingSync.length > 0 ? (
                 <div className="flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
                   <Cloud className="h-3.5 w-3.5" />
@@ -3977,7 +4039,18 @@ export default function Home() {
                 }
                 currentUserRole={effectiveRole}
                 onApproveDiaryEntry={async (id) => {
+                  const ph = photos.find((p) => p.id === id);
                   await approvePhoto(id, effectiveEmployeeId ?? "admin");
+                  if (companyId && supabase && ph?.submitted_by_employee_id) {
+                    const tl = t as Record<string, string>;
+                    void postAppNotification(supabase, {
+                      companyId,
+                      targetEmployeeKey: ph.submitted_by_employee_id,
+                      type: "photo_approved",
+                      title: tl.notif_photo_approved_title ?? "Photo approved",
+                      data: { photoId: id, projectId: ph.project_id },
+                    });
+                  }
                   void logAuditEvent({
                     company_id: companyId ?? "",
                     user_id: user?.id ?? "",
@@ -3992,7 +4065,19 @@ export default function Home() {
                   });
                 }}
                 onRejectDiaryEntry={async (id, notes) => {
+                  const ph = photos.find((p) => p.id === id);
                   await rejectPhoto(id, notes);
+                  if (companyId && supabase && ph?.submitted_by_employee_id) {
+                    const tl = t as Record<string, string>;
+                    void postAppNotification(supabase, {
+                      companyId,
+                      targetEmployeeKey: ph.submitted_by_employee_id,
+                      type: "photo_rejected",
+                      title: tl.notif_photo_rejected_title ?? "Photo rejected",
+                      body: notes ?? null,
+                      data: { photoId: id, projectId: ph.project_id },
+                    });
+                  }
                   void logAuditEvent({
                     company_id: companyId ?? "",
                     user_id: user?.id ?? "",
@@ -4004,11 +4089,26 @@ export default function Home() {
                   });
                 }}
                 onUpdateProjectEmployees={(projectId, employeeIds) => {
+                  const prevAssigned = projects.find((p) => p.id === projectId)?.assignedEmployeeIds ?? [];
                   setProjects((prev) =>
                     prev.map((p) =>
                       p.id === projectId ? { ...p, assignedEmployeeIds: employeeIds } : p
                     )
                   );
+                  if (!companyId || !supabase) return;
+                  const added = employeeIds.filter((eid) => !prevAssigned.includes(eid));
+                  if (added.length === 0) return;
+                  const tl = t as Record<string, string>;
+                  const title = tl.notif_project_assigned_title ?? "";
+                  for (const eid of added) {
+                    void postAppNotification(supabase, {
+                      companyId,
+                      targetEmployeeKey: eid,
+                      type: "project_assigned",
+                      title,
+                      data: { projectId },
+                    });
+                  }
                 }}
                 onUpdateItemProject={(itemId, projectId) => {
                   setInventoryItems((prev) =>
@@ -4079,6 +4179,7 @@ export default function Home() {
                 countryCode={companyCountry ?? "CA"}
                 dailyReports={dailyReports}
                 onRefreshDailyReports={reloadDailyReports}
+                onDailyReportPublished={handleDailyReportPublished}
                 teamProfiles={teamProfiles}
                 canManageDailyReports={!!rolePerms.canManageDailyReports}
                 companyId={companyId ?? ""}

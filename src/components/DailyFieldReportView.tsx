@@ -124,6 +124,8 @@ export type DailyFieldReportViewProps = {
   onRefreshList?: () => void;
   /** Tras el primer guardado de un parte nuevo, sincroniza la clave abierta con el id persistido. */
   onReportCreated?: (id: string) => void;
+  /** Cuando pasa a publicado (primera vez). */
+  onReportPublished?: (report: DailyFieldReport) => void;
 };
 
 export function DailyFieldReportView({
@@ -145,6 +147,7 @@ export function DailyFieldReportView({
   onBack,
   onRefreshList,
   onReportCreated,
+  onReportPublished,
 }: DailyFieldReportViewProps) {
   const tl = rawLabels as Record<string, string>;
   const isEmployeeView = variant === "employee";
@@ -334,6 +337,7 @@ export function DailyFieldReportView({
         setErrMsg(tl.dailyReportOffline ?? "Offline");
         return;
       }
+      const prevStatus = draft.status;
       setBusy(true);
       setErrMsg(null);
       const { error } = await saveDailyReportFull(supabase, next);
@@ -341,6 +345,9 @@ export function DailyFieldReportView({
       if (error) {
         setErrMsg(error.message);
         return;
+      }
+      if (next.status === "published" && prevStatus !== "published") {
+        onReportPublished?.(next);
       }
       if (report?.id) {
         const fresh = await fetchDailyReportsForCompany(supabase, companyId);
@@ -351,7 +358,7 @@ export function DailyFieldReportView({
       }
       onRefreshList?.();
     },
-    [companyId, onRefreshList, onReportCreated, report?.id, tl.dailyReportOffline]
+    [companyId, draft.status, onRefreshList, onReportCreated, onReportPublished, report?.id, tl.dailyReportOffline]
   );
 
   const handleSaveDraft = useCallback(() => {

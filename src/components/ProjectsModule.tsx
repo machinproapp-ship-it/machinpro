@@ -211,6 +211,7 @@ export interface ProjectsModuleProps {
   countryCode?: string;
   dailyReports?: DailyFieldReport[];
   onRefreshDailyReports?: () => void | Promise<void>;
+  onDailyReportPublished?: (report: DailyFieldReport) => void;
   teamProfiles?: { id: string; employeeId: string | null; name: string }[];
   /** Admin/supervisor o permiso canManageDailyReports */
   canManageDailyReports?: boolean;
@@ -464,6 +465,7 @@ export function ProjectsModule({
   countryCode = "CA",
   dailyReports = [],
   onRefreshDailyReports,
+  onDailyReportPublished,
   teamProfiles = [],
   canManageDailyReports = false,
   companyId = "",
@@ -3172,6 +3174,7 @@ export function ProjectsModule({
                   onBack={() => setOpenDailyReportKey(null)}
                   onRefreshList={() => void onRefreshDailyReports?.()}
                   onReportCreated={(id) => setOpenDailyReportKey(id)}
+                  onReportPublished={onDailyReportPublished}
                 />
               </div>
             )}
