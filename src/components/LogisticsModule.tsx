@@ -306,7 +306,8 @@ function toolStatusBadgeClass(status: ToolStatus | undefined): string {
   const s = status ?? "available";
   if (s === "available") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
   if (s === "in_use") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
-  if (s === "maintenance") return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+  if (s === "maintenance")
+    return "border border-zinc-300 dark:border-zinc-600 bg-zinc-50 text-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300";
   if (s === "out_of_service") return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
   return "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
 }
@@ -335,8 +336,14 @@ function vehicleStatusBadgeClass(status: VehicleStatus | undefined): string {
   const s = status ?? "available";
   if (s === "available") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
   if (s === "in_use") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
-  if (s === "maintenance") return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+  if (s === "maintenance")
+    return "border border-zinc-300 dark:border-zinc-600 bg-zinc-50 text-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300";
   return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+}
+
+function projectAssignmentChipClass(assigned: boolean): string {
+  if (!assigned) return "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400";
+  return "border border-zinc-300 dark:border-zinc-600 bg-zinc-50/90 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300";
 }
 
 export function LogisticsModule({
@@ -592,7 +599,7 @@ export function LogisticsModule({
                 type="button"
                 role="tab"
                 onClick={() => setWarehouseSubTab(tab.id)}
-                className={`shrink-0 min-h-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow text-blue-600 dark:text-blue-400" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
+                className={`shrink-0 min-h-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow text-orange-600 dark:text-orange-400 ring-1 ring-orange-200/70 dark:ring-orange-900/40" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
               >
                 {tab.icon}
                 {tab.label}
@@ -762,7 +769,7 @@ export function LogisticsModule({
                     <span>${item.purchasePriceCAD.toFixed(2)}</span>
                     {isTrackedAsset(item) && (
                       <span className="col-span-2">
-                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${item.assignedToProjectId ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
+                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!item.assignedToProjectId)}`}>
                           {getProjectName(item.assignedToProjectId)}
                         </span>
                         {item.assignedToEmployeeId && (
@@ -901,7 +908,7 @@ export function LogisticsModule({
                     <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">${item.purchasePriceCAD.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       {isTrackedAsset(item) ? (
-                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${item.assignedToProjectId ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
+                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!item.assignedToProjectId)}`}>
                           {getProjectName(item.assignedToProjectId)}
                         </span>
                       ) : "—"}
@@ -1204,8 +1211,8 @@ export function LogisticsModule({
               )
               .map((request: ResourceRequest) => {
                 const statusColors: Record<ResourceRequestStatus, string> = {
-                  pending: "bg-zinc-100 text-zinc-600",
-                  preparing: "bg-blue-100 text-blue-700",
+                  pending: "bg-zinc-100 text-zinc-600 border border-zinc-200 dark:border-zinc-600",
+                  preparing: "bg-zinc-50 text-zinc-700 border border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800/50 dark:text-zinc-300",
                   ready: "bg-emerald-100 text-emerald-700",
                   dispatched: "bg-amber-100 text-amber-700",
                   received: "bg-zinc-100 text-zinc-400",
@@ -1409,7 +1416,7 @@ export function LogisticsModule({
                       </span>
                     )}
                     <span className="col-span-2">
-                      <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${v.currentProjectId ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
+                      <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!v.currentProjectId)}`}>
                         {getProjectName(v.currentProjectId)}
                       </span>
                     </span>
@@ -1521,7 +1528,7 @@ export function LogisticsModule({
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${v.currentProjectId ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
+                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!v.currentProjectId)}`}>
                           {getProjectName(v.currentProjectId)}
                         </span>
                       </td>
@@ -1585,7 +1592,7 @@ export function LogisticsModule({
                   <p className="font-medium text-zinc-900 dark:text-zinc-100">{r.name}</p>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whSupplier}: {r.supplier}</p>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whReturnDate}: {r.returnDate} · {t.whRentalCost}: ${r.costCAD.toFixed(2)}</p>
-                  <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium mt-1 ${r.projectId ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
+                  <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium mt-1 ${projectAssignmentChipClass(!!r.projectId)}`}>
                     {getProjectName(r.projectId)}
                   </span>
                 </div>
@@ -2001,7 +2008,7 @@ export function LogisticsModule({
                                       <p className="text-xs text-zinc-500 dark:text-zinc-400">{(tl.expiresOn ?? "Vence")}: {record.expiryDate}</p>
                                     )}
                                     {record?.documentUrl && (
-                                      <a href={record.documentUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 inline-flex items-center gap-1 hover:underline">
+                                      <a href={record.documentUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 dark:text-orange-400 inline-flex items-center gap-1 hover:underline">
                                         <ExternalLink className="h-3 w-3" />
                                       </a>
                                     )}
@@ -2032,7 +2039,7 @@ export function LogisticsModule({
                             <span className="flex items-center gap-1.5 shrink-0">
                               {v.insuranceDocUrl ? <FileCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <FileX className="h-4 w-4 text-red-500 dark:text-red-400" />}
                               {v.insuranceDocUrl && (
-                                <a href={v.insuranceDocUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 inline-flex items-center gap-1 hover:underline">
+                                <a href={v.insuranceDocUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 inline-flex items-center gap-1 hover:underline">
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
                               )}
@@ -2043,7 +2050,7 @@ export function LogisticsModule({
                             <span className="flex items-center gap-1.5 shrink-0">
                               {v.inspectionDocUrl ? <FileCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <FileX className="h-4 w-4 text-red-500 dark:text-red-400" />}
                               {v.inspectionDocUrl && (
-                                <a href={v.inspectionDocUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 inline-flex items-center gap-1 hover:underline">
+                                <a href={v.inspectionDocUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 inline-flex items-center gap-1 hover:underline">
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
                               )}
@@ -2052,7 +2059,7 @@ export function LogisticsModule({
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <span className="text-zinc-600 dark:text-zinc-400">{tl.docRegistration ?? "Matriculación"}</span>
                             {v.registrationDocUrl ? (
-                              <a href={v.registrationDocUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 inline-flex items-center gap-1 hover:underline text-sm" aria-label={tl.docRegistration ?? "Matriculación"}>
+                              <a href={v.registrationDocUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 inline-flex items-center gap-1 hover:underline text-sm" aria-label={tl.docRegistration ?? "Registration"}>
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </a>
                             ) : (

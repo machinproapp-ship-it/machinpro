@@ -364,6 +364,32 @@ export default {
   emailWelcomeSubject: "Welcome to MachinPro",
   emailTrialReminder: "You have a 14-day free trial",
   helpSectionIntro: "Guides and updates are available from your administrator.",
+  help_contact_support: "Contact support",
+  help_email_support: "Support email",
+  help_support_email_value: "support@machin.pro",
+  help_documentation: "Documentation",
+  help_documentation_hint: "Product guides and reference (link may be updated).",
+  help_documentation_url: "https://docs.machin.pro",
+  help_faq_title: "Frequently asked questions",
+  help_faq_invite: "How do I invite an employee?",
+  help_faq_invite_answer:
+    "Go to Central → Employees → New employee. Enter their email and an invitation will be sent automatically.",
+  help_faq_project: "How do I create a project?",
+  help_faq_project_answer:
+    "Go to Central → Projects → New project. Fill in the name and basic information.",
+  help_faq_daily: "How do I generate a daily report?",
+  help_faq_daily_answer:
+    "Go to Operations → select a project → Forms → New daily report.",
+  help_faq_language: "How do I change the language?",
+  help_faq_language_answer:
+    "You can change the language from the selector in the header or in Settings → My profile → Language.",
+  help_faq_support: "How do I contact support?",
+  help_faq_support_answer:
+    "Email us at support@machin.pro and we will respond within 24 hours.",
+  company_profile_saving: "Saving…",
+  settings_website_placeholder: "https://",
+  compliance_fields_empty: "No compliance fields yet. Add one below.",
+  compliance_alert_days_label: "Remind (days before expiry)",
   settingsTimezone: "Time zone",
   settingsDateFormat: "Date format",
   passwordResetEmailSent: "Check your email for the password reset link.",

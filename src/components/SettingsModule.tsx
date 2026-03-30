@@ -195,6 +195,7 @@ export function SettingsModule({
   savedProfileTimeZone = null,
   onPersistUserTimeZone,
 }: SettingsModuleProps) {
+  const tl = t as Record<string, string>;
   const { showToast } = useToast();
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
   const [complianceModalOpen, setComplianceModalOpen] = useState(false);
@@ -318,7 +319,7 @@ export function SettingsModule({
   const handleCountryChange = (country: string) => {
     const defaults = COUNTRY_DEFAULTS[country];
     onCountryChange(country, defaults);
-    if (defaults) setAutoSetupMessage(t.autoSetupConfirm ?? "País actualizado — moneda y medidas configuradas");
+    if (defaults) setAutoSetupMessage(t.autoSetupConfirm ?? "Country updated — currency and units configured");
   };
 
   return (
@@ -337,14 +338,14 @@ export function SettingsModule({
         >
           {(
             [
-              ["general", (t as Record<string, string>).settingsGeneral ?? t.tabGeneral ?? ""] as const,
-              ["profile", (t as Record<string, string>).settingsProfile ?? ""] as const,
-              ["company", (t as Record<string, string>).settingsCompany ?? ""] as const,
-              ["notifications", (t as Record<string, string>).settingsNotifications ?? ""] as const,
-              ["regional", (t as Record<string, string>).settingsRegional ?? ""] as const,
-              ["compliance", (t as Record<string, string>).settingsCompliance ?? ""] as const,
-              ["billing", (t as Record<string, string>).settingsBilling ?? ""] as const,
-              ["help", (t as Record<string, string>).helpAndTutorials ?? ""] as const,
+              ["general", tl.settingsGeneral ?? t.tabGeneral ?? ""] as const,
+              ["profile", tl.settingsProfile ?? ""] as const,
+              ["company", tl.settingsCompany ?? ""] as const,
+              ["notifications", tl.settingsNotifications ?? ""] as const,
+              ["regional", tl.settingsRegional ?? ""] as const,
+              ["compliance", tl.settingsCompliance ?? ""] as const,
+              ["billing", tl.settingsBilling ?? ""] as const,
+              ["help", tl.helpAndTutorials ?? ""] as const,
             ] as const
           )
             .filter(([id]) => {
@@ -401,7 +402,7 @@ export function SettingsModule({
           {activeSettingsSection === "general" && (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).settingsGeneral ?? t.tabGeneral ?? ""}
+                {tl.settingsGeneral ?? t.tabGeneral ?? ""}
               </h3>
               {autoSetupMessage && (
                 <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
@@ -416,7 +417,7 @@ export function SettingsModule({
               onChange={(e) => setMeasurementSystem(e.target.value as "metric" | "imperial")}
               className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
             >
-              <option value="metric">{t.settingsMetric ?? "Métrico"}</option>
+              <option value="metric">{t.settingsMetric ?? "Metric"}</option>
               <option value="imperial">{t.settingsImperial ?? "Imperial"}</option>
             </select>
           </div>
@@ -428,7 +429,7 @@ export function SettingsModule({
                 onClick={onReopenOnboarding}
                 className="w-full max-w-md min-h-[44px] rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-950 hover:bg-amber-100 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-900/40 sm:w-auto"
               >
-                {(t as Record<string, string>).onboarding_reopen ?? ""}
+                {tl.onboarding_reopen ?? ""}
               </button>
             </div>
           ) : null}
@@ -451,7 +452,7 @@ export function SettingsModule({
           {activeSettingsSection === "profile" && setProfileFullName && setProfilePhone && onSaveProfile && (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).settingsProfile ?? (t as Record<string, string>).myProfile ?? ""}
+                {tl.settingsProfile ?? tl.myProfile ?? ""}
               </h3>
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.name ?? ""}</label>
@@ -473,7 +474,7 @@ export function SettingsModule({
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  {(t as Record<string, string>).phone ?? "Phone"}
+                  {tl.phone ?? "Phone"}
                 </label>
                 <input
                   type="tel"
@@ -498,9 +499,9 @@ export function SettingsModule({
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  {(t as Record<string, string>).profilePhoto ??
-                    (t as Record<string, string>).avatar ??
-                    (t as Record<string, string>).companyLogo ??
+                  {tl.profilePhoto ??
+                    tl.avatar ??
+                    tl.companyLogo ??
                     ""}
                 </label>
                 {profileAvatarUrl ? (
@@ -516,7 +517,7 @@ export function SettingsModule({
                     onClick={onProfileAvatarUpload}
                     className="w-full max-w-md min-h-[44px] rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm"
                   >
-                    {(t as Record<string, string>).profilePhoto ?? "Foto de perfil"}
+                    {tl.profilePhoto ?? "Profile photo"}
                   </button>
                 ) : null}
               </div>
@@ -527,7 +528,7 @@ export function SettingsModule({
                   disabled={passwordResetBusy}
                   className="w-full max-w-md min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium disabled:opacity-50"
                 >
-                  {(t as Record<string, string>).changePassword ?? ""}
+                  {tl.changePassword ?? ""}
                 </button>
               ) : null}
               <button
@@ -545,18 +546,18 @@ export function SettingsModule({
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
                 <Bell className="h-4 w-4 shrink-0" aria-hidden />
-                {(t as Record<string, string>).settingsNotifications ??
-                  (t as Record<string, string>).push_section_title ??
+                {tl.settingsNotifications ??
+                  tl.push_section_title ??
                   ""}
               </h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-lg">
-                {(t as Record<string, string>).settings_notifications_empty ??
+                {tl.settings_notifications_empty ??
                   "Enable push to receive alerts on this device."}
               </p>
               <section className="space-y-4">
               <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]">
                 <span className="text-sm text-zinc-800 dark:text-zinc-200">
-                  {(t as Record<string, string>).push_enable ?? "Enable push"}
+                  {tl.push_enable ?? "Enable push"}
                 </span>
                 <input
                   type="checkbox"
@@ -574,12 +575,12 @@ export function SettingsModule({
                       });
                       if (r.ok) {
                         setPushSubscribed(true);
-                        showToast("success", (t as Record<string, string>).push_saved ?? "Saved");
+                        showToast("success", tl.push_saved ?? "Saved");
                       } else if (r.reason === "denied") {
-                        showToast("warning", (t as Record<string, string>).push_permission_denied ?? "");
+                        showToast("warning", tl.push_permission_denied ?? "");
                         setPushSubscribed(false);
                       } else {
-                        showToast("error", (t as Record<string, string>).toast_error ?? "Error");
+                        showToast("error", tl.toast_error ?? "Error");
                         setPushSubscribed(false);
                       }
                     } else {
@@ -594,9 +595,9 @@ export function SettingsModule({
                           await sub.unsubscribe();
                         }
                         setPushSubscribed(false);
-                        showToast("success", (t as Record<string, string>).push_saved ?? "Saved");
+                        showToast("success", tl.push_saved ?? "Saved");
                       } catch {
-                        showToast("error", (t as Record<string, string>).toast_error ?? "Error");
+                        showToast("error", tl.toast_error ?? "Error");
                         setPushSubscribed(true);
                       }
                     }
@@ -617,7 +618,7 @@ export function SettingsModule({
                       className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer"
                     >
                       <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                        {(t as Record<string, string>)[labelKey] ?? labelKey}
+                        {tl[labelKey] ?? labelKey}
                       </span>
                       <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
                         <input
@@ -641,7 +642,7 @@ export function SettingsModule({
                 {canManageProjectVisitors ? (
                   <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer">
                     <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                      {(t as Record<string, string>).push_type_visitor ?? "Visitor alerts"}
+                      {tl.push_type_visitor ?? "Visitor alerts"}
                     </span>
                     <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
                       <input
@@ -669,10 +670,10 @@ export function SettingsModule({
           {activeSettingsSection === "company" && canEditCompanyProfile ? (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).settingsCompany ?? ""}
+                {tl.settingsCompany ?? ""}
               </h3>
               <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.countryRegion ?? "País / Región"}</label>
+                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.countryRegion ?? "Country / Region"}</label>
                 <select
                   value={companyCountry}
                   onChange={(e) => handleCountryChange(e.target.value)}
@@ -702,10 +703,10 @@ export function SettingsModule({
               </div>
 
               <section className="pt-4 border-t border-zinc-200 dark:border-slate-700">
-                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{t.companyIdentity ?? "Identidad de empresa"}</h3>
+                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{t.companyIdentity ?? "Company identity"}</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.companyName ?? "Nombre de empresa"}</label>
+                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.companyName ?? "Company name"}</label>
                     <input
                       type="text"
                       value={companyName}
@@ -714,9 +715,9 @@ export function SettingsModule({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.companyLogo ?? "Logo de empresa"}</label>
+                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.companyLogo ?? "Company logo"}</label>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-                      {t.logoHint ?? "El logo aparecerá en los reportes y formularios PDF"}
+                      {t.logoHint ?? "Logo will appear in reports and PDF forms"}
                     </p>
                     {logoUrl ? (
                       <div className="mb-3 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-800">
@@ -734,13 +735,13 @@ export function SettingsModule({
                       onClick={onLogoUpload}
                       className="rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-500 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-colors min-h-[44px] w-full"
                     >
-                      {t.uploadLogo ?? "Subir logo"}
+                      {t.uploadLogo ?? "Upload logo"}
                     </button>
                   </div>
                   {onCompanyAddressChange ? (
                     <div>
                       <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                        {(t as Record<string, string>).company_address ?? "Address"}
+                        {tl.company_address ?? "Address"}
                       </label>
                       <textarea
                         value={companyAddress}
@@ -753,7 +754,7 @@ export function SettingsModule({
                   {onCompanyPhoneChange ? (
                     <div>
                       <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                        {(t as Record<string, string>).company_phone ?? "Phone"}
+                        {tl.company_phone ?? "Phone"}
                       </label>
                       <input
                         type="tel"
@@ -766,7 +767,7 @@ export function SettingsModule({
                   {onCompanyEmailChange ? (
                     <div>
                       <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                        {(t as Record<string, string>).company_email ?? "Contact email"}
+                        {tl.company_email ?? "Contact email"}
                       </label>
                       <input
                         type="email"
@@ -779,13 +780,13 @@ export function SettingsModule({
                   {onCompanyWebsiteChange ? (
                     <div>
                       <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                        {(t as Record<string, string>).company_website ?? "Website"}
+                        {tl.company_website ?? "Website"}
                       </label>
                       <input
                         type="url"
                         value={companyWebsite}
                         onChange={(e) => onCompanyWebsiteChange(e.target.value)}
-                        placeholder="https://"
+                        placeholder={tl.settings_website_placeholder ?? "https://"}
                         className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
@@ -797,7 +798,7 @@ export function SettingsModule({
                       disabled={companyProfileSaveBusy}
                       className="w-full max-w-md min-h-[44px] rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-60 sm:w-auto"
                     >
-                      {companyProfileSaveBusy ? "…" : (t.save ?? "Save")}
+                      {companyProfileSaveBusy ? (tl.company_profile_saving ?? "Saving…") : (t.save ?? "Save")}
                     </button>
                   ) : null}
                 </div>
@@ -808,14 +809,14 @@ export function SettingsModule({
           {activeSettingsSection === "regional" && canManageRegionalConfig ? (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).settingsRegional ?? ""}
+                {tl.settingsRegional ?? ""}
               </h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {(t as Record<string, string>).settings_regional_advanced_hint ?? ""}
+                {tl.settings_regional_advanced_hint ?? ""}
               </p>
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  {(t as Record<string, string>).settingsTimezone ?? "Time zone"}
+                  {tl.settingsTimezone ?? "Time zone"}
                 </label>
                 <select
                   value={regionalTimezone}
@@ -835,8 +836,13 @@ export function SettingsModule({
           {activeSettingsSection === "compliance" && canManageCompliance ? (
               <section className="space-y-4">
                 <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                  {(t as Record<string, string>).settingsCompliance ?? t.complianceFields ?? ""}
+                  {tl.settingsCompliance ?? t.complianceFields ?? ""}
                 </h3>
+                {complianceFields.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-zinc-200 dark:border-slate-600 bg-zinc-50/50 dark:bg-slate-800/40 px-4 py-6 text-sm text-zinc-600 dark:text-zinc-400 text-center">
+                    {tl.compliance_fields_empty ?? "No compliance fields yet. Add one below."}
+                  </p>
+                ) : null}
                 <div className="space-y-2">
                   {complianceFields.map((field) => (
                     <div
@@ -846,16 +852,16 @@ export function SettingsModule({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                            {complianceFieldDisplayName(field, t as Record<string, string>)}
+                            {complianceFieldDisplayName(field, tl)}
                           </span>
                           {field.isDefault && (
-                            <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full px-2 py-0.5">
-                              {t.defaultField ?? "Por defecto"}
+                            <span className="text-xs rounded-full border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 px-2 py-0.5">
+                              {t.defaultField ?? "Default"}
                             </span>
                           )}
                           {field.isRequired && (
                             <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full px-2 py-0.5">
-                              {t.required ?? "Obligatorio"}
+                              {t.required ?? "Required"}
                             </span>
                           )}
                         </div>
@@ -863,14 +869,14 @@ export function SettingsModule({
                           {field.target.map((targetKey) => (
                             <span key={targetKey} className="text-xs text-zinc-500 dark:text-zinc-400">
                               {targetKey === "employee"
-                                ? (t.employees ?? "Empleados")
+                                ? (t.employees ?? "Employees")
                                 : targetKey === "subcontractor"
-                                ? (t.subcontractors ?? "Subcontratistas")
-                                : (t.vehicles ?? "Vehículos")}
+                                ? (t.subcontractors ?? "Subcontractors")
+                                : (t.vehicles ?? "Vehicles")}
                             </span>
                           ))}
                           <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                            · {t.alertBefore ?? "Alerta"}: {field.alertDaysBefore}d
+                            · {t.alertBefore ?? "Alert"}: {field.alertDaysBefore}d
                           </span>
                         </div>
                       </div>
@@ -921,7 +927,7 @@ export function SettingsModule({
                   }}
                   className="mt-3 w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 py-3 text-sm text-zinc-400 dark:text-zinc-500 hover:border-amber-400 hover:text-amber-500 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-colors min-h-[44px]"
                 >
-                  + {t.addComplianceField ?? "Añadir campo de compliance"}
+                  + {t.addComplianceField ?? "Add compliance field"}
                 </button>
               </section>
           ) : null}
@@ -929,7 +935,7 @@ export function SettingsModule({
           {activeSettingsSection === "billing" && showBillingSection && billingSection && (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).settingsBilling ?? ""}
+                {tl.settingsBilling ?? ""}
               </h3>
               <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/50 dark:bg-slate-800/30 p-4 sm:p-6">
                 {billingSection}
@@ -938,14 +944,73 @@ export function SettingsModule({
           )}
 
           {activeSettingsSection === "help" && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
                 <HelpCircle className="h-5 w-5 shrink-0 text-amber-600" aria-hidden />
-                {(t as Record<string, string>).helpAndTutorials ?? ""}
+                {tl.helpAndTutorials ?? ""}
               </h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {(t as Record<string, string>).helpSectionIntro ?? ""}
-              </p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-prose">{tl.helpSectionIntro ?? ""}</p>
+
+              <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4 space-y-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                    {tl.help_email_support ?? "Support email"}
+                  </p>
+                  <a
+                    href={`mailto:${tl.help_support_email_value ?? "support@machin.pro"}`}
+                    className="mt-1 block text-base font-medium text-zinc-900 dark:text-zinc-100 break-all hover:text-orange-600 dark:hover:text-orange-400"
+                  >
+                    {tl.help_support_email_value ?? "support@machin.pro"}
+                  </a>
+                </div>
+                <a
+                  href={`mailto:${tl.help_support_email_value ?? "support@machin.pro"}`}
+                  className="inline-flex min-h-[44px] w-full max-w-sm items-center justify-center rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 sm:w-auto"
+                >
+                  {tl.help_contact_support ?? "Contact support"}
+                </a>
+              </div>
+
+              <div className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-2">
+                <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{tl.help_documentation ?? "Documentation"}</h4>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{tl.help_documentation_hint ?? ""}</p>
+                <a
+                  href={tl.help_documentation_url ?? "https://docs.machin.pro"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[44px] items-center text-sm font-medium text-orange-600 dark:text-orange-400 hover:underline break-all"
+                >
+                  {tl.help_documentation_url ?? "https://docs.machin.pro"}
+                </a>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{tl.help_faq_title ?? "FAQ"}</h4>
+                <div className="space-y-2">
+                  {(
+                    [
+                      [tl.help_faq_invite, tl.help_faq_invite_answer],
+                      [tl.help_faq_project, tl.help_faq_project_answer],
+                      [tl.help_faq_daily, tl.help_faq_daily_answer],
+                      [tl.help_faq_language, tl.help_faq_language_answer],
+                      [tl.help_faq_support, tl.help_faq_support_answer],
+                    ] as const
+                  ).map(([q, a], i) => (
+                    <details
+                      key={i}
+                      className="group rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 open:ring-1 open:ring-orange-200/80 dark:open:ring-orange-900/40"
+                    >
+                      <summary className="cursor-pointer list-none px-4 py-3 min-h-[44px] flex items-center text-sm font-medium text-zinc-900 dark:text-zinc-100 [&::-webkit-details-marker]:hidden">
+                        <span className="flex-1 pr-2">{q}</span>
+                        <span className="text-zinc-400 group-open:rotate-180 transition-transform" aria-hidden>
+                          ▾
+                        </span>
+                      </summary>
+                      <p className="px-4 pb-4 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{a}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -956,11 +1021,11 @@ export function SettingsModule({
           <div className="fixed inset-0 z-50 bg-black/50" aria-hidden onClick={() => { setComplianceModalOpen(false); setEditingComplianceField(null); }} />
           <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
-              {editingComplianceField ? (t.edit ?? "Editar") : (t.addComplianceField ?? "Añadir campo de compliance")}
+              {editingComplianceField ? (t.edit ?? "Edit") : (t.addComplianceField ?? "Add compliance field")}
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.name ?? "Nombre"} *</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.name ?? "Name"} *</label>
                 <input
                   type="text"
                   value={complianceDraft.name ?? ""}
@@ -969,7 +1034,7 @@ export function SettingsModule({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.description ?? "Descripción"}</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.description ?? "Description"}</label>
                 <textarea
                   value={complianceDraft.description ?? ""}
                   onChange={(e) => setComplianceDraft((d) => ({ ...d, description: e.target.value }))}
@@ -978,20 +1043,20 @@ export function SettingsModule({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">{t.category ?? "Tipo"}</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">{t.category ?? "Type"}</label>
                 <select
                   value={complianceDraft.fieldType ?? "date"}
                   onChange={(e) => setComplianceDraft((d) => ({ ...d, fieldType: e.target.value as ComplianceFieldType }))}
                   className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                 >
-                  <option value="date">{t.fieldTypeDate ?? "Fecha vencimiento"}</option>
-                  <option value="document">{t.document ?? "Documento URL"}</option>
-                  <option value="text">{t.text ?? "Texto"}</option>
-                  <option value="checkbox">{t.checkbox ?? "Sí/No"}</option>
+                  <option value="date">{t.fieldTypeDate ?? "Expiry date"}</option>
+                  <option value="document">{t.document ?? "Document URL"}</option>
+                  <option value="text">{t.text ?? "Text"}</option>
+                  <option value="checkbox">{t.checkbox ?? "Yes / No"}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">{t.appliesTo ?? "Aplica a"}</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">{t.appliesTo ?? "Applies to"}</label>
                 <div className="flex flex-wrap gap-3">
                   {(["employee", "subcontractor", "vehicle"] as ComplianceTarget[]).map((targetKey) => (
                     <label key={targetKey} className="flex items-center gap-2 cursor-pointer">
@@ -1008,7 +1073,7 @@ export function SettingsModule({
                         className="rounded border-zinc-300 dark:border-zinc-600"
                       />
                       <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                        {targetKey === "employee" ? (t.employees ?? "Empleados") : targetKey === "subcontractor" ? (t.subcontractors ?? "Subcontratistas") : (t.vehicles ?? "Vehículos")}
+                        {targetKey === "employee" ? (t.employees ?? "Employees") : targetKey === "subcontractor" ? (t.subcontractors ?? "Subcontractors") : (t.vehicles ?? "Vehicles")}
                       </span>
                     </label>
                   ))}
@@ -1022,11 +1087,13 @@ export function SettingsModule({
                     onChange={(e) => setComplianceDraft((d) => ({ ...d, isRequired: e.target.checked }))}
                     className="rounded border-zinc-300 dark:border-zinc-600"
                   />
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t.required ?? "Obligatorio"}</span>
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t.required ?? "Required"}</span>
                 </label>
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.alertBefore ?? "Alerta"} (días antes)</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {tl.compliance_alert_days_label ?? t.alertBefore ?? "Remind (days before expiry)"}
+                </label>
                 <input
                   type="number"
                   min={0}
@@ -1042,7 +1109,7 @@ export function SettingsModule({
                 onClick={() => { setComplianceModalOpen(false); setEditingComplianceField(null); }}
                 className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
               >
-                {t.cancel ?? "Cancelar"}
+                {t.cancel ?? "Cancel"}
               </button>
               <button
                 type="button"
@@ -1069,7 +1136,7 @@ export function SettingsModule({
                 }}
                 className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
               >
-                {t.save ?? "Guardar"}
+                {t.save ?? "Save"}
               </button>
             </div>
           </div>

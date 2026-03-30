@@ -333,6 +333,32 @@ export default {
   emailWelcomeSubject: "Benvenuto su MachinPro",
   emailTrialReminder: "Hai 14 giorni di prova gratuita",
   helpSectionIntro: "Guide e aggiornamenti sono disponibili presso il tuo amministratore.",
+  help_contact_support: "Contatta il supporto",
+  help_email_support: "Email di supporto",
+  help_support_email_value: "support@machin.pro",
+  help_documentation: "Documentazione",
+  help_documentation_hint: "Guide prodotto e riferimento (il link può essere aggiornato).",
+  help_documentation_url: "https://docs.machin.pro",
+  help_faq_title: "Domande frequenti",
+  help_faq_invite: "Come invito un dipendente?",
+  help_faq_invite_answer:
+    "Vai a Central → Dipendenti → Nuovo dipendente. Inserisci l'email e verrà inviato un invito automaticamente.",
+  help_faq_project: "Come creo un progetto?",
+  help_faq_project_answer:
+    "Vai a Central → Progetti → Nuovo progetto. Compila il nome e le informazioni di base.",
+  help_faq_daily: "Come genero un rapporto giornaliero?",
+  help_faq_daily_answer:
+    "Vai a Operazioni → seleziona un progetto → Moduli → Nuovo rapporto giornaliero.",
+  help_faq_language: "Come cambio la lingua?",
+  help_faq_language_answer:
+    "Puoi cambiare la lingua dal selettore nell'intestazione o in Impostazioni → Il mio profilo → Lingua.",
+  help_faq_support: "Come contatto il supporto?",
+  help_faq_support_answer:
+    "Scrivici a support@machin.pro e risponderemo entro 24 ore.",
+  company_profile_saving: "Salvataggio in corso…",
+  settings_website_placeholder: "https://",
+  compliance_fields_empty: "Nessun campo di conformità per ora. Aggiungine uno qui sotto.",
+  compliance_alert_days_label: "Promemoria (giorni prima della scadenza)",
   settingsTimezone: "Fuso orario",
   settingsDateFormat: "Formato data",
   passwordResetEmailSent: "Controlla la tua email per il link di reimpostazione.",
