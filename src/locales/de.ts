@@ -1581,22 +1581,15 @@ export default {
   register_public_cta_landing: "Mehr auf der Startseite",
   register_public_login: "Ich habe bereits ein Konto",
 
-  landing_hero_title: "Professionelles Management für Außendienstteams.",
+  landing_hero_title: "Professionelles Management für Bauunternehmen.",
   landing_hero_sub:
-    "Entwickelt für den Bau. Angepasst für Logistik, Gastgewerbe, Industrie und mehr.",
+    "Alles was Sie brauchen um Ihre Baustelle, Ihr Team und Ihr Unternehmen von überall zu verwalten.",
   landing_hero_subtitle:
-    "Entwickelt für den Bau. Angepasst für Logistik, Gastgewerbe, Industrie und mehr.",
-  landing_sectors_title: "In der Baubranche geboren. In jeder Branche nützlich.",
-  landing_sector_construction: "🏗️ Bauwesen",
-  landing_sector_logistics: "🚚 Logistik & Transport",
-  landing_sector_hospitality: "🍽️ Gastgewerbe",
-  landing_sector_industry: "🏭 Industrie",
-  landing_sector_services: "🔧 Dienstleistungen & Wartung",
-  landing_sector_distribution: "📦 Distribution",
+    "Alles was Sie brauchen um Ihre Baustelle, Ihr Team und Ihr Unternehmen von überall zu verwalten.",
   landing_theme_toggle: "Design",
   landing_cta_start: "14 Tage kostenlos starten",
   landing_cta_demo: "Funktionen ansehen",
-  landing_features_title: "Alles was Sie für Ihr Außendienstteam brauchen",
+  landing_features_title: "Alles was Sie auf der Baustelle brauchen",
   landing_feat_projects_title: "🏗️ Projektmanagement",
   landing_feat_projects_desc: "Budgets, Termine, Team und Fortschritt in Echtzeit.",
   landing_feature_logistics: "📦 Logistik & Lager",
@@ -1661,13 +1654,13 @@ export default {
   landing_plan_blurb_foundation:
     "Mitarbeiterverwaltung, Dokumente, Rollen und Berechtigungen, Basisprojekte, Zertifikate und Compliance.",
   landing_plan_blurb_obras:
-    "Alles aus Foundation plus erweitertes Projektmanagement, Fotogalerie, digitale Formulare, Besuche und Tagesberichte.",
+    "Alles aus Foundation plus erweitertes Projektmanagement, GPS-Fotogalerie, Pläne, Formulare, Besucher und Tagesberichte.",
   landing_plan_blurb_horarios:
-    "Alles aus Foundation plus intelligente Zeiterfassung, Schichten und Kalender, Stundenzettel und Abwesenheitsverwaltung.",
+    "Alles aus Foundation plus intelligente Zeiterfassung, Schichten und Kalender, Stundenzettel und Abwesenheitsverwaltung für Ihr Team.",
   landing_plan_blurb_logistica:
     "Alles aus Foundation plus Bestandskontrolle, Fuhrparkverwaltung, Lieferanten, Bestellungen und Mieten.",
   landing_plan_blurb_todo:
-    "Voller Zugriff auf alle Module: Foundation, Operationen, Zeitplanung, Logistik und Sicherheit. 25 Benutzer und 50 GB.",
+    "Voller Zugriff auf alle Module. Foundation, Operationen, Zeitplanung, Logistik und Sicherheit. 25 Benutzer und 50 GB.",
   landing_feat_foundation_1: "Mitarbeiter- und Dokumentenverwaltung",
   landing_feat_foundation_2: "Benutzerdefinierte Rollen und Berechtigungen",
   landing_feat_foundation_3: "Grundlegendes Projektmanagement",
@@ -1694,7 +1687,7 @@ export default {
   landing_pricing_plan_cta: "Kostenlos starten — 14 Tage",
   contact_email: "info@machin.pro",
   landing_footer_desc:
-    "MachinPro hilft Bauunternehmen in Amerika, Europa und dem Vereinigten Königreich, ihre Abläufe zu digitalisieren.",
+    "MachinPro hilft Bauunternehmen in Amerika, Europa und UK ihre Baustellen und Teams von überall zu verwalten.",
   landing_footer_nav: "Navigation",
   landing_footer_home: "Start",
   landing_footer_features: "Funktionen",

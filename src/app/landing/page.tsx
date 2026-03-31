@@ -281,18 +281,6 @@ export default function LandingPage() {
     []
   );
 
-  const secondarySectorKeys = useMemo(
-    () =>
-      [
-        "landing_sector_logistics",
-        "landing_sector_hospitality",
-        "landing_sector_industry",
-        "landing_sector_services",
-        "landing_sector_distribution",
-      ] as const,
-    []
-  );
-
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header
@@ -394,14 +382,14 @@ export default function LandingPage() {
                 />
               </div>
               <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-4xl md:text-5xl">
-                {tx("landing_hero_title", "Professional management for field teams.")}
+                {tx("landing_hero_title", "Professional management for construction companies.")}
               </h1>
               <p className="mt-4 max-w-2xl text-lg text-teal-100/95 sm:text-xl">
                 {tx(
                   "landing_hero_subtitle",
                   tx(
                     "landing_hero_sub",
-                    "Built for construction. Adapted for logistics, hospitality, industry and more."
+                    "Everything you need to manage your site, your team and your company from anywhere."
                   )
                 )}
               </p>
@@ -435,41 +423,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section
-        id="sectors"
-        className="scroll-mt-24 border-t border-slate-200 bg-white px-4 py-14 dark:border-slate-800 dark:bg-slate-950 sm:py-20"
-      >
+      <section id="features" className="scroll-mt-24 bg-white dark:bg-slate-950 px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <FadeSection>
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_sectors_title", "Born in construction. Useful in any industry.")}
-            </h2>
-            <div className="mt-10 space-y-4">
-              <div className="rounded-2xl border-2 border-[#f97316] bg-gradient-to-br from-orange-50/90 to-white p-6 shadow-md dark:from-orange-950/40 dark:to-slate-900 dark:shadow-orange-900/10 sm:p-8">
-                <p className="text-center text-xl font-bold text-slate-900 dark:text-white sm:text-left sm:text-2xl md:text-3xl">
-                  {tx("landing_sector_construction", "🏗️ Construction")}
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {secondarySectorKeys.map((key) => (
-                  <div
-                    key={key}
-                    className="rounded-2xl border border-slate-200 bg-slate-50/90 p-5 text-center text-base font-semibold text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 sm:text-left sm:text-[0.95rem]"
-                  >
-                    {tx(key, "")}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </FadeSection>
-        </div>
-      </section>
-
-      <section id="features" className="scroll-mt-24 bg-slate-50/80 dark:bg-slate-900/40 px-4 py-16 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <FadeSection>
-            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_features_title", "Everything you need to manage your field team")}
+              {tx("landing_features_title", "Everything you need on site")}
             </h2>
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((f) => (

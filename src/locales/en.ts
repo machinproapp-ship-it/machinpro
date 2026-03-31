@@ -1682,17 +1682,11 @@ export default {
   register_public_cta_landing: "Learn more on the homepage",
   register_public_login: "I already have an account",
 
-  landing_hero_title: "Professional management for field teams.",
-  landing_hero_sub: "Built for construction. Adapted for logistics, hospitality, industry and more.",
+  landing_hero_title: "Professional management for construction companies.",
+  landing_hero_sub:
+    "Everything you need to manage your site, your team and your company from anywhere.",
   landing_hero_subtitle:
-    "Built for construction. Adapted for logistics, hospitality, industry and more.",
-  landing_sectors_title: "Born in construction. Useful in any industry.",
-  landing_sector_construction: "🏗️ Construction",
-  landing_sector_logistics: "🚚 Logistics & transport",
-  landing_sector_hospitality: "🍽️ Hospitality",
-  landing_sector_industry: "🏭 Industry",
-  landing_sector_services: "🔧 Services & maintenance",
-  landing_sector_distribution: "📦 Distribution",
+    "Everything you need to manage your site, your team and your company from anywhere.",
   landing_theme_toggle: "Theme",
   landing_cta_start: "Start free for 14 days",
   landing_cta_demo: "View features",
@@ -1761,13 +1755,13 @@ export default {
   landing_plan_blurb_foundation:
     "Employee management, documents, roles and permissions, basic projects, certificates and compliance.",
   landing_plan_blurb_obras:
-    "Everything in Foundation plus advanced project management, photo gallery, digital forms, visits, and daily reports.",
+    "Everything in Foundation plus advanced project management, GPS photo gallery, blueprints, forms, visitors, and daily reports.",
   landing_plan_blurb_horarios:
-    "Everything in Foundation plus smart clock-in, shifts and calendar, timesheets, and absence management.",
+    "Everything in Foundation plus smart time clock, shifts and calendar, timesheets and absence management for your team.",
   landing_plan_blurb_logistica:
     "Everything in Foundation plus inventory control, fleet management, suppliers, orders, and rentals.",
   landing_plan_blurb_todo:
-    "Full access to all modules: Foundation, Operations, Scheduling, Logistics, and Safety. 25 users and 50GB.",
+    "Full access to all modules. Foundation, Operations, Scheduling, Logistics, and Safety. 25 users and 50GB.",
   landing_feat_foundation_1: "Employee & document management",
   landing_feat_foundation_2: "Custom roles & permissions",
   landing_feat_foundation_3: "Basic project management",
@@ -1794,7 +1788,7 @@ export default {
   landing_pricing_plan_cta: "Start free — 14 days",
   contact_email: "info@machin.pro",
   landing_footer_desc:
-    "MachinPro helps contractors in the Americas, Europe, and the UK digitize their operations.",
+    "MachinPro helps construction companies across the Americas, Europe and UK manage their sites and teams from anywhere.",
   landing_footer_nav: "Navigate",
   landing_footer_home: "Home",
   landing_footer_features: "Features",

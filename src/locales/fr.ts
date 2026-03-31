@@ -1568,22 +1568,15 @@ export default {
   register_public_cta_landing: "En savoir plus sur la page d’accueil",
   register_public_login: "J’ai déjà un compte",
 
-  landing_hero_title: "Gestion professionnelle pour les équipes terrain.",
+  landing_hero_title: "Gestion professionnelle des entreprises de construction.",
   landing_hero_sub:
-    "Conçu pour la construction. Adapté pour la logistique, l'hôtellerie, l'industrie et plus.",
+    "Tout ce qu'il vous faut pour gérer votre chantier, votre équipe et votre entreprise de n'importe où.",
   landing_hero_subtitle:
-    "Conçu pour la construction. Adapté pour la logistique, l'hôtellerie, l'industrie et plus.",
-  landing_sectors_title: "Né dans la construction. Utile dans tous les secteurs.",
-  landing_sector_construction: "🏗️ Construction",
-  landing_sector_logistics: "🚚 Logistique et transport",
-  landing_sector_hospitality: "🍽️ Hôtellerie",
-  landing_sector_industry: "🏭 Industrie",
-  landing_sector_services: "🔧 Services et maintenance",
-  landing_sector_distribution: "📦 Distribution",
+    "Tout ce qu'il vous faut pour gérer votre chantier, votre équipe et votre entreprise de n'importe où.",
   landing_theme_toggle: "Thème",
   landing_cta_start: "Commencer gratuitement 14 jours",
   landing_cta_demo: "Voir la démo",
-  landing_features_title: "Tout ce qu'il vous faut pour gérer votre équipe terrain",
+  landing_features_title: "Tout ce qu'il vous faut sur le chantier",
   landing_feat_projects_title: "🏗️ Gestion de projets",
   landing_feat_projects_desc: "Budgets, délais, équipe et avancement en temps réel.",
   landing_feature_logistics: "📦 Logistique & stocks",
@@ -1648,13 +1641,13 @@ export default {
   landing_plan_blurb_foundation:
     "Gestion des employés, documents, rôles et permissions, projets de base, certificats et conformité.",
   landing_plan_blurb_obras:
-    "Tout ce qui est dans Foundation, plus gestion avancée des projets, galerie photos, formulaires numériques, visites et rapport journalier.",
+    "Tout ce qui est dans Foundation, plus gestion avancée des projets, galerie photos GPS, plans, formulaires, visiteurs et rapport journalier.",
   landing_plan_blurb_horarios:
-    "Tout ce qui est dans Foundation, plus pointage intelligent, équipes et calendrier, feuilles de temps et gestion des absences.",
+    "Tout ce qui est dans Foundation plus pointage intelligent, équipes et calendrier, feuilles de temps et gestion des absences pour votre équipe.",
   landing_plan_blurb_logistica:
     "Tout ce qui est dans Foundation, plus contrôle des stocks, gestion de flotte, fournisseurs, commandes et locations.",
   landing_plan_blurb_todo:
-    "Accès complet à tous les modules : Foundation, Opérations, Horaires, Logistique et Sécurité. 25 utilisateurs et 50 Go.",
+    "Accès complet à tous les modules. Foundation, Opérations, Horaires, Logistique et Sécurité. 25 utilisateurs et 50 Go.",
   landing_feat_foundation_1: "Gestion des employés et documents",
   landing_feat_foundation_2: "Rôles et permissions personnalisés",
   landing_feat_foundation_3: "Gestion de projets de base",
@@ -1681,7 +1674,7 @@ export default {
   landing_pricing_plan_cta: "Commencer gratuitement — 14 jours",
   contact_email: "info@machin.pro",
   landing_footer_desc:
-    "MachinPro aide les entreprises de construction en Amérique, en Europe et au Royaume-Uni à numériser leurs opérations.",
+    "MachinPro aide les entreprises de construction en Amérique, Europe et UK à gérer leurs chantiers et équipes de n'importe où.",
   landing_footer_nav: "Navigation",
   landing_footer_home: "Accueil",
   landing_footer_features: "Fonctionnalités",
