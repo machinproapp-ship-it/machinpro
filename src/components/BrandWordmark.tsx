@@ -4,10 +4,12 @@ import { type ReactNode } from "react";
 
 export const BRAND_GOLD = "#C9A84C";
 
+/** onDark + inherit Machin segment */
 const MACHIN_ORANGE = "#f97316";
-/** Darker orange on light / inherited surfaces for contrast */
-const MACHIN_ORANGE_LIGHT = "#ea6c00";
-const PRO_WHITE = "#FFFFFF";
+/** onLight Machin — darker orange for contrast */
+const MACHIN_ORANGE_ON_LIGHT = "#ea6c00";
+const PRO_ON_DARK = "#FFFFFF";
+const PRO_ON_LIGHT = "#1e293b";
 
 export type BrandWordmarkTone = "onDark" | "onLight" | "inherit";
 
@@ -18,13 +20,21 @@ export function BrandWordmark({
   tone: BrandWordmarkTone;
   className?: string;
 }) {
-  const machinColor = tone === "onDark" ? MACHIN_ORANGE : MACHIN_ORANGE_LIGHT;
+  const machinColor =
+    tone === "onLight" ? MACHIN_ORANGE_ON_LIGHT : MACHIN_ORANGE;
+  const proColor =
+    tone === "onDark" ? PRO_ON_DARK : tone === "onLight" ? PRO_ON_LIGHT : undefined;
   return (
     <span className={className}>
       <span className="font-bold" style={{ color: machinColor }}>
         Machin
       </span>
-      <span className="font-bold" style={{ color: PRO_WHITE }}>
+      <span
+        className="font-bold"
+        style={
+          proColor !== undefined ? { color: proColor } : { color: "inherit" }
+        }
+      >
         Pr<span style={{ color: BRAND_GOLD }}>o</span>
       </span>
     </span>

@@ -251,18 +251,22 @@ export default function LandingPage() {
 
   const features = useMemo(
     (): FeatureRow[] => [
-      { titleKey: "landing_feat_projects_title", descKey: "landing_feat_projects_desc" },
-      { titleKey: "landing_feature_logistics", descKey: "landing_feature_logistics_desc" },
-      { titleKey: "landing_feat_risks_title", descKey: "landing_feat_risks_desc" },
-      { titleKey: "landing_feat_visitors_title", descKey: "landing_feat_visitors_desc" },
-      { titleKey: "landing_feat_blueprints_title", descKey: "landing_feat_blueprints_desc" },
-      { titleKey: "landing_feature_hours_title", descKey: "landing_feature_hours_desc" },
-      { titleKey: "landing_feat_dashboard_title", descKey: "landing_feat_dashboard_desc" },
-      { titleKey: "landing_feature_forms", descKey: "landing_feature_forms_desc" },
-      { titleKey: "landing_feature_audit", descKey: "landing_feature_audit_desc" },
-      { titleKey: "landing_feature_watchdog", descKey: "landing_feature_watchdog_desc" },
-      { titleKey: "landing_feature_rfi", descKey: "landing_feature_rfi_desc" },
-      { titleKey: "landing_feat_billing_title", descKey: "landing_feat_billing_desc" },
+      { titleKey: "landing_feat_employees", descKey: "landing_feat_employees_desc" },
+      { titleKey: "landing_feat_certificates", descKey: "landing_feat_certificates_desc" },
+      { titleKey: "landing_feat_projects", descKey: "landing_feat_projects_desc" },
+      { titleKey: "landing_feat_forms", descKey: "landing_feat_forms_desc" },
+      { titleKey: "landing_feat_compliance", descKey: "landing_feat_compliance_desc" },
+      { titleKey: "landing_feat_dashboard", descKey: "landing_feat_dashboard_desc" },
+      { titleKey: "landing_feat_timeclock", descKey: "landing_feat_timeclock_desc" },
+      { titleKey: "landing_feat_shifts", descKey: "landing_feat_shifts_desc" },
+      { titleKey: "landing_feat_gallery", descKey: "landing_feat_gallery_desc" },
+      { titleKey: "landing_feat_hazards", descKey: "landing_feat_hazards_desc" },
+      { titleKey: "landing_feat_audit", descKey: "landing_feat_audit_desc" },
+      { titleKey: "landing_feat_documents", descKey: "landing_feat_documents_desc" },
+      { titleKey: "landing_feat_inventory", descKey: "landing_feat_inventory_desc" },
+      { titleKey: "landing_feat_fleet", descKey: "landing_feat_fleet_desc" },
+      { titleKey: "landing_feat_suppliers", descKey: "landing_feat_suppliers_desc" },
+      { titleKey: "landing_feat_billing", descKey: "landing_feat_billing_desc" },
     ],
     []
   );
@@ -413,6 +417,12 @@ export default function LandingPage() {
                 <PlayCircle className="h-4 w-4 shrink-0" aria-hidden />
                 <span>{tx("landing_badge_mobile", "Available on iOS and Android")}</span>
               </div>
+              <p className="mt-4 max-w-2xl text-center text-xs text-teal-200/85 dark:text-teal-200/70 sm:text-sm">
+                {tx(
+                  "landing_languages_badge",
+                  "🌍 Available in 21 languages · Americas · Europe · UK"
+                )}
+              </p>
             </div>
           </FadeSection>
           <FadeSection className="mt-12">
@@ -427,7 +437,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <FadeSection>
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_features_title", "Everything you need on site")}
+              <TextWithBrandMarks
+                text={tx("landing_features_title", "Make MachinPro yours.")}
+                tone={dark ? "onDark" : "onLight"}
+                className="contents"
+              />
             </h2>
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((f) => (
