@@ -17,6 +17,8 @@ import {
   type PaidPlanKey,
 } from "@/lib/stripe";
 
+type TxFn = (key: string, fallback: string) => string;
+
 function useFadeIn() {
   const ref = useRef<HTMLElement | null>(null);
   const [on, setOn] = useState(false);
@@ -55,17 +57,17 @@ function FadeSection({
   );
 }
 
-function HeroDashboardMockup() {
+function HeroDashboardMockup({ tx }: { tx: TxFn }) {
   const kpis = [
-    { n: 12, emoji: "🏗️", label: "Projects" },
-    { n: 48, emoji: "👷", label: "Employees" },
-    { n: 3, emoji: "👤", label: "Visitors" },
-    { n: 2, emoji: "⚠️", label: "Risks" },
+    { n: 12, emoji: "🏗️", labelKey: "landing_mock_kpi_projects" },
+    { n: 48, emoji: "👷", labelKey: "landing_mock_kpi_employees" },
+    { n: 3, emoji: "👤", labelKey: "landing_mock_kpi_visitors" },
+    { n: 2, emoji: "⚠️", labelKey: "landing_mock_kpi_risks" },
   ] as const;
   const acts = [
-    { emoji: "📋", line: "Daily Report · 12 min ago" },
-    { emoji: "👤", line: "Visitor Check-in · 1h ago" },
-    { emoji: "✅", line: "Risk Resolved · Yesterday" },
+    { emoji: "📋", lineKey: "landing_mock_act1" },
+    { emoji: "👤", lineKey: "landing_mock_act2" },
+    { emoji: "✅", lineKey: "landing_mock_act3" },
   ] as const;
 
   return (
@@ -74,7 +76,7 @@ function HeroDashboardMockup() {
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-bold text-white">
             <BrandWordmark tone="onDark" className="inline" />{" "}
-            <span className="font-semibold text-teal-100/90">Dashboard</span>
+            <span className="font-semibold text-teal-100/90">{tx("landing_mock_dashboard", "Dashboard")}</span>
           </span>
         </div>
         <div className="flex gap-1.5">
@@ -87,10 +89,10 @@ function HeroDashboardMockup() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {kpis.map((k) => (
             <div
-              key={k.label}
+              key={k.labelKey}
               className="rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              <span className="sr-only">{k.label}</span>
+              <span className="sr-only">{tx(k.labelKey, "")}</span>
               <p className="flex items-baseline gap-1 text-lg font-bold text-[#1a4f5e] dark:text-teal-400">
                 <span>{k.n}</span>
                 <span className="text-base" aria-hidden>
@@ -102,7 +104,7 @@ function HeroDashboardMockup() {
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-            <span className="truncate">Project Alpha — 67%</span>
+            <span className="truncate">{tx("landing_mock_progress", "")}</span>
             <span className="shrink-0 text-[#f97316]">67%</span>
           </div>
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
@@ -111,17 +113,17 @@ function HeroDashboardMockup() {
         </div>
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Recent activity
+            {tx("landing_mock_activity", "Recent activity")}
           </p>
           {acts.map((a) => (
             <div
-              key={a.line}
+              key={a.lineKey}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#1a4f5e]/10 text-lg text-[#1a4f5e] dark:bg-teal-900/40 dark:text-teal-300" aria-hidden>
                 {a.emoji}
               </span>
-              <p className="min-w-0 flex-1 text-xs font-medium text-slate-800 dark:text-slate-100">{a.line}</p>
+              <p className="min-w-0 flex-1 text-xs font-medium text-slate-800 dark:text-slate-100">{tx(a.lineKey, "")}</p>
             </div>
           ))}
         </div>
@@ -150,18 +152,15 @@ function formatMoney(amount: number, currency: string): string {
   }).format(amount);
 }
 
-function landingFeatureKeys(plan: PaidPlanKey): string[] {
-  const prefix =
-    plan === "foundation"
-      ? "landing_feat_foundation_"
-      : plan === "obras"
-        ? "landing_feat_obras_"
-        : plan === "horarios"
-          ? "landing_feat_horarios_"
-          : plan === "logistica"
-            ? "landing_feat_logistica_"
-            : "landing_feat_todo_";
-  return [`${prefix}1`, `${prefix}2`, `${prefix}3`, `${prefix}4`];
+function landingPlanBlurbKey(plan: PaidPlanKey): string {
+  const m: Record<PaidPlanKey, string> = {
+    foundation: "landing_plan_blurb_foundation",
+    obras: "landing_plan_blurb_obras",
+    horarios: "landing_plan_blurb_horarios",
+    logistica: "landing_plan_blurb_logistica",
+    todo_incluido: "landing_plan_blurb_todo",
+  };
+  return m[plan];
 }
 
 export default function LandingPage() {
@@ -282,6 +281,18 @@ export default function LandingPage() {
     []
   );
 
+  const secondarySectorKeys = useMemo(
+    () =>
+      [
+        "landing_sector_logistics",
+        "landing_sector_hospitality",
+        "landing_sector_industry",
+        "landing_sector_services",
+        "landing_sector_distribution",
+      ] as const,
+    []
+  );
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header
@@ -345,7 +356,7 @@ export default function LandingPage() {
                   ? "border-slate-300 text-slate-800 dark:border-slate-600 dark:text-slate-200"
                   : "border-white/30 text-white"
               }`}
-              aria-label="Theme"
+              aria-label={tx("landing_theme_toggle", "Theme")}
             >
               {dark ? "☀" : "☾"}
             </button>
@@ -383,10 +394,16 @@ export default function LandingPage() {
                 />
               </div>
               <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-4xl md:text-5xl">
-                {tx("landing_hero_title", "Professional construction management")}
+                {tx("landing_hero_title", "Professional management for field teams.")}
               </h1>
               <p className="mt-4 max-w-2xl text-lg text-teal-100/95 sm:text-xl">
-                {tx("landing_hero_sub", "Everything you need in one place")}
+                {tx(
+                  "landing_hero_subtitle",
+                  tx(
+                    "landing_hero_sub",
+                    "Built for construction. Adapted for logistics, hospitality, industry and more."
+                  )
+                )}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
                 <Link
@@ -412,17 +429,47 @@ export default function LandingPage() {
           </FadeSection>
           <FadeSection className="mt-12">
             <div className="relative mx-auto max-w-4xl rounded-2xl border border-white/10 bg-slate-900/40 p-2 shadow-2xl backdrop-blur">
-              <HeroDashboardMockup />
+              <HeroDashboardMockup tx={tx} />
             </div>
           </FadeSection>
         </div>
       </section>
 
-      <section id="features" className="scroll-mt-24 bg-white dark:bg-slate-950 px-4 py-16 sm:py-24">
+      <section
+        id="sectors"
+        className="scroll-mt-24 border-t border-slate-200 bg-white px-4 py-14 dark:border-slate-800 dark:bg-slate-950 sm:py-20"
+      >
         <div className="mx-auto max-w-6xl">
           <FadeSection>
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_features_title", "Features")}
+              {tx("landing_sectors_title", "Born in construction. Useful in any industry.")}
+            </h2>
+            <div className="mt-10 space-y-4">
+              <div className="rounded-2xl border-2 border-[#f97316] bg-gradient-to-br from-orange-50/90 to-white p-6 shadow-md dark:from-orange-950/40 dark:to-slate-900 dark:shadow-orange-900/10 sm:p-8">
+                <p className="text-center text-xl font-bold text-slate-900 dark:text-white sm:text-left sm:text-2xl md:text-3xl">
+                  {tx("landing_sector_construction", "🏗️ Construction")}
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {secondarySectorKeys.map((key) => (
+                  <div
+                    key={key}
+                    className="rounded-2xl border border-slate-200 bg-slate-50/90 p-5 text-center text-base font-semibold text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 sm:text-left sm:text-[0.95rem]"
+                  >
+                    {tx(key, "")}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section id="features" className="scroll-mt-24 bg-slate-50/80 dark:bg-slate-900/40 px-4 py-16 sm:py-24">
+        <div className="mx-auto max-w-6xl">
+          <FadeSection>
+            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_features_title", "Everything you need to manage your field team")}
             </h2>
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((f) => (
@@ -565,14 +612,12 @@ export default function LandingPage() {
                           {plan.storageGb} GB {tx("pricing_storage", "storage")}
                         </span>
                       </li>
-                      {landingFeatureKeys(key).map((fk) => (
-                        <li key={fk} className="flex gap-2 leading-snug">
-                          <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
-                            ✓
-                          </span>
-                          <span>{tx(fk, "")}</span>
-                        </li>
-                      ))}
+                      <li className="flex gap-2 leading-snug">
+                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                          ✓
+                        </span>
+                        <span>{tx(landingPlanBlurbKey(key), "")}</span>
+                      </li>
                     </ul>
                     <Link
                       href="/register"

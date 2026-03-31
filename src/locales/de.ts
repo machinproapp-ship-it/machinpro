@@ -1581,11 +1581,22 @@ export default {
   register_public_cta_landing: "Mehr auf der Startseite",
   register_public_login: "Ich habe bereits ein Konto",
 
-  landing_hero_title: "Professionelles Baustellenmanagement",
-  landing_hero_sub: "Alles für Ihr Bauunternehmen an einem Ort.",
+  landing_hero_title: "Professionelles Management für Außendienstteams.",
+  landing_hero_sub:
+    "Entwickelt für den Bau. Angepasst für Logistik, Gastgewerbe, Industrie und mehr.",
+  landing_hero_subtitle:
+    "Entwickelt für den Bau. Angepasst für Logistik, Gastgewerbe, Industrie und mehr.",
+  landing_sectors_title: "In der Baubranche geboren. In jeder Branche nützlich.",
+  landing_sector_construction: "🏗️ Bauwesen",
+  landing_sector_logistics: "🚚 Logistik & Transport",
+  landing_sector_hospitality: "🍽️ Gastgewerbe",
+  landing_sector_industry: "🏭 Industrie",
+  landing_sector_services: "🔧 Dienstleistungen & Wartung",
+  landing_sector_distribution: "📦 Distribution",
+  landing_theme_toggle: "Design",
   landing_cta_start: "14 Tage kostenlos starten",
   landing_cta_demo: "Funktionen ansehen",
-  landing_features_title: "Alles, was Sie auf der Baustelle brauchen",
+  landing_features_title: "Alles was Sie für Ihr Außendienstteam brauchen",
   landing_feat_projects_title: "🏗️ Projektmanagement",
   landing_feat_projects_desc: "Budgets, Termine, Team und Fortschritt in Echtzeit.",
   landing_feature_logistics: "📦 Logistik & Lager",
@@ -1600,8 +1611,8 @@ export default {
   landing_feature_hours_desc: "Digitales Stempeln, Schichten und Stunden pro Mitarbeitenden.",
   landing_feat_dashboard_title: "📊 Live-Dashboard",
   landing_feat_dashboard_desc: "KPIs, kritische Warnungen und Aktivität im gesamten Unternehmen.",
-  landing_feature_forms: "📋 Sicherheitsformulare",
-  landing_feature_forms_desc: "Safety-Checklisten, Tagesberichte und Feldberichte.",
+  landing_feature_forms: "📋 Digitale Formulare",
+  landing_feature_forms_desc: "Checklisten, Tagesberichte und Felddokumentation – alles digital.",
   landing_feature_audit: "🔍 Unveränderliches Audit-Log",
   landing_feature_audit_desc: "Manipulationssicheres Protokoll aller Teamaktionen.",
   landing_feature_watchdog: "🚨 Compliance Watchdog",
@@ -1647,6 +1658,16 @@ export default {
   landing_pricing_extra_users: "Zusätzliche Nutzer für 4 $/Nutzer/Monat",
   landing_pricing_usd_note: "Preise in USD. Steuern nicht inbegriffen.",
   landing_pricing_region_note: "Für Ihre Region angepasster Preis",
+  landing_plan_blurb_foundation:
+    "Mitarbeiterverwaltung, Dokumente, Rollen und Berechtigungen, Basisprojekte, Zertifikate und Compliance.",
+  landing_plan_blurb_obras:
+    "Alles aus Foundation plus erweitertes Projektmanagement, Fotogalerie, digitale Formulare, Besuche und Tagesberichte.",
+  landing_plan_blurb_horarios:
+    "Alles aus Foundation plus intelligente Zeiterfassung, Schichten und Kalender, Stundenzettel und Abwesenheitsverwaltung.",
+  landing_plan_blurb_logistica:
+    "Alles aus Foundation plus Bestandskontrolle, Fuhrparkverwaltung, Lieferanten, Bestellungen und Mieten.",
+  landing_plan_blurb_todo:
+    "Voller Zugriff auf alle Module: Foundation, Operationen, Zeitplanung, Logistik und Sicherheit. 25 Benutzer und 50 GB.",
   landing_feat_foundation_1: "Mitarbeiter- und Dokumentenverwaltung",
   landing_feat_foundation_2: "Benutzerdefinierte Rollen und Berechtigungen",
   landing_feat_foundation_3: "Grundlegendes Projektmanagement",

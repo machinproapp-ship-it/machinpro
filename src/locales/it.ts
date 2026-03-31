@@ -1582,11 +1582,22 @@ export default {
   register_public_cta_landing: "Scopri di più in homepage",
   register_public_login: "Ho già un account",
 
-  landing_hero_title: "Gestione professionale dei cantieri",
-  landing_hero_sub: "Tutto ciò che serve alla tua impresa edile in un unico posto.",
+  landing_hero_title: "Gestione professionale per team sul campo.",
+  landing_hero_sub:
+    "Progettato per le costruzioni. Adattato per logistica, ospitalità, industria e altro.",
+  landing_hero_subtitle:
+    "Progettato per le costruzioni. Adattato per logistica, ospitalità, industria e altro.",
+  landing_sectors_title: "Nato nell'edilizia. Utile in qualsiasi settore.",
+  landing_sector_construction: "🏗️ Costruzione",
+  landing_sector_logistics: "🚚 Logistica e trasporti",
+  landing_sector_hospitality: "🍽️ Ospitalità",
+  landing_sector_industry: "🏭 Industria",
+  landing_sector_services: "🔧 Servizi e manutenzione",
+  landing_sector_distribution: "📦 Distribuzione",
+  landing_theme_toggle: "Tema",
   landing_cta_start: "Inizia gratis 14 giorni",
   landing_cta_demo: "Vedi le funzioni",
-  landing_features_title: "Tutto ciò che serve in cantiere",
+  landing_features_title: "Tutto ciò di cui hai bisogno per gestire il tuo team sul campo",
   landing_feat_projects_title: "🏗️ Gestione progetti",
   landing_feat_projects_desc: "Budget, tempistiche, squadra e avanzamento in tempo reale.",
   landing_feature_logistics: "📦 Logistica e magazzino",
@@ -1601,8 +1612,8 @@ export default {
   landing_feature_hours_desc: "Timbratura digitale, turni e ore per dipendente.",
   landing_feat_dashboard_title: "📊 Dashboard in tempo reale",
   landing_feat_dashboard_desc: "KPI, avvisi critici e attività di tutta l’azienda.",
-  landing_feature_forms: "📋 Moduli di sicurezza",
-  landing_feature_forms_desc: "Checklist sicurezza, rapporti giornalieri e report di campo.",
+  landing_feature_forms: "📋 Moduli digitali",
+  landing_feature_forms_desc: "Checklist, rapporti giornalieri e documentazione di campo, tutto in digitale.",
   landing_feature_audit: "🔍 Audit immutabile",
   landing_feature_audit_desc: "Registro non alterabile di tutte le azioni del team.",
   landing_feature_watchdog: "🚨 Compliance Watchdog",
@@ -1648,6 +1659,16 @@ export default {
   landing_pricing_extra_users: "Utenti aggiuntivi a 4 $/utente/mese",
   landing_pricing_usd_note: "Prezzi in USD. Tasse non incluse.",
   landing_pricing_region_note: "Prezzo adeguato alla tua regione",
+  landing_plan_blurb_foundation:
+    "Gestione dipendenti, documenti, ruoli e permessi, progetti di base, certificati e conformità.",
+  landing_plan_blurb_obras:
+    "Tutto di Foundation più gestione avanzata dei progetti, galleria foto, moduli digitali, visite e rapporti giornalieri.",
+  landing_plan_blurb_horarios:
+    "Tutto di Foundation più timbratura intelligente, turni e calendario, fogli ore e gestione assenze.",
+  landing_plan_blurb_logistica:
+    "Tutto di Foundation più controllo inventario, gestione flotta, fornitori, ordini e noleggi.",
+  landing_plan_blurb_todo:
+    "Accesso completo a tutti i moduli: Foundation, Operazioni, Orari, Logistica e Sicurezza. 25 utenti e 50 GB.",
   landing_feat_foundation_1: "Gestione dipendenti e documenti",
   landing_feat_foundation_2: "Ruoli e permessi personalizzati",
   landing_feat_foundation_3: "Gestione progetti di base",

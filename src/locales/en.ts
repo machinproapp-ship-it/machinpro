@@ -1682,11 +1682,21 @@ export default {
   register_public_cta_landing: "Learn more on the homepage",
   register_public_login: "I already have an account",
 
-  landing_hero_title: "Professional construction project management",
-  landing_hero_sub: "Everything your construction company needs in one place — from site to office.",
+  landing_hero_title: "Professional management for field teams.",
+  landing_hero_sub: "Built for construction. Adapted for logistics, hospitality, industry and more.",
+  landing_hero_subtitle:
+    "Built for construction. Adapted for logistics, hospitality, industry and more.",
+  landing_sectors_title: "Born in construction. Useful in any industry.",
+  landing_sector_construction: "🏗️ Construction",
+  landing_sector_logistics: "🚚 Logistics & transport",
+  landing_sector_hospitality: "🍽️ Hospitality",
+  landing_sector_industry: "🏭 Industry",
+  landing_sector_services: "🔧 Services & maintenance",
+  landing_sector_distribution: "📦 Distribution",
+  landing_theme_toggle: "Theme",
   landing_cta_start: "Start free for 14 days",
   landing_cta_demo: "View features",
-  landing_features_title: "Everything you need on the job site",
+  landing_features_title: "Everything you need to manage your field team",
   landing_feat_projects_title: "🏗️ Project management",
   landing_feat_projects_desc: "Budgets, schedules, team, and progress tracked in real time.",
   landing_feature_logistics: "📦 Logistics & inventory",
@@ -1701,8 +1711,8 @@ export default {
   landing_feature_hours_desc: "Digital clock-in/out, shifts, and hours per employee.",
   landing_feat_dashboard_title: "📊 Real-time dashboard",
   landing_feat_dashboard_desc: "KPIs, critical alerts, and activity across your company.",
-  landing_feature_forms: "📋 Safety forms",
-  landing_feature_forms_desc: "Safety checklists, daily reports, and field documentation.",
+  landing_feature_forms: "📋 Digital forms",
+  landing_feature_forms_desc: "Checklists, daily reports, and field documentation — all digital.",
   landing_feature_audit: "🔍 Immutable audit log",
   landing_feature_audit_desc: "Tamper-resistant record of every action your team takes.",
   landing_feature_watchdog: "🚨 Compliance Watchdog",
@@ -1748,6 +1758,16 @@ export default {
   landing_pricing_extra_users: "Additional users at $4/user/mo",
   landing_pricing_usd_note: "Prices in USD. Taxes not included.",
   landing_pricing_region_note: "Price adjusted for your region",
+  landing_plan_blurb_foundation:
+    "Employee management, documents, roles and permissions, basic projects, certificates and compliance.",
+  landing_plan_blurb_obras:
+    "Everything in Foundation plus advanced project management, photo gallery, digital forms, visits, and daily reports.",
+  landing_plan_blurb_horarios:
+    "Everything in Foundation plus smart clock-in, shifts and calendar, timesheets, and absence management.",
+  landing_plan_blurb_logistica:
+    "Everything in Foundation plus inventory control, fleet management, suppliers, orders, and rentals.",
+  landing_plan_blurb_todo:
+    "Full access to all modules: Foundation, Operations, Scheduling, Logistics, and Safety. 25 users and 50GB.",
   landing_feat_foundation_1: "Employee & document management",
   landing_feat_foundation_2: "Custom roles & permissions",
   landing_feat_foundation_3: "Basic project management",
