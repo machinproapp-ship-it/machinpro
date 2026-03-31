@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Download, QrCode, Search, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
+import { buildVisitorCheckInUrl, buildVisitorProjectCheckInUrl } from "@/lib/visitorQrUrl";
 import { FilterGrid } from "@/components/FilterGrid";
 import type { Visitor, VisitorStatus } from "@/types/visitor";
-import { formatDateTime } from "@/lib/dateUtils";
+import { formatDateTime, visitorPeriodToCheckInBounds, type VisitorPeriodFilter } from "@/lib/dateUtils";
 
 export interface VisitorModuleProps {
   t: Record<string, string>;
@@ -47,8 +47,9 @@ export function VisitorModule({
   dateLocale,
   timeZone,
 }: VisitorModuleProps) {
+  const lx = t as Record<string, string>;
   const lastQrSig = useRef(0);
-  const [filterDate, setFilterDate] = useState(() => dayInputValue(new Date()));
+  const [periodFilter, setPeriodFilter] = useState<VisitorPeriodFilter>("today");
   const [filterProjectId, setFilterProjectId] = useState<string>(
     lockedProjectId && lockedProjectId.trim() ? lockedProjectId : "all"
   );
@@ -56,8 +57,30 @@ export function VisitorModule({
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Visitor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeInsideCount, setActiveInsideCount] = useState(0);
   const [qrOpen, setQrOpen] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const loadActiveInside = useCallback(async () => {
+    if (!supabase || !companyId) {
+      setActiveInsideCount(0);
+      return;
+    }
+    let q = supabase
+      .from("visitor_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("status", "checked_in" as VisitorStatus);
+    if (lockedProjectId && lockedProjectId.trim()) {
+      q = q.eq("project_id", lockedProjectId.trim());
+    }
+    const { count, error } = await q;
+    if (error) {
+      setActiveInsideCount(0);
+      return;
+    }
+    setActiveInsideCount(count ?? 0);
+  }, [companyId, lockedProjectId]);
 
   const load = useCallback(async () => {
     if (!supabase || !companyId) {
@@ -66,7 +89,7 @@ export function VisitorModule({
       return;
     }
     setLoading(true);
-    const { start, end } = dayBoundsUtc(filterDate);
+    const { start, end } = visitorPeriodToCheckInBounds(periodFilter, timeZone);
     let q = supabase
       .from("visitor_logs")
       .select("*")
@@ -90,11 +113,15 @@ export function VisitorModule({
       setRows((data ?? []) as Visitor[]);
     }
     setLoading(false);
-  }, [companyId, filterDate, filterProjectId, filterStatus]);
+  }, [companyId, periodFilter, filterProjectId, filterStatus, timeZone]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadActiveInside();
+  }, [loadActiveInside, load]);
 
   useEffect(() => {
     if (lockedProjectId && lockedProjectId.trim()) {
@@ -123,6 +150,7 @@ export function VisitorModule({
         },
         () => {
           void load();
+          void loadActiveInside();
         }
       )
       .subscribe();
@@ -130,7 +158,7 @@ export function VisitorModule({
     return () => {
       void client.removeChannel(channel);
     };
-  }, [supabase, companyId, load]);
+  }, [supabase, companyId, load, loadActiveInside]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -142,12 +170,13 @@ export function VisitorModule({
     );
   }, [rows, search]);
 
-  const activeNow = useMemo(
-    () => rows.filter((r) => r.status === "checked_in").length,
-    [rows]
-  );
-
   const checkInUrl = companyId
+    ? lockedProjectId && lockedProjectId.trim()
+      ? buildVisitorProjectCheckInUrl(lockedProjectId.trim())
+      : buildVisitorCheckInUrl(companyId, null)
+    : "";
+
+  const manualRegisterUrl = companyId
     ? buildVisitorCheckInUrl(companyId, lockedProjectId && lockedProjectId.trim() ? lockedProjectId : null)
     : "";
 
@@ -159,7 +188,10 @@ export function VisitorModule({
       .update({ check_out: now, status: "checked_out" })
       .eq("id", id)
       .eq("company_id", companyId);
-    if (!error) void load();
+    if (!error) {
+      void load();
+      void loadActiveInside();
+    }
   };
 
   const exportCsv = () => {
@@ -195,7 +227,7 @@ export function VisitorModule({
     a.href = URL.createObjectURL(blob);
     const slug =
       lockedProjectId && lockedProjectId.trim() ? `project-${lockedProjectId.slice(0, 8)}` : "all";
-    a.download = `visitors-${slug}-${filterDate}.csv`;
+    a.download = `visitors-${slug}-${periodFilter}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -209,6 +241,20 @@ export function VisitorModule({
     const qslug = lockedProjectId ? `${companyId?.slice(0, 8) ?? "qr"}-${lockedProjectId.slice(0, 6)}` : (companyId?.slice(0, 8) ?? "qr");
     a.download = `machinpro-visit-qr-${qslug}.png`;
     a.click();
+  };
+
+  const printQr = () => {
+    const canvas = qrCanvasRef.current;
+    if (!canvas || typeof window === "undefined") return;
+    const dataUrl = canvas.toDataURL("image/png");
+    const w = window.open("", "_blank", "noopener,noreferrer");
+    if (!w) return;
+    const title = lx.visitor_qr_title ?? t.visitors_qr_modal_title ?? "QR";
+    const sub = lx.visitor_qr_subtitle ?? "";
+    w.document.write(
+      `<!DOCTYPE html><html><head><title>${title}</title></head><body style="margin:0;padding:24px;text-align:center;font-family:system-ui,sans-serif"><h1 style="font-size:18px">${title}</h1><p style="color:#444;font-size:14px">${sub}</p><img src="${dataUrl}" width="320" height="320" alt="" style="max-width:100%;height:auto"/><p style="font-size:12px;word-break:break-all;margin-top:16px">${checkInUrl}</p><script>window.onload=function(){window.print();}<\\/script></body></html>`
+    );
+    w.document.close();
   };
 
   if (!companyId) {
@@ -226,8 +272,6 @@ export function VisitorModule({
       </div>
     );
   }
-
-  const lx = t as Record<string, string>;
 
   return (
     <section className="space-y-6">
@@ -254,8 +298,19 @@ export function VisitorModule({
             className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <QrCode className="h-4 w-4 shrink-0" />
-            {t.visitors_generate_qr ?? "QR"}
+            {lx.visitor_qr_show ?? t.visitors_generate_qr ?? "QR"}
           </button>
+          {manualRegisterUrl ? (
+            <a
+              href={manualRegisterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <UserCheck className="h-4 w-4 shrink-0" />
+              {lx.visitor_manual_register ?? t.visitors_submit ?? "Manual"}
+            </a>
+          ) : null}
           <button
             type="button"
             onClick={exportCsv}
@@ -268,19 +323,34 @@ export function VisitorModule({
       </div>
 
       <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200">
-        {t.visitors_active_now ?? "Active"}: <span className="tabular-nums">{activeNow}</span>
+        {lx.visitor_active_now ?? t.visitors_active_now ?? "Active"}:{" "}
+        <span className="tabular-nums">{activeInsideCount}</span>
       </div>
 
       <FilterGrid>
-        <label className="col-span-2 flex flex-col gap-1 text-sm min-w-0 lg:col-span-2">
-          <span className="text-gray-600 dark:text-gray-400">{t.visitors_filter_date ?? "Date"}</span>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
-          />
-        </label>
+        <div className="col-span-2 flex flex-col gap-2 text-sm min-w-0 lg:col-span-2">
+          <span className="text-gray-600 dark:text-gray-400">{lx.visitor_filter_period ?? t.visitors_filter_date ?? "Period"}</span>
+          <div className="flex flex-wrap gap-2">
+            {(["today", "week", "month"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriodFilter(p)}
+                className={`min-h-[44px] rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  periodFilter === p
+                    ? "border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100"
+                    : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                {p === "today"
+                  ? (lx.visitor_filter_today ?? "Today")
+                  : p === "week"
+                    ? (lx.visitor_filter_week ?? "Week")
+                    : (lx.visitor_filter_month ?? "Month")}
+              </button>
+            ))}
+          </div>
+        </div>
         {!lockedProjectId ? (
           <label className="flex flex-col gap-1 text-sm min-w-0">
             <span className="text-gray-600 dark:text-gray-400">
@@ -310,8 +380,8 @@ export function VisitorModule({
             className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
             <option value="all">{t.visitors_filter_all ?? "All"}</option>
-            <option value="checked_in">{t.visitors_status_in ?? "In"}</option>
-            <option value="checked_out">{t.visitors_status_out ?? "Out"}</option>
+            <option value="checked_in">{lx.visitor_status_inside ?? t.visitors_status_in ?? "In"}</option>
+            <option value="checked_out">{lx.visitor_status_outside ?? t.visitors_status_out ?? "Out"}</option>
           </select>
         </label>
         <label className="col-span-2 flex flex-col gap-1 text-sm min-w-0 lg:col-span-4">
@@ -401,8 +471,8 @@ export function VisitorModule({
                       }`}
                     >
                       {r.status === "checked_in"
-                        ? (t.visitors_status_in ?? "In")
-                        : (t.visitors_status_out ?? "Out")}
+                        ? (lx.visitor_status_inside ?? t.visitors_status_in ?? "In")
+                        : (lx.visitor_status_outside ?? t.visitors_status_out ?? "Out")}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -430,32 +500,46 @@ export function VisitorModule({
           aria-modal
         >
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {t.visitors_qr_modal_title ?? "QR"}
-            </h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {lx.visitor_qr_title ?? t.visitors_qr_modal_title ?? "QR"}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {lx.visitor_qr_subtitle ?? ""}
+              </p>
+            </div>
             <div className="flex justify-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
               <QRCodeCanvas
                 ref={qrCanvasRef}
                 value={checkInUrl}
-                size={220}
+                size={260}
                 level="M"
                 marginSize={2}
                 className="max-w-full h-auto"
               />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 break-all text-center">{checkInUrl}</p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <button
-                type="button"
-                onClick={downloadQrPng}
-                className="flex-1 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-sm py-3"
-              >
-                {t.visitors_download_qr_png ?? "PNG"}
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={downloadQrPng}
+                  className="flex-1 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-sm py-3"
+                >
+                  {lx.visitor_qr_download ?? t.visitors_download_qr_png ?? "PNG"}
+                </button>
+                <button
+                  type="button"
+                  onClick={printQr}
+                  className="flex-1 min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 font-medium text-sm py-3 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  {lx.visitor_qr_print ?? "Print"}
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setQrOpen(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 font-medium text-sm py-3 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="w-full min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 font-medium text-sm py-3 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 {t.visitors_close ?? "Close"}
               </button>

@@ -10,9 +10,10 @@ import { useVisitorPublicT } from "@/lib/visitorPublicLocale";
 
 export default function VisitorCheckoutPage() {
   const params = useParams();
-  const companyId = typeof params.companyId === "string" ? params.companyId : "";
+  const routeId = typeof params.projectId === "string" ? params.projectId : "";
   const visitorId = typeof params.visitorId === "string" ? params.visitorId : "";
   const t = useVisitorPublicT();
+  const lx = t as Record<string, string>;
 
   const [dark, setDark] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,28 +38,36 @@ export default function VisitorCheckoutPage() {
   }, [dark]);
 
   useEffect(() => {
-    if (!companyId || !visitorId) return;
+    if (!routeId || !visitorId) return;
     let cancelled = false;
     void (async () => {
       try {
-        const [cRes, vRes] = await Promise.all([
-          fetch(`/api/visitors/company/${companyId}`),
-          fetch(`/api/visitors/log/${visitorId}`),
-        ]);
-        const cj = (await cRes.json()) as { name?: string };
+        const vRes = await fetch(`/api/visitors/log/${encodeURIComponent(visitorId)}`);
         const vj = (await vRes.json()) as {
           visitor_name?: string;
           check_in?: string;
           status?: string;
           company_id?: string;
+          project_id?: string | null;
           error?: string;
         };
-        if (!cancelled && cRes.ok) setCompanyName(cj.name ?? "");
         if (!vRes.ok) {
           if (!cancelled) setError(vj.error ?? t.visitors_error ?? "Error");
-        } else if (vj.company_id && vj.company_id !== companyId) {
+          return;
+        }
+        const belongs =
+          (vj.company_id && vj.company_id === routeId) ||
+          (vj.project_id && vj.project_id === routeId);
+        if (!belongs) {
           if (!cancelled) setError(t.visitors_error ?? "Error");
-        } else if (!cancelled) {
+          return;
+        }
+        if (vj.company_id) {
+          const cRes = await fetch(`/api/visitors/company/${vj.company_id}`);
+          const cj = (await cRes.json()) as { name?: string };
+          if (!cancelled && cRes.ok) setCompanyName(cj.name ?? "");
+        }
+        if (!cancelled) {
           setVisitorName(vj.visitor_name ?? "");
           setCheckIn(vj.check_in ?? "");
           setStatus(vj.status ?? "");
@@ -73,7 +82,7 @@ export default function VisitorCheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [companyId, visitorId, t.visitors_error]);
+  }, [routeId, visitorId, t.visitors_error]);
 
   const confirmCheckout = async () => {
     setCheckoutLoading(true);
@@ -97,7 +106,9 @@ export default function VisitorCheckoutPage() {
     setCheckoutLoading(false);
   };
 
-  if (!companyId || !visitorId) {
+  const backHref = `/visit/${encodeURIComponent(routeId)}`;
+
+  if (!routeId || !visitorId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
         <p className="text-zinc-600 dark:text-zinc-400">{t.visitors_error ?? "Error"}</p>
@@ -118,7 +129,7 @@ export default function VisitorCheckoutPage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-zinc-50 dark:bg-zinc-950 px-4">
         <p className="text-zinc-700 dark:text-zinc-300 text-center">{error}</p>
         <Link
-          href={`/visit/${companyId}`}
+          href={backHref}
           className="min-h-[44px] inline-flex items-center rounded-xl bg-amber-600 text-white px-6 py-3 text-sm font-semibold"
         >
           {t.visitors_checkin ?? "Check-in"}
@@ -132,13 +143,14 @@ export default function VisitorCheckoutPage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-zinc-50 dark:bg-zinc-950 px-4 py-12">
         <BrandLogoImage src="/logo.png" alt="" boxClassName="h-12 w-12" sizes="48px" />
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-white text-center">
-          {t.visitors_goodbye ?? "Goodbye"}, {visitorName}
+          {lx.visitor_checkout_success ?? t.visitors_goodbye ?? "Goodbye"}
         </h1>
+        <p className="text-lg font-medium text-zinc-800 dark:text-zinc-200">{visitorName}</p>
         <p className="text-zinc-600 dark:text-zinc-400 text-center text-sm">
           {t.visitors_checkout_done ?? "Thank you"}
         </p>
         <Link
-          href={`/visit/${companyId}`}
+          href={backHref}
           className="min-h-[44px] inline-flex items-center rounded-xl border border-zinc-300 dark:border-zinc-600 px-6 py-3 text-sm font-medium"
         >
           {t.visitors_checkin ?? "Check-in"}
@@ -154,7 +166,7 @@ export default function VisitorCheckoutPage() {
           <div className="flex items-center gap-3 min-w-0">
             <BrandLogoImage
               src="/logo.png"
-              alt="MachinPro"
+              alt=""
               boxClassName="h-10 w-10 shrink-0"
               sizes="40px"
             />
@@ -207,7 +219,7 @@ export default function VisitorCheckoutPage() {
           >
             {checkoutLoading
               ? (t.visitors_loading ?? "…")
-              : (t.visitors_confirm_checkout ?? "Confirm exit")}
+              : (lx.visitor_checkout_submit ?? t.visitors_confirm_checkout ?? "Confirm exit")}
           </button>
         )}
       </main>

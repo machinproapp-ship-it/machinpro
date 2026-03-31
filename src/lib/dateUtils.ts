@@ -227,3 +227,66 @@ export function formatCurrency(amount: number, currency: string, locale: string)
     maximumFractionDigits: 2,
   }).format(amount);
 }
+
+export type VisitorPeriodFilter = "today" | "week" | "month";
+
+function ymdPartsInTz(iso: Date, timeZone: string): { y: number; m: number; d: number } {
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(iso);
+  const y = +(p.find((x) => x.type === "year")?.value ?? "0");
+  const m = +(p.find((x) => x.type === "month")?.value ?? "0");
+  const d = +(p.find((x) => x.type === "day")?.value ?? "0");
+  return { y, m, d };
+}
+
+function weekdaySun0InTz(iso: Date, timeZone: string): number {
+  const s = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(iso);
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const key = s.slice(0, 3) as keyof typeof map;
+  return map[key] ?? 0;
+}
+
+function addCalendarDays(y: number, m: number, d: number, delta: number): { y: number; m: number; d: number } {
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+}
+
+function lastDayOfMonthUtc(y: number, m: number): number {
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+/** Límites check_in para filtros visitantes (hoy / semana lunes-domingo / mes natural en `timeZone`). */
+export function visitorPeriodToCheckInBounds(
+  period: VisitorPeriodFilter,
+  timeZone: string
+): { start: string; end: string } {
+  const now = new Date();
+  const { y, m, d } = ymdPartsInTz(now, timeZone);
+  const anchor = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+
+  if (period === "today") {
+    const ymd = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return { start: `${ymd}T00:00:00.000`, end: `${ymd}T23:59:59.999` };
+  }
+
+  if (period === "month") {
+    const startD = `${y}-${String(m).padStart(2, "0")}-01T00:00:00.000`;
+    const ld = lastDayOfMonthUtc(y, m);
+    const endD = `${y}-${String(m).padStart(2, "0")}-${String(ld).padStart(2, "0")}T23:59:59.999`;
+    return { start: startD, end: endD };
+  }
+
+  const wd = weekdaySun0InTz(anchor, timeZone);
+  const daysFromMonday = wd === 0 ? 6 : wd - 1;
+  const monday = addCalendarDays(y, m, d, -daysFromMonday);
+  const sunday = addCalendarDays(monday.y, monday.m, monday.d, 6);
+  return {
+    start: `${monday.y}-${String(monday.m).padStart(2, "0")}-${String(monday.d).padStart(2, "0")}T00:00:00.000`,
+    end: `${sunday.y}-${String(sunday.m).padStart(2, "0")}-${String(sunday.d).padStart(2, "0")}T23:59:59.999`,
+  };
+}

@@ -44,6 +44,7 @@ import {
   formatDateLong,
   formatTime,
   formatRelative,
+  formatDateTime,
   getClockHourInTimeZone,
 } from "@/lib/dateUtils";
 
@@ -77,6 +78,14 @@ type AuditProfileSnippet = {
   full_name?: string | null;
   display_name?: string | null;
   email?: string | null;
+};
+
+type VisitorWidgetRow = {
+  id: string;
+  visitor_name: string;
+  check_in: string;
+  project_name: string | null;
+  status: string;
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -379,6 +388,8 @@ function CentralDashboardBody(
   const [auditProfileByUserId, setAuditProfileByUserId] = useState<Record<string, AuditProfileSnippet>>({});
   const [hazardRows, setHazardRows] = useState<Hazard[]>([]);
   const [visitorsTodayCount, setVisitorsTodayCount] = useState(0);
+  const [visitorsActiveNow, setVisitorsActiveNow] = useState(0);
+  const [visitorsRecent, setVisitorsRecent] = useState<VisitorWidgetRow[]>([]);
 
   const showZone1 =
     canViewEmployees ||
@@ -692,18 +703,41 @@ function CentralDashboardBody(
 
       const fetchVisitors = async () => {
         if (!canAccessVisitors) {
-          if (!cancelled) setVisitorsTodayCount(0);
+          if (!cancelled) {
+            setVisitorsTodayCount(0);
+            setVisitorsActiveNow(0);
+            setVisitorsRecent([]);
+          }
           return;
         }
         try {
-          const { count, error } = await supabase
-            .from("visitor_logs")
-            .select("id", { count: "exact", head: true })
-            .eq("company_id", companyId)
-            .gte("check_in", tStart)
-            .lte("check_in", tEnd);
-          if (error) throw error;
-          if (!cancelled) setVisitorsTodayCount(count ?? 0);
+          const [todayRes, activeRes, recentRes] = await Promise.all([
+            supabase
+              .from("visitor_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .gte("check_in", tStart)
+              .lte("check_in", tEnd),
+            supabase
+              .from("visitor_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .eq("status", "checked_in"),
+            supabase
+              .from("visitor_logs")
+              .select("id, visitor_name, check_in, project_name, status")
+              .eq("company_id", companyId)
+              .order("check_in", { ascending: false })
+              .limit(3),
+          ]);
+          if (todayRes.error) throw todayRes.error;
+          if (activeRes.error) throw activeRes.error;
+          if (recentRes.error) throw recentRes.error;
+          if (!cancelled) {
+            setVisitorsTodayCount(todayRes.count ?? 0);
+            setVisitorsActiveNow(activeRes.count ?? 0);
+            setVisitorsRecent((recentRes.data ?? []) as VisitorWidgetRow[]);
+          }
         } catch (e) {
           pushErr(e, L("dashboard_widget_visitors"));
         }
@@ -1105,11 +1139,30 @@ function CentralDashboardBody(
               <UserCheck className="h-4 w-4 text-cyan-500" aria-hidden />
               {title}
             </h3>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{visitorsTodayCount}</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{L("visitor_active_now")}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{visitorsActiveNow}</p>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {L("dashboard_visitors_today")}: {visitorsTodayCount}
+            </p>
+            <ul className="mt-3 text-sm space-y-2 max-h-36 overflow-y-auto">
+              {visitorsRecent.length === 0 ? (
+                <li className="text-gray-500 dark:text-gray-400">{L("dashboard_trend_neutral")}</li>
+              ) : (
+                visitorsRecent.map((v) => (
+                  <li key={v.id} className="text-gray-800 dark:text-gray-200 leading-snug">
+                    <span className="font-medium">{v.visitor_name}</span>
+                    {v.project_name ? <span className="text-gray-500 dark:text-gray-400"> · {v.project_name}</span> : null}
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                      {formatDateTime(v.check_in, dateLoc, timeZone)}
+                    </span>
+                  </li>
+                ))
+              )}
+            </ul>
             <button
               type="button"
               onClick={() => (onNavigateToOperationsVisitors ? onNavigateToOperationsVisitors() : onNavigateAppSection("visitors"))}
-              className="mt-2 min-h-[44px] text-sm text-amber-600 dark:text-amber-400 font-medium"
+              className="mt-3 min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 py-2"
             >
               {L("viewAll") ?? L("dashboard_register_visitor")}
             </button>

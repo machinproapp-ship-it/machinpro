@@ -19,7 +19,7 @@ export async function GET(
 
   const { data, error } = await admin
     .from("visitor_logs")
-    .select("id, visitor_name, check_in, check_out, status, company_id")
+    .select("id, visitor_name, check_in, check_out, status, company_id, project_id")
     .eq("id", visitorId)
     .maybeSingle();
 
