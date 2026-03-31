@@ -215,7 +215,15 @@ export async function POST(req: NextRequest) {
           .maybeSingle();
         const comp = compRow as { name?: string | null; language?: string | null } | null;
         const companyDisplayName = (comp?.name ?? "").trim() || "MachinPro";
-        const emailLang = transactionalEmailLangFromCode(comp?.language ?? undefined);
+        const { data: inviteeLocaleRow } = await admin
+          .from("user_profiles")
+          .select("locale")
+          .eq("id", userId!)
+          .maybeSingle();
+        const inviteeLocale = (inviteeLocaleRow as { locale?: string | null } | null)?.locale;
+        const emailLang = transactionalEmailLangFromCode(
+          inviteeLocale ?? comp?.language ?? undefined
+        );
 
         const { data: inviterRow } = await admin
           .from("user_profiles")
@@ -240,12 +248,10 @@ export async function POST(req: NextRequest) {
         if (linkErr || !actionLink) {
           console.error("[api/employees/create] generateLink:", linkErr);
         } else {
-          const logoUrl = `${baseTrim}/logo-source.png`;
           const html = buildEmployeeInviteEmailHtml({
             adminName,
             companyName: companyDisplayName,
             lang: emailLang,
-            logoUrl,
             ctaUrl: actionLink,
           });
           const resendCli = new Resend(resendKey);
@@ -253,7 +259,7 @@ export async function POST(req: NextRequest) {
           const { error: mailErr } = await resendCli.emails.send({
             from,
             to: email,
-            replyTo: "info@machin.pro",
+            replyTo: "support@machin.pro",
             subject: employeeInviteSubject(companyDisplayName, emailLang),
             html,
           });

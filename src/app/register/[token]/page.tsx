@@ -186,6 +186,10 @@ export default function RegisterInvitationPage() {
           phone,
           taxId: taxId.trim() || null,
           termsAccepted: terms,
+          locale:
+            typeof navigator !== "undefined"
+              ? navigator.language || (navigator as unknown as { userLanguage?: string }).userLanguage
+              : undefined,
         }),
       });
       const j = (await res.json()) as { error?: string };

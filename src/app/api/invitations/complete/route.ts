@@ -5,9 +5,8 @@ import { getCountryConfig } from "@/lib/countryConfig";
 import { getLimitsForPlan, type PlanKey, type PaidPlanKey } from "@/lib/stripe";
 import type { InvitationPlan } from "@/types/invitation";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
-import { getAppBaseUrl } from "@/lib/app-url";
-import { transactionalEmailLangFromCode, getTransactionalCopy } from "@/lib/emailTransactionalI18n";
-import { buildWelcomeEmailHtml } from "@/lib/transactionalEmailHtml";
+import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
+import { buildWelcomeEmailHtml, buildWelcomeEmailSubject } from "@/lib/transactionalEmailHtml";
 
 export const runtime = "nodejs";
 
@@ -101,6 +100,7 @@ export async function POST(req: NextRequest) {
     phone?: string;
     termsAccepted?: boolean;
     taxId?: string | null;
+    locale?: string;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -160,6 +160,10 @@ export async function POST(req: NextRequest) {
 
   const countryCfg = getCountryConfig(country);
   const lang = languageForCountry(countryCfg.code);
+  const localeFromBody = typeof body.locale === "string" ? body.locale.trim() : "";
+  const acceptFirst =
+    req.headers.get("accept-language")?.split(",")[0]?.split(";")[0]?.trim() ?? "";
+  const emailLang = transactionalEmailLangFromCode(localeFromBody || acceptFirst || lang);
 
   const limits = getLimitsForPlan(planKeyForLimits(inv.plan));
   const nowIso = new Date().toISOString();
@@ -274,26 +278,18 @@ export async function POST(req: NextRequest) {
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       try {
-        const emailLang = transactionalEmailLangFromCode(lang);
-        const copy = getTransactionalCopy(emailLang);
-        const base = getAppBaseUrl();
-        const baseTrim = base.replace(/\/$/, "");
-        const logoUrl = `${baseTrim}/logo-source.png`;
-        const ctaUrl = "https://machin.pro";
         const html = buildWelcomeEmailHtml({
           userName: fullName,
           companyName,
           lang: emailLang,
-          logoUrl,
-          ctaUrl,
         });
-        const subject = `${copy.welcomeBrand} — ${copy.welcomeTagline}`;
+        const subject = buildWelcomeEmailSubject(fullName, emailLang);
         const resend = new Resend(resendKey);
         const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
         const { error: mailErr } = await resend.emails.send({
           from,
           to: email,
-          replyTo: "info@machin.pro",
+          replyTo: "support@machin.pro",
           subject,
           html,
         });
