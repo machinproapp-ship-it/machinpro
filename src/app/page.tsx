@@ -4514,6 +4514,8 @@ export default function Home() {
                   export_csv: (t as Record<string, string>).export_csv ?? "Export CSV",
                   export_pdf: (t as Record<string, string>).export_pdf ?? "Export PDF",
                   export_timesheets: (t as Record<string, string>).export_timesheets ?? "Export timesheets",
+                  export_success: (t as Record<string, string>).export_success ?? "Export completed",
+                  export_error: (t as Record<string, string>).export_error ?? "Export error",
                   admin: (t as Record<string, string>).admin,
                   supervisor: (t as Record<string, string>).supervisor,
                   worker: (t as Record<string, string>).worker,

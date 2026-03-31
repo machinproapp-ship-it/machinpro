@@ -6,6 +6,7 @@ import { Download, QrCode, Search, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { buildVisitorCheckInUrl, buildVisitorProjectCheckInUrl } from "@/lib/visitorQrUrl";
 import { FilterGrid } from "@/components/FilterGrid";
+import { useToast } from "@/components/Toast";
 import type { Visitor, VisitorStatus } from "@/types/visitor";
 import { formatDateTime, visitorPeriodToCheckInBounds, type VisitorPeriodFilter } from "@/lib/dateUtils";
 
@@ -47,6 +48,7 @@ export function VisitorModule({
   dateLocale,
   timeZone,
 }: VisitorModuleProps) {
+  const { showToast } = useToast();
   const lx = t as Record<string, string>;
   const lastQrSig = useRef(0);
   const [periodFilter, setPeriodFilter] = useState<VisitorPeriodFilter>("today");
@@ -195,41 +197,46 @@ export function VisitorModule({
   };
 
   const exportCsv = () => {
-    const headers = [
-      t.visitors_name ?? "name",
-      t.visitors_company ?? "company",
-      t.visitors_purpose ?? "purpose",
-      t.visitors_host ?? "host",
-      t.visitors_checkin ?? "check_in",
-      t.visitors_checkout ?? "check_out",
-      t.visitors_table_status ?? "status",
-    ];
-    const lines = [headers.join(",")];
-    for (const r of filtered) {
-      const esc = (s: string | null | undefined) =>
-        `"${(s ?? "").replace(/"/g, '""')}"`;
-      lines.push(
-        [
-          esc(r.visitor_name),
-          esc(r.visitor_company),
-          esc(r.purpose),
-          esc(r.host_name),
-          esc(r.check_in),
-          esc(r.check_out),
-          esc(r.status),
-        ].join(",")
-      );
+    try {
+      const headers = [
+        t.visitors_name ?? "name",
+        t.visitors_company ?? "company",
+        t.visitors_purpose ?? "purpose",
+        t.visitors_host ?? "host",
+        t.visitors_checkin ?? "check_in",
+        t.visitors_checkout ?? "check_out",
+        t.visitors_table_status ?? "status",
+      ];
+      const lines = [headers.join(",")];
+      for (const r of filtered) {
+        const esc = (s: string | null | undefined) =>
+          `"${(s ?? "").replace(/"/g, '""')}"`;
+        lines.push(
+          [
+            esc(r.visitor_name),
+            esc(r.visitor_company),
+            esc(r.purpose),
+            esc(r.host_name),
+            esc(r.check_in),
+            esc(r.check_out),
+            esc(r.status),
+          ].join(",")
+        );
+      }
+      const blob = new Blob(["\ufeff", lines.join("\n")], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const slug =
+        lockedProjectId && lockedProjectId.trim() ? `project-${lockedProjectId.slice(0, 8)}` : "all";
+      a.download = `visitors-${slug}-${periodFilter}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast("success", lx.export_success ?? "Export completed");
+    } catch {
+      showToast("error", lx.export_error ?? "Export error");
     }
-    const blob = new Blob(["\ufeff", lines.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    const slug =
-      lockedProjectId && lockedProjectId.trim() ? `project-${lockedProjectId.slice(0, 8)}` : "all";
-    a.download = `visitors-${slug}-${periodFilter}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
   };
 
   const downloadQrPng = () => {

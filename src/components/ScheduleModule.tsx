@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { resolveUserTimezone } from "@/lib/dateUtils";
+import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
 export interface SchedEmployee {
@@ -188,6 +189,8 @@ export interface ScheduleModuleProps {
     export_csv?: string;
     export_pdf?: string;
     export_timesheets?: string;
+    export_success?: string;
+    export_error?: string;
     schedule_no_sheets?: string;
     schedule_no_shifts_day?: string;
     /** Pestaña Vacaciones (móvil) */
@@ -437,6 +440,7 @@ function TimesheetsView({
   companyName?: string;
   companyIdFallback?: string;
 }) {
+  const { showToast } = useToast();
   const [periodType, setPeriodType] = useState<"weekly" | "biweekly" | "monthly">("weekly");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
@@ -465,38 +469,43 @@ function TimesheetsView({
 
   const exportTimesheetsCsv = () => {
     const lx = labels as Record<string, string>;
-    const minD = minYmdForTimesheetPeriod(periodType);
-    const headers = [
-      lx.personnel ?? "Employee",
-      lx.date ?? "Date",
-      lx.hours ?? "Hours",
-      lx.project ?? "Project",
-      labels.pending ?? "Status",
-    ];
-    const lines = [headers.map((h) => csvCell(h)).join(",")];
-    for (const sheet of sheets) {
-      const status = effectiveStatus(sheet);
-      const statusLabel =
-        status === "approved"
-          ? (labels.approved ?? status)
-          : status === "rejected"
-            ? (labels.rejected ?? status)
-            : (labels.pending ?? status);
-      for (const ent of sheet.entries) {
-        if (ent.date < minD) continue;
-        lines.push(
-          [
-            csvCell(getEmployeeName(sheet.employeeId)),
-            csvCell(ent.date),
-            csvCell(String(ent.hoursWorked)),
-            csvCell(ent.projectName ?? "—"),
-            csvCell(statusLabel),
-          ].join(",")
-        );
+    try {
+      const minD = minYmdForTimesheetPeriod(periodType);
+      const headers = [
+        lx.personnel ?? "Employee",
+        lx.date ?? "Date",
+        lx.hours ?? "Hours",
+        lx.project ?? "Project",
+        labels.pending ?? "Status",
+      ];
+      const lines = [headers.map((h) => csvCell(h)).join(",")];
+      for (const sheet of sheets) {
+        const status = effectiveStatus(sheet);
+        const statusLabel =
+          status === "approved"
+            ? (labels.approved ?? status)
+            : status === "rejected"
+              ? (labels.rejected ?? status)
+              : (labels.pending ?? status);
+        for (const ent of sheet.entries) {
+          if (ent.date < minD) continue;
+          lines.push(
+            [
+              csvCell(getEmployeeName(sheet.employeeId)),
+              csvCell(ent.date),
+              csvCell(String(ent.hoursWorked)),
+              csvCell(ent.projectName ?? "—"),
+              csvCell(statusLabel),
+            ].join(",")
+          );
+        }
       }
+      const slug = fileSlugCompany(companyName, companyIdFallback || "co");
+      downloadCsvUtf8(`hojas_horas_${slug}_${filenameDateYmd()}.csv`, lines);
+      showToast("success", lx.export_success ?? "Export completed");
+    } catch {
+      showToast("error", lx.export_error ?? "Export error");
     }
-    const slug = fileSlugCompany(companyName, companyIdFallback || "co");
-    downloadCsvUtf8(`hojas_horas_${slug}_${filenameDateYmd()}.csv`, lines);
   };
 
   return (

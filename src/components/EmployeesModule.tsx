@@ -19,6 +19,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
@@ -255,6 +256,7 @@ export function EmployeesModule({
   vacationRequests = [],
   onBackToOffice,
 }: EmployeesModuleProps) {
+  const { showToast } = useToast();
   const canDelete = canDeleteEmployeeProp !== undefined ? canDeleteEmployeeProp : canManageEmployees;
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -463,39 +465,44 @@ export function EmployeesModule({
 
   const exportEmployeesCsv = useCallback(() => {
     const lx = t as Record<string, string>;
-    const headers = [
-      lx.employees_full_name ?? lx.employees_title ?? "Name",
-      lx.email ?? "Email",
-      lx.phone ?? "Phone",
-      lx.employees_role ?? lx.employees_assigned_role ?? "Role",
-      lx.employees_status ?? lx.common_status ?? "Status",
-      lx.employees_joined ?? lx.employees_start_date ?? "Created",
-    ];
-    const lines = [headers.map((h) => csvCell(h)).join(",")];
-    for (const r of filtered) {
-      const st =
-        r.profile_status === "inactive"
-          ? (lx.common_inactive ?? r.profile_status ?? "")
-          : r.profile_status === "invited"
-            ? (lx.employees_status_invited ?? r.profile_status ?? "")
-            : r.profile_status === "deleted"
-              ? (lx.employees_status_deleted ?? r.profile_status ?? "")
-              : (lx.common_active ?? r.profile_status ?? "active");
-      const created = r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : "";
-      lines.push(
-        [
-          csvCell(employeeDisplayLabel(r, lx, currentUserProfileId ?? null)),
-          csvCell(r.email),
-          csvCell(r.phone),
-          csvCell(roleLabel(r)),
-          csvCell(st),
-          csvCell(created),
-        ].join(",")
-      );
+    try {
+      const headers = [
+        lx.employees_full_name ?? lx.employees_title ?? "Name",
+        lx.email ?? "Email",
+        lx.phone ?? "Phone",
+        lx.employees_role ?? lx.employees_assigned_role ?? "Role",
+        lx.employees_status ?? lx.common_status ?? "Status",
+        lx.employees_joined ?? lx.employees_start_date ?? "Created",
+      ];
+      const lines = [headers.map((h) => csvCell(h)).join(",")];
+      for (const r of filtered) {
+        const st =
+          r.profile_status === "inactive"
+            ? (lx.common_inactive ?? r.profile_status ?? "")
+            : r.profile_status === "invited"
+              ? (lx.employees_status_invited ?? r.profile_status ?? "")
+              : r.profile_status === "deleted"
+                ? (lx.employees_status_deleted ?? r.profile_status ?? "")
+                : (lx.common_active ?? r.profile_status ?? "active");
+        const created = r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : "";
+        lines.push(
+          [
+            csvCell(employeeDisplayLabel(r, lx, currentUserProfileId ?? null)),
+            csvCell(r.email),
+            csvCell(r.phone),
+            csvCell(roleLabel(r)),
+            csvCell(st),
+            csvCell(created),
+          ].join(",")
+        );
+      }
+      const slug = fileSlugCompany(companyName ?? "", companyId ?? "co");
+      downloadCsvUtf8(`empleados_${slug}_${filenameDateYmd()}.csv`, lines);
+      showToast("success", lx.export_success ?? "Export completed");
+    } catch {
+      showToast("error", lx.export_error ?? "Export error");
     }
-    const slug = fileSlugCompany(companyName ?? "", companyId ?? "co");
-    downloadCsvUtf8(`empleados_${slug}_${filenameDateYmd()}.csv`, lines);
-  }, [t, filtered, currentUserProfileId, companyName, companyId, roleLabel]);
+  }, [t, filtered, currentUserProfileId, companyName, companyId, roleLabel, showToast]);
 
   const vacationsForSelected = useMemo(() => {
     if (!selectedId) return [];

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/app/page";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
@@ -401,6 +402,7 @@ export function LogisticsModule({
   companyName = "",
   companyId = "",
 }: LogisticsModuleProps) {
+  const { showToast } = useToast();
   const tlLabels = t as Record<string, string>;
   const vehicleInspectionLabel =
     vehicleInspectionLabelProp ??
@@ -543,51 +545,56 @@ export function LogisticsModule({
   const getStatusLabel = (key: string) => (t as Record<string, string>)[key] ?? key;
 
   const exportInventoryCsv = () => {
-    const headers = [
-      tlLabels.itemName ?? t.itemName ?? "Name",
-      tlLabels.type ?? "Category",
-      tlLabels.quantity ?? "Quantity",
-      tlLabels.status ?? "Status",
-      t.filterByProject ?? "Project",
-    ];
-    const lines = [headers.map((h) => csvCell(h)).join(",")];
-    const categoryLabel = (i: InventoryItem) =>
-      i.type === "consumable"
-        ? (tlLabels.consumable ?? i.type)
-        : i.type === "material"
-          ? (t.whTabMaterial ?? i.type)
-          : i.type === "tool"
-            ? (t.whTabTools ?? i.type)
-            : (tlLabels.equipment ?? i.type);
-    const statusLabel = (i: InventoryItem) => {
-      if (!isTrackedAsset(i)) return "—";
-      const ts = i.toolStatus ?? "available";
-      const key =
-        ts === "available"
-          ? "available"
-          : ts === "in_use"
-            ? "inUse"
-            : ts === "maintenance"
-              ? "maintenance"
-              : ts === "out_of_service"
-                ? "outOfService"
-                : "lost";
-      return getStatusLabel(key);
-    };
-    for (const i of flatOrderedInventory) {
-      const qty = `${i.quantity} ${i.unit}`;
-      lines.push(
-        [
-          csvCell(i.name),
-          csvCell(categoryLabel(i)),
-          csvCell(qty),
-          csvCell(statusLabel(i)),
-          csvCell(getProjectName(i.assignedToProjectId)),
-        ].join(",")
-      );
+    try {
+      const headers = [
+        tlLabels.itemName ?? t.itemName ?? "Name",
+        tlLabels.type ?? "Category",
+        tlLabels.quantity ?? "Quantity",
+        tlLabels.status ?? "Status",
+        t.filterByProject ?? "Project",
+      ];
+      const lines = [headers.map((h) => csvCell(h)).join(",")];
+      const categoryLabel = (i: InventoryItem) =>
+        i.type === "consumable"
+          ? (tlLabels.consumable ?? i.type)
+          : i.type === "material"
+            ? (t.whTabMaterial ?? i.type)
+            : i.type === "tool"
+              ? (t.whTabTools ?? i.type)
+              : (tlLabels.equipment ?? i.type);
+      const statusLabel = (i: InventoryItem) => {
+        if (!isTrackedAsset(i)) return "—";
+        const ts = i.toolStatus ?? "available";
+        const key =
+          ts === "available"
+            ? "available"
+            : ts === "in_use"
+              ? "inUse"
+              : ts === "maintenance"
+                ? "maintenance"
+                : ts === "out_of_service"
+                  ? "outOfService"
+                  : "lost";
+        return getStatusLabel(key);
+      };
+      for (const i of flatOrderedInventory) {
+        const qty = `${i.quantity} ${i.unit}`;
+        lines.push(
+          [
+            csvCell(i.name),
+            csvCell(categoryLabel(i)),
+            csvCell(qty),
+            csvCell(statusLabel(i)),
+            csvCell(getProjectName(i.assignedToProjectId)),
+          ].join(",")
+        );
+      }
+      const slug = fileSlugCompany(companyName, companyId || "co");
+      downloadCsvUtf8(`inventario_${slug}_${filenameDateYmd()}.csv`, lines);
+      showToast("success", tlLabels.export_success ?? "Export completed");
+    } catch {
+      showToast("error", tlLabels.export_error ?? "Export error");
     }
-    const slug = fileSlugCompany(companyName, companyId || "co");
-    downloadCsvUtf8(`inventario_${slug}_${filenameDateYmd()}.csv`, lines);
   };
 
   const invSections: {

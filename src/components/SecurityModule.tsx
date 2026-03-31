@@ -14,6 +14,7 @@ import {
 } from "@/components/CorrectiveActionsModule";
 import { BindersModule } from "@/components/BindersModule";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
 export type SecurityTabId = "hazards" | "actions" | "documents" | "audit";
@@ -108,6 +109,7 @@ export function SecurityModule({
   dateLocale,
   timeZone,
 }: SecurityModuleProps) {
+  const { showToast } = useToast();
   const firstAllowed =
     (canShowHazards ? "hazards" : null) ||
     (canShowActions ? "actions" : null) ||
@@ -155,33 +157,38 @@ export function SecurityModule({
     const actionH = L("auditActionColumn", L("actions", "Action"));
     const entityH = L("auditEntityColumn", L("entity", "Entity"));
     const detailsH = L("auditDetailsColumn", "Details");
-    const lines = [
-      [whenH, userH, actionH, entityH, detailsH].map((h) => csvCell(h)).join(","),
-    ];
-    for (const row of auditLogs) {
-      const when = new Date(row.created_at).toLocaleString(auditLocale, {
-        dateStyle: "short",
-        timeStyle: "short",
-      });
-      const user = row.user_name ?? row.user_id ?? "—";
-      const action = auditActionDescription(row.action, t);
-      const entity = [row.entity_name ?? row.entity_id, row.entity_type].filter(Boolean).join(" · ");
-      let details = "";
-      try {
-        const payload: Record<string, unknown> = {};
-        if (row.old_value != null) payload.old = row.old_value;
-        if (row.new_value != null) payload.new = row.new_value;
-        if (Object.keys(payload).length) details = JSON.stringify(payload);
-      } catch {
-        details = "";
+    try {
+      const lines = [
+        [whenH, userH, actionH, entityH, detailsH].map((h) => csvCell(h)).join(","),
+      ];
+      for (const row of auditLogs) {
+        const when = new Date(row.created_at).toLocaleString(auditLocale, {
+          dateStyle: "short",
+          timeStyle: "short",
+        });
+        const user = row.user_name ?? row.user_id ?? "—";
+        const action = auditActionDescription(row.action, t);
+        const entity = [row.entity_name ?? row.entity_id, row.entity_type].filter(Boolean).join(" · ");
+        let details = "";
+        try {
+          const payload: Record<string, unknown> = {};
+          if (row.old_value != null) payload.old = row.old_value;
+          if (row.new_value != null) payload.new = row.new_value;
+          if (Object.keys(payload).length) details = JSON.stringify(payload);
+        } catch {
+          details = "";
+        }
+        lines.push(
+          [csvCell(when), csvCell(user), csvCell(action), csvCell(entity), csvCell(details)].join(",")
+        );
       }
-      lines.push(
-        [csvCell(when), csvCell(user), csvCell(action), csvCell(entity), csvCell(details)].join(",")
-      );
+      const slug = fileSlugCompany(companyName, companyId ?? "co");
+      downloadCsvUtf8(`audit_log_${slug}_${filenameDateYmd()}.csv`, lines);
+      showToast("success", L("export_success", "Export completed"));
+    } catch {
+      showToast("error", L("export_error", "Export error"));
     }
-    const slug = fileSlugCompany(companyName, companyId ?? "co");
-    downloadCsvUtf8(`audit_log_${slug}_${filenameDateYmd()}.csv`, lines);
-  }, [auditLogs, auditLocale, companyId, companyName, t]);
+  }, [auditLogs, auditLocale, companyId, companyName, t, showToast]);
 
   const visibleTabs = TAB_CONFIG.filter((x) => allowed(x.id));
 
