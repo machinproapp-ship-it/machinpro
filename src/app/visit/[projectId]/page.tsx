@@ -243,7 +243,7 @@ export default function VisitorCheckInPage() {
   };
 
   const handleSubmitProject = async () => {
-    if (!supabase || !projectCtx) return;
+    if (!projectCtx) return;
     setSubmitError(null);
     const c = canvasRef.current;
     if (!c || !hasSignature) {
@@ -264,47 +264,41 @@ export default function VisitorCheckInPage() {
     const purpose = purposeMap[reasonKey];
 
     setLoading(true);
-    const ip_address = await fetchClientIp();
-    const user_agent = typeof navigator !== "undefined" ? navigator.userAgent : null;
-    const consent_timestamp = new Date().toISOString();
-
-    const { data, error } = await supabase
-      .from("visitor_logs")
-      .insert({
-        company_id: projectCtx.companyId,
-        project_id: projectCtx.projectId,
-        project_name: projectCtx.projectName,
-        visitor_name: form.visitor_name.trim(),
-        visitor_company: form.visitor_company.trim() || null,
-        visitor_email: null,
-        visitor_phone: form.visitor_phone.trim() || null,
-        visitor_id_number: null,
-        purpose,
-        host_name: null,
-        vehicle_plate: null,
-        safety_briefing_accepted: true,
-        signature_data,
-        photo_url: null,
-        status: "checked_in",
-        ip_address,
-        user_agent,
-        terms_version: "v1.0",
-        consent_timestamp,
-      })
-      .select("id, visitor_name, check_in")
-      .single();
-
-    setLoading(false);
-    if (error) {
-      setSubmitError(error.message);
-      return;
-    }
-    if (data) {
-      setDone({
-        id: data.id as string,
-        visitor_name: data.visitor_name as string,
-        check_in: data.check_in as string,
+    try {
+      const res = await fetch("/api/visitors/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: projectCtx.projectId,
+          name: form.visitor_name.trim(),
+          company: form.visitor_company.trim() || undefined,
+          reason: purpose,
+          phone: form.visitor_phone.trim() || undefined,
+          signature: signature_data,
+        }),
       });
+      const j = (await res.json()) as {
+        error?: string;
+        visitor?: { id?: string; visitor_name?: string; check_in?: string };
+      };
+      setLoading(false);
+      if (!res.ok) {
+        setSubmitError(j.error ?? t.visitors_error ?? "Error");
+        return;
+      }
+      const v = j.visitor;
+      if (v?.id && v.visitor_name && v.check_in) {
+        setDone({
+          id: v.id,
+          visitor_name: v.visitor_name,
+          check_in: v.check_in,
+        });
+      } else {
+        setSubmitError(t.visitors_error ?? "Error");
+      }
+    } catch {
+      setLoading(false);
+      setSubmitError(t.visitors_error ?? "Error");
     }
   };
 
