@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { AlertTriangle, ClipboardCheck, FolderOpen, ScrollText } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, FolderOpen, ScrollText, Download } from "lucide-react";
 import type { UserRole } from "@/types/shared";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
 import { auditActionDescription } from "@/lib/auditActionLabel";
@@ -14,6 +14,7 @@ import {
 } from "@/components/CorrectiveActionsModule";
 import { BindersModule } from "@/components/BindersModule";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
 export type SecurityTabId = "hazards" | "actions" | "documents" | "audit";
 
@@ -148,6 +149,40 @@ export function SecurityModule({
   const auditLocale =
     typeof navigator !== "undefined" && navigator.language ? navigator.language : "es";
 
+  const exportAuditCsv = useCallback(() => {
+    const whenH = L("auditWhen", L("date", "Date"));
+    const userH = L("auditUserColumn", L("sessionRole", "User"));
+    const actionH = L("auditActionColumn", L("actions", "Action"));
+    const entityH = L("auditEntityColumn", L("entity", "Entity"));
+    const detailsH = L("auditDetailsColumn", "Details");
+    const lines = [
+      [whenH, userH, actionH, entityH, detailsH].map((h) => csvCell(h)).join(","),
+    ];
+    for (const row of auditLogs) {
+      const when = new Date(row.created_at).toLocaleString(auditLocale, {
+        dateStyle: "short",
+        timeStyle: "short",
+      });
+      const user = row.user_name ?? row.user_id ?? "—";
+      const action = auditActionDescription(row.action, t);
+      const entity = [row.entity_name ?? row.entity_id, row.entity_type].filter(Boolean).join(" · ");
+      let details = "";
+      try {
+        const payload: Record<string, unknown> = {};
+        if (row.old_value != null) payload.old = row.old_value;
+        if (row.new_value != null) payload.new = row.new_value;
+        if (Object.keys(payload).length) details = JSON.stringify(payload);
+      } catch {
+        details = "";
+      }
+      lines.push(
+        [csvCell(when), csvCell(user), csvCell(action), csvCell(entity), csvCell(details)].join(",")
+      );
+    }
+    const slug = fileSlugCompany(companyName, companyId ?? "co");
+    downloadCsvUtf8(`audit_log_${slug}_${filenameDateYmd()}.csv`, lines);
+  }, [auditLogs, auditLocale, companyId, companyName, t]);
+
   const visibleTabs = TAB_CONFIG.filter((x) => allowed(x.id));
 
   return (
@@ -246,9 +281,21 @@ export function SecurityModule({
 
         {tab === "audit" && canShowAudit && (
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
-            <div className="p-4 border-b border-zinc-200 dark:border-white/10">
-              <h3 className="font-semibold text-zinc-900 dark:text-white">{t.auditLog ?? ""}</h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t.auditLogDesc ?? ""}</p>
+            <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-zinc-900 dark:text-white">{t.auditLog ?? ""}</h3>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t.auditLogDesc ?? ""}</p>
+              </div>
+              {auditLogs.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => exportAuditCsv()}
+                  className="inline-flex shrink-0 items-center gap-2 min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                  {L("export_audit", L("export_csv", "CSV"))}
+                </button>
+              ) : null}
             </div>
             <div className="overflow-x-auto">
               {auditLogs.length === 0 ? (

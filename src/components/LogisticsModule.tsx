@@ -23,9 +23,11 @@ import {
   Shield,
   ChevronDown,
   Search,
+  Download,
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/app/page";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
@@ -226,6 +228,8 @@ export interface LogisticsModuleProps {
   resourceRequests?: ResourceRequest[];
   onUpdateResourceRequestStatus?: (id: string, status: ResourceRequestStatus) => void;
   onMarkResourceItemReady?: (requestId: string, itemId: string) => void;
+  companyName?: string;
+  companyId?: string;
 }
 
 function daysUntilExpiry(expiryDate: string): number {
@@ -394,6 +398,8 @@ export function LogisticsModule({
   resourceRequests = [],
   onUpdateResourceRequestStatus,
   onMarkResourceItemReady,
+  companyName = "",
+  companyId = "",
 }: LogisticsModuleProps) {
   const tlLabels = t as Record<string, string>;
   const vehicleInspectionLabel =
@@ -536,6 +542,54 @@ export function LogisticsModule({
 
   const getStatusLabel = (key: string) => (t as Record<string, string>)[key] ?? key;
 
+  const exportInventoryCsv = () => {
+    const headers = [
+      tlLabels.itemName ?? t.itemName ?? "Name",
+      tlLabels.type ?? "Category",
+      tlLabels.quantity ?? "Quantity",
+      tlLabels.status ?? "Status",
+      t.filterByProject ?? "Project",
+    ];
+    const lines = [headers.map((h) => csvCell(h)).join(",")];
+    const categoryLabel = (i: InventoryItem) =>
+      i.type === "consumable"
+        ? (tlLabels.consumable ?? i.type)
+        : i.type === "material"
+          ? (t.whTabMaterial ?? i.type)
+          : i.type === "tool"
+            ? (t.whTabTools ?? i.type)
+            : (tlLabels.equipment ?? i.type);
+    const statusLabel = (i: InventoryItem) => {
+      if (!isTrackedAsset(i)) return "—";
+      const ts = i.toolStatus ?? "available";
+      const key =
+        ts === "available"
+          ? "available"
+          : ts === "in_use"
+            ? "inUse"
+            : ts === "maintenance"
+              ? "maintenance"
+              : ts === "out_of_service"
+                ? "outOfService"
+                : "lost";
+      return getStatusLabel(key);
+    };
+    for (const i of flatOrderedInventory) {
+      const qty = `${i.quantity} ${i.unit}`;
+      lines.push(
+        [
+          csvCell(i.name),
+          csvCell(categoryLabel(i)),
+          csvCell(qty),
+          csvCell(statusLabel(i)),
+          csvCell(getProjectName(i.assignedToProjectId)),
+        ].join(",")
+      );
+    }
+    const slug = fileSlugCompany(companyName, companyId || "co");
+    downloadCsvUtf8(`inventario_${slug}_${filenameDateYmd()}.csv`, lines);
+  };
+
   const invSections: {
     key: keyof typeof inventorySectionOpen;
     match: (i: InventoryItem) => boolean;
@@ -668,16 +722,28 @@ export function LogisticsModule({
                 </div>
               )}
             </div>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={onAddInventory}
-                className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600"
-              >
-                <Plus className="h-4 w-4" />
-                {t.addNewItem ?? t.addNew ?? "Add new"}
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              {flatOrderedInventory.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => exportInventoryCsv()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                  {tlLabels.export_inventory ?? tlLabels.export_csv ?? "Export CSV"}
+                </button>
+              ) : null}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={onAddInventory}
+                  className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t.addNewItem ?? t.addNew ?? "Add new"}
+                </button>
+              )}
+            </div>
           </div>
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
             <div className="sticky top-0 z-20 border-b border-zinc-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm px-4 py-3">

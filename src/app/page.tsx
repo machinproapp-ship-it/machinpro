@@ -4002,12 +4002,15 @@ export default function Home() {
                 onMarkResourceItemReady={handleMarkResourceItemReady}
                 cloudinaryCloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ""}
                 cloudinaryUploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ""}
+                companyName={profile?.companyName ?? companyName ?? ""}
+                companyId={companyId ?? ""}
               />
             )}
 
             {activeSection === "employees" && !!perms.canAccessEmployees && (
               <EmployeesModule
                 companyId={companyId}
+                companyName={profile?.companyName ?? companyName ?? ""}
                 onBackToOffice={() => setActiveSection("office")}
                 defaultPayCurrency={currency}
                 labels={t as Record<string, string>}
@@ -4508,6 +4511,9 @@ export default function Home() {
                   schedule_filter_by_role: (t as Record<string, string>).schedule_filter_by_role,
                   schedule_pick_employees: (t as Record<string, string>).schedule_pick_employees,
                   schedule_pick_employees_error: (t as Record<string, string>).schedule_pick_employees_error,
+                  export_csv: (t as Record<string, string>).export_csv ?? "Export CSV",
+                  export_pdf: (t as Record<string, string>).export_pdf ?? "Export PDF",
+                  export_timesheets: (t as Record<string, string>).export_timesheets ?? "Export timesheets",
                   admin: (t as Record<string, string>).admin,
                   supervisor: (t as Record<string, string>).supervisor,
                   worker: (t as Record<string, string>).worker,
@@ -4532,6 +4538,8 @@ export default function Home() {
                 assignedClockInProjects={assignedClockInProjects}
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
+                companyName={profile?.companyName ?? companyName ?? ""}
+                companyId={companyId ?? ""}
               />
             )}
 

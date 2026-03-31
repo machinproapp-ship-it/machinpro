@@ -13,9 +13,11 @@ import {
   Briefcase,
   Pencil,
   Trash2,
+  Download,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { resolveUserTimezone } from "@/lib/dateUtils";
+import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
 export interface SchedEmployee {
   id: string;
@@ -183,6 +185,9 @@ export interface ScheduleModuleProps {
     schedule_filter_by_role?: string;
     schedule_pick_employees?: string;
     schedule_pick_employees_error?: string;
+    export_csv?: string;
+    export_pdf?: string;
+    export_timesheets?: string;
     schedule_no_sheets?: string;
     schedule_no_shifts_day?: string;
     /** Pestaña Vacaciones (móvil) */
@@ -233,6 +238,10 @@ export interface ScheduleModuleProps {
   /** BCP 47 + IANA for calendar labels (from `dateLocaleForUser` + `resolveUserTimezone`). */
   dateLocale?: string;
   timeZone?: string;
+  /** Nombre empresa para archivos CSV (hojas de horas). */
+  companyName?: string;
+  /** Fallback slug si no hay nombre de empresa. */
+  companyId?: string;
 }
 
 function startOfWeek(date: Date): Date {
@@ -347,6 +356,16 @@ function getWeekEnd(weekStart: string): string {
   return d.toISOString().split("T")[0];
 }
 
+function minYmdForTimesheetPeriod(period: "weekly" | "biweekly" | "monthly"): string {
+  const now = new Date();
+  if (period === "monthly") {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  }
+  const days = period === "weekly" ? 7 : 14;
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1), 12, 0, 0, 0);
+  return d.toISOString().split("T")[0];
+}
+
 function generateTimeSheetsFromClock(
   clockEntries: ClockEntryForSchedule[],
   projects: SchedProject[]
@@ -405,6 +424,8 @@ function TimesheetsView({
   viewAll,
   labels,
   employeeLabels = {},
+  companyName = "",
+  companyIdFallback = "",
 }: {
   clockEntries: ClockEntryForSchedule[];
   employees: SchedEmployee[];
@@ -413,6 +434,8 @@ function TimesheetsView({
   viewAll: boolean;
   labels: ScheduleModuleProps["labels"];
   employeeLabels?: Record<string, string>;
+  companyName?: string;
+  companyIdFallback?: string;
 }) {
   const [periodType, setPeriodType] = useState<"weekly" | "biweekly" | "monthly">("weekly");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
@@ -439,6 +462,42 @@ function TimesheetsView({
   const CIRCLE_C = 2 * Math.PI * CIRCLE_R;
 
   const getEmployeeName = (id: string) => employees.find((e) => e.id === id)?.name ?? id;
+
+  const exportTimesheetsCsv = () => {
+    const lx = labels as Record<string, string>;
+    const minD = minYmdForTimesheetPeriod(periodType);
+    const headers = [
+      lx.personnel ?? "Employee",
+      lx.date ?? "Date",
+      lx.hours ?? "Hours",
+      lx.project ?? "Project",
+      labels.pending ?? "Status",
+    ];
+    const lines = [headers.map((h) => csvCell(h)).join(",")];
+    for (const sheet of sheets) {
+      const status = effectiveStatus(sheet);
+      const statusLabel =
+        status === "approved"
+          ? (labels.approved ?? status)
+          : status === "rejected"
+            ? (labels.rejected ?? status)
+            : (labels.pending ?? status);
+      for (const ent of sheet.entries) {
+        if (ent.date < minD) continue;
+        lines.push(
+          [
+            csvCell(getEmployeeName(sheet.employeeId)),
+            csvCell(ent.date),
+            csvCell(String(ent.hoursWorked)),
+            csvCell(ent.projectName ?? "—"),
+            csvCell(statusLabel),
+          ].join(",")
+        );
+      }
+    }
+    const slug = fileSlugCompany(companyName, companyIdFallback || "co");
+    downloadCsvUtf8(`hojas_horas_${slug}_${filenameDateYmd()}.csv`, lines);
+  };
 
   return (
     <div className="space-y-4">
@@ -472,6 +531,16 @@ function TimesheetsView({
             ))}
           </select>
         )}
+        <button
+          type="button"
+          onClick={() => exportTimesheetsCsv()}
+          className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-slate-700 px-3 py-2 text-sm font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+        >
+          <Download className="h-4 w-4 shrink-0" aria-hidden />
+          {(labels as Record<string, string>).export_timesheets ??
+            (labels as Record<string, string>).export_csv ??
+            "CSV"}
+        </button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -661,6 +730,8 @@ export default function ScheduleModule({
   onOpenMyShiftView,
   dateLocale = "es-ES",
   timeZone: scheduleTimeZoneProp,
+  companyName = "",
+  companyId = "",
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const scheduleTz = scheduleTimeZoneProp ?? resolveUserTimezone(null);
@@ -1205,6 +1276,8 @@ export default function ScheduleModule({
           viewAll={viewAll}
           labels={labels}
           employeeLabels={employeeLabels}
+          companyName={companyName}
+          companyIdFallback={companyId}
         />
       )}
 

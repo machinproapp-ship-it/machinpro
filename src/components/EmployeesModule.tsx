@@ -12,12 +12,14 @@ import {
   Palmtree,
   UserPlus,
   Plus,
+  Download,
   FileText,
   Pencil,
   X,
   ChevronLeft,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { supabase } from "@/lib/supabase";
 import type { CustomRole, RolePermissions } from "@/types/roles";
 import {
@@ -31,6 +33,8 @@ import type { ComplianceField, ComplianceRecord, VacationRequestRow } from "@/ap
 
 export interface EmployeesModuleProps {
   companyId: string | null;
+  /** Para nombre de archivo CSV export. */
+  companyName?: string | null;
   /** Moneda por defecto del perfil empresa (ajustes). */
   defaultPayCurrency?: string;
   labels: Record<string, string>;
@@ -233,6 +237,7 @@ const PAY_CURRENCIES = ["CAD", "USD", "EUR", "GBP", "MXN", "BRL", "ARS", "COP", 
 
 export function EmployeesModule({
   companyId,
+  companyName = "",
   defaultPayCurrency = "CAD",
   labels: t,
   customRoles,
@@ -455,6 +460,42 @@ export function EmployeesModule({
       return true;
     });
   }, [rows, search, roleFilter, statusFilter, t, currentUserProfileId]);
+
+  const exportEmployeesCsv = useCallback(() => {
+    const lx = t as Record<string, string>;
+    const headers = [
+      lx.employees_full_name ?? lx.employees_title ?? "Name",
+      lx.email ?? "Email",
+      lx.phone ?? "Phone",
+      lx.employees_role ?? lx.employees_assigned_role ?? "Role",
+      lx.employees_status ?? lx.common_status ?? "Status",
+      lx.employees_joined ?? lx.employees_start_date ?? "Created",
+    ];
+    const lines = [headers.map((h) => csvCell(h)).join(",")];
+    for (const r of filtered) {
+      const st =
+        r.profile_status === "inactive"
+          ? (lx.common_inactive ?? r.profile_status ?? "")
+          : r.profile_status === "invited"
+            ? (lx.employees_status_invited ?? r.profile_status ?? "")
+            : r.profile_status === "deleted"
+              ? (lx.employees_status_deleted ?? r.profile_status ?? "")
+              : (lx.common_active ?? r.profile_status ?? "active");
+      const created = r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : "";
+      lines.push(
+        [
+          csvCell(employeeDisplayLabel(r, lx, currentUserProfileId ?? null)),
+          csvCell(r.email),
+          csvCell(r.phone),
+          csvCell(roleLabel(r)),
+          csvCell(st),
+          csvCell(created),
+        ].join(",")
+      );
+    }
+    const slug = fileSlugCompany(companyName ?? "", companyId ?? "co");
+    downloadCsvUtf8(`empleados_${slug}_${filenameDateYmd()}.csv`, lines);
+  }, [t, filtered, currentUserProfileId, companyName, companyId, roleLabel]);
 
   const vacationsForSelected = useMemo(() => {
     if (!selectedId) return [];
@@ -1598,8 +1639,19 @@ export function EmployeesModule({
           <Users className="h-5 w-5" />
           {t.employees_title ?? ""}
         </h2>
+        <div className="flex flex-wrap gap-2 justify-end">
+        {canManageEmployees && (
+          <button
+            type="button"
+            onClick={() => exportEmployeesCsv()}
+            className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          >
+            <Download className="h-4 w-4 shrink-0" aria-hidden />
+            {(t as Record<string, string>).export_employees ?? (t as Record<string, string>).export_csv ?? "CSV"}
+          </button>
+        )}
         {showNewEmployeeButton && canManageEmployees && (
-          <div className="flex flex-wrap gap-2 justify-end">
+          <>
             <button
               type="button"
               onClick={() => {
@@ -1630,8 +1682,9 @@ export function EmployeesModule({
               <Plus className="h-4 w-4" />
               {tl.employees_new ?? ""}
             </button>
-          </div>
+          </>
         )}
+        </div>
       </div>
 
       {employeeTargetComplianceFields.length > 0 ? (
