@@ -2,11 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import type { Language } from "@/types/shared";
 
 const SPLASH_KEY = "machinpro_splash_seen";
 
 export function SplashScreenOverlay() {
   const [visible, setVisible] = useState(false);
+  const [busyAria, setBusyAria] = useState(
+    () =>
+      ALL_TRANSLATIONS.es.splash_aria_loading ??
+      ALL_TRANSLATIONS.en.splash_aria_loading ??
+      "Loading"
+  );
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("machinpro_language");
+      const code = ((raw && raw.length >= 2 ? raw : "es") as Language);
+      const pack = ALL_TRANSLATIONS[code] ?? ALL_TRANSLATIONS.en;
+      setBusyAria(pack.splash_aria_loading ?? ALL_TRANSLATIONS.en.splash_aria_loading ?? "Loading");
+    } catch {
+      /* keep */
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -32,7 +51,7 @@ export function SplashScreenOverlay() {
     <div
       className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-[#1a4f5e] transition-opacity duration-500"
       aria-busy="true"
-      aria-label="Loading"
+      aria-label={busyAria}
     >
       <div className="mb-6 animate-pulse">
         <BrandLogoImage

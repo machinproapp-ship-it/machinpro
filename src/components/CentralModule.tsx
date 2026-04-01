@@ -195,7 +195,7 @@ interface CentralModuleProps {
   regionCountryCode?: string;
   taxIdLabel?: string;
   complianceCertLabel?: string;
-  clockEntries?: Array<{ date: string; clockIn?: string }>;
+  clockEntries?: Array<{ date: string; clockIn?: string; employeeId?: string }>;
   formInstances?: Array<{ id: string; status: string; createdAt: string; date?: string }>;
   language?: string;
   /** IANA timezone for audit logs / dates (defaults: profile → browser → America/Toronto). */
@@ -522,6 +522,15 @@ export function CentralModule({
   const safeProjects = Array.isArray(projects) ? projects : [];
   const safeDisplayProjects = Array.isArray(displayProjects) ? displayProjects : (safeProjects as CentralProject[]);
 
+  const activeEmployeeIdSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of safeEmployees) {
+      const st = (e.profileStatus ?? "active").toLowerCase().trim();
+      if (st === "active") s.add(e.id);
+    }
+    return s;
+  }, [safeEmployees]);
+
   const getCentralProjectById = (id: string): CentralProject | undefined => {
     const fromProjects = safeProjects.find((p) => p.id === id);
     const fromDisplay = safeDisplayProjects.find((p) => p.id === id);
@@ -557,7 +566,7 @@ export function CentralModule({
     return m;
   }, [safeDisplayProjects]);
 
-  const recentEmployees = safeEmployees.slice(0, 5);
+  const recentEmployees = safeEmployees.filter((e) => activeEmployeeIdSet.has(e.id)).slice(0, 5);
   const recentProjects = safeDisplayProjects.filter((p) => !p.archived).slice(0, 3);
 
   const getGreeting = (t: Record<string, string>) => {
@@ -597,7 +606,13 @@ export function CentralModule({
     const days = Math.ceil((new Date(p.estimatedEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return days >= 0 && days <= 7;
   });
-  const clockedInTodayCount = (clockEntries ?? []).filter((e) => e.date === today && e.clockIn).length;
+  const clockedInTodayCount = (clockEntries ?? []).filter(
+    (e) =>
+      e.date === today &&
+      e.clockIn &&
+      !!e.employeeId &&
+      activeEmployeeIdSet.has(e.employeeId)
+  ).length;
   const nowMs = Date.now();
   const formsPendingOver24h = (formInstances ?? []).filter((f) => {
     if (f.status === "completed" || f.status === "approved") return false;

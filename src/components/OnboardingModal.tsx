@@ -290,8 +290,16 @@ export function OnboardingModal({
       persistTimezone(step1Tz);
       const uid = session?.user?.id;
       if (uid) {
-        await supabase.from("user_profiles").update({ timezone: step1Tz }).eq("id", uid);
-        await onUserTimezoneSaved?.();
+        try {
+          const { error: tzErr } = await supabase
+            .from("user_profiles")
+            .update({ timezone: step1Tz })
+            .eq("id", uid);
+          if (tzErr) console.error("[OnboardingModal] user_profiles timezone", tzErr);
+          else await onUserTimezoneSaved?.();
+        } catch (e) {
+          console.error("[OnboardingModal] user_profiles timezone", e);
+        }
       }
       setWizardStep(2);
     } finally {

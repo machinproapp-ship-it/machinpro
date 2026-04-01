@@ -212,6 +212,8 @@ export interface Employee {
   id: string;
   name: string;
   role: string;
+  /** `user_profiles.profile_status` when loaded from Supabase. */
+  profileStatus?: string | null;
   hours: number;
   permissions?: { plans: boolean; warehouse: boolean; certificates: boolean; subcontractors: boolean };
   phone?: string;
@@ -224,6 +226,11 @@ export interface Employee {
   customRoleId?: string;
   customPermissions?: Partial<RolePermissions>;
   useRolePermissions?: boolean;
+}
+
+function isActiveProfileEmployee(e: Pick<Employee, "profileStatus">): boolean {
+  const st = (e.profileStatus ?? "active").toLowerCase().trim();
+  return st === "active";
 }
 
 function scheduleRoleKeyForEmployee(e: Employee, customRoles: CustomRole[]): string {
@@ -1144,6 +1151,10 @@ export default function Home() {
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
+  const activeEmployees = useMemo(
+    () => (employees ?? []).filter(isActiveProfileEmployee),
+    [employees]
+  );
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>(INITIAL_SCHEDULE);
@@ -1201,10 +1212,13 @@ export default function Home() {
     }
     let cancelled = false;
     void (async () => {
-      const { data: profiles } = await supabase
+      const { data: profiles, error: profilesErr } = await supabase
         .from("user_profiles")
         .select("id, employee_id")
         .eq("company_id", companyId);
+      if (profilesErr) {
+        console.error("[page] user_profiles (clock map)", profilesErr);
+      }
       if (cancelled) return;
       const userToEmp = new Map<string, string>();
       const o: Record<string, string> = {};
@@ -1217,12 +1231,15 @@ export default function Home() {
       }
       userIdToEmployeeIdRef.current = userToEmp;
       setUserToEmployeeMap(o);
-      const { data: rows } = await supabase
+      const { data: rows, error: timeErr } = await supabase
         .from("time_entries")
         .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
         .eq("company_id", companyId)
         .order("clock_in_at", { ascending: false })
         .limit(500);
+      if (timeErr) {
+        console.error("[page] time_entries load", timeErr);
+      }
       if (cancelled || !rows) return;
       const pad = (n: number) => String(n).padStart(2, "0");
       const mapped: ClockEntry[] = (rows as Record<string, unknown>[]).map((row) => {
@@ -1299,7 +1316,7 @@ export default function Home() {
       const { data, error } = await client
         .from("user_profiles")
         .select(
-          "id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates"
+          "id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
         )
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
@@ -1333,6 +1350,7 @@ export default function Home() {
             id,
             name,
             role,
+            profileStatus: row.profile_status != null ? String(row.profile_status) : "active",
             hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
             payType,
             hourlyRate,
@@ -1771,13 +1789,23 @@ export default function Home() {
     }
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase
+      try {
+      const { data, error } = await supabase
         .from("user_profiles")
-        .select("id, employee_id, full_name, display_name, email")
+        .select("id, employee_id, full_name, display_name, email, profile_status")
         .eq("company_id", companyId);
+      if (error) {
+        console.error("[page] teamProfiles load", error);
+        if (!cancelled) setTeamProfiles([]);
+        return;
+      }
       if (cancelled) return;
+      const activeRows = (data ?? []).filter((row: Record<string, unknown>) => {
+        const st = String(row.profile_status ?? "active").toLowerCase().trim();
+        return st === "active";
+      });
       setTeamProfiles(
-        (data ?? []).map((row: Record<string, unknown>) => {
+        activeRows.map((row: Record<string, unknown>) => {
           const id = String(row.id ?? "");
           const fn = typeof row.full_name === "string" ? row.full_name.trim() : "";
           const dn = typeof row.display_name === "string" ? row.display_name.trim() : "";
@@ -1791,6 +1819,10 @@ export default function Home() {
           };
         })
       );
+      } catch (e) {
+        console.error("[page] teamProfiles", e);
+        if (!cancelled) setTeamProfiles([]);
+      }
     })();
     return () => {
       cancelled = true;
@@ -2858,7 +2890,7 @@ export default function Home() {
     for (const e of INITIAL_EMPLOYEES) {
       m[e.id] = (e.name ?? "").trim() || (e.email ?? "").trim() || e.id;
     }
-    for (const e of employees) {
+    for (const e of activeEmployees) {
       const nm = (e.name ?? "").trim();
       const em = (e.email ?? "").trim();
       m[e.id] = nm || em || e.id;
@@ -2872,7 +2904,7 @@ export default function Home() {
       if (p.employeeId) m[p.employeeId] = lbl;
     }
     return m;
-  }, [employees, teamProfiles]);
+  }, [activeEmployees, teamProfiles]);
 
   const employeeShiftModalModel = useMemo(() => {
     if (!employeeShiftDayOpen) return null;
@@ -3030,7 +3062,7 @@ export default function Home() {
     projectManager: (t as Record<string, string>).projectManager ?? "Project Manager",
   };
 
-  const logisticsEmployees: LogisticsEmployee[] = (employees ?? []).map((e) => ({
+  const logisticsEmployees: LogisticsEmployee[] = activeEmployees.map((e) => ({
     id: e.id,
     name: e.name,
     role: e.role,
@@ -3044,7 +3076,7 @@ export default function Home() {
     })),
   }));
 
-  const siteEmployees: ProjectEmployee[] = (employees ?? []).map((e) => ({
+  const siteEmployees: ProjectEmployee[] = activeEmployees.map((e) => ({
     id: e.id,
     name: e.name,
     role: e.role,
@@ -3631,6 +3663,7 @@ export default function Home() {
                     id: e.id,
                     name: e.name,
                     role: e.role,
+                    profileStatus: e.profileStatus,
                     hours: e.hours,
                     phone: e.phone,
                     email: e.email,
@@ -4432,7 +4465,7 @@ export default function Home() {
               <>
               <ScheduleModule
                 entries={scheduleEntries}
-                employees={employees.map((e) => ({
+                employees={activeEmployees.map((e) => ({
                   id: e.id,
                   name: e.name,
                   role: e.role,
@@ -4594,7 +4627,7 @@ export default function Home() {
                   name: p.name,
                   assignedEmployeeIds: p.assignedEmployeeIds,
                 }))}
-                employees={employees.map((e) => ({ id: e.id, name: e.name, email: e.email }))}
+                employees={activeEmployees.map((e) => ({ id: e.id, name: e.name, email: e.email }))}
                 currentUserEmployeeId={effectiveEmployeeId ?? ""}
                 currentUserName={employees.find((e) => e.id === effectiveEmployeeId)?.name ?? "Admin"}
                 canManage={!!rolePerms.canManageProjectForms}
@@ -4628,7 +4661,7 @@ export default function Home() {
                 userName={profile?.fullName ?? profile?.email ?? user?.email ?? "User"}
                 userProfileId={profile?.id ?? null}
                 projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
-                employees={(employees ?? []).map((e) => ({ id: e.id, name: e.name }))}
+                employees={activeEmployees.map((e) => ({ id: e.id, name: e.name }))}
                 focusHazardId={focusHazardId}
                 onFocusHazardConsumed={() => setFocusHazardId(null)}
                 correctivePrefill={correctivePrefill}
@@ -4759,7 +4792,7 @@ export default function Home() {
                       companyId={companyId}
                       companyName={profile?.companyName ?? companyName}
                       email={profile?.email ?? undefined}
-                      employeesCount={(employees ?? []).length}
+                      employeesCount={activeEmployees.length}
                       projectsCount={(projects ?? []).filter((p) => !p.archived).length}
                       storageUsedGb={0}
                       userRole={effectiveRole}

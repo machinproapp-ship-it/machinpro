@@ -1570,14 +1570,16 @@ export function ProjectsModule({
             )}
             {canEdit && (
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-slate-700">
-                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Añadir empleado al proyecto</p>
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  {tl.projects_team_add_employee ?? ""}
+                </p>
                 <div className="flex gap-2">
                   <select
                     value={addEmployeeToProjectId}
                     onChange={(e) => setAddEmployeeToProjectId(e.target.value)}
                     className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                   >
-                    <option value="">Seleccionar empleado…</option>
+                    <option value="">{tl.projects_team_select_employee ?? ""}</option>
                     {(allEmployees ?? []).filter((e) => !(selectedProject?.assignedEmployeeIds ?? []).includes(e.id)).map((e) => (
                       <option key={e.id} value={e.id}>{e.name}</option>
                     ))}
@@ -1593,7 +1595,7 @@ export function ProjectsModule({
                     }}
                     className="rounded-lg bg-amber-600 text-white px-4 py-2 text-sm font-medium hover:bg-amber-500 disabled:opacity-50 min-h-[44px]"
                   >
-                    Añadir
+                    {tl.projects_team_add ?? ""}
                   </button>
                 </div>
               </div>
@@ -1612,7 +1614,7 @@ export function ProjectsModule({
                     onChange={(e) => setAddItemToProjectId(e.target.value)}
                     className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                   >
-                    <option value="">Añadir ítem al proyecto…</option>
+                    <option value="">{tl.projects_inv_select_item ?? ""}</option>
                     {(inventoryItems ?? []).filter((i) => !i.assignedToProjectId).map((i) => (
                       <option key={i.id} value={i.id}>
                         {i.name} ({i.quantity} {i.unit})
@@ -1629,7 +1631,7 @@ export function ProjectsModule({
                     }}
                     className="rounded-lg bg-amber-600 text-white px-4 py-2 text-sm font-medium hover:bg-amber-500 disabled:opacity-50 min-h-[44px]"
                   >
-                    Asignar
+                    {tl.projects_inv_assign ?? ""}
                   </button>
                 </div>
                 {onOpenResourceRequest && selectedProject && (

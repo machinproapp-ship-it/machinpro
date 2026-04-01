@@ -97,7 +97,9 @@ function auditActorLabel(
   labels: Record<string, string>
 ): string {
   const uid = (row.user_id ?? "").trim();
-  const p = uid ? profileByUserId[uid] : undefined;
+  const uidLower = uid.toLowerCase();
+  const p =
+    uid ? profileByUserId[uid] ?? profileByUserId[uidLower] : undefined;
   if (p) {
     const fn = (p.full_name ?? "").trim();
     if (fn) return fn;
@@ -111,6 +113,7 @@ function auditActorLabel(
     /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
   const un = rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
   if (un) return un;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawName)) return rawName;
   return (labels.dashboard_activity_unknown_user ?? "").trim() || "—";
 }
 
@@ -381,6 +384,8 @@ function CentralDashboardBody(
 
   const [myTimeRows, setMyTimeRows] = useState<TimeRow[]>([]);
   const [teamTimeRows, setTeamTimeRows] = useState<TimeRow[]>([]);
+  /** Display labels for team timeclock widget (full_name → display_name → email). */
+  const [teamClockLabelsByUserId, setTeamClockLabelsByUserId] = useState<Record<string, string>>({});
   const [scheduleToday, setScheduleToday] = useState<Record<string, unknown>[]>([]);
   const [dailyReportsToday, setDailyReportsToday] = useState<Record<string, unknown>[]>([]);
   const [myTasksToday, setMyTasksToday] = useState<{ description: string; completed: boolean }[]>([]);
@@ -507,9 +512,6 @@ function CentralDashboardBody(
         return;
       }
 
-      await loadDashboardConfig();
-      if (cancelled) return;
-
       const epPromise = supabase
         .from("employee_projects")
         .select("project_id")
@@ -543,12 +545,9 @@ function CentralDashboardBody(
         .eq("date", todayIso)
         .limit(400);
 
-      const [epRes, myTRes, teamTRes, schRes] = await Promise.all([
-        epPromise,
-        myTimePromise,
-        teamTimePromise,
-        schedulePromise,
-      ]);
+      const dataBatch = Promise.all([epPromise, myTimePromise, teamTimePromise, schedulePromise]);
+      const [batchResults] = await Promise.all([dataBatch, loadDashboardConfig()]);
+      const [epRes, myTRes, teamTRes, schRes] = batchResults;
       if (cancelled) return;
 
       let projectIdsForUser: string[] = [];
@@ -623,7 +622,8 @@ function CentralDashboardBody(
           const { count, error } = await supabase
             .from("user_profiles")
             .select("id", { count: "exact", head: true })
-            .eq("company_id", companyId);
+            .eq("company_id", companyId)
+            .eq("profile_status", "active");
           if (error) throw error;
           if (!cancelled) setEmpActiveCount(count ?? 0);
         } catch (e) {
@@ -662,16 +662,18 @@ function CentralDashboardBody(
                 display_name?: string | null;
                 email?: string | null;
               }[]) {
-                if (idSet.has(p.id)) {
-                  profileMap[p.id] = {
-                    full_name: p.full_name,
-                    display_name: p.display_name,
-                    email: p.email,
-                  };
-                }
+                const idRaw = (p.id ?? "").trim();
+                if (!idRaw || !idSet.has(idRaw)) continue;
+                const snippet = {
+                  full_name: p.full_name,
+                  display_name: p.display_name,
+                  email: p.email,
+                };
+                profileMap[idRaw] = snippet;
+                profileMap[idRaw.toLowerCase()] = snippet;
               }
             }
-            const missing = ids.filter((id) => !profileMap[id]);
+            const missing = ids.filter((id) => !(profileMap[id] ?? profileMap[id.toLowerCase()]));
             if (missing.length > 0) {
               const { data: profs, error: pErr } = await supabase
                 .from("user_profiles")
@@ -685,11 +687,15 @@ function CentralDashboardBody(
                 display_name?: string | null;
                 email?: string | null;
               }[]) {
-                profileMap[p.id] = {
+                const idRaw = (p.id ?? "").trim();
+                if (!idRaw) continue;
+                const snippet = {
                   full_name: p.full_name,
                   display_name: p.display_name,
                   email: p.email,
                 };
+                profileMap[idRaw] = snippet;
+                profileMap[idRaw.toLowerCase()] = snippet;
               }
             }
           }
@@ -761,9 +767,9 @@ function CentralDashboardBody(
         } else if (!cancelled) setHazardRows([]);
       };
 
-      await Promise.all([fetchEmpCount(), auditPipeline(), fetchVisitors(), fetchHazards()]);
-
       if (!cancelled) setDataLoading(false);
+
+      await Promise.all([fetchEmpCount(), auditPipeline(), fetchVisitors(), fetchHazards()]);
     };
 
     void run();
@@ -785,6 +791,52 @@ function CentralDashboardBody(
     canManageComplianceAlerts,
     loadDashboardConfig,
   ]);
+
+  useEffect(() => {
+    if (!companyId || teamTimeRows.length === 0) {
+      setTeamClockLabelsByUserId({});
+      return;
+    }
+    const ids = [...new Set(teamTimeRows.map((r) => r.user_id).filter(Boolean))] as string[];
+    if (ids.length === 0) {
+      setTeamClockLabelsByUserId({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .select("id, full_name, display_name, email")
+          .eq("company_id", companyId)
+          .in("id", ids);
+        if (error) throw error;
+        const next: Record<string, string> = {};
+        for (const row of (data ?? []) as {
+          id: string;
+          full_name?: string | null;
+          display_name?: string | null;
+          email?: string | null;
+        }[]) {
+          const idRaw = (row.id ?? "").trim();
+          if (!idRaw) continue;
+          const fn = (row.full_name ?? "").trim();
+          const dn = (row.display_name ?? "").trim();
+          const em = (row.email ?? "").trim();
+          const label = fn || dn || em || `${idRaw.slice(0, 8)}…`;
+          next[idRaw] = label;
+          next[idRaw.toLowerCase()] = label;
+        }
+        if (!cancelled) setTeamClockLabelsByUserId(next);
+      } catch (e) {
+        console.error("[CentralDashboard] team clock labels", e);
+        if (!cancelled) setTeamClockLabelsByUserId({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, teamTimeRows]);
 
   const orderedVisibleWidgets = useMemo(() => {
     const allowed = new Set(DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id)));
@@ -991,7 +1043,11 @@ function CentralDashboardBody(
               ) : (
                 teamTimeRows.slice(0, 12).map((r) => (
                   <li key={r.id} className="flex justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-1">
-                    <span className="font-mono text-xs">{r.user_id.slice(0, 8)}…</span>
+                    <span className="min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200">
+                      {teamClockLabelsByUserId[r.user_id] ??
+                        teamClockLabelsByUserId[r.user_id.toLowerCase()] ??
+                        `${r.user_id.slice(0, 8)}…`}
+                    </span>
                     <span>
                       {fmtTime(r.clock_in_at)}
                       {r.clock_out_at ? ` – ${fmtTime(r.clock_out_at)}` : ` · ${L("dashboard_active_now")}`}
