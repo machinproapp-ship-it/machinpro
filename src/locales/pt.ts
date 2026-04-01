@@ -1192,6 +1192,8 @@ export default {
   pricing_slash_yr: "/ano",
   pricing_ppp_note: "PPP: nível 2 (80 %) · nível 3 (60 %) aplicados aos preços mostrados.",
   pricing_ppp_applied: "Preço especial para a sua região aplicado no pagamento",
+  ppp_badge: "Preço especial para a sua região",
+  ppp_discount: "{{percent}}% de desconto aplicado",
   pricing_ppp_notice: "Preço ajustado para a sua região",
   pricing_plan_trial: "Teste",
   pricing_feat_foundation_1: "Painel central",

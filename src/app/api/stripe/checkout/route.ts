@@ -1,38 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { getAppBaseUrl } from "@/lib/app-url";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifyCompanyAccess } from "@/lib/verify-api-session";
+import { getPppTierFromCountryCode } from "@/lib/geoTier";
 import {
   getStripe,
   getStripePriceId,
   paidPlanKeyFromString,
   ensurePppCoupons,
   checkoutDiscountsForTier,
+  getPlanFromPriceId,
   type PaidPlanKey,
+  type BillingPeriod,
 } from "@/lib/stripe";
-import { getTierFromCountry, type GeoTier } from "@/lib/geoTier";
+import type { GeoTier } from "@/lib/geoTier";
 
 export const runtime = "nodejs";
 
+function appPublicOrigin(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "").trim();
+  if (fromEnv) return fromEnv;
+  const vercel = process.env.VERCEL_URL?.replace(/\/$/, "");
+  if (vercel) return `https://${vercel}`;
+  return "http://localhost:3000";
+}
+
 type Body = {
-  plan: PaidPlanKey | string;
-  period: "monthly" | "annual";
+  priceId?: string | null;
+  countryCode?: string | null;
+  billingCycle?: string | null;
+  /** Legacy */
+  plan?: PaidPlanKey | string;
+  period?: BillingPeriod | string;
   companyId: string;
   companyName?: string;
   email?: string;
-  tier: GeoTier;
+  tier?: GeoTier;
 };
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Body;
-    const { plan: planRaw, period, companyId, companyName, email, tier } = body;
-    const plan = paidPlanKeyFromString(
-      typeof planRaw === "string" ? planRaw.trim() : ""
-    );
-    if (!plan || !period || !companyId || tier == null) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    const {
+      priceId: priceIdRaw,
+      countryCode: countryCodeRaw,
+      billingCycle: billingCycleRaw,
+      companyId,
+      companyName,
+      email,
+    } = body;
+
+    if (!companyId?.trim()) {
+      return NextResponse.json({ error: "Missing companyId" }, { status: 400 });
     }
 
     const ok = await verifyCompanyAccess(req, companyId);
@@ -46,14 +65,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
 
-    const ipCountry = (req.headers.get("x-vercel-ip-country") ?? "").trim().toUpperCase();
-    const checkoutTier: GeoTier = ipCountry ? getTierFromCountry(ipCountry) : tier;
+    const ipCountry = (
+      req.headers.get("x-vercel-ip-country") ??
+      req.headers.get("cf-ipcountry") ??
+      ""
+    )
+      .trim()
+      .toUpperCase();
+    const bodyCountry =
+      typeof countryCodeRaw === "string" ? countryCodeRaw.trim().toUpperCase() : "";
+    const effectiveCountry = bodyCountry || ipCountry || "US";
+    const checkoutTier = getPppTierFromCountryCode(effectiveCountry);
+
+    let plan: PaidPlanKey | null;
+    let period: BillingPeriod;
+    let priceId: string;
+
+    const priceIdStr = typeof priceIdRaw === "string" ? priceIdRaw.trim() : "";
+    if (priceIdStr) {
+      const parsed = getPlanFromPriceId(priceIdStr);
+      if (!parsed) {
+        return NextResponse.json({ error: "Invalid priceId" }, { status: 400 });
+      }
+      plan = parsed.plan;
+      period = parsed.period;
+      priceId = priceIdStr;
+    } else {
+      plan = paidPlanKeyFromString(
+        typeof body.plan === "string" ? body.plan.trim() : ""
+      );
+      const p =
+        typeof body.period === "string" && body.period.trim() === "annual"
+          ? "annual"
+          : typeof billingCycleRaw === "string" && billingCycleRaw.trim() === "annual"
+            ? "annual"
+            : "monthly";
+      period = p;
+      if (!plan) {
+        return NextResponse.json({ error: "Missing plan or priceId" }, { status: 400 });
+      }
+      priceId = getStripePriceId(plan, period);
+    }
 
     await ensurePppCoupons(stripe);
     const discounts = checkoutDiscountsForTier(checkoutTier);
 
-    const priceId = getStripePriceId(plan, period);
-    const base = getAppBaseUrl();
+    const base = appPublicOrigin();
 
     let customerId: string | undefined;
 
@@ -97,8 +154,9 @@ export async function POST(req: NextRequest) {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${base}/billing?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/billing?canceled=1`,
+      success_url: `${base}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/pricing`,
+      allow_promotion_codes: false,
       automatic_tax: { enabled: true },
       tax_id_collection: { enabled: true },
       billing_address_collection: "required",
@@ -110,7 +168,7 @@ export async function POST(req: NextRequest) {
           plan_key: plan,
           billing_period: period,
           geo_tier: String(checkoutTier),
-          ...(ipCountry ? { checkout_country: ipCountry } : {}),
+          checkout_country: effectiveCountry,
         },
       },
       metadata: {
@@ -118,7 +176,7 @@ export async function POST(req: NextRequest) {
         plan_key: plan,
         billing_period: period,
         geo_tier: String(checkoutTier),
-        ...(ipCountry ? { checkout_country: ipCountry } : {}),
+        checkout_country: effectiveCountry,
       },
       ...(discounts ? { discounts } : {}),
     };

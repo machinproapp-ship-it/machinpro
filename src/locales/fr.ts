@@ -1178,6 +1178,8 @@ export default {
   pricing_slash_yr: "/an",
   pricing_ppp_note: "PPP : palier 2 (80 %) · palier 3 (60 %) appliqués aux prix affichés.",
   pricing_ppp_applied: "Prix spécial pour votre région appliqué au paiement",
+  ppp_badge: "Prix spécial pour votre région",
+  ppp_discount: "{{percent}}% de réduction appliquée",
   pricing_ppp_notice: "Prix ajusté pour votre région",
   pricing_plan_trial: "Essai",
   pricing_feat_foundation_1: "Tableau de bord central",

@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { X, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { detectGeo, getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
+import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
+import { useGeo } from "@/hooks/useGeo";
 import {
   PLANS,
   getPriceForTier,
+  getStripePriceId,
   CURRENCY_BY_TIER,
   PAID_PLAN_ORDER,
   type PaidPlanKey,
@@ -65,26 +67,11 @@ export function PricingModule({
 }: PricingModuleProps) {
   const lx = t as Record<string, string>;
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
-  const [geoTier, setGeoTier] = useState<GeoTier>(1);
-  const [countryCode, setCountryCode] = useState<string | null>(null);
-  const [loadingTier, setLoadingTier] = useState(true);
+  const { country: geoCountry, tier: geoTierRaw, discount: pppDiscount, loading: loadingTier } = useGeo();
+  const geoTier = geoTierRaw as GeoTier;
+  const countryCode = geoCountry ? geoCountry : null;
   const [checkoutLoading, setCheckoutLoading] = useState<PaidPlanKey | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingTier(true);
-    void detectGeo().then(({ tier, countryCode: cc }) => {
-      if (!cancelled) {
-        setGeoTier(tier);
-        setCountryCode(cc);
-        setLoadingTier(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const displayCurrency = getCurrencyForCountry(countryCode, geoTier);
   const currentNormalized = normalizeCurrentPlan(
@@ -112,10 +99,12 @@ export function PricingModule({
           body: JSON.stringify({
             plan,
             period,
+            billingCycle: period,
+            priceId: getStripePriceId(plan, period),
+            countryCode: geoCountry,
             companyId,
             companyName: companyName ?? "",
             email: email ?? "",
-            tier: geoTier,
           }),
         });
         const data = (await res.json()) as { url?: string; error?: string };
@@ -130,7 +119,7 @@ export function PricingModule({
         setCheckoutLoading(null);
       }
     },
-    [companyId, companyName, email, geoTier, period, lx]
+    [companyId, companyName, email, geoCountry, period, lx]
   );
 
   return (
@@ -207,9 +196,12 @@ export function PricingModule({
       {!loadingTier && geoTier > 1 ? (
         <div
           role="status"
-          className="mb-6 flex min-h-[44px] items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100 max-w-2xl mx-auto"
+          className="mb-6 flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100 max-w-2xl mx-auto"
         >
-          {lx.pricing_ppp_applied ?? ""}
+          <span>{lx.ppp_badge ?? lx.pricing_ppp_applied ?? ""}</span>
+          <span className="text-xs font-medium opacity-90">
+            {(lx.ppp_discount ?? "").replace(/\{\{percent\}\}/g, String(pppDiscount))}
+          </span>
         </div>
       ) : null}
 
@@ -227,6 +219,7 @@ export function PricingModule({
         {PAID_PLAN_ORDER.map((key) => {
           const plan = PLANS[key];
           const price = getPriceForTier(key, period, geoTier, countryCode);
+          const listPrice = getPriceForTier(key, period, 1, countryCode);
           const title = lx[plan.labelKey] ?? plan.labelKey;
           const isFeatured = key === "todo_incluido";
           const isCurrent = currentNormalized === key;
@@ -247,14 +240,32 @@ export function PricingModule({
               )}
               <h2 className="text-lg font-bold text-zinc-900 dark:text-white pr-2">{title}</h2>
               <div className="mt-5 mb-5">
-                <span className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white">
-                  {loadingTier ? "…" : formatMoney(price, displayCurrency)}
-                </span>
-                <span className="text-sm text-zinc-500 dark:text-zinc-400 ml-1">
-                  {period === "monthly"
-                    ? (lx.pricing_slash_mo ?? lx.billing_short_month ?? "/mo")
-                    : (lx.pricing_slash_yr ?? lx.billing_short_year ?? "/yr")}
-                </span>
+                {!loadingTier && geoTier > 1 ? (
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span className="text-lg font-semibold text-zinc-400 line-through decoration-zinc-400 dark:text-zinc-500">
+                      {formatMoney(listPrice, displayCurrency)}
+                    </span>
+                    <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
+                      {formatMoney(price, displayCurrency)}
+                    </span>
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400 w-full sm:w-auto sm:ml-0">
+                      {period === "monthly"
+                        ? (lx.pricing_slash_mo ?? lx.billing_short_month ?? "/mo")
+                        : (lx.pricing_slash_yr ?? lx.billing_short_year ?? "/yr")}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white">
+                      {loadingTier ? "…" : formatMoney(price, displayCurrency)}
+                    </span>
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400 ml-1">
+                      {period === "monthly"
+                        ? (lx.pricing_slash_mo ?? lx.billing_short_month ?? "/mo")
+                        : (lx.pricing_slash_yr ?? lx.billing_short_year ?? "/yr")}
+                    </span>
+                  </>
+                )}
               </div>
               <ul className="space-y-2.5 mb-5 text-sm text-zinc-700 dark:text-zinc-300">
                 <li className="flex gap-2">

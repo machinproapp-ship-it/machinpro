@@ -2,7 +2,7 @@ export type GeoTier = 1 | 2 | 3;
 
 export type GeoRegion = "uk" | "eu" | "latam_norte" | "latam_sur" | "northam" | "other";
 
-/** Tier 1 — higher PPP reference */
+/** Tier 1 — Stripe checkout: sin cupón PPP */
 export const TIER1_COUNTRIES = new Set([
   "CA",
   "US",
@@ -21,7 +21,10 @@ export const TIER1_COUNTRIES = new Set([
   "LU",
 ]);
 
-/** Tier 2 — mid PPP (incl. much of southern EU + South America) */
+/**
+ * Tier 2 — cupón `ppp_tier2` (20% forever).
+ * Lista explícita (ES, IT, LATAM sur parcial, etc.); el resto del mundo → tier 3 salvo tier 1.
+ */
 export const TIER2_COUNTRIES = new Set([
   "ES",
   "IT",
@@ -40,11 +43,22 @@ export const TIER2_COUNTRIES = new Set([
   "PE",
   "UY",
   "BR",
-  "EC",
-  "BO",
-  "PY",
-  "VE",
 ]);
+
+/** Misma regla que Stripe PPP checkout: tier 1 → tier 2 → todo lo demás tier 3 (incl. MX, GT…). */
+export function getPppTierFromCountryCode(countryCode: string | null | undefined): GeoTier {
+  const c = (countryCode ?? "").trim().toUpperCase();
+  if (!c) return 1;
+  if (TIER1_COUNTRIES.has(c)) return 1;
+  if (TIER2_COUNTRIES.has(c)) return 2;
+  return 3;
+}
+
+export function discountPercentForPppTier(tier: GeoTier): 0 | 20 | 40 {
+  if (tier === 2) return 20;
+  if (tier === 3) return 40;
+  return 0;
+}
 
 const LATAM_NORTE = new Set(["MX", "GT", "HN", "SV", "NI", "CR", "PA"]);
 const LATAM_SUR = new Set(["CO", "CL", "AR", "PE", "UY", "BR", "EC", "BO", "PY", "VE"]);
