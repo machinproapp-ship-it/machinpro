@@ -40,6 +40,11 @@ import {
   QUICK_ACCESS_KEYS,
 } from "@/lib/dashboardConfig";
 import {
+  clearCentralDashboardConfigCache,
+  readCentralDashboardConfigCache,
+  writeCentralDashboardConfigCache,
+} from "@/lib/centralDashboardCache";
+import {
   dateLocaleForUser,
   resolveUserTimezone,
   formatDateLong,
@@ -374,7 +379,12 @@ function CentralDashboardBody(
   };
   const formattedDate = formatDateLong(new Date(), dateLoc, timeZone);
 
-  const [dataLoading, setDataLoading] = useState(true);
+  const [primaryReady, setPrimaryReady] = useState(false);
+  const [dailyLoading, setDailyLoading] = useState(true);
+  const [empCountLoading, setEmpCountLoading] = useState(true);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [visitorsLoading, setVisitorsLoading] = useState(true);
+  const [hazardsLoading, setHazardsLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
 
   const [resolvedConfig, setResolvedConfig] = useState<ResolvedDashboardConfig>(() => parseDashboardConfig(null));
@@ -444,6 +454,11 @@ function CentralDashboardBody(
 
   const loadDashboardConfig = useCallback(async () => {
     try {
+      const cached = readCentralDashboardConfigCache(companyId, currentUserId);
+      if (cached != null) {
+        setResolvedConfig(parseDashboardConfig(cached));
+        return;
+      }
       const [{ data: co, error: coErr }, { data: pr, error: prErr }] = await Promise.all([
         supabase.from("companies").select("dashboard_config").eq("id", companyId).maybeSingle(),
         supabase.from("user_profiles").select("dashboard_config").eq("id", currentUserId).maybeSingle(),
@@ -452,6 +467,7 @@ function CentralDashboardBody(
       if (prErr) throw prErr;
       const userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
       const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
+      writeCentralDashboardConfigCache(companyId, currentUserId, merged);
       setResolvedConfig(parseDashboardConfig(merged));
     } catch (e) {
       console.error("[CentralDashboard] loadDashboardConfig", e);
@@ -482,6 +498,7 @@ function CentralDashboardBody(
           body: JSON.stringify({ companyId, dashboard_config: payload }),
         });
         if (!res.ok) return false;
+        clearCentralDashboardConfigCache();
         setResolvedConfig(next);
         return true;
       } catch (e) {
@@ -503,12 +520,24 @@ function CentralDashboardBody(
     };
 
     const run = async () => {
-      setDataLoading(true);
       setLoadErrors([]);
+      setPrimaryReady(false);
+      setDailyLoading(true);
+      setEmpCountLoading(true);
+      setActivityLoading(true);
+      setVisitorsLoading(true);
+      setHazardsLoading(true);
 
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session) {
-        if (!cancelled) setDataLoading(false);
+        if (!cancelled) {
+          setPrimaryReady(false);
+          setDailyLoading(false);
+          setEmpCountLoading(false);
+          setActivityLoading(false);
+          setVisitorsLoading(false);
+          setHazardsLoading(false);
+        }
         return;
       }
 
@@ -525,7 +554,8 @@ function CentralDashboardBody(
         .eq("user_id", currentUserId)
         .gte("clock_in_at", tStart)
         .lte("clock_in_at", tEnd)
-        .order("clock_in_at", { ascending: false });
+        .order("clock_in_at", { ascending: false })
+        .limit(50);
 
       const teamTimePromise = canViewTeamClock
         ? supabase
@@ -535,15 +565,15 @@ function CentralDashboardBody(
             .gte("clock_in_at", tStart)
             .lte("clock_in_at", tEnd)
             .order("clock_in_at", { ascending: false })
-            .limit(120)
+            .limit(50)
         : Promise.resolve({ data: [] as TimeRow[], error: null });
 
       const schedulePromise = supabase
         .from("schedule_entries")
-        .select("*")
+        .select("id, employee_ids")
         .eq("company_id", companyId)
         .eq("date", todayIso)
-        .limit(400);
+        .limit(50);
 
       const dataBatch = Promise.all([epPromise, myTimePromise, teamTimePromise, schedulePromise]);
       const [batchResults] = await Promise.all([dataBatch, loadDashboardConfig()]);
@@ -577,48 +607,54 @@ function CentralDashboardBody(
         setScheduleToday(mine);
       }
 
-      try {
-        const { data: drData, error: drErr } = await supabase
-          .from("daily_reports")
-          .select(
-            `id, project_id, date, status, title, daily_report_tasks (id, employee_id, description, completed)`
-          )
-          .eq("company_id", companyId)
-          .eq("date", todayIso)
-          .limit(40);
-        if (drErr) throw drErr;
-        const rows = (drData ?? []) as Record<string, unknown>[];
-        let filtered = rows;
-        if (projectIdsForUser.length > 0) {
-          const pset = new Set(projectIdsForUser);
-          const f = rows.filter((r) => pset.has(String(r.project_id ?? "")));
-          if (f.length > 0) filtered = f;
-        }
-        if (!cancelled) setDailyReportsToday(filtered);
-        const tasks: { description: string; completed: boolean }[] = [];
-        for (const r of filtered) {
-          const dt = r.daily_report_tasks;
-          if (!Array.isArray(dt)) continue;
-          for (const te of dt) {
-            const tr = te as Record<string, unknown>;
-            if (String(tr.employee_id ?? "") !== currentUserId) continue;
-            tasks.push({
-              description: String(tr.description ?? ""),
-              completed: tr.completed === true,
-            });
+      if (!cancelled) setPrimaryReady(true);
+
+      const loadDailyBundle = async () => {
+        try {
+          const { data: drData, error: drErr } = await supabase
+            .from("daily_reports")
+            .select(
+              `id, project_id, date, status, title, daily_report_tasks (id, employee_id, description, completed)`
+            )
+            .eq("company_id", companyId)
+            .eq("date", todayIso)
+            .limit(50);
+          if (drErr) throw drErr;
+          const rows = (drData ?? []) as Record<string, unknown>[];
+          let filtered = rows;
+          if (projectIdsForUser.length > 0) {
+            const pset = new Set(projectIdsForUser);
+            const f = rows.filter((r) => pset.has(String(r.project_id ?? "")));
+            if (f.length > 0) filtered = f;
           }
+          if (!cancelled) setDailyReportsToday(filtered);
+          const tasks: { description: string; completed: boolean }[] = [];
+          for (const r of filtered) {
+            const dt = r.daily_report_tasks;
+            if (!Array.isArray(dt)) continue;
+            for (const te of dt) {
+              const tr = te as Record<string, unknown>;
+              if (String(tr.employee_id ?? "") !== currentUserId) continue;
+              tasks.push({
+                description: String(tr.description ?? ""),
+                completed: tr.completed === true,
+              });
+            }
+          }
+          if (!cancelled) setMyTasksToday(tasks);
+        } catch (e) {
+          pushErr(e, "daily_reports");
+        } finally {
+          if (!cancelled) setDailyLoading(false);
         }
-        if (!cancelled) setMyTasksToday(tasks);
-      } catch (e) {
-        pushErr(e, "daily_reports");
-      }
+      };
 
       const fetchEmpCount = async () => {
-        if (!canViewEmployees && !canManageEmployees) {
-          if (!cancelled) setEmpActiveCount(null);
-          return;
-        }
         try {
+          if (!canViewEmployees && !canManageEmployees) {
+            if (!cancelled) setEmpActiveCount(null);
+            return;
+          }
           const { count, error } = await supabase
             .from("user_profiles")
             .select("id", { count: "exact", head: true })
@@ -628,75 +664,54 @@ function CentralDashboardBody(
           if (!cancelled) setEmpActiveCount(count ?? 0);
         } catch (e) {
           pushErr(e, "user_profiles");
+        } finally {
+          if (!cancelled) setEmpCountLoading(false);
         }
       };
 
       const auditPipeline = async () => {
-        if (!canManageEmployees) {
-          if (!cancelled) {
-            setActivityRows([]);
-            setAuditProfileByUserId({});
-          }
-          return;
-        }
         try {
+          if (!canManageEmployees && !canViewAuditLog) {
+            if (!cancelled) {
+              setActivityRows([]);
+              setAuditProfileByUserId({});
+            }
+            return;
+          }
           const { data, error } = await supabase
             .from("audit_logs")
-            .select("*")
+            .select(
+              "id, company_id, user_id, user_name, action, entity_type, entity_id, entity_name, new_value, created_at"
+            )
             .eq("company_id", companyId)
             .order("created_at", { ascending: false })
-            .limit(20);
+            .limit(10);
           if (error) throw error;
           const rows = (data ?? []) as AuditLogEntry[];
           const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
           const profileMap: Record<string, AuditProfileSnippet> = {};
           if (ids.length > 0) {
-            const idSet = new Set(ids);
-            const { data: rpcProfs, error: rpcErr } = await supabase.rpc("get_company_profiles", {
-              p_company_id: companyId,
-            });
-            if (!rpcErr && Array.isArray(rpcProfs)) {
-              for (const p of rpcProfs as {
-                id: string;
-                full_name?: string | null;
-                display_name?: string | null;
-                email?: string | null;
-              }[]) {
-                const idRaw = (p.id ?? "").trim();
-                if (!idRaw || !idSet.has(idRaw)) continue;
-                const snippet = {
-                  full_name: p.full_name,
-                  display_name: p.display_name,
-                  email: p.email,
-                };
-                profileMap[idRaw] = snippet;
-                profileMap[idRaw.toLowerCase()] = snippet;
-              }
-            }
-            const missing = ids.filter((id) => !(profileMap[id] ?? profileMap[id.toLowerCase()]));
-            if (missing.length > 0) {
-              const { data: profs, error: pErr } = await supabase
-                .from("user_profiles")
-                .select("id, full_name, display_name, email")
-                .in("id", missing)
-                .eq("company_id", companyId);
-              if (pErr) throw pErr;
-              for (const p of (profs ?? []) as {
-                id: string;
-                full_name?: string | null;
-                display_name?: string | null;
-                email?: string | null;
-              }[]) {
-                const idRaw = (p.id ?? "").trim();
-                if (!idRaw) continue;
-                const snippet = {
-                  full_name: p.full_name,
-                  display_name: p.display_name,
-                  email: p.email,
-                };
-                profileMap[idRaw] = snippet;
-                profileMap[idRaw.toLowerCase()] = snippet;
-              }
+            const { data: profs, error: pErr } = await supabase
+              .from("user_profiles")
+              .select("id, full_name, display_name, email")
+              .in("id", ids)
+              .eq("company_id", companyId);
+            if (pErr) throw pErr;
+            for (const p of (profs ?? []) as {
+              id: string;
+              full_name?: string | null;
+              display_name?: string | null;
+              email?: string | null;
+            }[]) {
+              const idRaw = (p.id ?? "").trim();
+              if (!idRaw) continue;
+              const snippet = {
+                full_name: p.full_name,
+                display_name: p.display_name,
+                email: p.email,
+              };
+              profileMap[idRaw] = snippet;
+              profileMap[idRaw.toLowerCase()] = snippet;
             }
           }
           if (!cancelled) {
@@ -705,19 +720,21 @@ function CentralDashboardBody(
           }
         } catch (e) {
           pushErr(e, L("dashboard_widget_activity"));
+        } finally {
+          if (!cancelled) setActivityLoading(false);
         }
       };
 
       const fetchVisitors = async () => {
-        if (!canAccessVisitors) {
-          if (!cancelled) {
-            setVisitorsTodayCount(0);
-            setVisitorsActiveNow(0);
-            setVisitorsRecent([]);
-          }
-          return;
-        }
         try {
+          if (!canAccessVisitors) {
+            if (!cancelled) {
+              setVisitorsTodayCount(0);
+              setVisitorsActiveNow(0);
+              setVisitorsRecent([]);
+            }
+            return;
+          }
           const [todayRes, activeRes, recentRes] = await Promise.all([
             supabase
               .from("visitor_logs")
@@ -747,29 +764,34 @@ function CentralDashboardBody(
           }
         } catch (e) {
           pushErr(e, L("dashboard_widget_visitors"));
+        } finally {
+          if (!cancelled) setVisitorsLoading(false);
         }
       };
 
       const fetchHazards = async () => {
-        if (canAccessHazards && (canManageEmployees || canManageComplianceAlerts)) {
-          try {
+        try {
+          if (canAccessHazards && (canManageEmployees || canManageComplianceAlerts)) {
             const { data, error } = await supabase
               .from("hazards")
-              .select("*")
+              .select("id, company_id, title, status")
               .eq("company_id", companyId)
               .in("status", ["open", "in_progress"])
-              .limit(25);
+              .limit(50);
             if (error) throw error;
             if (!cancelled) setHazardRows((data ?? []) as Hazard[]);
-          } catch (e) {
-            pushErr(e, L("dashboard_widget_hazards"));
+          } else if (!cancelled) {
+            setHazardRows([]);
           }
-        } else if (!cancelled) setHazardRows([]);
+        } catch (e) {
+          pushErr(e, L("dashboard_widget_hazards"));
+        } finally {
+          if (!cancelled) setHazardsLoading(false);
+        }
       };
 
-      if (!cancelled) setDataLoading(false);
-
-      await Promise.all([fetchEmpCount(), auditPipeline(), fetchVisitors(), fetchHazards()]);
+      await Promise.all([loadDailyBundle(), fetchEmpCount()]);
+      void Promise.all([auditPipeline(), fetchVisitors(), fetchHazards()]);
     };
 
     void run();
@@ -1018,18 +1040,18 @@ function CentralDashboardBody(
 
   const renderWidget = (id: DashboardWidgetId) => {
     const title = L(WIDGET_LABEL_KEYS[id]) || L(`dashboard_widget_${id}`) || id;
-    if (dataLoading) {
-      return widgetChrome(
+    const widgetSkeleton = (lines = 4) =>
+      widgetChrome(
         id,
         <>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{title}</h3>
-          <WidgetSkeleton lines={4} />
+          <WidgetSkeleton lines={lines} />
         </>
       );
-    }
 
     switch (id) {
       case "team_timeclock":
+        if (!primaryReady) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1059,6 +1081,7 @@ function CentralDashboardBody(
           </>
         );
       case "my_timeclock":
+        if (!primaryReady) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1118,6 +1141,7 @@ function CentralDashboardBody(
           </>
         );
       case "activity":
+        if (activityLoading) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1168,6 +1192,7 @@ function CentralDashboardBody(
           </>
         );
       case "hazards":
+        if (hazardsLoading) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1189,6 +1214,7 @@ function CentralDashboardBody(
           </>
         );
       case "visitors":
+        if (visitorsLoading) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1226,6 +1252,7 @@ function CentralDashboardBody(
           </>
         );
       case "my_tasks":
+        if (!primaryReady) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1238,20 +1265,25 @@ function CentralDashboardBody(
                 ? `${scheduleToday.length} ${L("schedule_pick_employees") ?? ""}`
                 : L("dashboard_trend_neutral")}
             </p>
-            <ul className="text-sm space-y-2 max-h-40 overflow-y-auto">
-              {myTasksToday.length === 0 ? (
-                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
-              ) : (
-                myTasksToday.map((task, i) => (
-                  <li key={i} className={task.completed ? "line-through opacity-60" : ""}>
-                    · {task.description || L("common_dash")}
-                  </li>
-                ))
-              )}
-            </ul>
+            {dailyLoading ? (
+              <WidgetSkeleton lines={3} />
+            ) : (
+              <ul className="text-sm space-y-2 max-h-40 overflow-y-auto">
+                {myTasksToday.length === 0 ? (
+                  <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
+                ) : (
+                  myTasksToday.map((task, i) => (
+                    <li key={i} className={task.completed ? "line-through opacity-60" : ""}>
+                      · {task.description || L("common_dash")}
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
           </>
         );
       case "daily_report":
+        if (!primaryReady || dailyLoading) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1292,6 +1324,7 @@ function CentralDashboardBody(
           </>
         );
       case "quick_access":
+        if (!primaryReady) return widgetSkeleton(2);
         return widgetChrome(
           id,
           <>
@@ -1354,7 +1387,7 @@ function CentralDashboardBody(
               icon={<Users className="h-5 w-5 text-white" />}
               iconWrapClassName="bg-blue-500"
               label={L("personnel") ?? L("employees_title")}
-              value={dataLoading ? "—" : empActiveCount ?? "—"}
+              value={empCountLoading ? "—" : empActiveCount ?? "—"}
               onClick={() => onNavigateAppSection("employees")}
               disabled={!canAccessEmployees}
             />
@@ -1374,7 +1407,7 @@ function CentralDashboardBody(
               icon={<Briefcase className="h-5 w-5 text-white" />}
               iconWrapClassName="bg-amber-500"
               label={L("projects")}
-              value={dataLoading ? "—" : activeProjectsCount}
+              value={activeProjectsCount}
               subContent={
                 <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{L("activeProjects")}</span>
               }
