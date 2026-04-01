@@ -24,6 +24,7 @@ import {
   Package,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { GettingStartedWidget } from "@/components/GettingStartedWidget";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
 import type { Hazard } from "@/types/hazard";
 import type { MainSection } from "@/types/shared";
@@ -1282,6 +1283,10 @@ function CentralDashboardBody(
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {currentUserRole === "admin" ? (
+        <GettingStartedWidget companyId={companyId} labels={labels} onNavigateAppSection={onNavigateAppSection} />
       ) : null}
 
       {showZone1 ? (

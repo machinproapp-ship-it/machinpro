@@ -143,6 +143,8 @@ export interface SettingsModuleProps {
   /** Perfil: zona IANA guardada en `user_profiles.timezone`. */
   savedProfileTimeZone?: string | null;
   onPersistUserTimeZone?: (tz: string) => void | Promise<void>;
+  /** Increment to open the Help & tutorials section (e.g. from module help on mobile). */
+  focusHelpSectionSignal?: number;
 }
 
 export function SettingsModule({
@@ -194,6 +196,7 @@ export function SettingsModule({
   onReopenOnboarding,
   savedProfileTimeZone = null,
   onPersistUserTimeZone,
+  focusHelpSectionSignal = 0,
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -291,6 +294,12 @@ export function SettingsModule({
     if (settingsWideNav) return;
     if (activeSettingsSection === "compliance") setActiveSettingsSection("general");
   }, [settingsWideNav, activeSettingsSection]);
+
+  useEffect(() => {
+    if (!focusHelpSectionSignal) return;
+    setActiveSettingsSection("help");
+    setSettingsMobileMenu(false);
+  }, [focusHelpSectionSignal]);
 
   useEffect(() => {
     const resolved = resolveUserTimezone(savedProfileTimeZone);

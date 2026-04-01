@@ -43,6 +43,7 @@ import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { ModuleHelpFab } from "@/components/ModuleHelpFab";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/Toast";
 import type { AuthChangeEvent, PostgrestResponse, Session } from "@supabase/supabase-js";
@@ -1123,6 +1124,11 @@ export default function Home() {
   const [dashVisitorQrSig, setDashVisitorQrSig] = useState(0);
   const [dashVisitorTabSig, setDashVisitorTabSig] = useState(0);
   const [projectsOpenRfiSig, setProjectsOpenRfiSig] = useState(0);
+  const [settingsHelpFocusSignal, setSettingsHelpFocusSignal] = useState(0);
+  const openSettingsHelpFromFab = useCallback(() => {
+    setActiveSection("settings");
+    setSettingsHelpFocusSignal((n) => n + 1);
+  }, []);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
   const resetSecurityDashSignals = useCallback(() => {
     setDashHazardCreateSig(0);
@@ -3607,6 +3613,7 @@ export default function Home() {
 
           <div className="max-w-7xl mx-auto space-y-6 min-w-0 w-full">
             {activeSection === "office" && perms.office && (
+              <>
               <CentralModule
                 labels={labels}
                 employees={(() => {
@@ -3881,9 +3888,16 @@ export default function Home() {
                 canEditProjects={!!rolePerms.canEditProjects}
                 canDeleteProjects={!!rolePerms.canDeleteProjects}
               />
+              <ModuleHelpFab
+                moduleKey="office"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
+            </>
             )}
 
             {activeSection === "warehouse" && perms.warehouse && (
+              <>
               <LogisticsModule
                 warehouseSubTab={warehouseSubTab}
                 setWarehouseSubTab={setWarehouseSubTab}
@@ -4005,9 +4019,16 @@ export default function Home() {
                 companyName={profile?.companyName ?? companyName ?? ""}
                 companyId={companyId ?? ""}
               />
+              <ModuleHelpFab
+                moduleKey="warehouse"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
+            </>
             )}
 
             {activeSection === "employees" && !!perms.canAccessEmployees && (
+              <>
               <EmployeesModule
                 companyId={companyId}
                 companyName={profile?.companyName ?? companyName ?? ""}
@@ -4033,6 +4054,12 @@ export default function Home() {
                 onComplianceRecordsChange={setComplianceRecords}
                 vacationRequests={vacationRequests}
               />
+              <ModuleHelpFab
+                moduleKey="employees"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
+            </>
             )}
 
             {activeSection === "site" && perms.site && (
@@ -4393,10 +4420,16 @@ export default function Home() {
                 }}
               />
                 )}
+              <ModuleHelpFab
+                moduleKey="site"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
               </>
             )}
 
             {activeSection === "schedule" && (perms.canAccessSchedule !== false) && (
+              <>
               <ScheduleModule
                 entries={scheduleEntries}
                 employees={employees.map((e) => ({
@@ -4543,9 +4576,16 @@ export default function Home() {
                 companyName={profile?.companyName ?? companyName ?? ""}
                 companyId={companyId ?? ""}
               />
+              <ModuleHelpFab
+                moduleKey="schedule"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
+            </>
             )}
 
             {activeSection === "forms" && (perms.forms !== false) && (
+              <>
               <FormsModule
                 templates={formTemplates}
                 instances={formInstances}
@@ -4570,9 +4610,16 @@ export default function Home() {
                   setFormTemplates((prev) => prev.filter((t) => t.id !== id || t.isBase))}
                 labels={t as Record<string, string>}
               />
+              <ModuleHelpFab
+                moduleKey="forms"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
+            </>
             )}
 
             {activeSection === "security" && (perms.canAccessSecurity ?? false) && (
+              <>
               <SecurityModule
                 t={t as Record<string, string>}
                 companyId={companyId}
@@ -4629,9 +4676,16 @@ export default function Home() {
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
               />
+              <ModuleHelpFab
+                moduleKey="security"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
+            </>
             )}
 
             {activeSection === "settings" && (perms.canViewSettings ?? false) && (
+              <>
               <SettingsModule
                 labels={{
                   ...(t as Record<string, string>),
@@ -4739,7 +4793,14 @@ export default function Home() {
                 }
                 savedProfileTimeZone={profile?.timezone ?? null}
                 onPersistUserTimeZone={(tz) => void applyUserTimezone(tz)}
+                focusHelpSectionSignal={settingsHelpFocusSignal}
               />
+              <ModuleHelpFab
+                moduleKey="settings"
+                labels={t as Record<string, string>}
+                onOpenSettingsHelp={openSettingsHelpFromFab}
+              />
+            </>
             )}
 
             {requestModalProjectId && (

@@ -359,6 +359,18 @@ export default {
   help_faq_support: "Wie kontaktiere ich den Support?",
   help_faq_support_answer:
     "Schreiben Sie uns an support@machin.pro und wir antworten innerhalb von 24 Stunden.",
+  getting_started_title: "Erste Schritte",
+  getting_started_subtitle:
+    "Schließen Sie diese Schritte ab um MachinPro optimal zu nutzen",
+  getting_started_dismiss: "Schließen",
+  getting_started_completed: "Alles erledigt! Sie kennen MachinPro jetzt.",
+  getting_started_step1: "Richten Sie Ihr Unternehmen ein",
+  getting_started_step2: "Laden Sie Ihren ersten Mitarbeiter ein",
+  getting_started_step3: "Erstellen Sie Ihr erstes Projekt",
+  getting_started_step4: "Erfassen Sie Ihre erste Zeitbuchung",
+  getting_started_step5: "Laden Sie Ihr erstes Baustellenfoto hoch",
+  getting_started_progress: "{done} von {total} Schritten abgeschlossen",
+  help_module_button: "Hilfe",
   company_profile_saving: "Wird gespeichert…",
   settings_website_placeholder: "https://",
   compliance_fields_empty: "Noch keine Compliance-Felder. Fügen Sie unten eines hinzu.",
