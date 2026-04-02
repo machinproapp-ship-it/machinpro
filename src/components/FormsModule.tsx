@@ -21,6 +21,9 @@ import type {
 import { generateFormPDF } from "@/lib/generateFormPDF";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import QRCode from "qrcode";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
+
+const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
 type FormsView = "list" | "template" | "fill" | "detail";
 type ListTab = "pending" | "in_progress" | "completed" | "all";
@@ -221,6 +224,7 @@ export function FormsModule({
   labels: labelsProp,
 }: FormsModuleProps) {
   const t = { ...defaultLabels, ...labelsProp };
+  const l = (k: string) => (t as Record<string, string>)[k] ?? PM_EN[k] ?? k;
   const [view, setView] = useState<FormsView>("list");
   const [listTab, setListTab] = useState<ListTab>("all");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -816,7 +820,7 @@ export function FormsModule({
                                         className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
                                       >
                                         <PenLine className="h-3.5 w-3.5" />
-                                        {t.signHere ?? "Firmar aquí"}
+                                        {l("signHere")}
                                       </button>
                                     </div>
                                   )}
@@ -919,7 +923,7 @@ export function FormsModule({
               <button type="button" onClick={() => { setView("list"); setDetailInstanceId(null); }} className="p-2 rounded-lg border">
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <p className="text-zinc-500">No encontrado</p>
+              <p className="text-zinc-500">{l("no_results")}</p>
             </div>
           );
         }
@@ -1135,7 +1139,7 @@ export function FormsModule({
           />
           <div className="fixed inset-x-4 bottom-4 z-50 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-sm">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-1">
-              {t.signHere ?? "Firmar aquí"}
+              {l("signHere")}
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
               {directSignAttendee.name}
@@ -1151,7 +1155,7 @@ export function FormsModule({
               onPointerLeave={endDirectSign}
             />
             <p className="text-xs text-zinc-400 mt-2 mb-4 text-center">
-              {t.signWithFinger ?? "Firma con el dedo o el ratón"}
+              {l("signWithFinger")}
             </p>
             <div className="flex gap-2">
               <button
@@ -1159,18 +1163,18 @@ export function FormsModule({
                 onClick={clearDirectSignCanvas}
                 className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 min-h-[44px]"
               >
-                {t.clear ?? "Limpiar"}
+                {l("clear")}
               </button>
               <button
                 type="button"
                 onClick={saveDirectSign}
                 className="flex-1 rounded-xl bg-amber-600 text-white py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px]"
               >
-                {t.confirmSignature ?? "Confirmar firma"}
+                {l("confirmSignature")}
               </button>
             </div>
             <p className="text-xs text-zinc-400 mt-3 text-center">
-              {t.signedOnSupervisorDevice ?? "Firmado en dispositivo del supervisor"}
+              {l("signedOnSupervisorDevice")}
             </p>
           </div>
         </>
@@ -1186,35 +1190,35 @@ export function FormsModule({
           />
           <div className="fixed inset-x-4 bottom-4 z-50 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-sm">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-4">
-              {t.addVisitor ?? "Añadir visitante"}
+              {l("addVisitor")}
             </h3>
             <div className="mb-3">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                {t.fullName ?? "Nombre completo"} *
+                {l("fullName")} *
               </label>
               <input
                 type="text"
                 value={visitorName}
                 onChange={(e) => setVisitorName(e.target.value)}
                 className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                placeholder={t.fullName ?? "Nombre completo"}
+                placeholder={l("fullName")}
               />
             </div>
             <div className="mb-3">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                {t.company ?? "Empresa"} *
+                {l("subcontractors_field_company")} *
               </label>
               <input
                 type="text"
                 value={visitorCompany}
                 onChange={(e) => setVisitorCompany(e.target.value)}
-                placeholder={t.companyRequired ?? "Empresa (obligatorio)"}
+                placeholder={l("companyRequired")}
                 className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
               />
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                {t.orientationGiven ?? "Orientación dada"} *
+                {l("orientationGiven")} *
               </label>
               <div className="flex gap-3">
                 {(["yes", "na"] as const).map((opt) => (
@@ -1228,14 +1232,14 @@ export function FormsModule({
                         : "border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    {opt === "yes" ? t.yes ?? "Sí / Yes" : "N/A"}
+                    {opt === "yes" ? l("checklistYes") : l("checklistNA")}
                   </button>
                 ))}
               </div>
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                {t.signature ?? "Firma"} *
+                {l("signature")} *
               </label>
               <canvas
                 ref={visitorSignCanvasRef}
@@ -1252,7 +1256,7 @@ export function FormsModule({
                 onClick={clearVisitorSignCanvas}
                 className="text-xs text-zinc-400 mt-1 hover:text-zinc-600 dark:hover:text-zinc-300"
               >
-                {t.clear ?? "Limpiar firma"}
+                {l("clear")}
               </button>
             </div>
             <div className="flex gap-2">
@@ -1261,7 +1265,7 @@ export function FormsModule({
                 onClick={() => setAddVisitorModalOpen(false)}
                 className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 min-h-[44px]"
               >
-                {t.cancel ?? "Cancelar"}
+                {l("cancel")}
               </button>
               <button
                 type="button"
@@ -1269,7 +1273,7 @@ export function FormsModule({
                 disabled={!visitorName.trim() || !visitorCompany.trim()}
                 className="flex-1 rounded-xl bg-amber-600 text-white py-2.5 text-sm font-medium disabled:opacity-50 min-h-[44px] hover:bg-amber-500"
               >
-                {t.addVisitor ?? "Añadir"}
+                {l("add")}
               </button>
             </div>
           </div>

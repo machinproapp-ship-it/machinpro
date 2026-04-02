@@ -9,6 +9,9 @@ import { FilterGrid } from "@/components/FilterGrid";
 import { useToast } from "@/components/Toast";
 import type { Visitor, VisitorStatus } from "@/types/visitor";
 import { formatDateTime, visitorPeriodToCheckInBounds, type VisitorPeriodFilter } from "@/lib/dateUtils";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
+
+const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
 export interface VisitorModuleProps {
   t: Record<string, string>;
@@ -50,6 +53,7 @@ export function VisitorModule({
 }: VisitorModuleProps) {
   const { showToast } = useToast();
   const lx = t as Record<string, string>;
+  const l = (k: string) => lx[k] ?? PM_EN[k] ?? k;
   const lastQrSig = useRef(0);
   const [periodFilter, setPeriodFilter] = useState<VisitorPeriodFilter>("today");
   const [filterProjectId, setFilterProjectId] = useState<string>(
@@ -210,13 +214,13 @@ export function VisitorModule({
   const exportCsv = () => {
     try {
       const headers = [
-        t.visitors_name ?? "name",
-        t.visitors_company ?? "company",
-        t.visitors_purpose ?? "purpose",
-        t.visitors_host ?? "host",
-        t.visitors_checkin ?? "check_in",
-        t.visitors_checkout ?? "check_out",
-        t.visitors_table_status ?? "status",
+        l("visitors_name"),
+        l("visitors_company"),
+        l("visitors_purpose"),
+        l("visitors_host"),
+        l("visitors_checkin"),
+        l("visitors_checkout"),
+        l("visitors_table_status"),
       ];
       const lines = [headers.join(",")];
       for (const r of filtered) {
@@ -244,9 +248,9 @@ export function VisitorModule({
       a.download = `visitors-${slug}-${periodFilter}.csv`;
       a.click();
       URL.revokeObjectURL(a.href);
-      showToast("success", lx.export_success ?? "Export completed");
+      showToast("success", l("export_success"));
     } catch {
-      showToast("error", lx.export_error ?? "Export error");
+      showToast("error", l("export_error"));
     }
   };
 
@@ -267,8 +271,8 @@ export function VisitorModule({
     const dataUrl = canvas.toDataURL("image/png");
     const w = window.open("", "_blank", "noopener,noreferrer");
     if (!w) return;
-    const title = lx.visitor_qr_title ?? t.visitors_qr_modal_title ?? "QR";
-    const sub = lx.visitor_qr_subtitle ?? "";
+    const title = lx.visitor_qr_title ?? lx.visitors_qr_modal_title ?? PM_EN.visitors_qr_modal_title;
+    const sub = lx.visitor_qr_subtitle ?? PM_EN.visitor_qr_subtitle;
     w.document.write(
       `<!DOCTYPE html><html><head><title>${title}</title></head><body style="margin:0;padding:24px;text-align:center;font-family:system-ui,sans-serif"><h1 style="font-size:18px">${title}</h1><p style="color:#444;font-size:14px">${sub}</p><img src="${dataUrl}" width="320" height="320" alt="" style="max-width:100%;height:auto"/><p style="font-size:12px;word-break:break-all;margin-top:16px">${checkInUrl}</p><script>window.onload=function(){window.print();}<\\/script></body></html>`
     );
@@ -278,7 +282,7 @@ export function VisitorModule({
   if (!companyId) {
     return (
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
-        {t.visitors_no_company ?? t.billing_no_company ?? "—"}
+        {lx.visitors_no_company ?? lx.billing_no_company ?? PM_EN.common_dash}
       </div>
     );
   }
@@ -286,7 +290,7 @@ export function VisitorModule({
   if (!supabase) {
     return (
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-600 dark:text-gray-400">
-        {t.visitors_error ?? "—"}
+        {lx.visitors_error ?? PM_EN.common_dash}
       </div>
     );
   }
@@ -297,15 +301,15 @@ export function VisitorModule({
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
             {lockedProjectName?.trim()
-              ? `${t.visitors_title ?? ""} — ${lockedProjectName.trim()}`
-              : (t.visitors_title ?? "")}
+              ? `${lx.visitors_title ?? PM_EN.visitors_title} — ${lockedProjectName.trim()}`
+              : (lx.visitors_title ?? PM_EN.visitors_title)}
           </h2>
           {companyName ? (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{companyName}</p>
           ) : null}
           {lockedProjectId && lockedProjectName?.trim() ? (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {lx.visitors_filter_project ?? ""}: {lockedProjectName.trim()}
+              {lx.visitors_filter_project ?? PM_EN.visitors_filter_project}: {lockedProjectName.trim()}
             </p>
           ) : null}
         </div>
@@ -316,7 +320,7 @@ export function VisitorModule({
             className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <QrCode className="h-4 w-4 shrink-0" />
-            {lx.visitor_qr_show ?? t.visitors_generate_qr ?? "QR"}
+            {lx.visitor_qr_show ?? lx.visitors_generate_qr ?? PM_EN.visitors_generate_qr}
           </button>
           {manualRegisterUrl ? (
             <a
@@ -326,7 +330,7 @@ export function VisitorModule({
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               <UserCheck className="h-4 w-4 shrink-0" />
-              {lx.visitor_manual_register ?? t.visitors_submit ?? "Manual"}
+              {lx.visitor_manual_register ?? lx.visitors_submit ?? PM_EN.visitor_manual_register}
             </a>
           ) : null}
           <button
@@ -335,19 +339,19 @@ export function VisitorModule({
             className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <Download className="h-4 w-4 shrink-0" />
-            {t.visitors_export_csv ?? "CSV"}
+            {l("visitors_export_csv")}
           </button>
         </div>
       </div>
 
       <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200">
-        {lx.visitor_active_now ?? t.visitors_active_now ?? "Active"}:{" "}
+        {lx.visitor_active_now ?? lx.visitors_active_now ?? PM_EN.visitor_active_now}:{" "}
         <span className="tabular-nums">{activeInsideCount}</span>
       </div>
 
       <FilterGrid>
         <div className="col-span-2 flex flex-col gap-2 text-sm min-w-0 lg:col-span-2">
-          <span className="text-gray-600 dark:text-gray-400">{lx.visitor_filter_period ?? t.visitors_filter_date ?? "Period"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{lx.visitor_filter_period ?? lx.visitors_filter_date ?? PM_EN.visitor_filter_period}</span>
           <div className="flex flex-wrap gap-2">
             {(["today", "week", "month"] as const).map((p) => (
               <button
@@ -361,10 +365,10 @@ export function VisitorModule({
                 }`}
               >
                 {p === "today"
-                  ? (lx.visitor_filter_today ?? "Today")
+                  ? l("visitor_filter_today")
                   : p === "week"
-                    ? (lx.visitor_filter_week ?? "Week")
-                    : (lx.visitor_filter_month ?? "Month")}
+                    ? l("visitor_filter_week")
+                    : l("visitor_filter_month")}
               </button>
             ))}
           </div>
@@ -372,14 +376,14 @@ export function VisitorModule({
         {!lockedProjectId ? (
           <label className="flex flex-col gap-1 text-sm min-w-0">
             <span className="text-gray-600 dark:text-gray-400">
-              {t.visitors_filter_project ?? "Project"}
+              {l("visitors_filter_project")}
             </span>
             <select
               value={filterProjectId}
               onChange={(e) => setFilterProjectId(e.target.value)}
               className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
             >
-              <option value="all">{t.visitors_filter_all ?? "All"}</option>
+              <option value="all">{l("visitors_filter_all")}</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -390,20 +394,20 @@ export function VisitorModule({
         ) : null}
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
           <span className="text-gray-600 dark:text-gray-400">
-            {t.visitors_filter_status ?? "Status"}
+            {l("visitors_filter_status")}
           </span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as "all" | VisitorStatus)}
             className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
-            <option value="all">{t.visitors_filter_all ?? "All"}</option>
-            <option value="checked_in">{lx.visitor_status_inside ?? t.visitors_status_in ?? "In"}</option>
-            <option value="checked_out">{lx.visitor_status_outside ?? t.visitors_status_out ?? "Out"}</option>
+            <option value="all">{l("visitors_filter_all")}</option>
+            <option value="checked_in">{lx.visitor_status_inside ?? lx.visitors_status_in ?? PM_EN.visitor_status_inside}</option>
+            <option value="checked_out">{lx.visitor_status_outside ?? lx.visitors_status_out ?? PM_EN.visitor_status_outside}</option>
           </select>
         </label>
         <label className="col-span-2 flex flex-col gap-1 text-sm min-w-0 lg:col-span-4">
-          <span className="text-gray-600 dark:text-gray-400">{t.visitors_search ?? "Search"}</span>
+          <span className="text-gray-600 dark:text-gray-400">{l("visitors_search")}</span>
           <span className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -430,10 +434,10 @@ export function VisitorModule({
           <div className="flex flex-col items-center py-14 px-4 text-center">
             <UserCheck className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {t.empty_no_visitors ?? t.visitors_no_results ?? "—"}
+              {lx.empty_no_visitors ?? lx.visitors_no_results ?? PM_EN.no_results}
             </h3>
             <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
-              {t.empty_visitors_sub ?? ""}
+              {lx.empty_visitors_sub ?? PM_EN.empty_visitors_sub}
             </p>
             <button
               type="button"
@@ -441,20 +445,20 @@ export function VisitorModule({
               className="mt-6 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <QrCode className="h-4 w-4 shrink-0" aria-hidden />
-              {t.visitors_generate_qr ?? "QR"}
+              {lx.visitors_generate_qr ?? PM_EN.visitors_generate_qr}
             </button>
           </div>
         ) : (
           <table className="w-full text-sm text-left min-w-[720px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
-                <th className="px-4 py-3 font-medium">{t.visitors_name ?? "Name"}</th>
-                <th className="px-4 py-3 font-medium">{t.visitors_company ?? "Company"}</th>
-                <th className="px-4 py-3 font-medium">{t.visitors_purpose ?? "Purpose"}</th>
-                <th className="px-4 py-3 font-medium">{t.visitors_host ?? "Host"}</th>
-                <th className="px-4 py-3 font-medium">{t.visitors_checkin ?? "In"}</th>
-                <th className="px-4 py-3 font-medium">{t.visitors_checkout ?? "Out"}</th>
-                <th className="px-4 py-3 font-medium">{t.visitors_table_status ?? "Status"}</th>
+                <th className="px-4 py-3 font-medium">{l("visitors_name")}</th>
+                <th className="px-4 py-3 font-medium">{l("visitors_company")}</th>
+                <th className="px-4 py-3 font-medium">{l("visitors_purpose")}</th>
+                <th className="px-4 py-3 font-medium">{l("visitors_host")}</th>
+                <th className="px-4 py-3 font-medium">{l("visitors_checkin")}</th>
+                <th className="px-4 py-3 font-medium">{l("visitors_checkout")}</th>
+                <th className="px-4 py-3 font-medium">{l("visitors_table_status")}</th>
                 <th className="px-4 py-3 font-medium w-40" />
               </tr>
             </thead>
@@ -468,17 +472,17 @@ export function VisitorModule({
                     {r.visitor_name}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {r.visitor_company ?? "—"}
+                    {r.visitor_company ?? l("common_dash")}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
-                    {r.purpose ?? "—"}
+                    {r.purpose ?? l("common_dash")}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.host_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.host_name ?? l("common_dash")}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                     {formatDateTime(r.check_in, dateLocale, timeZone)}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {r.check_out ? formatDateTime(r.check_out, dateLocale, timeZone) : "—"}
+                    {r.check_out ? formatDateTime(r.check_out, dateLocale, timeZone) : l("common_dash")}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -489,8 +493,8 @@ export function VisitorModule({
                       }`}
                     >
                       {r.status === "checked_in"
-                        ? (lx.visitor_status_inside ?? t.visitors_status_in ?? "In")
-                        : (lx.visitor_status_outside ?? t.visitors_status_out ?? "Out")}
+                        ? (lx.visitor_status_inside ?? lx.visitors_status_in ?? PM_EN.visitor_status_inside)
+                        : (lx.visitor_status_outside ?? lx.visitors_status_out ?? PM_EN.visitor_status_outside)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -500,7 +504,7 @@ export function VisitorModule({
                         onClick={() => void manualCheckout(r.id)}
                         className="min-h-[44px] px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/40"
                       >
-                        {t.visitors_checkout_manual ?? "Checkout"}
+                        {l("visitors_checkout_manual")}
                       </button>
                     ) : null}
                   </td>
@@ -520,10 +524,10 @@ export function VisitorModule({
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {lx.visitor_qr_title ?? t.visitors_qr_modal_title ?? "QR"}
+                {lx.visitor_qr_title ?? lx.visitors_qr_modal_title ?? PM_EN.visitors_qr_modal_title}
               </h3>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {lx.visitor_qr_subtitle ?? ""}
+                {lx.visitor_qr_subtitle ?? PM_EN.visitor_qr_subtitle}
               </p>
             </div>
             <div className="flex justify-center p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 sm:p-4">
@@ -544,14 +548,14 @@ export function VisitorModule({
                   onClick={downloadQrPng}
                   className="flex-1 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-sm py-3"
                 >
-                  {lx.visitor_qr_download ?? t.visitors_download_qr_png ?? "PNG"}
+                  {lx.visitor_qr_download ?? lx.visitors_download_qr_png ?? PM_EN.visitors_download_qr_png}
                 </button>
                 <button
                   type="button"
                   onClick={printQr}
                   className="flex-1 min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 font-medium text-sm py-3 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
-                  {lx.visitor_qr_print ?? "Print"}
+                  {lx.visitor_qr_print ?? PM_EN.visitor_qr_print}
                 </button>
               </div>
               <button
@@ -559,7 +563,7 @@ export function VisitorModule({
                 onClick={() => setQrOpen(false)}
                 className="w-full min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 font-medium text-sm py-3 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                {t.visitors_close ?? "Close"}
+                {l("visitors_close")}
               </button>
             </div>
           </div>

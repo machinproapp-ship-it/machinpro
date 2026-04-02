@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { PAID_PLAN_ORDER, type PaidPlanKey } from "@/lib/stripe";
 import type { Invitation, InvitationPlan } from "@/types/invitation";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
+
+const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
 export interface SuperadminModuleProps {
   t: Record<string, string>;
@@ -87,6 +90,8 @@ function statusBadgeClass(status: string | undefined): string {
 }
 
 export function SuperadminModule({ t }: SuperadminModuleProps) {
+  const tl = t as Record<string, string>;
+  const l = (k: string) => tl[k] ?? PM_EN[k] ?? k;
   const [companies, setCompanies] = useState<SuperadminCompany[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,7 +127,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
     try {
       const h = await authHeaders();
       if (!("Authorization" in h)) {
-        setError(t.superadmin_error_auth ?? "Auth required");
+        setError(tl.superadmin_error_auth ?? PM_EN.superadmin_error_auth);
         setLoading(false);
         return;
       }
@@ -132,7 +137,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       ]);
       const cJson = (await cRes.json()) as { companies?: SuperadminCompany[]; error?: string };
       const sJson = (await sRes.json()) as Stats & { error?: string };
-      if (!cRes.ok) setError(cJson.error ?? "Error");
+      if (!cRes.ok) setError(cJson.error ?? PM_EN.register_error_generic);
       else setCompanies(cJson.companies ?? []);
       if (sRes.ok) setStats(sJson);
 
@@ -152,11 +157,11 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         setInvAcceptedMonth(0);
       }
     } catch {
-      setError(t.superadmin_error_load ?? "Error");
+      setError(tl.superadmin_error_load ?? PM_EN.superadmin_error_load);
     } finally {
       setLoading(false);
     }
-  }, [t.superadmin_error_auth, t.superadmin_error_load]);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -193,7 +198,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         });
         if (!res.ok) {
           const j = (await res.json()) as { error?: string };
-          setError(j.error ?? "Error");
+          setError(j.error ?? PM_EN.register_error_generic);
           return;
         }
         await load();
@@ -222,14 +227,14 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       });
       const j = (await res.json()) as { error?: string };
       if (!res.ok) {
-        setError(j.error ?? (t as Record<string, string>).invite_error_send ?? "Error");
+        setError(j.error ?? PM_EN.invite_error_send);
         return;
       }
       setInviteModalOpen(false);
       setInviteForm({ email: "", companyName: "", plan: "trial", message: "" });
       await load();
     } catch {
-      setError((t as Record<string, string>).invite_error_send ?? "Error");
+      setError(tl.invite_error_send ?? PM_EN.invite_error_send);
     } finally {
       setInviteSending(false);
     }
@@ -247,12 +252,12 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         });
         const j = (await res.json()) as { error?: string };
         if (!res.ok) {
-          setError(j.error ?? "Error");
+          setError(j.error ?? PM_EN.register_error_generic);
           return;
         }
         await load();
       } catch {
-        setError((t as Record<string, string>).invite_error_send ?? "Error");
+        setError(tl.invite_error_send ?? PM_EN.invite_error_send);
       }
     },
     [load, t]
@@ -270,12 +275,12 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         });
         const j = (await res.json()) as { error?: string };
         if (!res.ok) {
-          setError(j.error ?? "Error");
+          setError(j.error ?? PM_EN.register_error_generic);
           return;
         }
         await load();
       } catch {
-        setError((t as Record<string, string>).invite_error_send ?? "Error");
+        setError(tl.invite_error_send ?? PM_EN.invite_error_send);
       }
     },
     [load, t]
@@ -352,10 +357,10 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
     <div className="w-full max-w-7xl mx-auto px-4 py-6 sm:py-10 space-y-8">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-          {t.superadmin_title ?? "Superadmin"}
+          {l("superadmin_title")}
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {t.superadmin_companies ?? "Companies"}
+          {l("superadmin_companies")}
         </p>
       </div>
 
@@ -368,11 +373,11 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           {[
-            { label: t.superadmin_companies ?? "Companies", value: stats.totalCompanies },
-            { label: t.superadmin_users_total ?? "Users", value: stats.totalUsers },
-            { label: t.superadmin_mrr ?? "MRR (CAD)", value: `≈${stats.mrrCadApprox}` },
-            { label: t.superadmin_trials ?? "Trials", value: stats.trialsActive },
-            { label: t.superadmin_conversions ?? "Conv. 7d", value: stats.conversionsWeek },
+            { label: l("superadmin_companies"), value: stats.totalCompanies },
+            { label: l("superadmin_users_total"), value: stats.totalUsers },
+            { label: l("superadmin_mrr"), value: `≈${stats.mrrCadApprox}` },
+            { label: l("superadmin_trials"), value: stats.trialsActive },
+            { label: l("superadmin_conversions"), value: stats.conversionsWeek },
           ].map((k) => (
             <div
               key={k.label}
@@ -388,7 +393,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       {stats && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            {t.superadmin_chart_plans ?? "Companies by plan"}
+            {l("superadmin_chart_plans")}
           </h2>
           <div className="space-y-2">
             {Object.entries(dist).map(([k, v]) => (
@@ -411,18 +416,12 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {(t as Record<string, string>).invite_title ?? "Invitations"}
+              {l("invite_title")}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {((t as Record<string, string>).invite_stats_pending ?? "{n} pending").replace(
-                "{n}",
-                String(invPending)
-              )}{" "}
+              {l("invite_stats_pending").replace("{n}", String(invPending))}{" "}
               ·{" "}
-              {((t as Record<string, string>).invite_stats_accepted_month ?? "{n} accepted").replace(
-                "{n}",
-                String(invAcceptedMonth)
-              )}
+              {l("invite_stats_accepted_month").replace("{n}", String(invAcceptedMonth))}
             </p>
           </div>
           <button
@@ -430,7 +429,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             onClick={() => setInviteModalOpen(true)}
             className="min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 text-sm font-semibold"
           >
-            {(t as Record<string, string>).invite_new ?? "New invitation"}
+            {l("invite_new")}
           </button>
         </div>
         <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
@@ -438,23 +437,23 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">
-                  {(t as Record<string, string>).invite_company ?? "Company"}
+                  {l("invite_company")}
                 </th>
                 <th className="px-4 py-3 text-left font-medium">
-                  {(t as Record<string, string>).invite_email ?? "Email"}
+                  {l("invite_email")}
                 </th>
                 <th className="px-4 py-3 text-left font-medium">
-                  {(t as Record<string, string>).invite_plan ?? "Plan"}
+                  {l("invite_plan")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_status ?? "Status"}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_status")}</th>
                 <th className="px-4 py-3 text-left font-medium">
-                  {(t as Record<string, string>).invite_sent_at ?? "Sent"}
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  {(t as Record<string, string>).invite_expires ?? "Expires"}
+                  {l("invite_sent_at")}
                 </th>
                 <th className="px-4 py-3 text-left font-medium">
-                  {(t as Record<string, string>).invite_table_actions ?? "Actions"}
+                  {l("invite_expires")}
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  {l("invite_table_actions")}
                 </th>
               </tr>
             </thead>
@@ -466,10 +465,10 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                   (t as Record<string, string>)[planKey] ?? inv.plan;
                 const statusLabel =
                   disp === "pending"
-                    ? ((t as Record<string, string>).invite_status_pending ?? "Pending")
+                    ? (l("invite_status_pending"))
                     : disp === "accepted"
-                      ? ((t as Record<string, string>).invite_status_accepted ?? "Accepted")
-                      : ((t as Record<string, string>).invite_status_expired ?? "Expired");
+                      ? (l("invite_status_accepted"))
+                      : (l("invite_status_expired"));
                 return (
                   <tr
                     key={inv.id}
@@ -488,10 +487,10 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {inv.created_at ? new Date(inv.created_at).toLocaleString() : "—"}
+                      {inv.created_at ? new Date(inv.created_at).toLocaleString() : l("common_dash")}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : "—"}
+                      {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : l("common_dash")}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -501,7 +500,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                             onClick={() => void resendInvite(inv.id)}
                             className="min-h-[44px] px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium"
                           >
-                            {(t as Record<string, string>).invite_resend ?? "Resend"}
+                            {l("invite_resend")}
                           </button>
                         )}
                         {inv.status === "pending" && (
@@ -510,7 +509,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                             onClick={() => void cancelInvite(inv.id)}
                             className="min-h-[44px] px-3 rounded-lg border border-red-300 dark:border-red-800 text-red-800 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-medium"
                           >
-                            {(t as Record<string, string>).invite_cancel ?? "Cancel"}
+                            {l("invite_cancel")}
                           </button>
                         )}
                       </div>
@@ -528,20 +527,20 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
           <div className="w-full sm:max-w-md max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex justify-between gap-2 items-center">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {(t as Record<string, string>).invite_new ?? "New invitation"}
+                {l("invite_new")}
               </h3>
               <button
                 type="button"
                 onClick={() => setInviteModalOpen(false)}
                 className="min-h-[44px] min-w-[44px] rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-                aria-label={(t as Record<string, string>).invite_close ?? "Close"}
+                aria-label={l("invite_close")}
               >
                 ×
               </button>
             </div>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600 dark:text-gray-400">
-                {(t as Record<string, string>).invite_email ?? "Email"}
+                {l("invite_email")}
               </span>
               <input
                 type="email"
@@ -552,7 +551,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600 dark:text-gray-400">
-                {(t as Record<string, string>).invite_company ?? "Company"}
+                {l("invite_company")}
               </span>
               <input
                 value={inviteForm.companyName}
@@ -562,7 +561,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600 dark:text-gray-400">
-                {(t as Record<string, string>).invite_plan ?? "Plan"}
+                {l("invite_plan")}
               </span>
               <select
                 value={inviteForm.plan}
@@ -582,7 +581,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600 dark:text-gray-400">
-                {(t as Record<string, string>).invite_message ?? "Message"}
+                {l("invite_message")}
               </span>
               <textarea
                 value={inviteForm.message}
@@ -597,7 +596,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
               onClick={() => void sendInvite()}
               className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-semibold text-sm"
             >
-              {(t as Record<string, string>).invite_send ?? "Send"}
+              {l("invite_send")}
             </button>
           </div>
         </div>
@@ -606,7 +605,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       <div className="flex flex-col lg:flex-row gap-3 lg:items-end lg:justify-between">
         <div className="flex flex-wrap gap-2">
           <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
-            {t.superadmin_search ?? "Search"}
+            {l("superadmin_search")}
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -614,13 +613,13 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             />
           </label>
           <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
-            {t.superadmin_filter_plan ?? "Plan"}
+            {l("superadmin_filter_plan")}
             <select
               value={filterPlan}
               onChange={(e) => setFilterPlan(e.target.value)}
               className="mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
             >
-              <option value="all">—</option>
+              <option value="all">{l("common_dash")}</option>
               {FILTER_PLAN_VALUES.map((p) => (
                 <option key={p} value={p}>
                   {(t as Record<string, string>)[`invite_plan_${p}`] ??
@@ -631,13 +630,13 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             </select>
           </label>
           <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
-            {t.superadmin_filter_status ?? "Status"}
+            {l("superadmin_filter_status")}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               className="mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
             >
-              <option value="all">—</option>
+              <option value="all">{l("common_dash")}</option>
               <option value="trialing">trialing</option>
               <option value="active">active</option>
               <option value="past_due">past_due</option>
@@ -646,7 +645,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             </select>
           </label>
           <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
-            {t.superadmin_filter_date ?? "Created from"}
+            {l("superadmin_filter_date")}
             <input
               type="date"
               value={dateFrom}
@@ -660,25 +659,25 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
           onClick={() => exportCsv()}
           className="min-h-[44px] rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
         >
-          {t.superadmin_export_csv ?? "Export CSV"}
+          {l("superadmin_export_csv")}
         </button>
       </div>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-x-auto">
         {loading ? (
-          <p className="p-8 text-center text-gray-500 dark:text-gray-400">{t.superadmin_loading ?? "…"}</p>
+          <p className="p-8 text-center text-gray-500 dark:text-gray-400">{l("superadmin_loading")}</p>
         ) : (
           <table className="w-full text-sm min-w-[900px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_col_name ?? "Name"}</th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_plan ?? "Plan"}</th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_status ?? "Status"}</th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_col_users ?? "Users"}</th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_col_projects ?? "Projects"}</th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_col_storage ?? "Storage"}</th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_col_trial ?? "Trial"}</th>
-                <th className="px-4 py-3 text-left font-medium">{t.superadmin_col_next ?? "Next"}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_name")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_plan")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_status")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_users")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_projects")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_storage")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_trial")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_next")}</th>
                 <th className="px-4 py-3 text-left font-medium" />
               </tr>
             </thead>
@@ -692,25 +691,25 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                   >
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{c.name}</td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300 capitalize">
-                      {sub?.plan ?? c.plan ?? "—"}
+                      {sub?.plan ?? c.plan ?? l("common_dash")}
                     </td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(sub?.status)}`}
                       >
-                        {sub?.status ?? "—"}
+                        {sub?.status ?? l("common_dash")}
                       </span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-300">{c.user_count}</td>
                     <td className="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-300">{c.project_count}</td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                      {c.storage_used_gb != null ? `${c.storage_used_gb} GB` : "—"}
+                      {c.storage_used_gb != null ? `${c.storage_used_gb} GB` : l("common_dash")}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {sub?.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString() : "—"}
+                      {sub?.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString() : l("common_dash")}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : "—"}
+                      {sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : l("common_dash")}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -718,7 +717,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                         onClick={() => void openDetail(c.id)}
                         className="min-h-[44px] px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium"
                       >
-                        {t.superadmin_detail ?? "Detail"}
+                        {l("superadmin_detail")}
                       </button>
                     </td>
                   </tr>
@@ -734,7 +733,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
           <div className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex justify-between gap-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {t.superadmin_detail ?? "Detail"}
+                {l("superadmin_detail")}
               </h3>
               <button
                 type="button"
@@ -744,23 +743,23 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                 ×
               </button>
             </div>
-            {detailLoading && <p className="text-gray-500 dark:text-gray-400">{t.superadmin_loading ?? "…"}</p>}
+            {detailLoading && <p className="text-gray-500 dark:text-gray-400">{l("superadmin_loading")}</p>}
             {!detailLoading && detailData && (
               <>
                 <dl className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
                   <div>
-                    <dt className="text-gray-500 dark:text-gray-400">{t.superadmin_col_name ?? ""}</dt>
+                    <dt className="text-gray-500 dark:text-gray-400">{l("superadmin_col_name")}</dt>
                     <dd className="font-medium text-gray-900 dark:text-gray-100">
                       {String(detailData.company?.name ?? "")}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-gray-500 dark:text-gray-400">{t.superadmin_plan ?? ""}</dt>
-                    <dd>{String(detailData.subscription?.plan ?? detailData.company?.plan ?? "—")}</dd>
+                    <dt className="text-gray-500 dark:text-gray-400">{l("superadmin_plan")}</dt>
+                    <dd>{String(detailData.subscription?.plan ?? detailData.company?.plan ?? l("common_dash"))}</dd>
                   </div>
                   <div>
-                    <dt className="text-gray-500 dark:text-gray-400">{t.superadmin_status ?? ""}</dt>
-                    <dd>{String(detailData.subscription?.status ?? "—")}</dd>
+                    <dt className="text-gray-500 dark:text-gray-400">{l("superadmin_status")}</dt>
+                    <dd>{String(detailData.subscription?.status ?? l("common_dash"))}</dd>
                   </div>
                 </dl>
                 <div className="flex flex-col gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -770,7 +769,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     onClick={() => void runAction(detailId, "extend_trial")}
                     className="min-h-[44px] rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium text-sm"
                   >
-                    {t.superadmin_extend_trial ?? "Extend trial"}
+                    {l("superadmin_extend_trial")}
                   </button>
                   <div className="flex flex-wrap gap-2">
                     {PAID_PLAN_ORDER.map((pk) => (
@@ -781,7 +780,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                         onClick={() => void runAction(detailId, "change_plan", pk)}
                         className="min-h-[44px] flex-1 rounded-xl border border-amber-600 text-amber-800 dark:text-amber-300 font-medium text-xs px-2"
                       >
-                        {(t as Record<string, string>).superadmin_change_plan ?? "Plan"}:{" "}
+                        {l("superadmin_change_plan")}:{" "}
                         {(t as Record<string, string>)[`pricing_${pk}`] ?? pk}
                       </button>
                     ))}
@@ -792,12 +791,12 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     onClick={() => void runAction(detailId, "cancel")}
                     className="min-h-[44px] rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium text-sm"
                   >
-                    {t.superadmin_cancel ?? "Cancel subscription"}
+                    {l("superadmin_cancel")}
                   </button>
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    {t.superadmin_users_tab ?? "Users"}
+                    {l("superadmin_users_tab")}
                   </h4>
                   <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 max-h-32 overflow-y-auto">
                     {detailData.users.map((u) => (
@@ -809,7 +808,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    {t.superadmin_audit_tab ?? "Audit"}
+                    {l("superadmin_audit_tab")}
                   </h4>
                   <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-2 max-h-40 overflow-y-auto">
                     {detailData.audits.map((a) => (
