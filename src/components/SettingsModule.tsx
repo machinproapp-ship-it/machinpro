@@ -21,7 +21,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
 import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotifications";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
-import { LANGUAGES, CURRENCY_META } from "@/lib/i18n";
+import { LANGUAGES, CURRENCY_META, ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
 import {
   DEFAULT_IANA_TIMEZONE,
@@ -343,7 +343,7 @@ export function SettingsModule({
           className={`flex w-full shrink-0 flex-col gap-2 md:w-[200px] md:min-w-[200px] md:max-w-[200px] md:flex-shrink-0 md:gap-1 md:border-r md:border-zinc-200 md:pr-3 dark:md:border-slate-700 ${
             settingsMobileMenu ? "flex" : "max-md:hidden"
           } md:flex`}
-          aria-label={t.settings ?? "Settings"}
+          aria-label={t.settings || ALL_TRANSLATIONS.en.settings}
         >
           {(
             [

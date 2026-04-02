@@ -3,6 +3,7 @@
 import { useMemo, useCallback } from "react";
 import { Building2, Warehouse, Calendar, HardHat, Settings, Shield, X } from "lucide-react";
 import type { MainSection, SidebarLabels } from "@/types/shared";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 type NavItem = {
   id: MainSection;
@@ -43,24 +44,25 @@ export function Sidebar({
   onMobileDrawerOpenChange,
 }: SidebarProps) {
   const dict = labels as unknown as Record<string, string>;
-  const L = (k: string, fb: string) => dict[k] ?? fb;
+  const E = ALL_TRANSLATIONS.en;
+  const L = (k: string, fb: string) => dict[k] ?? (E as Record<string, string>)[k] ?? fb;
   const operationsLabel = labels.nav_operations ?? labels.site ?? L("site", "Operations");
   const securityLabel = labels.nav_security ?? L("nav_security", "Security");
   const closeLabel = L("nav_menu_close", "Close menu");
-  const drawerTitle = L("nav_drawer_title", L("settings", "Menu"));
+  const drawerTitle = L("nav_drawer_title", E.settings ?? "Menu");
   const sidebarNavItems: NavItem[] = useMemo(
     () => [
-      { id: "office", icon: Building2, label: labels.office ?? dict.office ?? "Central", show: canAccessOffice },
+      { id: "office", icon: Building2, label: labels.office ?? dict.office ?? E.office, show: canAccessOffice },
       { id: "site", icon: HardHat, label: operationsLabel, show: canAccessSite },
-      { id: "schedule", icon: Calendar, label: labels.schedule ?? dict.schedule ?? "Schedule", show: canAccessSchedule },
+      { id: "schedule", icon: Calendar, label: labels.schedule ?? dict.schedule ?? E.schedule, show: canAccessSchedule },
       {
         id: "warehouse",
         icon: Warehouse,
-        label: labels.warehouse ?? dict.warehouse ?? "Logistics",
+        label: labels.warehouse ?? dict.warehouse ?? E.warehouse,
         show: canAccessWarehouse,
       },
       { id: "security", icon: Shield, label: securityLabel, show: canAccessSecurity },
-      { id: "settings", icon: Settings, label: labels.settings ?? dict.settings ?? "Settings", show: canAccessSettings },
+      { id: "settings", icon: Settings, label: labels.settings ?? dict.settings ?? E.settings, show: canAccessSettings },
     ],
     [
       labels.office,

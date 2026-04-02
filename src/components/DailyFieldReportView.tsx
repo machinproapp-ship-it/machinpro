@@ -1004,8 +1004,12 @@ export function DailyFieldReportView({
                       }
                       className="min-h-[44px] rounded-lg border border-zinc-300 px-2 text-sm dark:border-zinc-600 dark:bg-slate-800"
                     >
-                      <option value="present">{tl.attendancePresent ?? "Present"}</option>
-                      <option value="absent">{tl.attendanceAbsent ?? "Absent"}</option>
+                      <option value="present">
+                        {(tl as Record<string, string>).present ?? tl.attendancePresent ?? "Present"}
+                      </option>
+                      <option value="absent">
+                        {(tl as Record<string, string>).absent ?? tl.attendanceAbsent ?? "Absent"}
+                      </option>
                       <option value="late">{tl.attendanceLate ?? "Late"}</option>
                     </select>
                   </li>

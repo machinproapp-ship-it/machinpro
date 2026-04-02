@@ -16,6 +16,7 @@ import { BindersModule } from "@/components/BindersModule";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 export type SecurityTabId = "hazards" | "actions" | "documents" | "audit";
 
@@ -147,7 +148,10 @@ export function SecurityModule({
     }
   }, [initialTab, allowed, onInitialTabConsumed]);
 
-  const L = (k: string, fb: string) => t[k] ?? fb;
+  const L = (k: string, fb: string) =>
+    (t[k] as string | undefined) ||
+    (ALL_TRANSLATIONS.en as Record<string, string>)[k] ||
+    fb;
   const auditLocale =
     typeof navigator !== "undefined" && navigator.language ? navigator.language : "es";
 

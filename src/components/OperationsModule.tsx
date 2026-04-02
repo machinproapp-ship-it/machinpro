@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Building2, Users, ChevronDown, ChevronRight } from "lucide-react";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 export interface OpsEmployee {
   id: string;
@@ -82,13 +83,13 @@ export function OperationsModule({ projects = [], employees = [], clockEntries =
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-4">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-        {t.nav_operations ?? "Operations"}
+        {t.nav_operations || ALL_TRANSLATIONS.en.nav_operations}
       </h2>
 
       {clockEntries != null && clockEntries.length > 0 && (
         <SectionCard
-          title={t.opsForceStatus ?? "Estado de Fuerza"}
-          desc={t.opsForceStatusDesc ?? "Fichajes de entrada con ubicación"}
+          title={t.opsForceStatus || ALL_TRANSLATIONS.en.opsForceStatus}
+          desc={t.opsForceStatusDesc || ALL_TRANSLATIONS.en.opsForceStatusDesc}
           icon={<Users className="h-4 w-4 text-emerald-500" />}
           defaultOpen={true}
         >
@@ -122,13 +123,13 @@ export function OperationsModule({ projects = [], employees = [], clockEntries =
       )}
 
       <SectionCard
-        title={t.opsAllProjects ?? "Proyectos activos"}
-        desc={t.opsApprovalsDesc ?? "Estado del equipo por obra"}
+        title={t.opsAllProjects || ALL_TRANSLATIONS.en.opsAllProjects}
+        desc={t.opsApprovalsDesc || ALL_TRANSLATIONS.en.opsApprovalsDesc}
         icon={<Building2 className="h-4 w-4 text-amber-500" />}
         defaultOpen={false}
       >
         {(projects ?? []).length === 0 ? (
-          <EmptyRow text={t.opsNoClockIns ?? "Sin proyectos activos"} />
+          <EmptyRow text={t.opsNoClockIns || ALL_TRANSLATIONS.en.opsNoClockIns} />
         ) : (
           <div className="space-y-3">
             {(projects ?? []).map((proj) => {

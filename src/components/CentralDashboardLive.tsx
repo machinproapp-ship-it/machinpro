@@ -1319,7 +1319,7 @@ function CentralDashboardBody(
               onClick={() => onNavigateAppSection("warehouse")}
               className="mt-2 min-h-[44px] text-sm font-medium text-amber-600 dark:text-amber-400"
             >
-              {L("viewAll") ?? "Logistics"}
+              {L("warehouse") || L("viewAll") || "Logistics"}
             </button>
           </>
         );

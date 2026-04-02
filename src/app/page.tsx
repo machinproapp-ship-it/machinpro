@@ -4565,6 +4565,7 @@ export default function Home() {
                 onRequestVacation={handleCreateVacationRequest}
                 labels={{
                   schedule: t.schedule ?? "Horario",
+                  schedule_tab_calendar: (t as Record<string, string>).schedule_tab_calendar,
                   shift: (t as Record<string, string>).shift ?? "Turno",
                   event: (t as Record<string, string>).event ?? "Evento",
                   addEntry: (t as Record<string, string>).addEntry ?? "Añadir turno",
@@ -4603,8 +4604,8 @@ export default function Home() {
                   approved: (t as Record<string, string>).approved ?? "Aprobado",
                   rejected: (t as Record<string, string>).rejected ?? "Rechazado",
                   pending: (t as Record<string, string>).pending ?? "Pendiente",
-                  previousMonth: "Anterior",
-                  nextMonth: "Siguiente",
+                  previousMonth: (t as Record<string, string>).schedule_prev_month ?? "Previous month",
+                  nextMonth: (t as Record<string, string>).schedule_next_month ?? "Next month",
                   january: (t as Record<string, string>).january,
                   february: (t as Record<string, string>).february,
                   march: (t as Record<string, string>).march,

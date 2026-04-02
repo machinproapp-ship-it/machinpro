@@ -29,6 +29,7 @@ import type { ComplianceField, ComplianceRecord } from "@/app/page";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
@@ -542,7 +543,8 @@ export function LogisticsModule({
     out_of_service: (vehicles ?? []).filter((v) => (v.vehicleStatus ?? "available") === "out_of_service").length,
   };
 
-  const getStatusLabel = (key: string) => (t as Record<string, string>)[key] ?? key;
+  const getStatusLabel = (key: string) =>
+    (t as Record<string, string>)[key] || (ALL_TRANSLATIONS.en as Record<string, string>)[key] || key;
 
   const exportInventoryCsv = () => {
     try {
@@ -555,13 +557,11 @@ export function LogisticsModule({
       ];
       const lines = [headers.map((h) => csvCell(h)).join(",")];
       const categoryLabel = (i: InventoryItem) =>
-        i.type === "consumable"
-          ? (tlLabels.consumable ?? i.type)
-          : i.type === "material"
-            ? (t.whTabMaterial ?? i.type)
-            : i.type === "tool"
-              ? (t.whTabTools ?? i.type)
-              : (tlLabels.equipment ?? i.type);
+        i.type === "consumable" || i.type === "material"
+          ? (tlLabels.material ?? tlLabels.consumable ?? i.type)
+          : i.type === "tool"
+            ? (tlLabels.tools ?? t.whTabTools ?? i.type)
+            : (tlLabels.equipment ?? i.type);
       const statusLabel = (i: InventoryItem) => {
         if (!isTrackedAsset(i)) return "—";
         const ts = i.toolStatus ?? "available";
@@ -605,9 +605,13 @@ export function LogisticsModule({
     {
       key: "materials",
       match: (i) => i.type === "consumable" || i.type === "material",
-      label: t.whTabMaterial ?? "Material",
+      label: tlLabels.material ?? t.whTabMaterial ?? "Material",
     },
-    { key: "tool", match: (i) => i.type === "tool", label: t.whTabTools ?? "Tools" },
+    {
+      key: "tool",
+      match: (i) => i.type === "tool",
+      label: tlLabels.tools ?? t.whTabTools ?? "Tools",
+    },
     {
       key: "equipment",
       match: (i) => i.type === "equipment",
@@ -691,9 +695,9 @@ export function LogisticsModule({
                     {f === "all"
                       ? (t.whFilterAll ?? "All")
                       : f === "consumable"
-                      ? (tlLabels.consumable ?? "Consumables")
+                      ? (tlLabels.material ?? tlLabels.consumable ?? "Material")
                       : f === "tool"
-                      ? (t.whTabTools ?? "Tools")
+                      ? (tlLabels.tools ?? t.whTabTools ?? "Tools")
                       : (tlLabels.equipment ?? "Equipment")}
                   </button>
                 ))}

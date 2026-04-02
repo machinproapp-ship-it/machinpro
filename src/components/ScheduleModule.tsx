@@ -19,6 +19,7 @@ import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { resolveUserTimezone } from "@/lib/dateUtils";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 export interface SchedEmployee {
   id: string;
@@ -104,6 +105,7 @@ export interface ScheduleModuleProps {
   viewAll: boolean;
   labels: {
     schedule?: string;
+    schedule_tab_calendar?: string;
     shift?: string;
     event?: string;
     addEntry?: string;
@@ -980,7 +982,7 @@ export default function ScheduleModule({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Calendar className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-          {labels.schedule ?? "Horario"}
+          {labels.schedule ?? ALL_TRANSLATIONS.en.schedule}
         </h2>
         {canWrite && scheduleSubTab === "calendar" && (
           <button
@@ -1001,7 +1003,7 @@ export default function ScheduleModule({
         <div
           className="flex flex-nowrap gap-2 overflow-x-auto pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
           role="tablist"
-          aria-label={labels.schedule ?? "Schedule"}
+          aria-label={labels.schedule ?? ALL_TRANSLATIONS.en.schedule}
         >
           <button
             type="button"
@@ -1014,7 +1016,7 @@ export default function ScheduleModule({
                 : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
             }`}
           >
-            {labels.schedule ?? "Calendario"}
+            {labels.schedule_tab_calendar ?? ALL_TRANSLATIONS.en.schedule_tab_calendar}
           </button>
           <button
             type="button"
