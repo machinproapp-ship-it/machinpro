@@ -293,11 +293,21 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         const matches =
           want === "trial"
             ? sub?.status === "trialing" || planNorm === "trial"
-            : planNorm.includes(want) ||
-              (want === "foundation" && (planNorm === "starter" || planNorm === "foundation")) ||
-              (want === "obras" &&
-                (planNorm === "obras" || planNorm === "pro" || planNorm === "professional")) ||
-              (want === "todo_incluido" && (planNorm === "todo_incluido" || planNorm === "enterprise"));
+            : want === "esencial"
+              ? planNorm === "esencial" ||
+                planNorm === "foundation" ||
+                planNorm === "starter" ||
+                planNorm === "horarios"
+              : want === "operaciones"
+                ? planNorm === "operaciones" ||
+                  planNorm === "obras" ||
+                  planNorm === "pro" ||
+                  planNorm === "professional"
+                : want === "logistica"
+                  ? planNorm === "logistica"
+                  : want === "todo_incluido"
+                    ? planNorm === "todo_incluido" || planNorm === "enterprise"
+                    : planNorm.includes(want);
         if (!matches) return false;
       }
       if (filterStatus !== "all" && (sub?.status ?? "none") !== filterStatus) return false;

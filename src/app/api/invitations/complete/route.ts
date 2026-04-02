@@ -14,39 +14,43 @@ function planKeyForLimits(p: InvitationPlan): PaidPlanKey {
   switch (p) {
     case "trial":
     case "starter":
-      return "foundation";
+    case "foundation":
+    case "horarios":
+      return "esencial";
     case "pro":
-      return "obras";
+    case "obras":
+      return "operaciones";
     case "enterprise":
       return "todo_incluido";
-    case "foundation":
-    case "obras":
-    case "horarios":
+    case "esencial":
+    case "operaciones":
     case "logistica":
     case "todo_incluido":
       return p;
     default:
-      return "foundation";
+      return "esencial";
   }
 }
 
 function companyPlanColumn(p: InvitationPlan): string {
   switch (p) {
-    case "obras":
-    case "horarios":
+    case "esencial":
+    case "operaciones":
     case "logistica":
-    case "foundation":
     case "todo_incluido":
       return p;
+    case "foundation":
     case "starter":
-      return "foundation";
+    case "horarios":
+      return "esencial";
+    case "obras":
     case "pro":
-      return "obras";
+      return "operaciones";
     case "enterprise":
       return "todo_incluido";
     case "trial":
     default:
-      return "foundation";
+      return "esencial";
   }
 }
 
@@ -55,9 +59,12 @@ function subscriptionPlanFromInvitation(p: InvitationPlan): PlanKey {
     case "trial":
       return "trial";
     case "starter":
-      return "foundation";
+    case "foundation":
+    case "horarios":
+      return "esencial";
     case "pro":
-      return "obras";
+    case "obras":
+      return "operaciones";
     case "enterprise":
       return "todo_incluido";
     default:

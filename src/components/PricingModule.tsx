@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { X, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
@@ -44,17 +44,21 @@ function formatMoney(amount: number, currency: string): string {
 
 function normalizeCurrentPlan(raw: string | null | undefined): PaidPlanKey | null {
   if (!raw) return null;
+  const r = raw.toLowerCase().trim();
   const legacy: Record<string, PaidPlanKey> = {
-    starter: "foundation",
-    pro: "obras",
+    starter: "esencial",
+    foundation: "esencial",
+    horarios: "esencial",
+    pro: "operaciones",
+    obras: "operaciones",
     enterprise: "todo_incluido",
-    foundation: "foundation",
-    obras: "obras",
-    horarios: "horarios",
+    esencial: "esencial",
+    operaciones: "operaciones",
+    professional: "operaciones",
     logistica: "logistica",
     todo_incluido: "todo_incluido",
   };
-  return legacy[raw] ?? null;
+  return legacy[r] ?? null;
 }
 
 export function PricingModule({
@@ -72,6 +76,12 @@ export function PricingModule({
   const countryCode = geoCountry ? geoCountry : null;
   const [checkoutLoading, setCheckoutLoading] = useState<PaidPlanKey | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [betaFounder, setBetaFounder] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setBetaFounder(new URLSearchParams(window.location.search).get("beta") === "true");
+  }, []);
 
   const displayCurrency = getCurrencyForCountry(countryCode, geoTier);
   const currentNormalized = normalizeCurrentPlan(
@@ -105,6 +115,7 @@ export function PricingModule({
             companyId,
             companyName: companyName ?? "",
             email: email ?? "",
+            betaFounder,
           }),
         });
         const data = (await res.json()) as { url?: string; error?: string };
@@ -119,7 +130,7 @@ export function PricingModule({
         setCheckoutLoading(null);
       }
     },
-    [companyId, companyName, email, geoCountry, period, lx]
+    [companyId, companyName, email, geoCountry, period, lx, betaFounder]
   );
 
   return (
@@ -136,9 +147,16 @@ export function PricingModule({
       )}
 
       <div className="text-center mb-8 sm:mb-10">
-        <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 dark:bg-amber-900/40 px-4 py-2 text-sm font-medium text-amber-900 dark:text-amber-200 mb-4 min-h-[44px]">
-          <Sparkles className="h-4 w-4 shrink-0" />
-          <span>{lx.pricing_trial ?? lx.billing_trial_banner ?? "14-day free trial — no card required"}</span>
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 dark:bg-amber-900/40 px-4 py-2 text-sm font-medium text-amber-900 dark:text-amber-200 min-h-[44px]">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span>{lx.pricing_trial ?? lx.billing_trial_banner ?? "14-day free trial — no card required"}</span>
+          </div>
+          {betaFounder ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-300 bg-violet-50 dark:border-violet-600 dark:bg-violet-950/50 px-4 py-2 text-sm font-semibold text-violet-900 dark:text-violet-100">
+              {lx.plan_beta_founder ?? "Beta Founder — 3 months free"}
+            </div>
+          ) : null}
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
           {lx.billing_title ?? "Plans & pricing"}
@@ -215,7 +233,7 @@ export function PricingModule({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 lg:gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
         {PAID_PLAN_ORDER.map((key) => {
           const plan = PLANS[key];
           const price = getPriceForTier(key, period, geoTier, countryCode);
@@ -270,8 +288,13 @@ export function PricingModule({
               <ul className="space-y-2.5 mb-5 text-sm text-zinc-700 dark:text-zinc-300">
                 <li className="flex gap-2">
                   <Check className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />
-                  <span>
-                    {plan.seats} {lx.pricing_users_included ?? lx.billing_limit_users ?? "users"}
+                  <span className={key === "todo_incluido" ? "font-semibold text-zinc-900 dark:text-white" : ""}>
+                    {plan.seats >= 999000
+                      ? (lx.plan_users_unlimited ?? "Unlimited users")
+                      : (lx.plan_users_limit ?? "Up to {{count}} users").replace(
+                          "{{count}}",
+                          String(plan.seats)
+                        )}
                   </span>
                 </li>
                 <li className="flex gap-2">
@@ -301,11 +324,10 @@ export function PricingModule({
                   ? (lx.billing_loading ?? "…")
                   : isCurrent
                     ? (lx.pricing_current_plan ?? lx.billing_cta_current ?? "Current plan")
-                    : (() => {
-                        const startFree = (lx.pricing_start_free ?? lx.billing_cta_start ?? "Start free").trim();
-                        const trialLine = (lx.pricing_trial ?? "").trim();
-                        return trialLine ? `${startFree} — ${trialLine}` : startFree;
-                      })()}
+                    : (lx.landing_pricing_plan_cta ??
+                      lx.pricing_start_free ??
+                      lx.billing_cta_start ??
+                      "Start free 14 days")}
               </button>
             </div>
           );

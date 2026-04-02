@@ -154,9 +154,8 @@ function formatMoney(amount: number, currency: string): string {
 
 function landingPlanBlurbKey(plan: PaidPlanKey): string {
   const m: Record<PaidPlanKey, string> = {
-    foundation: "landing_plan_blurb_foundation",
-    obras: "landing_plan_blurb_obras",
-    horarios: "landing_plan_blurb_horarios",
+    esencial: "landing_plan_blurb_esencial",
+    operaciones: "landing_plan_blurb_operaciones",
     logistica: "landing_plan_blurb_logistica",
     todo_incluido: "landing_plan_blurb_todo",
   };
@@ -525,7 +524,7 @@ export default function LandingPage() {
                 </button>
               </div>
             </div>
-            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
               {PAID_PLAN_ORDER.map((key) => {
                 const plan = PLANS[key];
                 const title = tx(plan.labelKey, key);
@@ -573,7 +572,12 @@ export default function LandingPage() {
                           ✓
                         </span>
                         <span>
-                          {plan.seats} {tx("pricing_users_included", tx("billing_limit_users", "users"))}
+                          {plan.seats >= 999000
+                            ? tx("plan_users_unlimited", "Unlimited users")
+                            : tx("plan_users_limit", "Up to {{count}} users").replace(
+                                "{{count}}",
+                                String(plan.seats)
+                              )}
                         </span>
                       </li>
                       <li className="flex gap-2 leading-snug">

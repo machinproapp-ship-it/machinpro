@@ -112,7 +112,7 @@ async function syncSubscription(admin: ReturnType<typeof createSupabaseAdmin>, s
   const fromMeta = normalizePlanKeyFromMetadata(
     typeof sub.metadata?.plan_key === "string" ? sub.metadata.plan_key : null
   );
-  const plan: PlanKey = (fromMeta ?? mapped?.plan ?? "foundation") as PlanKey;
+  const plan: PlanKey = (fromMeta ?? mapped?.plan ?? "esencial") as PlanKey;
   const billing_period = mapped?.period ?? "monthly";
 
   const limits = getLimitsForPlan(plan);

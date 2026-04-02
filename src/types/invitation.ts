@@ -2,11 +2,13 @@ export type InvitationStatus = "pending" | "accepted" | "expired";
 
 export type InvitationPlan =
   | "trial"
+  | "esencial"
+  | "operaciones"
+  | "logistica"
+  | "todo_incluido"
   | "foundation"
   | "obras"
   | "horarios"
-  | "logistica"
-  | "todo_incluido"
   | "starter"
   | "pro"
   | "enterprise";

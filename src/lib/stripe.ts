@@ -1,13 +1,8 @@
 import Stripe from "stripe";
 import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
 
-/** Paid product keys (Stripe checkout + subscription). */
-export type PaidPlanKey =
-  | "foundation"
-  | "obras"
-  | "horarios"
-  | "logistica"
-  | "todo_incluido";
+/** Paid product keys (Stripe checkout + subscription) — Pricing 3.0 */
+export type PaidPlanKey = "esencial" | "operaciones" | "logistica" | "todo_incluido";
 
 /** Includes trial + legacy DB values still seen in subscriptions / invites. */
 export type PlanKey =
@@ -15,17 +10,22 @@ export type PlanKey =
   | "trial"
   | "starter"
   | "pro"
-  | "enterprise";
+  | "enterprise"
+  | "foundation"
+  | "obras"
+  | "horarios";
 
 export type BillingPeriod = "monthly" | "annual";
 
 /** Add-on: extra seat (subscription item). */
 export const STRIPE_PRICE_EXTRA_SEAT_ID = "price_1TG3eEHskIYiyc3EpCXpgXnT";
 
+/** Stripe coupon ID — create in Dashboard with id `BETA_FOUNDER` (e.g. 100% 3 months). */
+export const STRIPE_COUPON_BETA_FOUNDER_ID = "BETA_FOUNDER";
+
 export const PAID_PLAN_ORDER: PaidPlanKey[] = [
-  "foundation",
-  "obras",
-  "horarios",
+  "esencial",
+  "operaciones",
   "logistica",
   "todo_incluido",
 ];
@@ -38,15 +38,14 @@ export const GEO_TIERS: Record<GeoTier, number> = {
 };
 
 /**
- * Precios de referencia en CAD (Pricing 2.0 — alineados con Stripe test).
- * Anual = cobro anual con ~20% de descuento vs 12× mensual.
+ * Precios de referencia en CAD (Pricing 3.0 — producción Stripe).
+ * Anual ≈ 20% de descuento vs 12× mensual.
  */
 export const PLAN_PRICES_CAD: Record<PaidPlanKey, { monthly: number; annual: number }> = {
-  foundation: { monthly: 19, annual: 182.4 },
-  obras: { monthly: 39, annual: 374.4 },
-  horarios: { monthly: 39, annual: 374.4 },
-  logistica: { monthly: 39, annual: 374.4 },
-  todo_incluido: { monthly: 79, annual: 758.4 },
+  esencial: { monthly: 39, annual: 374.4 },
+  operaciones: { monthly: 59, annual: 566.4 },
+  logistica: { monthly: 59, annual: 566.4 },
+  todo_incluido: { monthly: 99, annual: 950.4 },
 };
 
 /**
@@ -106,51 +105,50 @@ export type PlanDefinition = {
 };
 
 export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
-  foundation: {
-    labelKey: "pricing_foundation",
-    monthly: { priceId: "price_1TG3GgHskIYiyc3EdYtn4TpH" },
-    annual: { priceId: "price_1TG3GgHskIYiyc3EHsq40Iau" },
-    seats: 10,
+  esencial: {
+    labelKey: "plan_esencial",
+    monthly: { priceId: "price_1THiu4HskIYiyc3Erls1elC9" },
+    annual: { priceId: "price_1THiu4HskIYiyc3EH98ZjVsN" },
+    seats: 15,
     projects: null,
     storageGb: 10,
     featureKeys: [
-      "pricing_feat_foundation_1",
-      "pricing_feat_foundation_2",
-      "pricing_feat_foundation_3",
+      "pricing_feat_esencial_1",
+      "pricing_feat_esencial_2",
+      "pricing_feat_esencial_3",
     ],
   },
-  obras: {
-    labelKey: "pricing_obras",
-    monthly: { priceId: "price_1TG3T0HskIYiyc3E3Hepflbw" },
-    annual: { priceId: "price_1TG3T0HskIYiyc3E4TG5d7MF" },
-    seats: 10,
+  operaciones: {
+    labelKey: "plan_operaciones",
+    monthly: { priceId: "price_1THiv5HskIYiyc3Eun5AOLu7" },
+    annual: { priceId: "price_1THiv5HskIYiyc3Ehqmch8mB" },
+    seats: 25,
     projects: null,
     storageGb: 10,
-    featureKeys: ["pricing_feat_obras_1", "pricing_feat_obras_2", "pricing_feat_obras_3"],
-  },
-  horarios: {
-    labelKey: "pricing_horarios",
-    monthly: { priceId: "price_1TG3c0HskIYiyc3Eu9T6SFIO" },
-    annual: { priceId: "price_1TG3c0HskIYiyc3ETChxtpFA" },
-    seats: 10,
-    projects: null,
-    storageGb: 10,
-    featureKeys: ["pricing_feat_horarios_1", "pricing_feat_horarios_2", "pricing_feat_horarios_3"],
+    featureKeys: [
+      "pricing_feat_operaciones_1",
+      "pricing_feat_operaciones_2",
+      "pricing_feat_operaciones_3",
+    ],
   },
   logistica: {
-    labelKey: "pricing_logistica",
-    monthly: { priceId: "price_1TG3crHskIYiyc3EUE5RVx2G" },
-    annual: { priceId: "price_1TG3crHskIYiyc3E0edoWwfS" },
-    seats: 10,
+    labelKey: "plan_logistica",
+    monthly: { priceId: "price_1THiw2HskIYiyc3EEVZh13pt" },
+    annual: { priceId: "price_1THiw2HskIYiyc3EXSUNCS3E" },
+    seats: 25,
     projects: null,
     storageGb: 10,
-    featureKeys: ["pricing_feat_logistica_1", "pricing_feat_logistica_2", "pricing_feat_logistica_3"],
+    featureKeys: [
+      "pricing_feat_logistica_1",
+      "pricing_feat_logistica_2",
+      "pricing_feat_logistica_3",
+    ],
   },
   todo_incluido: {
-    labelKey: "pricing_todo_incluido",
-    monthly: { priceId: "price_1TG3diHskIYiyc3Egv0Qj3MV" },
-    annual: { priceId: "price_1TG3diHskIYiyc3EXzLBfOA0" },
-    seats: 25,
+    labelKey: "plan_todo_incluido",
+    monthly: { priceId: "price_1THiwsHskIYiyc3ER6Mlken8" },
+    annual: { priceId: "price_1THiwsHskIYiyc3Eg2DrbW1m" },
+    seats: 999_999,
     projects: null,
     storageGb: 50,
     featureKeys: ["pricing_feat_all_1", "pricing_feat_all_2", "pricing_feat_all_3"],
@@ -173,14 +171,17 @@ export function getPlanFromPriceId(priceId: string | undefined | null): {
 }
 
 const LEGACY_LIMIT_KEY: Record<string, PaidPlanKey> = {
-  trial: "foundation",
-  starter: "foundation",
-  foundation: "foundation",
-  obras: "obras",
-  horarios: "horarios",
+  trial: "esencial",
+  starter: "esencial",
+  foundation: "esencial",
+  horarios: "esencial",
+  esencial: "esencial",
+  obras: "operaciones",
+  operaciones: "operaciones",
+  pro: "operaciones",
+  professional: "operaciones",
   logistica: "logistica",
   todo_incluido: "todo_incluido",
-  pro: "obras",
   enterprise: "todo_incluido",
 };
 
@@ -190,8 +191,8 @@ export function getLimitsForPlan(plan: PlanKey | string | null | undefined): {
   projects_limit: number;
   storage_limit_gb: number;
 } {
-  const raw = (plan ?? "foundation").toString();
-  const paidKey = LEGACY_LIMIT_KEY[raw] ?? "foundation";
+  const raw = (plan ?? "esencial").toString();
+  const paidKey = LEGACY_LIMIT_KEY[raw] ?? "esencial";
   const p = PLANS[paidKey];
   return {
     seats_limit: p.seats,
@@ -206,16 +207,26 @@ export function paidPlanKeyFromString(v: string | null | undefined): PaidPlanKey
   return null;
 }
 
+/** Accepts current keys and legacy names sent by older clients. */
+export function resolvePaidPlanForCheckout(planRaw: string | undefined | null): PaidPlanKey | null {
+  const s = typeof planRaw === "string" ? planRaw.trim() : "";
+  if (!s) return null;
+  return paidPlanKeyFromString(s) ?? normalizePlanKeyFromMetadata(s);
+}
+
 export function normalizePlanKeyFromMetadata(v: string | null | undefined): PaidPlanKey | null {
   if (!v) return null;
   const map: Record<string, PaidPlanKey> = {
-    foundation: "foundation",
-    obras: "obras",
-    horarios: "horarios",
+    esencial: "esencial",
+    operaciones: "operaciones",
     logistica: "logistica",
     todo_incluido: "todo_incluido",
-    starter: "foundation",
-    pro: "obras",
+    foundation: "esencial",
+    horarios: "esencial",
+    starter: "esencial",
+    obras: "operaciones",
+    pro: "operaciones",
+    professional: "operaciones",
     enterprise: "todo_incluido",
   };
   return map[v] ?? null;
@@ -243,12 +254,6 @@ export function getStripePriceId(plan: PaidPlanKey, period: BillingPeriod): stri
 
 /**
  * PPP Stripe Coupons — precios del checkout (Tier 1 list) se alinean con la UI vía descuento.
- *
- * Antes de producción, crear manualmente en Stripe Dashboard (recomendado validar en Test mode):
- * - ID exacto: ppp_tier2 · Percent off: 20% · Duration: Forever · sin límite de redenciones
- * - ID exacto: ppp_tier3 · Percent off: 40% · Duration: Forever · sin límite de redenciones
- *
- * El servidor también intenta `retrieve` + `create` vía API si faltan (IDs deben coincidir).
  */
 export const PPP_STRIPE_COUPON_TIER2_ID = "ppp_tier2";
 export const PPP_STRIPE_COUPON_TIER3_ID = "ppp_tier3";

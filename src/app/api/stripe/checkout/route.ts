@@ -6,10 +6,11 @@ import { getPppTierFromCountryCode } from "@/lib/geoTier";
 import {
   getStripe,
   getStripePriceId,
-  paidPlanKeyFromString,
   ensurePppCoupons,
   checkoutDiscountsForTier,
   getPlanFromPriceId,
+  resolvePaidPlanForCheckout,
+  STRIPE_COUPON_BETA_FOUNDER_ID,
   type PaidPlanKey,
   type BillingPeriod,
 } from "@/lib/stripe";
@@ -36,6 +37,8 @@ type Body = {
   companyName?: string;
   email?: string;
   tier?: GeoTier;
+  /** Apply Stripe coupon `BETA_FOUNDER` (create in Dashboard with this id). */
+  betaFounder?: boolean;
 };
 
 export async function POST(req: NextRequest) {
@@ -91,9 +94,7 @@ export async function POST(req: NextRequest) {
       period = parsed.period;
       priceId = priceIdStr;
     } else {
-      plan = paidPlanKeyFromString(
-        typeof body.plan === "string" ? body.plan.trim() : ""
-      );
+      plan = resolvePaidPlanForCheckout(typeof body.plan === "string" ? body.plan : "");
       const p =
         typeof body.period === "string" && body.period.trim() === "annual"
           ? "annual"
@@ -108,7 +109,10 @@ export async function POST(req: NextRequest) {
     }
 
     await ensurePppCoupons(stripe);
-    const discounts = checkoutDiscountsForTier(checkoutTier);
+    const betaFounder = body.betaFounder === true;
+    const discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined = betaFounder
+      ? [{ coupon: STRIPE_COUPON_BETA_FOUNDER_ID }]
+      : checkoutDiscountsForTier(checkoutTier);
 
     const base = appPublicOrigin();
 

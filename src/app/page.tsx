@@ -107,6 +107,8 @@ import { INITIAL_FORM_TEMPLATES } from "@/lib/formTemplates";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
+import { useSubscription } from "@/lib/useSubscription";
+import { applyPlanToModulePermissions } from "@/lib/planPermissions";
 
 type ResourceRequestStatus =
   | "pending"
@@ -858,6 +860,7 @@ export default function Home() {
     setLanguage(detectLanguageFromNavigator());
   };
   const companyId = profile?.companyId ?? null;
+  const { subscription: subscriptionRow } = useSubscription(companyId);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
@@ -2241,7 +2244,12 @@ export default function Home() {
     () => (effectiveRole === "admin" ? fullAdministratorPermissions() : activeCustomRole.permissions),
     [effectiveRole, activeCustomRole.permissions]
   );
-  const perms = permissionsToModule(rolePerms);
+  const perms = useMemo(() => {
+    const base = permissionsToModule(rolePerms);
+    return applyPlanToModulePermissions(base, subscriptionRow?.plan ?? null, {
+      subscriptionStatus: subscriptionRow?.status ?? null,
+    });
+  }, [rolePerms, subscriptionRow?.plan, subscriptionRow?.status]);
 
   const criticalInventoryCount = useMemo(
     () =>
@@ -2275,6 +2283,30 @@ export default function Home() {
       setOperationsMainTab("subcontractors");
     }
   }, [activeSection, canViewProjectsTab, perms.canAccessSubcontractors]);
+
+  useEffect(() => {
+    if (activeSection === "site" && !perms.site) {
+      setActiveSection("office");
+      return;
+    }
+    if (activeSection === "warehouse" && !perms.warehouse) {
+      setActiveSection("office");
+      return;
+    }
+    if (activeSection === "security" && !(perms.canAccessSecurity ?? false)) {
+      setActiveSection("office");
+      return;
+    }
+    if (activeSection === "schedule" && perms.canAccessSchedule === false) {
+      setActiveSection("office");
+    }
+  }, [
+    activeSection,
+    perms.site,
+    perms.warehouse,
+    perms.canAccessSecurity,
+    perms.canAccessSchedule,
+  ]);
 
   const openOperationsSubcontractors = useCallback(() => {
     setActiveSection("site");
@@ -4350,7 +4382,7 @@ export default function Home() {
                 onOpenResourceRequest={(projectId) => setRequestModalProjectId(projectId)}
                 resourceRequests={resourceRequests}
                 onConfirmReception={handleConfirmReception}
-                companyPlan="foundation"
+                companyPlan={subscriptionRow?.plan ?? "esencial"}
                 blueprints={blueprints}
                 currentUserEmployeeId={currentUserEmployeeId ?? ""}
                 currentUserName={

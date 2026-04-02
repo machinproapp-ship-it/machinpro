@@ -51,16 +51,26 @@ function pct(used: number, limit: number | null | undefined): number {
 function planDisplayName(t: Record<string, string>, plan: string | undefined): string {
   if (!plan) return "—";
   const lx = t as Record<string, string>;
-  const pk = `pricing_${plan}`;
+  const key = plan.toLowerCase().trim();
+  const pk = `plan_${key}`;
   if (lx[pk]) return lx[pk];
+  const pkOld = `pricing_${key}`;
+  if (lx[pkOld]) return lx[pkOld];
   const legacy: Record<string, string> = {
     trial: lx.pricing_plan_trial ?? lx.subscription_status_trialing ?? "Trial",
-    starter: lx.pricing_foundation ?? "Foundation",
-    pro: lx.pricing_obras ?? "Operations",
-    enterprise: lx.pricing_todo_incluido ?? "Todo Incluido",
-    professional: lx.pricing_obras ?? "Operations",
+    starter: lx.plan_esencial ?? "Esencial",
+    foundation: lx.plan_esencial ?? "Esencial",
+    horarios: lx.plan_esencial ?? "Esencial",
+    esencial: lx.plan_esencial ?? "Esencial",
+    pro: lx.plan_operaciones ?? "Operaciones",
+    obras: lx.plan_operaciones ?? "Operaciones",
+    operaciones: lx.plan_operaciones ?? "Operaciones",
+    professional: lx.plan_operaciones ?? "Operaciones",
+    logistica: lx.plan_logistica ?? "Logística",
+    enterprise: lx.plan_todo_incluido ?? "Todo Incluido",
+    todo_incluido: lx.plan_todo_incluido ?? "Todo Incluido",
   };
-  return legacy[plan] ?? plan;
+  return legacy[key] ?? plan;
 }
 
 export function BillingModule({

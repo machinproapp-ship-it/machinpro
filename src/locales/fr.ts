@@ -1163,6 +1163,14 @@ export default {
   billing_overage_notice:
     "Vous dépassez les limites incluses. Vous pouvez continuer à travailler — passez à un plan supérieur ou ajoutez des sièges dans le portail client.",
 
+  plan_esencial: "Essentiel",
+  plan_operaciones: "Opérations",
+  plan_logistica: "Logistique",
+  plan_todo_incluido: "Tout Inclus",
+  plan_users_limit: "jusqu'à {{count}} utilisateurs",
+  plan_users_unlimited: "Utilisateurs illimités",
+  plan_beta_founder: "Beta Founder — 3 mois offerts",
+
   pricing_foundation: "Foundation",
   pricing_obras: "Opérations",
   pricing_horarios: "Horaires",
@@ -1187,6 +1195,18 @@ export default {
   ppp_discount: "{{percent}}% de réduction appliquée",
   pricing_ppp_notice: "Prix ajusté pour votre région",
   pricing_plan_trial: "Essai",
+  pricing_feat_esencial_1: "Employés, rôles et permissions, conformité",
+  pricing_feat_esencial_2: "Pointage, équipes, calendrier",
+  pricing_feat_esencial_3: "Feuilles de temps et congés",
+
+  pricing_feat_operaciones_1: "Tout ce qui est dans Essentiel",
+  pricing_feat_operaciones_2: "Projets avancés, galerie GPS, plans, formulaires",
+  pricing_feat_operaciones_3: "RFI, visiteurs, rapport journalier",
+
+  pricing_feat_logistica_1: "Tout ce qui est dans Essentiel",
+  pricing_feat_logistica_2: "Inventaire, flotte, fournisseurs, commandes",
+  pricing_feat_logistica_3: "Locations",
+
   pricing_feat_foundation_1: "Tableau de bord central",
   pricing_feat_foundation_2: "Équipe et rôles de base",
   pricing_feat_foundation_3: "Rapports standard",
@@ -1196,12 +1216,9 @@ export default {
   pricing_feat_horarios_1: "Équipes et plannings",
   pricing_feat_horarios_2: "Pointage et présence",
   pricing_feat_horarios_3: "Calendrier d’équipe",
-  pricing_feat_logistica_1: "Inventaire et matériaux",
-  pricing_feat_logistica_2: "Équipements et outils",
-  pricing_feat_logistica_3: "Flux entrepôt",
-  pricing_feat_all_1: "Tous les modules",
-  pricing_feat_all_2: "25 utilisateurs et 50 Go",
-  pricing_feat_all_3: "Pour une exploitation complète",
+  pricing_feat_all_1: "Tous les modules et Sécurité",
+  pricing_feat_all_2: "Utilisateurs illimités",
+  pricing_feat_all_3: "Risques, actions correctives, audit",
 
   visitors_menu: "Visiteurs",
   visitors_title: "Registre des visiteurs",
@@ -1591,6 +1608,8 @@ export default {
   invite_stats_accepted_month: "{n} acceptées ce mois-ci",
   invite_close: "Fermer",
   invite_plan_trial: "Essai",
+  invite_plan_esencial: "Essentiel",
+  invite_plan_operaciones: "Opérations",
   invite_plan_foundation: "Foundation",
   invite_plan_obras: "Opérations",
   invite_plan_horarios: "Horaires",
@@ -1725,16 +1744,21 @@ export default {
   landing_pricing_extra_users: "Utilisateurs supplémentaires à 4 $/utilisateur/mois",
   landing_pricing_usd_note: "Prix en USD. Taxes non incluses.",
   landing_pricing_region_note: "Prix ajusté pour votre région",
+  landing_plan_blurb_esencial:
+    "Central et Horaires : employés et conformité, pointage, équipes, calendrier, feuilles de temps et congés. Projets illimités.",
+  landing_plan_blurb_operaciones:
+    "Tout Essentiel plus projets avancés, galerie GPS, plans, formulaires, RFI, visiteurs et rapport journalier.",
+  landing_plan_blurb_logistica:
+    "Tout Essentiel plus inventaire, flotte, fournisseurs, commandes et locations.",
+  landing_plan_blurb_todo:
+    "Tous les modules avec Sécurité (risques, actions correctives, audit). Utilisateurs et projets illimités.",
+
   landing_plan_blurb_foundation:
     "Gestion des employés, documents, rôles et permissions, projets de base, certificats et conformité.",
   landing_plan_blurb_obras:
     "Tout ce qui est dans Foundation, plus gestion avancée des projets, galerie photos GPS, plans, formulaires, visiteurs et rapport journalier.",
   landing_plan_blurb_horarios:
     "Tout ce qui est dans Foundation plus pointage intelligent, équipes et calendrier, feuilles de temps et gestion des absences pour votre équipe.",
-  landing_plan_blurb_logistica:
-    "Tout ce qui est dans Foundation, plus contrôle des stocks, gestion de flotte, fournisseurs, commandes et locations.",
-  landing_plan_blurb_todo:
-    "Accès complet à tous les modules. Foundation, Opérations, Horaires, Logistique et Sécurité. 25 utilisateurs et 50 Go.",
   landing_feat_foundation_1: "Gestion des employés et documents",
   landing_feat_foundation_2: "Rôles et permissions personnalisés",
   landing_feat_foundation_3: "Gestion de projets de base",
@@ -1758,7 +1782,7 @@ export default {
   landing_cta_title: "Commencez aujourd'hui — 14 jours gratuits",
   landing_cta_subtitle: "Sans carte de crédit. Annulez quand vous voulez.",
   landing_cta_primary: "Commencer gratuitement",
-  landing_pricing_plan_cta: "Commencer gratuitement — 14 jours",
+  landing_pricing_plan_cta: "Commencer gratuitement 14 jours",
   contact_email: "info@machin.pro",
   landing_footer_desc:
     "MachinPro aide les entreprises de construction en Amérique, Europe et UK à gérer leurs chantiers et équipes de n'importe où.",

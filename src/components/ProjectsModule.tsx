@@ -460,7 +460,7 @@ export function ProjectsModule({
   onOpenResourceRequest,
   resourceRequests = [],
   onConfirmReception,
-  companyPlan = "foundation",
+  companyPlan = "esencial",
   projectForms,
   onCreateForm,
   onDeleteForm,

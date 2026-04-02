@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySuperadminAccess } from "@/lib/verify-api-session";
-import { getLimitsForPlan, paidPlanKeyFromString, type PaidPlanKey } from "@/lib/stripe";
+import { getLimitsForPlan, resolvePaidPlanForCheckout, type PaidPlanKey } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const extraDays = 14;
     const base = sub?.trial_ends_at ? new Date(sub.trial_ends_at as string) : new Date();
     const end = new Date(base.getTime() + extraDays * 86400000).toISOString();
-    const lim = getLimitsForPlan("foundation");
+    const lim = getLimitsForPlan("esencial");
     if (sub) {
       await admin.from("subscriptions").update({ trial_ends_at: end, status: "trialing" }).eq("company_id", companyId);
     } else {
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "change_plan") {
-    const pk = paidPlanKeyFromString(typeof planKey === "string" ? planKey : "");
+    const pk = resolvePaidPlanForCheckout(typeof planKey === "string" ? planKey : "");
     if (!pk) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }

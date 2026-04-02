@@ -6,12 +6,12 @@ import { PAID_PLAN_ORDER, PLAN_PRICES_CAD, type PaidPlanKey } from "@/lib/stripe
 export const runtime = "nodejs";
 
 function planKeyFromRow(plan: string | null | undefined): PaidPlanKey | "trial" | null {
-  const p = (plan ?? "").toLowerCase().trim();
-  if (p === "trial") return "trial";
-  if ((PAID_PLAN_ORDER as string[]).includes(p)) return p as PaidPlanKey;
-  if (p === "starter" || p === "foundation") return "foundation";
-  if (p === "pro" || p === "professional") return "obras";
-  if (p === "enterprise") return "todo_incluido";
+  const q = (plan ?? "").toLowerCase().trim();
+  if (q === "trial") return "trial";
+  if ((PAID_PLAN_ORDER as string[]).includes(q)) return q as PaidPlanKey;
+  if (q === "starter" || q === "foundation" || q === "horarios") return "esencial";
+  if (q === "pro" || q === "professional" || q === "obras") return "operaciones";
+  if (q === "enterprise") return "todo_incluido";
   return null;
 }
 
