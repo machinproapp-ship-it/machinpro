@@ -19,6 +19,13 @@ import {
 
 type TxFn = (key: string, fallback: string) => string;
 
+const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
+  plan_users_esencial: "15 users included",
+  plan_users_operaciones: "Everything in Essential plus 15 additional users (30 total)",
+  plan_users_logistica: "Everything in Essential plus 15 additional users (30 total)",
+  plan_users_todo_incluido: "Unlimited users",
+};
+
 function useFadeIn() {
   const ref = useRef<HTMLElement | null>(null);
   const [on, setOn] = useState(false);
@@ -572,12 +579,10 @@ export default function LandingPage() {
                           ✓
                         </span>
                         <span>
-                          {plan.seats >= 999000
-                            ? tx("plan_users_unlimited", "Unlimited users")
-                            : tx("plan_users_limit", "Up to {{count}} users").replace(
-                                "{{count}}",
-                                String(plan.seats)
-                              )}
+                          {tx(
+                            plan.usersDescriptionKey,
+                            PLAN_USERS_DESCRIPTION_FALLBACK[plan.usersDescriptionKey] ?? ""
+                          )}
                         </span>
                       </li>
                       <li className="flex gap-2 leading-snug">

@@ -100,6 +100,8 @@ export type PlanDefinition = {
   /** null = sin tope práctico en UI */
   projects: number | null;
   storageGb: number;
+  /** clave i18n para la línea de usuarios del plan (p. ej. plan_users_esencial) */
+  usersDescriptionKey: string;
   /** claves i18n (pricing_feat_*) */
   featureKeys: string[];
 };
@@ -112,6 +114,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     seats: 15,
     projects: null,
     storageGb: 10,
+    usersDescriptionKey: "plan_users_esencial",
     featureKeys: [
       "pricing_feat_esencial_1",
       "pricing_feat_esencial_2",
@@ -122,9 +125,10 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     labelKey: "plan_operaciones",
     monthly: { priceId: "price_1THiv5HskIYiyc3Eun5AOLu7" },
     annual: { priceId: "price_1THiv5HskIYiyc3Ehqmch8mB" },
-    seats: 25,
+    seats: 30,
     projects: null,
     storageGb: 10,
+    usersDescriptionKey: "plan_users_operaciones",
     featureKeys: [
       "pricing_feat_operaciones_1",
       "pricing_feat_operaciones_2",
@@ -135,9 +139,10 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     labelKey: "plan_logistica",
     monthly: { priceId: "price_1THiw2HskIYiyc3EEVZh13pt" },
     annual: { priceId: "price_1THiw2HskIYiyc3EXSUNCS3E" },
-    seats: 25,
+    seats: 30,
     projects: null,
     storageGb: 10,
+    usersDescriptionKey: "plan_users_logistica",
     featureKeys: [
       "pricing_feat_logistica_1",
       "pricing_feat_logistica_2",
@@ -151,6 +156,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     seats: 999_999,
     projects: null,
     storageGb: 50,
+    usersDescriptionKey: "plan_users_todo_incluido",
     featureKeys: ["pricing_feat_all_1", "pricing_feat_all_2", "pricing_feat_all_3"],
   },
 };
@@ -199,6 +205,13 @@ export function getLimitsForPlan(plan: PlanKey | string | null | undefined): {
     projects_limit: p.projects ?? 999_999,
     storage_limit_gb: p.storageGb,
   };
+}
+
+/** Clave i18n (`plan_users_*`) según plan en DB, normalizando valores legacy. */
+export function planUsersDescriptionI18nKey(plan: PlanKey | string | null | undefined): string {
+  const raw = (plan ?? "esencial").toString().toLowerCase();
+  const paidKey = LEGACY_LIMIT_KEY[raw] ?? "esencial";
+  return PLANS[paidKey].usersDescriptionKey;
 }
 
 export function paidPlanKeyFromString(v: string | null | undefined): PaidPlanKey | null {

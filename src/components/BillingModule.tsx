@@ -8,6 +8,7 @@ import type { PlanKey } from "@/lib/stripe";
 import { PricingModule } from "@/components/PricingModule";
 import type { UserRole } from "@/types/shared";
 import { formatDate } from "@/lib/dateUtils";
+import { planUsersDescriptionI18nKey } from "@/lib/stripe";
 
 export interface BillingModuleProps {
   t: Record<string, string>;
@@ -170,6 +171,15 @@ export function BillingModule({
               {planDisplayName(t, subscription?.plan)}
             </span>
           </p>
+          {(() => {
+            const dk = planUsersDescriptionI18nKey(subscription?.plan);
+            const line = (t as Record<string, string>)[dk];
+            return line ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug max-w-lg">
+                {line}
+              </p>
+            ) : null;
+          })()}
         </div>
         <div className="flex flex-col xs:flex-row gap-2">
           <button

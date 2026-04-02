@@ -1184,6 +1184,10 @@ export default {
   plan_users_limit: "até {{count}} utilizadores",
   plan_users_unlimited: "Utilizadores ilimitados",
   plan_beta_founder: "Beta Founder — 3 meses grátis",
+  plan_users_esencial: "15 utilizadores incluídos",
+  plan_users_operaciones: "Tudo do Essencial mais 15 utilizadores adicionais (30 no total)",
+  plan_users_logistica: "Tudo do Essencial mais 15 utilizadores adicionais (30 no total)",
+  plan_users_todo_incluido: "Utilizadores ilimitados",
 
   pricing_foundation: "Foundation",
   pricing_obras: "Operações",

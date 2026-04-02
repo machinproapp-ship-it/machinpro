@@ -61,6 +61,13 @@ function normalizeCurrentPlan(raw: string | null | undefined): PaidPlanKey | nul
   return legacy[r] ?? null;
 }
 
+const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
+  plan_users_esencial: "15 users included",
+  plan_users_operaciones: "Everything in Essential plus 15 additional users (30 total)",
+  plan_users_logistica: "Everything in Essential plus 15 additional users (30 total)",
+  plan_users_todo_incluido: "Unlimited users",
+};
+
 export function PricingModule({
   t,
   companyId,
@@ -289,12 +296,9 @@ export function PricingModule({
                 <li className="flex gap-2">
                   <Check className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />
                   <span className={key === "todo_incluido" ? "font-semibold text-zinc-900 dark:text-white" : ""}>
-                    {plan.seats >= 999000
-                      ? (lx.plan_users_unlimited ?? "Unlimited users")
-                      : (lx.plan_users_limit ?? "Up to {{count}} users").replace(
-                          "{{count}}",
-                          String(plan.seats)
-                        )}
+                    {lx[plan.usersDescriptionKey] ??
+                      PLAN_USERS_DESCRIPTION_FALLBACK[plan.usersDescriptionKey] ??
+                      ""}
                   </span>
                 </li>
                 <li className="flex gap-2">
