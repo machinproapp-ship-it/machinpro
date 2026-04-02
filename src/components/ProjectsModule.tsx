@@ -59,7 +59,7 @@ import type { UserRole } from "@/types/shared";
 import type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask, TaskPriority } from "@/types/projectTask";
-import type { Currency } from "@/lib/i18n";
+import { ALL_TRANSLATIONS, type Currency } from "@/lib/i18n";
 import {
   dateLocaleForUser,
   resolveUserTimezone,
@@ -81,6 +81,8 @@ import {
   triggerBlobDownload,
   formatGalleryDownloadProgress,
 } from "@/lib/galleryPhotoDownload";
+
+const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
 export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 
@@ -326,26 +328,26 @@ function SecurityBadge({ state, labels }: { state: CertState; labels: Record<str
   if (state === "al_dia")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-        <ShieldCheck className="h-3 w-3" />{t.securityOk ?? "Al día"}
+        <ShieldCheck className="h-3 w-3" />{t.securityOk ?? PM_EN.securityOk}
       </span>
     );
   if (state === "pendiente")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-        <ShieldAlert className="h-3 w-3" />{t.securityPending ?? "Pendiente"}
+        <ShieldAlert className="h-3 w-3" />{t.securityPending ?? PM_EN.securityPending}
       </span>
     );
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 dark:bg-zinc-700 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-      <ShieldOff className="h-3 w-3" />{t.securityNoCerts ?? "Sin certificados"}
+      <ShieldOff className="h-3 w-3" />{t.securityNoCerts ?? PM_EN.securityNoCerts}
     </span>
   );
 }
 
 function getCategoryLabel(cat: string, tl: Record<string, string>): string {
-  if (cat === "progress") return tl.photoProgress ?? "Avance";
-  if (cat === "incident") return tl.photoIncident ?? "Incidencia";
-  if (cat === "health_safety") return tl.photoHealthSafety ?? "H&S";
+  if (cat === "progress") return tl.photoProgress ?? PM_EN.photoProgress;
+  if (cat === "incident") return tl.photoIncident ?? PM_EN.photoIncident;
+  if (cat === "health_safety") return tl.photoHealthSafety ?? PM_EN.photoHealthSafety;
   return cat;
 }
 
@@ -358,18 +360,18 @@ function PhotoStatusBadge({ status, labels }: { status?: string; labels: Record<
   if (status === "approved" || status === "accepted")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-        <CheckCircle2 className="h-3 w-3" />{t.photoStatusApproved ?? "Aprobada"}
+        <CheckCircle2 className="h-3 w-3" />{t.photoStatusApproved ?? PM_EN.photoStatusApproved}
       </span>
     );
   if (status === "rejected")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">
-        <XCircle className="h-3 w-3" />{t.photoStatusRejected ?? "Rechazada"}
+        <XCircle className="h-3 w-3" />{t.photoStatusRejected ?? PM_EN.photoStatusRejected}
       </span>
     );
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-      <Clock className="h-3 w-3" />{t.photoStatusPending ?? "Pendiente"}
+      <Clock className="h-3 w-3" />{t.photoStatusPending ?? PM_EN.photoStatusPending}
     </span>
   );
 }
@@ -770,7 +772,7 @@ export function ProjectsModule({
           projectName: selectedProject.name,
         });
       } catch {
-        setGalleryXferBanner(tl.gallery_download_error ?? "Download error");
+        setGalleryXferBanner(tl.gallery_download_error ?? PM_EN.gallery_download_error);
       }
     },
     [selectedProject, canUserDownloadThisGalleryPhoto, t, onGalleryPhotoDownloaded]
@@ -791,7 +793,7 @@ export function ProjectsModule({
           projectName: selectedProject.name,
         });
       } catch {
-        setGalleryXferBanner(tl.gallery_download_error ?? "Download error");
+        setGalleryXferBanner(tl.gallery_download_error ?? PM_EN.gallery_download_error);
       }
     },
     [selectedProject, canUserDownloadThisGalleryPhoto, t, onGalleryPhotoDownloaded]
@@ -806,7 +808,7 @@ export function ProjectsModule({
     const total = list.length;
     if (total === 0) return;
     setGalleryBulkProgress({ current: 0, total });
-    setGalleryXferBanner(tl.gallery_downloading ?? "");
+    setGalleryXferBanner(tl.gallery_downloading ?? PM_EN.gallery_downloading);
     try {
       const files = list.map((entry) => {
         const url = entry.photoUrls[0]!;
@@ -824,7 +826,7 @@ export function ProjectsModule({
         setGalleryBulkProgress({ current: cur, total: tot });
         setGalleryXferBanner(
           formatGalleryDownloadProgress(
-            tl.gallery_download_progress ?? "Downloading {current} of {total}",
+            tl.gallery_download_progress ?? PM_EN.gallery_download_progress,
             cur,
             tot
           )
@@ -836,9 +838,9 @@ export function ProjectsModule({
         projectName: selectedProject.name,
         count: total,
       });
-      setGalleryXferBanner(tl.gallery_download_complete ?? "");
+      setGalleryXferBanner(tl.gallery_download_complete ?? PM_EN.gallery_download_complete);
     } catch {
-      setGalleryXferBanner(tl.gallery_download_error ?? "");
+      setGalleryXferBanner(tl.gallery_download_error ?? PM_EN.gallery_download_error);
     } finally {
       setGalleryBulkProgress(null);
     }
@@ -936,7 +938,7 @@ export function ProjectsModule({
     setInspectionOrderIds(pool.map((p) => p.id));
     setInspectionIncluded(Object.fromEntries(pool.map((p) => [p.id, true])));
     const d = formatDateIntl(new Date(), dateLoc, userTz);
-    setInspectionReportTitle(`${tl.inspection_report ?? ""} — ${selectedProject.name} — ${d}`);
+    setInspectionReportTitle(`${tl.inspection_report ?? PM_EN.inspection_report} — ${selectedProject.name} — ${d}`);
     setInspectionInspectorName(currentUserDisplayName ?? "");
     setInspectionReportOpen(true);
   }, [selectedProject, inspectionPhotosPool, t, currentUserDisplayName, dateLoc, userTz]);
@@ -1064,7 +1066,7 @@ export function ProjectsModule({
         <div className="border-b border-zinc-200 dark:border-slate-700 px-6 py-5">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
             <Building2 className="h-5 w-5 text-amber-500" />
-            {t.siteAdminView ?? "Proyectos activos"}
+            {t.siteAdminView ?? PM_EN.siteAdminView}
           </h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
             Selecciona un proyecto para ver su detalle completo
@@ -1103,8 +1105,8 @@ export function ProjectsModule({
                   {pendingCount > 0 && canApprove && (
                     <span className="shrink-0 rounded-full bg-amber-500 text-white text-xs font-bold px-2 py-0.5">
                       {pendingCount === 1
-                        ? (tl.project_photos_pending_one ?? "1 pending")
-                        : (tl.project_photos_pending_many ?? "{{n}} pending").replace(
+                        ? (tl.project_photos_pending_one ?? PM_EN.project_photos_pending_one)
+                        : (tl.project_photos_pending_many ?? PM_EN.project_photos_pending_many).replace(
                             /\{\{n\}\}/g,
                             String(pendingCount)
                           )}
@@ -1114,7 +1116,7 @@ export function ProjectsModule({
 
                 <div className="mb-3">
                   <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                    <span>{tl.project_budget_consumed_progress ?? "Budget consumed"}</span>
+                    <span>{tl.project_budget_consumed_progress ?? PM_EN.project_budget_consumed_progress}</span>
                     <span className="font-medium text-zinc-700 dark:text-zinc-300">{prog}%</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
@@ -1129,8 +1131,8 @@ export function ProjectsModule({
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" />
                     {assigned.length === 1
-                      ? (tl.project_team_one ?? "1 person")
-                      : (tl.project_team_many ?? "{{n}} people").replace(/\{\{n\}\}/g, String(assigned.length))}
+                      ? (tl.project_team_one ?? PM_EN.project_team_one)
+                      : (tl.project_team_many ?? PM_EN.project_team_many).replace(/\{\{n\}\}/g, String(assigned.length))}
                   </span>
                   <span>{fmtYmd(proj.estimatedEnd)}</span>
                 </div>
@@ -1140,7 +1142,7 @@ export function ProjectsModule({
 
           {(projects ?? []).length === 0 && (
             <div className="col-span-2 py-12 text-center text-sm text-zinc-400 dark:text-zinc-500">
-              {t.noProjectsAssigned ?? "No hay proyectos activos."}
+              {t.noProjectsAssigned ?? PM_EN.noProjectsAssigned}
             </div>
           )}
         </div>
@@ -1160,7 +1162,7 @@ export function ProjectsModule({
             onClick={() => onSelectProject(null)}
             className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors min-h-[44px] min-w-[44px] items-center justify-center sm:justify-start"
           >
-            <ChevronLeft className="h-3.5 w-3.5" />{t.siteBackToProjects ?? "Todos los proyectos"}
+            <ChevronLeft className="h-3.5 w-3.5" />{t.siteBackToProjects ?? PM_EN.siteBackToProjects}
           </button>
         </div>
 
@@ -1183,7 +1185,7 @@ export function ProjectsModule({
                   rel="noopener noreferrer"
                   className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-lg px-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden /> {tl.openInMaps ?? "Open in Maps"}
+                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden /> {tl.openInMaps ?? PM_EN.openInMaps}
                 </a>
               </div>
             </div>
@@ -1194,13 +1196,13 @@ export function ProjectsModule({
             {selectedProject.budgetCAD != null && (
               <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" aria-hidden /> {tl.project_budget_short_label ?? "Budget"}
+                  <DollarSign className="h-3 w-3" aria-hidden /> {tl.project_budget_short_label ?? PM_EN.project_budget_short_label}
                 </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{formatBudget(selectedProject.budgetCAD)}</p>
                 {selectedProject.spentCAD != null && (
                   <p className={`text-xs font-medium ${progress > 80 ? "text-red-500" : "text-zinc-500 dark:text-zinc-400"}`}>
                     {progress}
-                    {tl.project_budget_pct_used ?? "% used"}
+                    {tl.project_budget_pct_used ?? PM_EN.project_budget_pct_used}
                   </p>
                 )}
               </div>
@@ -1218,7 +1220,7 @@ export function ProjectsModule({
             )}
             <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
-                <Users className="h-3 w-3" /> {(t as Record<string, string>).project_kpi_team ?? "Team"}
+                <Users className="h-3 w-3" /> {(t as Record<string, string>).project_kpi_team ?? PM_EN.project_kpi_team}
               </p>
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{assignedEmployees.length}</p>
               {pendingObraPhotos.length > 0 && canApprove && (
@@ -1250,25 +1252,24 @@ export function ProjectsModule({
             ).map((tab) => {
               const label =
                 tab.id === "general"
-                  ? t.siteTabGeneral ?? t.tabGeneral ?? "General"
+                  ? t.siteTabGeneral ?? t.tabGeneral ?? PM_EN.tabGeneral
                   : tab.id === "personal"
-                  ? t.siteTabPersonnel ?? t.personnel ?? "Personal"
+                  ? t.siteTabPersonnel ?? t.personnel ?? PM_EN.personnel
                   : tab.id === "inventario"
-                  ? t.siteTabInventory ?? t.whTabInventory ?? "Inventario"
+                  ? t.siteTabInventory ?? t.whTabInventory ?? PM_EN.whTabInventory
                   : tab.id === "galeria"
-                  ? t.siteTabGallery ?? "Galería"
+                  ? t.siteTabGallery ?? PM_EN.siteTabGallery
                   : tab.id === "formularios"
-                  ? (t as Record<string, string>).siteTabForms ?? "Formularios"
+                  ? (t as Record<string, string>).siteTabForms ?? PM_EN.siteTabForms
                   : tab.id === "blueprints"
                   ? (t as Record<string, string>).blueprints_title ??
-                    t.blueprints ??
-                    "Planos"
+                    t.blueprints ?? PM_EN.blueprints
                   : tab.id === "visitantes"
                   ? (t as Record<string, string>).siteTabVisitors ||
                     (t as Record<string, string>).visitors_menu ||
                     ""
                   : tab.id === "rfi"
-                  ? (t as Record<string, string>).site_tab_rfi ?? (t as Record<string, string>).rfi_menu ?? "RFI"
+                  ? (t as Record<string, string>).site_tab_rfi ?? (t as Record<string, string>).rfi_menu ?? PM_EN.rfi_menu
                   : "";
               const badge =
                 tab.id === "galeria" && pendingObraPhotos.length > 0 && canApprove
@@ -1323,11 +1324,11 @@ export function ProjectsModule({
                   <Truck className="h-4 w-4 text-amber-600 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                      {t.resourcesInTransit ?? "Recursos en camino"}
+                      {t.resourcesInTransit ?? PM_EN.resourcesInTransit}
                     </p>
                     <p className="text-xs text-amber-600 dark:text-amber-500">
                       {request.items.length} items ·{" "}
-                      {t.neededBy ?? "Para"}: {request.neededBy}
+                      {t.neededBy ?? PM_EN.neededBy}: {request.neededBy}
                     </p>
                   </div>
                 </div>
@@ -1337,7 +1338,7 @@ export function ProjectsModule({
                     onClick={() => onConfirmReception(request.id)}
                     className="shrink-0 text-sm rounded-xl bg-amber-600 text-white px-3 py-2 min-h-[44px] hover:bg-amber-500 transition-colors font-medium"
                   >
-                    {t.confirmReception ?? "Confirmar recepción"}
+                    {t.confirmReception ?? PM_EN.confirmReception}
                   </button>
                 )}
               </div>
@@ -1350,32 +1351,32 @@ export function ProjectsModule({
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow
-                label={tl.projectFormTypeLabel ?? "Project type"}
+                label={tl.projectFormTypeLabel ?? PM_EN.projectFormTypeLabel}
                 value={
                   selectedProject.type === "residential"
-                    ? (tl.projectTypeResidential ?? "Residential")
+                    ? (tl.projectTypeResidential ?? PM_EN.projectTypeResidential)
                     : selectedProject.type === "commercial"
-                      ? (tl.projectTypeCommercial ?? "Commercial")
+                      ? (tl.projectTypeCommercial ?? PM_EN.projectTypeCommercial)
                       : selectedProject.type === "industrial"
-                        ? (tl.projectTypeIndustrial ?? "Industrial")
+                        ? (tl.projectTypeIndustrial ?? PM_EN.projectTypeIndustrial)
                         : selectedProject.type
                 }
               />
               <InfoRow
-                label={tl.projectFormLocationLabel ?? "Location"}
-                value={selectedProject.location || (tl.common_dash ?? "—")}
+                label={tl.projectFormLocationLabel ?? PM_EN.projectFormLocationLabel}
+                value={selectedProject.location || (tl.common_dash ?? PM_EN.common_dash)}
               />
-              <InfoRow label={tl.projectFormDateStart ?? "Start date"} value={fmtYmd(selectedProject.estimatedStart)} />
-              <InfoRow label={tl.projectFormDateEnd ?? "End date"} value={fmtYmd(selectedProject.estimatedEnd)} />
+              <InfoRow label={tl.projectFormDateStart ?? PM_EN.projectFormDateStart} value={fmtYmd(selectedProject.estimatedStart)} />
+              <InfoRow label={tl.projectFormDateEnd ?? PM_EN.projectFormDateEnd} value={fmtYmd(selectedProject.estimatedEnd)} />
               {selectedProject.budgetCAD != null && (
                 <InfoRow
-                  label={tl.projectFormBudgetTotal ?? "Total budget"}
+                  label={tl.projectFormBudgetTotal ?? PM_EN.projectFormBudgetTotal}
                   value={formatCurrency(selectedProject.budgetCAD, companyCurrency, dateLoc)}
                 />
               )}
               {selectedProject.spentCAD != null && (
                 <InfoRow
-                  label={tl.project_budget_consumed_progress ?? "Budget consumed"}
+                  label={tl.project_budget_consumed_progress ?? PM_EN.project_budget_consumed_progress}
                   value={`${formatCurrency(selectedProject.spentCAD, companyCurrency, dateLoc)} (${progress}%)`}
                 />
               )}
@@ -1397,7 +1398,7 @@ export function ProjectsModule({
             {selectedProject.budgetCAD != null && (
               <div>
                 <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
-                  <span>{tl.project_budget_progress_label ?? "Budget execution"}</span>
+                  <span>{tl.project_budget_progress_label ?? PM_EN.project_budget_progress_label}</span>
                   <span className="font-medium">{progress}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
@@ -1409,7 +1410,7 @@ export function ProjectsModule({
                 {progress > 80 && (
                   <p className="flex items-center gap-1 text-xs text-red-500 mt-1.5">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {(tl.project_budget_alert_capacity ?? "Warning: budget at {{pct}}% capacity").replace(
+                    {(tl.project_budget_alert_capacity ?? PM_EN.project_budget_alert_capacity).replace(
                       /\{\{pct\}\}/g,
                       String(progress)
                     )}
@@ -1421,7 +1422,7 @@ export function ProjectsModule({
             {(currentUserRole === "admin" || currentUserRole === "supervisor" || currentUserRole === "projectManager") && (
               <div>
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">
-                  {t.progressPhotos ?? "Capturar fotos"}
+                  {t.progressPhotos ?? PM_EN.progressPhotos}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
@@ -1432,10 +1433,10 @@ export function ProjectsModule({
                     <Camera className="h-5 w-5 shrink-0" />
                     <div className="text-left">
                       <p className="font-semibold text-sm">
-                        {t.progressPhotos ?? "Foto de Obra"}
+                        {t.progressPhotos ?? PM_EN.progressPhotos}
                       </p>
                       <p className="text-xs opacity-70">
-                        {t.progressPhotosSub ?? "Avance · requiere aprobación"}
+                        {t.progressPhotosSub ?? PM_EN.progressPhotosSub}
                       </p>
                     </div>
                   </button>
@@ -1447,10 +1448,10 @@ export function ProjectsModule({
                     <Package className="h-5 w-5 shrink-0" />
                     <div className="text-left">
                       <p className="font-semibold text-sm">
-                        {t.whPhotoForInventory ?? "Foto de Inventario"}
+                        {t.whPhotoForInventory ?? PM_EN.whPhotoForInventory}
                       </p>
                       <p className="text-xs opacity-70">
-                        {t.whInventoryAtSite ?? "Activos · directo a Logística"}
+                        {t.whInventoryAtSite ?? PM_EN.whInventoryAtSite}
                       </p>
                     </div>
                   </button>
@@ -1458,7 +1459,7 @@ export function ProjectsModule({
                 <textarea
                   value={photoNotes}
                   onChange={(e) => setPhotoNotes(e.target.value)}
-                  placeholder={t.photoNotesPlaceholder ?? "Notas opcionales para la próxima foto…"}
+                  placeholder={t.photoNotesPlaceholder ?? PM_EN.photoNotesPlaceholder}
                   className="mt-3 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[80px] resize-none"
                   rows={2}
                 />
@@ -1473,7 +1474,7 @@ export function ProjectsModule({
             {assignedEmployees.length === 0 ? (
               <EmptyState
                 icon={<Users className="h-8 w-8" />}
-                text={t.noAssignedPersonnel ?? "No hay personal asignado a este proyecto."}
+                text={t.noAssignedPersonnel ?? PM_EN.noAssignedPersonnel}
               />
             ) : (
               assignedEmployees.map((emp) => {
@@ -1571,7 +1572,7 @@ export function ProjectsModule({
             {canEdit && (
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-slate-700">
                 <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  {tl.projects_team_add_employee ?? ""}
+                  {tl.projects_team_add_employee ?? PM_EN.projects_team_add_employee}
                 </p>
                 <div className="flex gap-2">
                   <select
@@ -1579,7 +1580,7 @@ export function ProjectsModule({
                     onChange={(e) => setAddEmployeeToProjectId(e.target.value)}
                     className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                   >
-                    <option value="">{tl.projects_team_select_employee ?? ""}</option>
+                    <option value="">{tl.projects_team_select_employee ?? PM_EN.projects_team_select_employee}</option>
                     {(allEmployees ?? []).filter((e) => !(selectedProject?.assignedEmployeeIds ?? []).includes(e.id)).map((e) => (
                       <option key={e.id} value={e.id}>{e.name}</option>
                     ))}
@@ -1595,7 +1596,7 @@ export function ProjectsModule({
                     }}
                     className="rounded-lg bg-amber-600 text-white px-4 py-2 text-sm font-medium hover:bg-amber-500 disabled:opacity-50 min-h-[44px]"
                   >
-                    {tl.projects_team_add ?? ""}
+                    {tl.projects_team_add ?? PM_EN.projects_team_add}
                   </button>
                 </div>
               </div>
@@ -1614,7 +1615,7 @@ export function ProjectsModule({
                     onChange={(e) => setAddItemToProjectId(e.target.value)}
                     className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                   >
-                    <option value="">{tl.projects_inv_select_item ?? ""}</option>
+                    <option value="">{tl.projects_inv_select_item ?? PM_EN.projects_inv_select_item}</option>
                     {(inventoryItems ?? []).filter((i) => !i.assignedToProjectId).map((i) => (
                       <option key={i.id} value={i.id}>
                         {i.name} ({i.quantity} {i.unit})
@@ -1631,7 +1632,7 @@ export function ProjectsModule({
                     }}
                     className="rounded-lg bg-amber-600 text-white px-4 py-2 text-sm font-medium hover:bg-amber-500 disabled:opacity-50 min-h-[44px]"
                   >
-                    {tl.projects_inv_assign ?? ""}
+                    {tl.projects_inv_assign ?? PM_EN.projects_inv_assign}
                   </button>
                 </div>
                 {onOpenResourceRequest && selectedProject && (
@@ -1641,7 +1642,7 @@ export function ProjectsModule({
                     className="flex items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] transition-colors"
                   >
                     <PackagePlus className="h-4 w-4" />
-                    {t.requestResources ?? "Solicitar recursos"}
+                    {t.requestResources ?? PM_EN.requestResources}
                   </button>
                 )}
               </div>
@@ -1653,7 +1654,7 @@ export function ProjectsModule({
               </h3>
               {projectMaterials.length === 0 ? (
                 <p className="text-sm text-zinc-400 italic">
-                  {t.noProjectMaterials ?? "Sin materiales asignados a este proyecto."}
+                  {t.noProjectMaterials ?? PM_EN.noProjectMaterials}
                 </p>
               ) : (
                 <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
@@ -1694,11 +1695,11 @@ export function ProjectsModule({
             {/* Herramientas */}
             <div>
               <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-amber-500" />{t.whToolsOnSite ?? "Herramientas en obra"}
+                <Wrench className="h-4 w-4 text-amber-500" />{t.whToolsOnSite ?? PM_EN.whToolsOnSite}
               </h3>
               {projectTools.length === 0 ? (
                 <p className="text-sm text-zinc-400 italic">
-                  {t.noProjectTools ?? "Sin herramientas asignadas a este proyecto."}
+                  {t.noProjectTools ?? PM_EN.noProjectTools}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -1747,7 +1748,7 @@ export function ProjectsModule({
                               onClick={() => onReturnToolFromProject(tool.id)}
                               className="text-xs rounded-lg border border-amber-300 dark:border-amber-600 text-amber-600 dark:text-amber-400 px-2 py-1 hover:bg-amber-50 dark:hover:bg-amber-950/30 min-h-[36px] transition-colors"
                             >
-                              {(t as Record<string, string>).returnToWarehouse ?? "Devolver"}
+                              {(t as Record<string, string>).returnToWarehouse ?? PM_EN.returnToWarehouse}
                             </button>
                           )}
                           {canEdit && (
@@ -1771,7 +1772,7 @@ export function ProjectsModule({
             {invPhotos.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
-                  <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? "Fotos de activos / registro logístico"}
+                  <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? PM_EN.invPhotosTitle}
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {invPhotos.flatMap((entry) =>
@@ -1796,7 +1797,7 @@ export function ProjectsModule({
             {projectInventory.length === 0 && invPhotos.length === 0 && (
               <EmptyState
                 icon={<Package className="h-8 w-8" />}
-                text={t.noProjectInventory ?? "Sin inventario asignado a este proyecto aún."}
+                text={t.noProjectInventory ?? PM_EN.noProjectInventory}
               />
             )}
           </div>
@@ -1815,7 +1816,7 @@ export function ProjectsModule({
             <div
               className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-slate-700 pb-3"
               role="tablist"
-              aria-label={(t as Record<string, string>).galleryTabBrowse ?? "Gallery"}
+              aria-label={(t as Record<string, string>).galleryTabBrowse ?? PM_EN.galleryTabBrowse}
             >
               <button
                 type="button"
@@ -1828,7 +1829,7 @@ export function ProjectsModule({
                     : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-slate-800"
                 }`}
               >
-                {(t as Record<string, string>).galleryTabBrowse ?? "Gallery"}
+                {(t as Record<string, string>).galleryTabBrowse ?? PM_EN.galleryTabBrowse}
               </button>
               <button
                 type="button"
@@ -1841,7 +1842,7 @@ export function ProjectsModule({
                     : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-slate-800"
                 }`}
               >
-                {(t as Record<string, string>).galleryTabInspection ?? "Inspection"}
+                {(t as Record<string, string>).galleryTabInspection ?? PM_EN.galleryTabInspection}
               </button>
             </div>
             {galleryXferBanner ? (
@@ -1866,7 +1867,7 @@ export function ProjectsModule({
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 min-h-[44px] transition-colors hover:bg-amber-100 disabled:pointer-events-none disabled:opacity-50 dark:border-amber-600/60 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60 sm:w-auto sm:justify-start"
               >
                 <Camera className="h-5 w-5 shrink-0" aria-hidden />
-                {(t as Record<string, string>).uploadPhoto ?? "Subir foto"}
+                {(t as Record<string, string>).uploadPhoto ?? PM_EN.uploadPhoto}
               </button>
               {pdfSourcePhotos.length > 0 && selectedProject && (
                 <button
@@ -1875,7 +1876,7 @@ export function ProjectsModule({
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-100 min-h-[44px] transition-colors hover:bg-zinc-50 dark:hover:bg-slate-800 sm:w-auto sm:justify-start"
                 >
                   <FileDown className="h-5 w-5 shrink-0" aria-hidden />
-                  {(t as Record<string, string>).generatePDF ?? "Generate PDF"}
+                  {(t as Record<string, string>).generatePDF ?? PM_EN.generatePDF}
                 </button>
               )}
             </div>
@@ -1892,12 +1893,12 @@ export function ProjectsModule({
                   }`}
                 >
                   {cat === "all"
-                    ? ((t as Record<string, string>).whFilterAll ?? "Todas")
+                    ? ((t as Record<string, string>).whFilterAll ?? PM_EN.whFilterAll)
                     : cat === "progress"
-                    ? ((t as Record<string, string>).photoProgress ?? "Avance")
+                    ? ((t as Record<string, string>).photoProgress ?? PM_EN.photoProgress)
                     : cat === "incident"
-                    ? ((t as Record<string, string>).photoIncident ?? "Incidencia")
-                    : (t as Record<string, string>).photoHealthSafety ?? "H&S"}
+                    ? ((t as Record<string, string>).photoIncident ?? PM_EN.photoIncident)
+                    : (t as Record<string, string>).photoHealthSafety ?? PM_EN.photoHealthSafety}
                 </button>
               ))}
             </div>
@@ -1907,7 +1908,7 @@ export function ProjectsModule({
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2 flex-wrap">
                     <Clock className="h-4 w-4 text-amber-500 shrink-0" />
-                    {t.pendingPhotosReview ?? "Pendientes de revisión"}
+                    {t.pendingPhotosReview ?? PM_EN.pendingPhotosReview}
                     <span className="rounded-full bg-amber-500 text-white text-xs font-bold px-2 py-0.5">
                       {filteredPendingObra.length}
                     </span>
@@ -1915,7 +1916,7 @@ export function ProjectsModule({
                   <div
                     className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 p-0.5 gap-0.5"
                     role="group"
-                    aria-label={(t as Record<string, string>).listView ?? "List view"}
+                    aria-label={(t as Record<string, string>).listView ?? PM_EN.listView}
                   >
                     <button
                       type="button"
@@ -1926,10 +1927,10 @@ export function ProjectsModule({
                           ? "bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
                           : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800"
                       }`}
-                      title={(t as Record<string, string>).listView ?? "List view"}
+                      title={(t as Record<string, string>).listView ?? PM_EN.listView}
                     >
                       <List className="h-4 w-4 shrink-0" aria-hidden />
-                      <span className="hidden sm:inline">{(t as Record<string, string>).listView ?? "List"}</span>
+                      <span className="hidden sm:inline">{(t as Record<string, string>).listViewShort ?? PM_EN.listViewShort}</span>
                     </button>
                     <button
                       type="button"
@@ -1940,10 +1941,10 @@ export function ProjectsModule({
                           ? "bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
                           : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800"
                       }`}
-                      title={(t as Record<string, string>).gridView ?? "Grid view"}
+                      title={(t as Record<string, string>).gridView ?? PM_EN.gridView}
                     >
                       <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden />
-                      <span className="hidden sm:inline">{(t as Record<string, string>).gridView ?? "Grid"}</span>
+                      <span className="hidden sm:inline">{(t as Record<string, string>).gridViewShort ?? PM_EN.gridViewShort}</span>
                     </button>
                   </div>
                 </div>
@@ -1970,8 +1971,7 @@ export function ProjectsModule({
                               </span>
                               <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mt-1">
                                 {(allEmployees ?? []).find((e) => e.id === entry.submittedByEmployeeId)?.name ??
-                                  t.workerLabel ??
-                                  "Trabajador"}{" "}
+                                  t.workerLabel ?? PM_EN.workerLabel}{" "}
                                 · {entry.date}
                               </p>
                               {entry.notes && (
@@ -2010,7 +2010,7 @@ export function ProjectsModule({
                                 className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2.5 text-xs font-medium min-h-[44px] transition-colors"
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
-                                {t.accept ?? "Aprobar"}
+                                {t.accept ?? PM_EN.accept}
                               </button>
                               <button
                                 type="button"
@@ -2021,7 +2021,7 @@ export function ProjectsModule({
                                 className="flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 text-red-600 dark:text-red-400 px-3 py-2.5 text-xs font-medium min-h-[44px] transition-colors"
                               >
                                 <XCircle className="h-3.5 w-3.5" />
-                                {t.reject ?? "Rechazar"}
+                                {t.reject ?? PM_EN.reject}
                               </button>
                             </div>
                           )}
@@ -2070,12 +2070,12 @@ export function ProjectsModule({
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                  {t.approvedProgressTitle ?? "Avance de obra aprobado"}
+                  {t.approvedProgressTitle ?? PM_EN.approvedProgressTitle}
                   <span className="text-xs text-zinc-400 font-normal">
                     ({filteredApprovedObra.length}{" "}
                     {filteredApprovedObra.length === 1
-                      ? t.photoSingular ?? "foto"
-                      : t.photosPlural ?? "fotos"}
+                      ? t.photoSingular ?? PM_EN.photoSingular
+                      : t.photosPlural ?? PM_EN.photosPlural}
                     )
                   </span>
                 </h3>
@@ -2090,14 +2090,14 @@ export function ProjectsModule({
                       className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-50 motion-safe:transition-colors dark:border-zinc-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
                     >
                       <Download className="h-5 w-5 shrink-0" aria-hidden />
-                      {(t as Record<string, string>).gallery_download_all ?? "Download all"}
+                      {(t as Record<string, string>).gallery_download_all ?? PM_EN.gallery_download_all}
                     </button>
                   )}
               </div>
               {filteredApprovedObra.length === 0 ? (
                 <EmptyState
                   icon={<ImageIcon className="h-8 w-8" />}
-                  text={t.noApprovedPhotos ?? "Aún no hay fotos de avance aprobadas."}
+                  text={t.noApprovedPhotos ?? PM_EN.noApprovedPhotos}
                 />
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -2123,7 +2123,7 @@ export function ProjectsModule({
                               onClick={() => void downloadDiaryPhoto(entry)}
                               className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
                               aria-label={
-                                (t as Record<string, string>).gallery_download ?? "Download photo"
+                                (t as Record<string, string>).gallery_download ?? PM_EN.gallery_download
                               }
                             >
                               <Download className="h-5 w-5 shrink-0" aria-hidden />
@@ -2160,7 +2160,7 @@ export function ProjectsModule({
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 min-h-[44px] transition-colors hover:bg-amber-100 disabled:pointer-events-none disabled:opacity-50 dark:border-amber-600/60 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60 sm:w-auto sm:justify-start"
                   >
                     <Camera className="h-5 w-5 shrink-0" aria-hidden />
-                    {(t as Record<string, string>).uploadPhoto ?? "Subir foto"}
+                    {(t as Record<string, string>).uploadPhoto ?? PM_EN.uploadPhoto}
                   </button>
                   {canManageProjectGallery && inspectionPhotosPool.length > 0 && (
                     <button
@@ -2169,20 +2169,18 @@ export function ProjectsModule({
                       className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-100 min-h-[44px] transition-colors hover:bg-zinc-50 dark:hover:bg-slate-800 sm:w-auto sm:justify-start"
                     >
                       <FileDown className="h-5 w-5 shrink-0" aria-hidden />
-                      {(t as Record<string, string>).inspection_report_generate ?? "Generate inspection report"}
+                      {(t as Record<string, string>).inspection_report_generate ?? PM_EN.inspection_report_generate}
                     </button>
                   )}
                 </div>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {(t as Record<string, string>).inspection_report_tab_hint ??
-                    "Incidents and H&S photos appear here. Managers can export a printable inspection PDF."}
+                  {(t as Record<string, string>).inspection_report_tab_hint ?? PM_EN.inspection_report_tab_hint}
                 </p>
                 {inspectionPhotosPool.length === 0 ? (
                   <EmptyState
                     icon={<HardHat className="h-8 w-8" />}
                     text={
-                      (t as Record<string, string>).inspection_report_empty ??
-                      "No inspection photos yet. Upload as incident or health & safety."
+                      (t as Record<string, string>).inspection_report_empty ?? PM_EN.inspection_report_empty
                     }
                   />
                 ) : (
@@ -2209,7 +2207,7 @@ export function ProjectsModule({
                               }
                               className="absolute inset-0 z-0 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
                               aria-label={
-                                (t as Record<string, string>).gallery_view_photo ?? "View photo"
+                                (t as Record<string, string>).gallery_view_photo ?? PM_EN.gallery_view_photo
                               }
                             />
                             <img
@@ -2240,7 +2238,7 @@ export function ProjectsModule({
                                 }}
                                 className="absolute right-1 top-1 z-10 flex h-11 w-11 items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
                                 aria-label={
-                                  (t as Record<string, string>).gallery_download ?? "Download photo"
+                                  (t as Record<string, string>).gallery_download ?? PM_EN.gallery_download
                                 }
                               >
                                 <Download className="h-5 w-5 shrink-0" aria-hidden />
@@ -2283,8 +2281,7 @@ export function ProjectsModule({
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
                 {(t as Record<string, string>).dailyReport ??
                   (t as Record<string, string>).dailyFieldReportsTitle ??
-                  (t as Record<string, string>).dailyFieldReport ??
-                  "Parte diario"}
+                  (t as Record<string, string>).dailyFieldReport ?? PM_EN.dailyFieldReport}
               </h2>
               {canManageDailyReports && (
                 <button
@@ -2296,12 +2293,12 @@ export function ProjectsModule({
                   className="flex w-full sm:w-auto items-center gap-2 rounded-xl border-2 border-amber-500 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-medium text-amber-800 dark:text-amber-200 min-h-[44px]"
                 >
                   <Plus className="h-4 w-4" />
-                  {(t as Record<string, string>).newDailyReport ?? "Nuevo parte diario"}
+                  {(t as Record<string, string>).newDailyReport ?? PM_EN.newDailyReport}
                 </button>
               )}
               {dailyReportsListForUi.length === 0 ? (
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {(t as Record<string, string>).noDailyReportsYet ?? "Aún no hay partes diarios"}
+                  {(t as Record<string, string>).noDailyReportsYet ?? PM_EN.noDailyReportsYet}
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -2310,11 +2307,11 @@ export function ProjectsModule({
                     const st =
                       dr.status === "draft"
                         ? {
-                            label: tl.reportStatusDraft ?? tl.formStatusDraft ?? "Draft",
+                            label: tl.reportStatusDraft ?? tl.formStatusDraft ?? PM_EN.draft,
                             cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
                           }
                         : {
-                            label: tl.reportStatusPublished ?? tl.publishReport ?? "Published",
+                            label: tl.reportStatusPublished ?? PM_EN.published,
                             cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200",
                           };
                     const sigN = dr.signatures.length;
@@ -2332,7 +2329,7 @@ export function ProjectsModule({
                           <span className="font-medium text-zinc-900 dark:text-white">
                             {formatReportDate(dr.date, language ?? "es", countryCode)}{" "}
                             <span className="text-zinc-500 font-normal">
-                              · {sigN}/{tot} {tl.dailyReportSignaturesShort ?? ""}
+                              · {sigN}/{tot} {tl.dailyReportSignaturesShort ?? PM_EN.dailyReportSignaturesShort}
                             </span>
                           </span>
                           <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${st.cls}`}>
@@ -2351,7 +2348,7 @@ export function ProjectsModule({
             <section className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-slate-800/50 p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-zinc-900 dark:text-white flex flex-wrap items-center gap-2">
-                  {(t as Record<string, string>).todoList ?? "To-Do List"}
+                  {(t as Record<string, string>).todoList ?? PM_EN.todoList}
                   <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-200">
                     {pendingTaskCount}
                   </span>
@@ -2372,11 +2369,11 @@ export function ProjectsModule({
                     className="flex w-full sm:w-auto items-center gap-2 rounded-xl border-2 border-emerald-600 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200 min-h-[44px]"
                   >
                     <Plus className="h-4 w-4" />
-                    {(t as Record<string, string>).newTask ?? "New task"}
+                    {(t as Record<string, string>).newTask ?? PM_EN.newTask}
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2" role="tablist" aria-label={(t as Record<string, string>).todoList ?? "To-Do List"}>
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label={(t as Record<string, string>).todoList ?? PM_EN.todoList}>
                 {(
                   [
                     ["all", "taskFilterAll"] as const,
@@ -2403,7 +2400,7 @@ export function ProjectsModule({
               </div>
               {filteredProjectTasks.length === 0 ? (
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {(t as Record<string, string>).noTasks ?? "No tasks"}
+                  {(t as Record<string, string>).noTasks ?? PM_EN.noTasks}
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -2417,34 +2414,34 @@ export function ProjectsModule({
                     if (due && !isDone) {
                       if (due < today) {
                         dueClass = "text-red-600 dark:text-red-400 font-medium";
-                        dueExtra = tl.taskOverdue ?? "Overdue";
+                        dueExtra = tl.taskOverdue ?? PM_EN.taskOverdue;
                       } else if (due === today) {
                         dueClass = "text-amber-600 dark:text-amber-500 font-medium";
-                        dueExtra = tl.taskDueToday ?? "Due today";
+                        dueExtra = tl.taskDueToday ?? PM_EN.taskDueToday;
                       }
                     }
                     const pr =
                       tk.priority === "urgent"
                         ? {
                             emoji: "🔴",
-                            label: tl.taskPriorityUrgent ?? "Urgent",
+                            label: tl.taskPriorityUrgent ?? PM_EN.taskPriorityUrgent,
                             cls: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
                           }
                         : tk.priority === "high"
                           ? {
                               emoji: "🟠",
-                              label: tl.taskPriorityHigh ?? "High",
+                              label: tl.taskPriorityHigh ?? PM_EN.taskPriorityHigh,
                               cls: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
                             }
                           : tk.priority === "medium"
                             ? {
                                 emoji: "🟡",
-                                label: tl.taskPriorityMedium ?? "Medium",
+                                label: tl.taskPriorityMedium ?? PM_EN.taskPriorityMedium,
                                 cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
                               }
                             : {
                                 emoji: "🟢",
-                                label: tl.taskPriorityLow ?? "Low",
+                                label: tl.taskPriorityLow ?? PM_EN.taskPriorityLow,
                                 cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
                               };
                     const displayName =
@@ -2464,8 +2461,8 @@ export function ProjectsModule({
                             type="button"
                             aria-label={
                               isDone
-                                ? `${tl.taskStatusCompleted ?? "Completed"} — ${tk.title}`
-                                : `${tl.taskStatusCompleted ?? "Mark complete"} — ${tk.title}`
+                                ? `${tl.taskStatusCompleted ?? PM_EN.taskStatusCompleted} — ${tk.title}`
+                                : `${tl.taskStatusCompleted ?? PM_EN.taskStatusCompleted} — ${tk.title}`
                             }
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2538,7 +2535,7 @@ export function ProjectsModule({
                           {currentUserRole === "admin" && (
                             <button
                               type="button"
-                              aria-label={tl["delete"] ?? "Delete"}
+                              aria-label={tl["delete"] ?? PM_EN.delete}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteTask?.(tk.id);
@@ -2563,7 +2560,7 @@ export function ProjectsModule({
                 className="flex items-center gap-2 w-full sm:w-auto rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-4 py-3 text-sm font-medium min-h-[44px] transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                {(t as Record<string, string>).createForm ?? "Crear formulario"}
+                {(t as Record<string, string>).createForm ?? PM_EN.createForm}
               </button>
             )}
 
@@ -2571,7 +2568,7 @@ export function ProjectsModule({
               <div className="text-center py-12 text-zinc-400">
                 <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-40" />
                 <p className="text-sm">
-                  {(t as Record<string, string>).noForms ?? "No hay formularios en este proyecto"}
+                  {(t as Record<string, string>).noForms ?? PM_EN.noForms}
                 </p>
               </div>
             ) : (
@@ -2589,15 +2586,15 @@ export function ProjectsModule({
                   const statusLabel =
                     form.type === "safety" && linkedCl
                       ? linkedCl.status === "draft"
-                        ? tl.checklistStatusDraft ?? tl.formStatusDraft ?? "Draft"
+                        ? tl.checklistStatusDraft ?? tl.formStatusDraft ?? PM_EN.draft
                         : linkedCl.status === "completed"
-                          ? tl.checklistStatusCompleted ?? tl.formStatusCompleted ?? "Completed"
-                          : tl.checklistStatusSubmitted ?? "Submitted"
+                          ? tl.checklistStatusCompleted ?? tl.formStatusCompleted ?? PM_EN.formStatusCompleted
+                          : tl.checklistStatusSubmitted ?? PM_EN.checklistStatusSubmitted
                       : form.status === "active"
-                        ? tl.formStatusActive ?? "Activo"
+                        ? tl.formStatusActive ?? PM_EN.formStatusActive
                         : form.status === "completed"
-                          ? tl.formStatusCompleted ?? "Completado"
-                          : tl.formStatusDraft ?? "Borrador";
+                          ? tl.formStatusCompleted ?? PM_EN.formStatusCompleted
+                          : tl.formStatusDraft ?? PM_EN.draft;
                   const statusClass =
                     form.type === "safety" && linkedCl
                       ? linkedCl.status === "draft"
@@ -2634,15 +2631,15 @@ export function ProjectsModule({
                           <p className="font-medium text-zinc-900 dark:text-white text-sm">{form.title}</p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                             {form.type === "inspection"
-                              ? tl.formTypeInspection ?? "Inspección"
+                              ? tl.formTypeInspection ?? PM_EN.formTypeInspection
                               : form.type === "tailgate"
-                                ? tl.formTypeTailgate ?? "Tailgate Meeting"
+                                ? tl.formTypeTailgate ?? PM_EN.formTypeTailgate
                                 : form.type === "safety"
-                                  ? tl.formTypeSafety ?? "Seguridad"
-                                  : tl.formTypeCustom ?? "Personalizado"}
+                                  ? tl.formTypeSafety ?? PM_EN.formTypeSafety
+                                  : tl.formTypeCustom ?? PM_EN.formTypeCustom}
                             {form.type === "safety" && linkedCl
-                              ? ` · ${linkedCl.items.length} ${tl.checklistItemsLabel ?? "items"}`
-                              : ` · ${form.responses.length} ${tl.responses ?? "respuestas"}`}
+                              ? ` · ${linkedCl.items.length} ${tl.checklistItemsLabel ?? PM_EN.checklistItemsLabel}`
+                              : ` · ${form.responses.length} ${tl.responses ?? PM_EN.responses}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -2673,13 +2670,13 @@ export function ProjectsModule({
               <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                 <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-700 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                   <h3 className="font-semibold text-zinc-900 dark:text-white">
-                    {(t as Record<string, string>).createForm ?? "Crear formulario"}
+                    {(t as Record<string, string>).createForm ?? PM_EN.createForm}
                   </h3>
                   <input
                     type="text"
                     value={newFormTitle}
                     onChange={(e) => setNewFormTitle(e.target.value)}
-                    placeholder={(t as Record<string, string>).formTitle ?? "Título del formulario"}
+                    placeholder={(t as Record<string, string>).formTitle ?? PM_EN.formTitle}
                     className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                   />
                   <select
@@ -2688,22 +2685,22 @@ export function ProjectsModule({
                     className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                   >
                     <option value="inspection">
-                      {(t as Record<string, string>).formTypeInspection ?? "Inspección"}
+                      {(t as Record<string, string>).formTypeInspection ?? PM_EN.formTypeInspection}
                     </option>
                     <option value="tailgate">
-                      {(t as Record<string, string>).formTypeTailgate ?? "Tailgate Meeting"}
+                      {(t as Record<string, string>).formTypeTailgate ?? PM_EN.formTypeTailgate}
                     </option>
                     <option value="safety">
-                      {(t as Record<string, string>).formTypeSafety ?? "Seguridad"}
+                      {(t as Record<string, string>).formTypeSafety ?? PM_EN.formTypeSafety}
                     </option>
                     <option value="custom">
-                      {(t as Record<string, string>).formTypeCustom ?? "Personalizado"}
+                      {(t as Record<string, string>).formTypeCustom ?? PM_EN.formTypeCustom}
                     </option>
                   </select>
                   {newFormType === "safety" && (
                     <div>
                       <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-                        {(t as Record<string, string>).selectTemplate ?? "Select template"}
+                        {(t as Record<string, string>).selectTemplate ?? PM_EN.selectTemplate}
                       </label>
                       <select
                         value={newFormTemplateId}
@@ -2711,7 +2708,7 @@ export function ProjectsModule({
                         className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                       >
                         <option value="">
-                          {(t as Record<string, string>).noTemplate ?? "No template (manual)"}
+                          {(t as Record<string, string>).noTemplate ?? PM_EN.noTemplate}
                         </option>
                         {availableTemplates.map((tpl) => (
                           <option key={tpl.id} value={tpl.id}>
@@ -2731,7 +2728,7 @@ export function ProjectsModule({
                       }}
                       className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-600 py-3 text-sm min-h-[44px]"
                     >
-                      {t.cancel ?? "Cancelar"}
+                      {t.cancel ?? PM_EN.cancel}
                     </button>
                     <button
                       type="button"
@@ -2784,7 +2781,7 @@ export function ProjectsModule({
                       }}
                       className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white py-3 text-sm font-medium min-h-[44px]"
                     >
-                      {(t as Record<string, string>).create ?? "Crear"}
+                      {(t as Record<string, string>).create ?? PM_EN.create}
                     </button>
                   </div>
                 </div>
@@ -2801,12 +2798,12 @@ export function ProjectsModule({
                 >
                   <h3 id="task-modal-title" className="font-semibold text-zinc-900 dark:text-white">
                     {taskModal === "new"
-                      ? (t as Record<string, string>).newTask ?? "New task"
-                      : (t as Record<string, string>).editTask ?? "Edit task"}
+                      ? (t as Record<string, string>).newTask ?? PM_EN.newTask
+                      : (t as Record<string, string>).editTask ?? PM_EN.editTask}
                   </h3>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {(t as Record<string, string>).taskTitle ?? "Task title"}
+                      {(t as Record<string, string>).taskTitle ?? PM_EN.taskTitle}
                     </label>
                     <input
                       type="text"
@@ -2817,7 +2814,7 @@ export function ProjectsModule({
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {(t as Record<string, string>).taskDescription ?? "Description"}
+                      {(t as Record<string, string>).taskDescription ?? PM_EN.taskDescription}
                     </label>
                     <textarea
                       value={taskDraft.description}
@@ -2828,7 +2825,7 @@ export function ProjectsModule({
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {(t as Record<string, string>).taskPriority ?? "Priority"}
+                      {(t as Record<string, string>).taskPriority ?? PM_EN.taskPriority}
                     </label>
                     <select
                       value={taskDraft.priority}
@@ -2838,22 +2835,22 @@ export function ProjectsModule({
                       className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm dark:border-zinc-600 dark:bg-slate-800 min-h-[44px]"
                     >
                       <option value="urgent">
-                        {(t as Record<string, string>).taskPriorityUrgent ?? "Urgent"}
+                        {(t as Record<string, string>).taskPriorityUrgent ?? PM_EN.taskPriorityUrgent}
                       </option>
                       <option value="high">
-                        {(t as Record<string, string>).taskPriorityHigh ?? "High"}
+                        {(t as Record<string, string>).taskPriorityHigh ?? PM_EN.taskPriorityHigh}
                       </option>
                       <option value="medium">
-                        {(t as Record<string, string>).taskPriorityMedium ?? "Medium"}
+                        {(t as Record<string, string>).taskPriorityMedium ?? PM_EN.taskPriorityMedium}
                       </option>
                       <option value="low">
-                        {(t as Record<string, string>).taskPriorityLow ?? "Low"}
+                        {(t as Record<string, string>).taskPriorityLow ?? PM_EN.taskPriorityLow}
                       </option>
                     </select>
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {(t as Record<string, string>).taskAssignedTo ?? "Assigned to"}
+                      {(t as Record<string, string>).taskAssignedTo ?? PM_EN.taskAssignedTo}
                     </label>
                     <select
                       value={taskDraft.assignedToEmployeeId}
@@ -2863,7 +2860,7 @@ export function ProjectsModule({
                       className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm dark:border-zinc-600 dark:bg-slate-800 min-h-[44px]"
                     >
                       <option value="">
-                        {(t as Record<string, string>).taskUnassigned ?? "Unassigned"}
+                        {(t as Record<string, string>).taskUnassigned ?? PM_EN.taskUnassigned}
                       </option>
                       {assignedEmployees.map((emp) => (
                         <option key={emp.id} value={emp.id}>
@@ -2875,7 +2872,7 @@ export function ProjectsModule({
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {(t as Record<string, string>).taskDueDate ?? "Due date"}
+                      {(t as Record<string, string>).taskDueDate ?? PM_EN.taskDueDate}
                     </label>
                     <input
                       type="date"
@@ -2890,7 +2887,7 @@ export function ProjectsModule({
                       onClick={() => setTaskModal(null)}
                       className="flex-1 rounded-xl border border-zinc-300 py-3 text-sm dark:border-zinc-600 min-h-[44px]"
                     >
-                      {t.cancel ?? "Cancel"}
+                      {t.cancel ?? PM_EN.cancel}
                     </button>
                     <button
                       type="button"
@@ -2929,7 +2926,7 @@ export function ProjectsModule({
                       }}
                       className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 min-h-[44px]"
                     >
-                      {t.save ?? "Save"}
+                      {t.save ?? PM_EN.save}
                     </button>
                   </div>
                 </div>
@@ -2951,13 +2948,13 @@ export function ProjectsModule({
                       className="flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400 mb-1 min-h-[44px] px-2 -ml-2"
                     >
                       <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
-                      {t.back ?? "Back"}
+                      {t.back ?? PM_EN.back}
                     </button>
                     <h2 id="safety-checklist-title" className="text-lg font-semibold text-zinc-900 dark:text-white truncate">
                       {safetyDraft.title}
                     </h2>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {(t as Record<string, string>).safetyChecklist ?? "Safety Checklist"}
+                      {(t as Record<string, string>).safetyChecklist ?? PM_EN.safetyChecklist}
                     </p>
                   </div>
                   <span
@@ -2971,20 +2968,18 @@ export function ProjectsModule({
                   >
                     {safetyDraft.status === "draft"
                       ? (t as Record<string, string>).checklistStatusDraft ??
-                        (t as Record<string, string>).formStatusDraft ??
-                        "Draft"
+                        (t as Record<string, string>).formStatusDraft ?? PM_EN.draft
                       : safetyDraft.status === "completed"
                         ? (t as Record<string, string>).checklistStatusCompleted ??
-                          (t as Record<string, string>).formStatusCompleted ??
-                          "Completed"
-                        : (t as Record<string, string>).checklistStatusSubmitted ?? "Submitted"}
+                          (t as Record<string, string>).formStatusCompleted ?? PM_EN.formStatusCompleted
+                        : (t as Record<string, string>).checklistStatusSubmitted ?? PM_EN.checklistStatusSubmitted}
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block text-sm">
                       <span className="text-zinc-500 dark:text-zinc-400 text-xs">
-                        {(t as Record<string, string>).checklistDate ?? (t as Record<string, string>).date ?? "Date"}
+                        {(t as Record<string, string>).checklistDate ?? (t as Record<string, string>).date ?? PM_EN.date}
                       </span>
                       <input
                         type="date"
@@ -2997,7 +2992,7 @@ export function ProjectsModule({
                     </label>
                     <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-slate-900 px-3 py-2.5">
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {(t as Record<string, string>).conductedBy ?? "Conducted by"}
+                        {(t as Record<string, string>).conductedBy ?? PM_EN.conductedBy}
                       </p>
                       <p className="text-sm font-medium text-zinc-900 dark:text-white">
                         {safetyDraft.conductedByName || safetyDraft.conductedBy || "—"}
@@ -3007,7 +3002,7 @@ export function ProjectsModule({
 
                   {safetyDraft.items.length === 0 ? (
                     <p className="text-sm text-zinc-500 text-center py-8">
-                      {(t as Record<string, string>).checklistEmptyItems ?? (t as Record<string, string>).noForms ?? ""}
+                      {(t as Record<string, string>).checklistEmptyItems ?? (t as Record<string, string>).noForms ?? PM_EN.noForms}
                     </p>
                   ) : (
                     groupedSafetyCategories.map(([category, items]) => (
@@ -3050,7 +3045,7 @@ export function ProjectsModule({
                                     <span className="mr-1" aria-hidden>
                                       ✅
                                     </span>
-                                    {tl.checklistYes ?? "Yes"}
+                                    {tl.checklistYes ?? PM_EN.checklistYes}
                                   </button>
                                   <button
                                     type="button"
@@ -3064,7 +3059,7 @@ export function ProjectsModule({
                                     <span className="mr-1" aria-hidden>
                                       ❌
                                     </span>
-                                    {tl.checklistNo ?? "No"}
+                                    {tl.checklistNo ?? PM_EN.checklistNo}
                                   </button>
                                   <button
                                     type="button"
@@ -3078,7 +3073,7 @@ export function ProjectsModule({
                                     <span className="mr-1" aria-hidden>
                                       ➡️
                                     </span>
-                                    {tl.checklistNA ?? "N/A"}
+                                    {tl.checklistNA ?? PM_EN.checklistNA}
                                   </button>
                                   <button
                                     type="button"
@@ -3092,7 +3087,7 @@ export function ProjectsModule({
                                     <span className="mr-1" aria-hidden>
                                       ⚠️
                                     </span>
-                                    {tl.checklistNeedsImprovement ?? "Needs improvement"}
+                                    {tl.checklistNeedsImprovement ?? PM_EN.checklistNeedsImprovement}
                                   </button>
                                 </div>
                                 {showFollowUp && (
@@ -3111,12 +3106,12 @@ export function ProjectsModule({
                                           };
                                         })
                                       }
-                                      placeholder={tl.checklistActionBy ?? ""}
-                                      aria-label={tl.checklistActionBy ?? ""}
+                                      placeholder={tl.checklistActionBy ?? PM_EN.checklistActionBy}
+                                      aria-label={tl.checklistActionBy ?? PM_EN.checklistActionBy}
                                       className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px]"
                                     />
                                     <label className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                      {tl.checklistDueDate ?? ""}
+                                      {tl.checklistDueDate ?? PM_EN.checklistDueDate}
                                       <input
                                         type="date"
                                         value={item.dueDate ?? ""}
@@ -3147,7 +3142,7 @@ export function ProjectsModule({
                                           };
                                         })
                                       }
-                                      placeholder={tl.checklistComments ?? ""}
+                                      placeholder={tl.checklistComments ?? PM_EN.checklistComments}
                                       rows={2}
                                       className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                                     />
@@ -3172,7 +3167,7 @@ export function ProjectsModule({
                     }}
                     className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 py-3 text-sm font-medium"
                   >
-                    {(t as Record<string, string>).saveDraft ?? "Save draft"}
+                    {(t as Record<string, string>).saveDraft ?? PM_EN.saveDraft}
                   </button>
                   <button
                     type="button"
@@ -3184,7 +3179,7 @@ export function ProjectsModule({
                     }}
                     className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-3 text-sm font-medium"
                   >
-                    {(t as Record<string, string>).completeChecklist ?? "Complete"}
+                    {(t as Record<string, string>).completeChecklist ?? PM_EN.completeChecklist}
                   </button>
                   <button
                     type="button"
@@ -3201,7 +3196,7 @@ export function ProjectsModule({
                     className="flex-1 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white py-3 text-sm font-medium flex items-center justify-center gap-2"
                   >
                     <FileDown className="h-4 w-4" />
-                    {(t as Record<string, string>).printReport ?? "PDF"}
+                    {(t as Record<string, string>).printReport ?? PM_EN.printReport}
                   </button>
                 </div>
               </div>
@@ -3307,7 +3302,7 @@ export function ProjectsModule({
               id="gallery-category-modal-title"
               className="text-base font-semibold text-zinc-900 dark:text-white mb-4 text-center"
             >
-              {(t as Record<string, string>).selectPhotoCategory ?? "What type of photo?"}
+              {(t as Record<string, string>).selectPhotoCategory ?? PM_EN.selectPhotoCategory}
             </h3>
             <div className="flex flex-col gap-3">
               <button
@@ -3320,10 +3315,10 @@ export function ProjectsModule({
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-                    {(t as Record<string, string>).photoProgress ?? "Avance"}
+                    {(t as Record<string, string>).photoProgress ?? PM_EN.photoProgress}
                   </span>
                   <span className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
-                    {(t as Record<string, string>).progressDesc ?? "Construction progress"}
+                    {(t as Record<string, string>).progressDesc ?? PM_EN.progressDesc}
                   </span>
                 </span>
                 <Camera className="h-6 w-6 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden />
@@ -3338,10 +3333,10 @@ export function ProjectsModule({
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="font-semibold text-red-900 dark:text-red-100">
-                    {(t as Record<string, string>).photoIncident ?? "Incidencia"}
+                    {(t as Record<string, string>).photoIncident ?? PM_EN.photoIncident}
                   </span>
                   <span className="text-xs text-red-800/80 dark:text-red-200/80">
-                    {(t as Record<string, string>).incidentDesc ?? "Incidents"}
+                    {(t as Record<string, string>).incidentDesc ?? PM_EN.incidentDesc}
                   </span>
                 </span>
                 <AlertTriangle className="h-6 w-6 shrink-0 text-red-700 dark:text-red-300" aria-hidden />
@@ -3356,10 +3351,10 @@ export function ProjectsModule({
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="font-semibold text-blue-900 dark:text-blue-100">
-                    {(t as Record<string, string>).photoHealthSafety ?? "H&S"}
+                    {(t as Record<string, string>).photoHealthSafety ?? PM_EN.photoHealthSafety}
                   </span>
                   <span className="text-xs text-blue-800/80 dark:text-blue-200/80">
-                    {(t as Record<string, string>).photoGalleryHealthDesc ?? "Health & safety"}
+                    {(t as Record<string, string>).photoGalleryHealthDesc ?? PM_EN.photoGalleryHealthDesc}
                   </span>
                 </span>
                 <HardHat className="h-6 w-6 shrink-0 text-blue-700 dark:text-blue-300" aria-hidden />
@@ -3374,7 +3369,7 @@ export function ProjectsModule({
                 }}
                 className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300 min-h-[44px]"
               >
-                {t.cancel ?? "Cancelar"}
+                {t.cancel ?? PM_EN.cancel}
               </button>
             </div>
           </div>
@@ -3387,7 +3382,7 @@ export function ProjectsModule({
           <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={() => setPhotoCategoryModal(null)} />
           <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-3">
-              {(t as Record<string, string>).photoCategoryLabel ?? "Categoría de la foto"}
+              {(t as Record<string, string>).photoCategoryLabel ?? PM_EN.photoCategoryLabel}
             </h3>
             <div className="grid grid-cols-3 gap-2">
               {(["progress", "incident", "health_safety"] as const).map((cat) => (
@@ -3402,10 +3397,10 @@ export function ProjectsModule({
                   }`}
                 >
                   {cat === "progress"
-                    ? ((t as Record<string, string>).photoProgress ?? "Avance")
+                    ? ((t as Record<string, string>).photoProgress ?? PM_EN.photoProgress)
                     : cat === "incident"
-                    ? ((t as Record<string, string>).photoIncident ?? "Incidencia")
-                    : (t as Record<string, string>).photoHealthSafety ?? "H&S"}
+                    ? ((t as Record<string, string>).photoIncident ?? PM_EN.photoIncident)
+                    : (t as Record<string, string>).photoHealthSafety ?? PM_EN.photoHealthSafety}
                 </button>
               ))}
             </div>
@@ -3415,7 +3410,7 @@ export function ProjectsModule({
                 onClick={() => setPhotoCategoryModal(null)}
                 className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
               >
-                {t.cancel ?? "Cancelar"}
+                {t.cancel ?? PM_EN.cancel}
               </button>
               <button
                 type="button"
@@ -3425,7 +3420,7 @@ export function ProjectsModule({
                 }}
                 className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
               >
-                {t.save ?? "Guardar"}
+                {t.save ?? PM_EN.save}
               </button>
             </div>
           </div>
@@ -3449,20 +3444,20 @@ export function ProjectsModule({
           >
             <div className="sticky top-0 border-b border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
               <h2 id="pdf-config-title" className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).pdfConfig ?? "Configure PDF"}
+                {(t as Record<string, string>).pdfConfig ?? PM_EN.pdfConfig}
               </h2>
             </div>
             <div className="space-y-5 p-4 text-sm text-zinc-800 dark:text-zinc-200">
               <fieldset className="space-y-2">
                 <legend className="font-medium text-zinc-900 dark:text-white mb-1">
-                  {(t as Record<string, string>).sortBy ?? "Sort"}
+                  {(t as Record<string, string>).sortBy ?? PM_EN.sortBy}
                 </legend>
                 {(
                   [
-                    ["date_desc", (t as Record<string, string>).sortDateDesc ?? ""],
-                    ["date_asc", (t as Record<string, string>).sortDateAsc ?? ""],
-                    ["category", (t as Record<string, string>).sortCategory ?? ""],
-                    ["author", (t as Record<string, string>).sortAuthor ?? ""],
+                    ["date_desc", (t as Record<string, string>).sortDateDesc ?? PM_EN.sortDateDesc],
+                    ["date_asc", (t as Record<string, string>).sortDateAsc ?? PM_EN.sortDateAsc],
+                    ["category", (t as Record<string, string>).sortCategory ?? PM_EN.sortCategory],
+                    ["author", (t as Record<string, string>).sortAuthor ?? PM_EN.sortAuthor],
                   ] as const
                 ).map(([value, label]) => (
                   <label key={value} className="flex cursor-pointer items-center gap-3 min-h-[44px] rounded-lg px-2 py-1 hover:bg-zinc-50 dark:hover:bg-slate-800/80">
@@ -3480,14 +3475,14 @@ export function ProjectsModule({
 
               <div>
                 <p className="font-medium text-zinc-900 dark:text-white mb-2">
-                  {(t as Record<string, string>).photosPerPage ?? ""}
+                  {(t as Record<string, string>).photosPerPage ?? PM_EN.photosPerPage}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {(
                     [
-                      [1, (t as Record<string, string>).pdfPerPage1 ?? "1"],
-                      [2, (t as Record<string, string>).pdfPerPage2 ?? "2"],
-                      [4, (t as Record<string, string>).pdfPerPage4 ?? "4"],
+                      [1, (t as Record<string, string>).pdfPerPage1 ?? PM_EN.pdfPerPage1],
+                      [2, (t as Record<string, string>).pdfPerPage2 ?? PM_EN.pdfPerPage2],
+                      [4, (t as Record<string, string>).pdfPerPage4 ?? PM_EN.pdfPerPage4],
                     ] as const
                   ).map(([n, label]) => (
                     <button
@@ -3508,14 +3503,14 @@ export function ProjectsModule({
 
               <div>
                 <p className="font-medium text-zinc-900 dark:text-white mb-2">
-                  {(t as Record<string, string>).photoSize ?? ""}
+                  {(t as Record<string, string>).photoSize ?? PM_EN.photoSize}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {(
                     [
-                      ["large", (t as Record<string, string>).photoSizeLarge ?? ""],
-                      ["medium", (t as Record<string, string>).photoSizeMedium ?? ""],
-                      ["small", (t as Record<string, string>).photoSizeSmall ?? ""],
+                      ["large", (t as Record<string, string>).photoSizeLarge ?? PM_EN.photoSizeLarge],
+                      ["medium", (t as Record<string, string>).photoSizeMedium ?? PM_EN.photoSizeMedium],
+                      ["small", (t as Record<string, string>).photoSizeSmall ?? PM_EN.photoSizeSmall],
                     ] as const
                   ).map(([size, label]) => (
                     <button
@@ -3536,14 +3531,14 @@ export function ProjectsModule({
 
               <fieldset className="space-y-2">
                 <legend className="font-medium text-zinc-900 dark:text-white mb-1">
-                  {(t as Record<string, string>).pdfIncludeInReport ?? "Include"}
+                  {(t as Record<string, string>).pdfIncludeInReport ?? PM_EN.pdfIncludeInReport}
                 </legend>
                 {(
                   [
-                    [pdfIncludeGps, setPdfIncludeGps, (t as Record<string, string>).includeGps ?? ""],
-                    [pdfIncludeAuthor, setPdfIncludeAuthor, (t as Record<string, string>).includeAuthor ?? ""],
-                    [pdfIncludeDate, setPdfIncludeDate, (t as Record<string, string>).includeDate ?? ""],
-                    [pdfIncludeNotes, setPdfIncludeNotes, (t as Record<string, string>).includeNotes ?? ""],
+                    [pdfIncludeGps, setPdfIncludeGps, (t as Record<string, string>).includeGps ?? PM_EN.includeGps],
+                    [pdfIncludeAuthor, setPdfIncludeAuthor, (t as Record<string, string>).includeAuthor ?? PM_EN.includeAuthor],
+                    [pdfIncludeDate, setPdfIncludeDate, (t as Record<string, string>).includeDate ?? PM_EN.includeDate],
+                    [pdfIncludeNotes, setPdfIncludeNotes, (t as Record<string, string>).includeNotes ?? PM_EN.includeNotes],
                   ] as const
                 ).map(([checked, setChecked, label], i) => (
                   <label key={i} className="flex cursor-pointer items-center gap-3 min-h-[44px] rounded-lg px-2 py-1 hover:bg-zinc-50 dark:hover:bg-slate-800/80">
@@ -3560,7 +3555,7 @@ export function ProjectsModule({
 
               <div>
                 <p className="font-medium text-zinc-900 dark:text-white mb-2">
-                  {(t as Record<string, string>).pdfPhotoScope ?? ""}
+                  {(t as Record<string, string>).pdfPhotoScope ?? PM_EN.pdfPhotoScope}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -3572,7 +3567,7 @@ export function ProjectsModule({
                         : "border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    {(t as Record<string, string>).pdfPhotosApprovedOnly ?? ""}
+                    {(t as Record<string, string>).pdfPhotosApprovedOnly ?? PM_EN.pdfPhotosApprovedOnly}
                   </button>
                   <button
                     type="button"
@@ -3583,14 +3578,14 @@ export function ProjectsModule({
                         : "border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    {(t as Record<string, string>).pdfPhotosAll ?? ""}
+                    {(t as Record<string, string>).pdfPhotosAll ?? PM_EN.pdfPhotosAll}
                   </button>
                 </div>
               </div>
 
               <fieldset className="space-y-2">
                 <legend className="font-medium text-zinc-900 dark:text-white mb-1">
-                  {(t as Record<string, string>).pdfOrientation ?? ""}
+                  {(t as Record<string, string>).pdfOrientation ?? PM_EN.pdfOrientation}
                 </legend>
                 <label className="flex cursor-pointer items-center gap-3 min-h-[44px] rounded-lg px-2 py-1 hover:bg-zinc-50 dark:hover:bg-slate-800/80">
                   <input
@@ -3600,7 +3595,7 @@ export function ProjectsModule({
                     onChange={() => setPdfOrientation("portrait")}
                     className="h-4 w-4 shrink-0 border-zinc-300 text-amber-600"
                   />
-                  <span>{(t as Record<string, string>).orientationPortrait ?? ""}</span>
+                  <span>{(t as Record<string, string>).orientationPortrait ?? PM_EN.orientationPortrait}</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-3 min-h-[44px] rounded-lg px-2 py-1 hover:bg-zinc-50 dark:hover:bg-slate-800/80">
                   <input
@@ -3610,7 +3605,7 @@ export function ProjectsModule({
                     onChange={() => setPdfOrientation("landscape")}
                     className="h-4 w-4 shrink-0 border-zinc-300 text-amber-600"
                   />
-                  <span>{(t as Record<string, string>).orientationLandscape ?? ""}</span>
+                  <span>{(t as Record<string, string>).orientationLandscape ?? PM_EN.orientationLandscape}</span>
                 </label>
               </fieldset>
             </div>
@@ -3620,7 +3615,7 @@ export function ProjectsModule({
                 onClick={() => setPdfConfigOpen(false)}
                 className="flex-1 min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:flex-none"
               >
-                {t.cancel ?? "Cancelar"}
+                {t.cancel ?? PM_EN.cancel}
               </button>
               <button
                 type="button"
@@ -3654,7 +3649,7 @@ export function ProjectsModule({
                 }}
                 className="flex-1 min-h-[44px] rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50 sm:flex-none"
               >
-                {(t as Record<string, string>).generatePDF ?? "Generate PDF"}
+                {(t as Record<string, string>).generatePDF ?? PM_EN.generatePDF}
               </button>
             </div>
           </div>
@@ -3682,14 +3677,14 @@ export function ProjectsModule({
                 id="inspection-report-modal-title"
                 className="text-base font-semibold text-zinc-900 dark:text-white pr-2"
               >
-                {(t as Record<string, string>).inspection_report_generate ?? "Generate inspection report"}
+                {(t as Record<string, string>).inspection_report_generate ?? PM_EN.inspection_report_generate}
               </h2>
               <button
                 type="button"
                 disabled={inspectionPdfBusy}
                 onClick={() => setInspectionReportOpen(false)}
                 className="rounded-lg p-2.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-50"
-                aria-label={t.cancel ?? "Close"}
+                aria-label={t.cancel ?? PM_EN.cancel}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -3697,7 +3692,7 @@ export function ProjectsModule({
             <div className="space-y-5 p-4 text-sm text-zinc-800 dark:text-zinc-200">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {(t as Record<string, string>).inspection_report_title ?? "Report title"}
+                  {(t as Record<string, string>).inspection_report_title ?? PM_EN.inspection_report_title}
                 </label>
                 <input
                   type="text"
@@ -3708,7 +3703,7 @@ export function ProjectsModule({
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {(t as Record<string, string>).inspection_report_inspector ?? "Inspector"}
+                  {(t as Record<string, string>).inspection_report_inspector ?? PM_EN.inspection_report_inspector}
                 </label>
                 <input
                   type="text"
@@ -3723,12 +3718,12 @@ export function ProjectsModule({
                   onClick={sortInspectionOrderByDate}
                   className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
                 >
-                  {(t as Record<string, string>).inspection_report_order ?? "Sort by date"}
+                  {(t as Record<string, string>).inspection_report_order ?? PM_EN.inspection_report_order}
                 </button>
               </div>
               <div>
                 <p className="mb-2 font-medium text-zinc-900 dark:text-white">
-                  {(t as Record<string, string>).inspection_report_select_photos ?? "Select photos"}
+                  {(t as Record<string, string>).inspection_report_select_photos ?? PM_EN.inspection_report_select_photos}
                 </p>
                 <ul className="space-y-2">
                   {inspectionOrderIds.map((id) => {
@@ -3771,7 +3766,7 @@ export function ProjectsModule({
                             disabled={idx === 0}
                             className="rounded-lg p-2.5 text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-40"
                             aria-label={
-                              (t as Record<string, string>).inspection_report_move_up ?? "Move up"
+                              (t as Record<string, string>).inspection_report_move_up ?? PM_EN.inspection_report_move_up
                             }
                           >
                             <ChevronUp className="h-5 w-5" />
@@ -3782,7 +3777,7 @@ export function ProjectsModule({
                             disabled={idx >= inspectionOrderIds.length - 1}
                             className="rounded-lg p-2.5 text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-40"
                             aria-label={
-                              (t as Record<string, string>).inspection_report_move_down ?? "Move down"
+                              (t as Record<string, string>).inspection_report_move_down ?? PM_EN.inspection_report_move_down
                             }
                           >
                             <ChevronDown className="h-5 w-5" />
@@ -3795,7 +3790,7 @@ export function ProjectsModule({
               </div>
               <div>
                 <p className="mb-2 font-medium text-zinc-900 dark:text-white">
-                  {(t as Record<string, string>).inspection_report_preview ?? "Order preview"}
+                  {(t as Record<string, string>).inspection_report_preview ?? PM_EN.inspection_report_preview}
                 </p>
                 <HorizontalScrollFade>
                   <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
@@ -3833,7 +3828,7 @@ export function ProjectsModule({
                 onClick={() => setInspectionReportOpen(false)}
                 className="flex-1 min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:flex-none"
               >
-                {t.cancel ?? "Cancel"}
+                {t.cancel ?? PM_EN.cancel}
               </button>
               <button
                 type="button"
@@ -3845,8 +3840,8 @@ export function ProjectsModule({
                 className="flex-1 min-h-[44px] rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50 sm:flex-none"
               >
                 {inspectionPdfBusy
-                  ? ((t as Record<string, string>).inspection_report_working ?? "…")
-                  : (t as Record<string, string>).inspection_report_generate_pdf ?? "Generate PDF"}
+                  ? ((t as Record<string, string>).inspection_report_working ?? PM_EN.inspection_report_working)
+                  : (t as Record<string, string>).inspection_report_generate_pdf ?? PM_EN.inspection_report_generate_pdf}
               </button>
             </div>
           </div>
@@ -3869,13 +3864,13 @@ export function ProjectsModule({
           >
             <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
               <h3 className="text-sm font-semibold text-zinc-900 dark:text-white pr-2">
-                {t.pendingPhotosReview ?? "Review"}
+                {t.pendingPhotosReview ?? PM_EN.pendingPhotosReview}
               </h3>
               <button
                 type="button"
                 onClick={() => setPendingDetailEntry(null)}
                 className="rounded-lg p-2.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                aria-label={t.cancel ?? "Close"}
+                aria-label={t.cancel ?? PM_EN.cancel}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -3924,7 +3919,7 @@ export function ProjectsModule({
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white min-h-[44px] transition-colors hover:bg-emerald-500 sm:flex-none"
                         >
                           <CheckCircle2 className="h-4 w-4 shrink-0" />
-                          {t.accept ?? "Aprobar"}
+                          {t.accept ?? PM_EN.accept}
                         </button>
                         <button
                           type="button"
@@ -3936,7 +3931,7 @@ export function ProjectsModule({
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 min-h-[44px] dark:border-red-800/40 dark:bg-red-950/30 dark:text-red-400 sm:flex-none"
                         >
                           <XCircle className="h-4 w-4 shrink-0" />
-                          {t.reject ?? "Rechazar"}
+                          {t.reject ?? PM_EN.reject}
                         </button>
                       </div>
                     )}
@@ -3954,12 +3949,12 @@ export function ProjectsModule({
           <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={() => setRejectModalId(null)} />
           <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-3">
-              {t.rejectReasonTitle ?? "Motivo del rechazo"}
+              {t.rejectReasonTitle ?? PM_EN.rejectReasonTitle}
             </h3>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder={t.rejectReasonPlaceholder ?? "Explica brevemente por qué se rechaza esta foto (opcional)…"}
+              placeholder={t.rejectReasonPlaceholder ?? PM_EN.rejectReasonPlaceholder}
               className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-400 min-h-[100px] resize-none"
               rows={3}
             />
@@ -3969,7 +3964,7 @@ export function ProjectsModule({
                 onClick={() => setRejectModalId(null)}
                 className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
               >
-                {t.cancel ?? "Cancelar"}
+                {t.cancel ?? PM_EN.cancel}
               </button>
               <button
                 type="button"
@@ -3979,7 +3974,7 @@ export function ProjectsModule({
                 }}
                 className="rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px] transition-colors"
               >
-                {t.reject ?? "Rechazar"}
+                {t.reject ?? PM_EN.reject}
               </button>
             </div>
           </div>

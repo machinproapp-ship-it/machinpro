@@ -13,8 +13,11 @@ import { jsPDF } from "jspdf";
 import type { PostgrestResponse } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { UserRole } from "@/types/shared";
 import type { Rfi, RfiCategory, RfiFormState, RfiPriority, RfiStatus } from "@/types/rfi";
+
+const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
 const CATEGORIES: RfiCategory[] = [
   "structural",
@@ -65,9 +68,8 @@ export function RFIModule({
   projects,
   projectIdFilter = null,
 }: RFIModuleProps) {
-  const l = (k: string, fb: string) => t[k] ?? fb;
-  const rfiCatLabel = (c: RfiCategory) =>
-    c === "other" ? l("common_other", "Other") : l(`rfi_cat_${c}`, c);
+  const l = (k: string) => t[k] ?? PM_EN[k] ?? k;
+  const rfiCatLabel = (c: RfiCategory) => l(`rfi_cat_${c}`);
   const canEdit = userRole === "admin" || userRole === "supervisor";
 
   const [rows, setRows] = useState<Rfi[]>([]);
@@ -261,10 +263,10 @@ export function RFIModule({
     };
     let y = 16;
     doc.setFontSize(16);
-    y = line(y, l("rfi_title", "RFI"));
+    y = line(y, l("rfi_title"));
     doc.setFontSize(10);
-    y = line(y, companyName ?? "MachinPro");
-    y = line(y, `${l("rfi_number", "No.")}: ${r.rfi_number}`);
+    y = line(y, companyName ?? l("login_title"));
+    y = line(y, `${l("rfi_number")}: ${r.rfi_number}`);
     y = line(y, r.title);
     y = line(y, r.description.slice(0, 500));
     doc.save(`${r.rfi_number}.pdf`);
@@ -287,7 +289,7 @@ export function RFIModule({
         <div className="flex items-center gap-2 min-w-0">
           <FileQuestion className="h-8 w-8 shrink-0 text-amber-600 dark:text-amber-400" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate">
-            {l("rfi_title", "RFI")}
+            {l("rfi_title")}
           </h2>
         </div>
         {canEdit && (
@@ -303,7 +305,7 @@ export function RFIModule({
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
           >
             <Plus className="h-5 w-5" />
-            {l("rfi_new", "New")}
+            {l("rfi_new")}
           </button>
         )}
       </div>
@@ -311,13 +313,13 @@ export function RFIModule({
       <div className="flex flex-wrap gap-2 items-end">
         {!projectIdFilter && (
         <label className="flex flex-col gap-1 text-sm min-w-[160px]">
-          <span className="text-gray-600 dark:text-gray-400">{l("rfi_project", "Project")}</span>
+          <span className="text-gray-600 dark:text-gray-400">{l("rfi_project")}</span>
           <select
             value={filterProject}
             onChange={(e) => setFilterProject(e.target.value)}
             className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
-            <option value="all">{l("rfi_filter_all", "All")}</option>
+            <option value="all">{l("rfi_filter_all")}</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -328,29 +330,29 @@ export function RFIModule({
         )}
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
           <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-            <Filter className="h-3.5 w-3.5" /> {l("rfi_status", "Status")}
+            <Filter className="h-3.5 w-3.5" /> {l("rfi_status")}
           </span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
-            <option value="all">{l("rfi_filter_all", "All")}</option>
+            <option value="all">{l("rfi_filter_all")}</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
-                {l(`rfi_${s}`, s)}
+                {l(`rfi_${s}`)}
               </option>
             ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-gray-600 dark:text-gray-400">{l("rfi_category", "Category")}</span>
+          <span className="text-gray-600 dark:text-gray-400">{l("rfi_category")}</span>
           <select
             value={filterCat}
             onChange={(e) => setFilterCat(e.target.value)}
             className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
-            <option value="all">{l("rfi_filter_all", "All")}</option>
+            <option value="all">{l("rfi_filter_all")}</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {rfiCatLabel(c)}
@@ -359,23 +361,23 @@ export function RFIModule({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
-          <span className="text-gray-600 dark:text-gray-400">{l("rfi_priority", "Priority")}</span>
+          <span className="text-gray-600 dark:text-gray-400">{l("rfi_priority")}</span>
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value)}
             className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
           >
-            <option value="all">{l("rfi_filter_all", "All")}</option>
+            <option value="all">{l("rfi_filter_all")}</option>
             {PRIORITIES.map((p) => (
               <option key={p} value={p}>
-                {l(`rfi_pri_${p}`, p)}
+                {l(`rfi_pri_${p}`)}
               </option>
             ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm flex-1 min-w-[200px]">
           <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-            <Search className="h-3.5 w-3.5" /> {l("rfi_search", "Search")}
+            <Search className="h-3.5 w-3.5" /> {l("rfi_search")}
           </span>
           <input
             type="search"
@@ -397,22 +399,22 @@ export function RFIModule({
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <FileQuestion className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
             <p className="text-lg font-semibold text-gray-900 dark:text-white">
-              {l("rfi_empty_title", "No RFIs")}
+              {l("rfi_empty_title")}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-md">
-              {l("rfi_empty_sub", "")}
+              {l("rfi_empty_sub")}
             </p>
           </div>
         ) : (
           <table className="w-full text-sm text-left min-w-[720px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
-                <th className="px-4 py-3 font-medium">{l("rfi_number", "#")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_list_title", "Title")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_category", "Cat")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_priority", "Pri")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_status", "Status")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_due_date", "Due")}</th>
+                <th className="px-4 py-3 font-medium">{l("rfi_number")}</th>
+                <th className="px-4 py-3 font-medium">{l("rfi_list_title")}</th>
+                <th className="px-4 py-3 font-medium">{l("rfi_category")}</th>
+                <th className="px-4 py-3 font-medium">{l("rfi_priority")}</th>
+                <th className="px-4 py-3 font-medium">{l("rfi_status")}</th>
+                <th className="px-4 py-3 font-medium">{l("rfi_due_date")}</th>
               </tr>
             </thead>
             <tbody>
@@ -431,18 +433,18 @@ export function RFIModule({
                     {r.title}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {r.category ? l(`rfi_cat_${r.category}`, r.category) : "—"}
+                    {r.category ? l(`rfi_cat_${r.category}`) : l("common_dash")}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {l(`rfi_pri_${r.priority}`, r.priority)}
+                    {l(`rfi_pri_${r.priority}`)}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badge(r.status)}`}>
-                      {l(`rfi_${r.status}`, r.status)}
+                      {l(`rfi_${r.status}`)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {r.due_date ?? "—"}
+                    {r.due_date ?? l("common_dash")}
                   </td>
                 </tr>
               ))}
@@ -455,7 +457,7 @@ export function RFIModule({
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4 bg-black/50">
           <div className="w-full max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4 sm:max-w-lg">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{l("rfi_new", "New")}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{l("rfi_new")}</h3>
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
@@ -464,10 +466,10 @@ export function RFIModule({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{l("rfi_auto_number", "")}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{l("rfi_auto_number")}</p>
             {!projectIdFilter ? (
             <label className="block text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{l("rfi_project", "Project")}</span>
+              <span className="text-gray-600 dark:text-gray-400">{l("rfi_project")}</span>
               <select
                 value={form.project_id}
                 onChange={(e) => {
@@ -477,7 +479,7 @@ export function RFIModule({
                 }}
                 className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 min-h-[44px] text-sm"
               >
-                <option value="">—</option>
+                <option value="">{l("common_dash")}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -489,7 +491,7 @@ export function RFIModule({
               <input type="hidden" name="rfi_project" value={projectIdFilter} readOnly aria-hidden />
             )}
             <label className="block text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{l("rfi_list_title", "Title")}</span>
+              <span className="text-gray-600 dark:text-gray-400">{l("rfi_list_title")}</span>
               <input
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -497,7 +499,7 @@ export function RFIModule({
               />
             </label>
             <label className="block text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{l("rfi_description", "Description")}</span>
+              <span className="text-gray-600 dark:text-gray-400">{l("rfi_description")}</span>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -506,7 +508,7 @@ export function RFIModule({
               />
             </label>
             <label className="block text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{l("rfi_status", "Status")}</span>
+              <span className="text-gray-600 dark:text-gray-400">{l("rfi_status")}</span>
               <select
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as RfiStatus }))}
@@ -514,14 +516,14 @@ export function RFIModule({
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
-                    {l(`rfi_${s}`, s)}
+                    {l(`rfi_${s}`)}
                   </option>
                 ))}
               </select>
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-sm">
-                <span className="text-gray-600 dark:text-gray-400">{l("rfi_category", "")}</span>
+                <span className="text-gray-600 dark:text-gray-400">{l("rfi_category")}</span>
                 <select
                   value={form.category}
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as RfiCategory }))}
@@ -535,7 +537,7 @@ export function RFIModule({
                 </select>
               </label>
               <label className="block text-sm">
-                <span className="text-gray-600 dark:text-gray-400">{l("rfi_priority", "")}</span>
+                <span className="text-gray-600 dark:text-gray-400">{l("rfi_priority")}</span>
                 <select
                   value={form.priority}
                   onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as RfiPriority }))}
@@ -543,14 +545,14 @@ export function RFIModule({
                 >
                   {PRIORITIES.map((p) => (
                     <option key={p} value={p}>
-                      {l(`rfi_pri_${p}`, p)}
+                      {l(`rfi_pri_${p}`)}
                     </option>
                   ))}
                 </select>
               </label>
             </div>
             <label className="block text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{l("rfi_assigned", "")}</span>
+              <span className="text-gray-600 dark:text-gray-400">{l("rfi_assigned")}</span>
               <select
                 value={assigneeProfileId}
                 onChange={(e) => {
@@ -565,7 +567,7 @@ export function RFIModule({
                 }}
                 className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 min-h-[44px] text-sm"
               >
-                <option value="">{l("rfi_assignee_none", "—")}</option>
+                <option value="">{l("rfi_assignee_none")}</option>
                 {companyProfiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.full_name?.trim() || p.email || p.id}
@@ -574,7 +576,7 @@ export function RFIModule({
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{l("rfi_assigned_email", "Email")}</span>
+              <span className="text-gray-600 dark:text-gray-400">{l("rfi_assigned_email")}</span>
               <input
                 type="email"
                 value={form.assigned_to_email}
@@ -583,7 +585,7 @@ export function RFIModule({
               />
             </label>
             <label className="block text-sm">
-              <span className="text-gray-600 dark:text-gray-400">{l("rfi_due_date", "")}</span>
+              <span className="text-gray-600 dark:text-gray-400">{l("rfi_due_date")}</span>
               <input
                 type="date"
                 value={form.due_date}
@@ -598,7 +600,7 @@ export function RFIModule({
                 disabled={saving}
                 className="min-h-[44px] rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
               >
-                {l("rfi_submit", "Submit")}
+                {l("rfi_submit")}
               </button>
             </div>
           </div>
@@ -625,7 +627,7 @@ export function RFIModule({
             {canEdit && (
               <>
                 <label className="block text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">{l("rfi_answer", "Answer")}</span>
+                  <span className="text-gray-600 dark:text-gray-400">{l("rfi_answer")}</span>
                   <textarea
                     value={answerDraft}
                     onChange={(e) => setAnswerDraft(e.target.value)}
@@ -638,7 +640,7 @@ export function RFIModule({
                   onClick={() => void saveAnswer()}
                   className="min-h-[44px] rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
                 >
-                  {l("rfi_save_answer", "Save")}
+                  {l("rfi_save_answer")}
                 </button>
               </>
             )}
@@ -648,7 +650,7 @@ export function RFIModule({
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-800 dark:text-gray-200"
             >
               <FileDown className="h-4 w-4" />
-              {l("rfi_export_pdf", "PDF")}
+              {l("rfi_export_pdf")}
             </button>
           </div>
         </div>
