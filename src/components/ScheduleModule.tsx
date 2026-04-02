@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
 import {
   Calendar,
@@ -532,7 +532,7 @@ function TimesheetsView({
           <select
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
-            className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+            className="w-full min-h-[44px] max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:w-auto sm:max-w-none"
           >
             <option value="">{(labels as Record<string, string>).personnel ?? "Todos"}</option>
             {employees.map((e) => (
@@ -614,16 +614,17 @@ function TimesheetsView({
       {selectedSheet && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSheetId(null)} />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+          <div className="fixed left-1/2 top-1/2 z-50 w-[min(95vw,calc(100%-2rem))] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl max-h-[90vh] overflow-y-auto sm:p-6">
+            <div className="flex items-center justify-between mb-4 gap-2">
+              <h3 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-white sm:text-lg">
                 {getEmployeeName(selectedSheet.employeeId)} · {selectedSheet.weekStart} – {selectedSheet.weekEnd}
               </h3>
               <button type="button" onClick={() => setSelectedSheetId(null)} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <table className="w-full text-sm border-collapse">
+            <div className="-mx-1 overflow-x-auto">
+            <table className="w-full min-w-[32rem] text-sm border-collapse">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-700">
                   <th className="text-left py-2 font-medium text-zinc-700 dark:text-zinc-300">{(labels as Record<string, string>).date ?? "Fecha"}</th>
@@ -662,6 +663,7 @@ function TimesheetsView({
                 ))}
               </tbody>
             </table>
+            </div>
             <p className="mt-3 text-sm font-semibold text-zinc-900 dark:text-white">
               Total: {selectedSheet.totalHours.toFixed(1)}h ({labels.regularHours ?? "Reg."}: {selectedSheet.regularHours.toFixed(1)}h, {labels.overtimeHours ?? "Extra"}: {selectedSheet.overtimeHours.toFixed(1)}h)
             </p>
@@ -672,7 +674,7 @@ function TimesheetsView({
                   value={notesDraft}
                   onChange={(e) => setNotesDraft(e.target.value)}
                   rows={2}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                 />
                 <div className="flex gap-2">
                   <button
@@ -762,6 +764,44 @@ export default function ScheduleModule({
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deleteConfirmEntryId, setDeleteConfirmEntryId] = useState<string | null>(null);
   const [clockInManualNeeded, setClockInManualNeeded] = useState(true);
+  const [calCompact, setCalCompact] = useState(false);
+  const [weekViewStart, setWeekViewStart] = useState(() => startOfWeekMonday(new Date()));
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setCalCompact(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    if (calCompact) setWeekViewStart(startOfWeekMonday(new Date()));
+  }, [calCompact]);
+
+  const weekDisplayDays = useMemo(() => {
+    const start = new Date(weekViewStart.getFullYear(), weekViewStart.getMonth(), weekViewStart.getDate());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  }, [weekViewStart]);
+
+  const weekRangeLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(dateLocale, { timeZone: scheduleTz, day: "numeric", month: "short" });
+    const end = new Date(weekViewStart.getFullYear(), weekViewStart.getMonth(), weekViewStart.getDate());
+    end.setDate(end.getDate() + 6);
+    return `${fmt.format(weekViewStart)} – ${fmt.format(end)}, ${weekViewStart.getFullYear()}`;
+  }, [weekViewStart, dateLocale, scheduleTz]);
+
+  const shiftWeekBy = (delta: number) => {
+    setWeekViewStart((prev) => {
+      const d = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate());
+      d.setDate(d.getDate() + delta * 7);
+      return d;
+    });
+  };
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -1108,23 +1148,29 @@ export default function ScheduleModule({
 
       {scheduleSubTab === "calendar" && (
         <>
-          <div className="flex flex-nowrap items-center gap-2 mb-4 w-full">
+          <div className="flex flex-nowrap items-center gap-2 mb-4 w-full min-w-0">
             <button
               type="button"
-              onClick={prevMonth}
+              onClick={() => (calCompact ? shiftWeekBy(-1) : prevMonth())}
               className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
             >
-              ← {labels.previousMonth ?? "Anterior"}
+              ←{" "}
+              {calCompact
+                ? (lx.schedule_prev_week ?? labels.previousMonth ?? "Anterior")
+                : (labels.previousMonth ?? "Anterior")}
             </button>
             <h3 className="flex-1 min-w-0 text-center text-sm sm:text-lg font-semibold text-zinc-900 dark:text-white capitalize truncate">
-              {monthName} {viewYear}
+              {calCompact ? weekRangeLabel : `${monthName} ${viewYear}`}
             </h3>
             <button
               type="button"
-              onClick={nextMonth}
+              onClick={() => (calCompact ? shiftWeekBy(1) : nextMonth())}
               className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
             >
-              {labels.nextMonth ?? "Siguiente"} →
+              {calCompact
+                ? (lx.schedule_next_week ?? labels.nextMonth ?? "Siguiente")
+                : (labels.nextMonth ?? "Siguiente")}{" "}
+              →
             </button>
             <button
               type="button"
@@ -1146,9 +1192,9 @@ export default function ScheduleModule({
                   {(labels as Record<string, string>)[key] ?? "L M X J V S D".split(" ")[i]}
                 </div>
               ))}
-              {calendarDays.map((day) => {
+              {(calCompact ? weekDisplayDays : calendarDays).map((day) => {
                 const ymd = toYMD(day);
-                const isCurrentMonth = day.getMonth() === viewMonth;
+                const isCurrentMonth = calCompact || day.getMonth() === viewMonth;
                 const isToday = ymd === todayYmd;
                 const isSelected = selectedDay === ymd;
                 const dayEntries = entriesForDay(ymd);
@@ -1472,14 +1518,14 @@ export default function ScheduleModule({
                       ) : null}
                     </>
                   )}
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 gap-3 place-items-center max-md:w-full">
                     {!todayEntry ? (
                       clockInManualNeeded ? (
                         <button
                           type="button"
                           onClick={() => onClockIn?.()}
                           disabled={gpsStatus === "locating"}
-                          className="h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-base disabled:opacity-60 transition-colors min-h-[44px]"
+                          className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base"
                         >
                           {gpsStatus === "locating"
                             ? (labels.gpsLocating ?? "Obteniendo ubicación…")
@@ -1491,14 +1537,14 @@ export default function ScheduleModule({
                         type="button"
                         onClick={onClockOut}
                         disabled={gpsStatus === "locating"}
-                        className="h-14 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-semibold text-base disabled:opacity-60 transition-colors min-h-[44px]"
+                        className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base"
                       >
                         {gpsStatus === "locating"
                           ? (labels.gpsLocating ?? "Obteniendo ubicación…")
                           : (labels.clockOut ?? "Fichar Salida")}
                       </button>
                     ) : (
-                      <div className="h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <div className="flex min-h-[3.5rem] w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-zinc-100 px-3 text-center font-semibold text-emerald-600 dark:bg-zinc-800 dark:text-emerald-400 md:min-h-[3.5rem]">
                         ✓ {labels.clockInDone ?? "Jornada completada"}
                       </div>
                     )}
@@ -1530,7 +1576,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={resetForm}
           />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed left-1/2 top-1/2 z-50 w-[min(95vw,calc(100%-2rem))] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {editingEntryId

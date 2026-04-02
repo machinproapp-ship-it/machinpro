@@ -1434,7 +1434,7 @@ function CentralDashboardBody(
       {customizeOpen ? (
         <>
           <div className="fixed inset-0 z-[70] bg-black/50" aria-hidden onClick={() => setCustomizeOpen(false)} />
-          <div className="fixed z-[71] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-lg max-h-[85vh] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col">
+          <div className="fixed z-[71] left-2 right-2 bottom-2 max-h-[min(85vh,95dvh)] w-auto max-w-[min(95vw,32rem)] mx-auto overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-lg">
             <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <GripVertical className="h-4 w-4" aria-hidden />

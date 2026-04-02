@@ -1,23 +1,8 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { Building2, Warehouse, Calendar, HardHat, Settings, Shield } from "lucide-react";
+import { Building2, Warehouse, Calendar, HardHat, Settings, Shield, X } from "lucide-react";
 import type { MainSection, SidebarLabels } from "@/types/shared";
-
-const MOBILE_SHORT: Partial<Record<MainSection, string>> = {
-  office: "Central",
-  schedule: "Horario",
-  warehouse: "Logíst.",
-  security: "Segur.",
-  settings: "Ajustes",
-};
-
-function mobileBarShortLabel(id: MainSection, fullLabel: string): string {
-  const fixed = MOBILE_SHORT[id];
-  if (fixed != null && fixed !== "") return fixed;
-  const t = fullLabel.trim();
-  return t.length > 7 ? `${t.slice(0, 6)}…` : t;
-}
 
 type NavItem = {
   id: MainSection;
@@ -38,6 +23,9 @@ export interface SidebarProps {
   canAccessSettings?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
+  /** Drawer móvil (< lg): abierto */
+  mobileDrawerOpen?: boolean;
+  onMobileDrawerOpenChange?: (open: boolean) => void;
 }
 
 export function Sidebar({
@@ -51,24 +39,35 @@ export function Sidebar({
   canAccessSettings = true,
   labels,
   collapsed = false,
+  mobileDrawerOpen = false,
+  onMobileDrawerOpenChange,
 }: SidebarProps) {
-  const operationsLabel = labels.nav_operations ?? labels.site ?? "Operaciones";
-  const securityLabel = labels.nav_security ?? "Seguridad";
-
+  const dict = labels as unknown as Record<string, string>;
+  const L = (k: string, fb: string) => dict[k] ?? fb;
+  const operationsLabel = labels.nav_operations ?? labels.site ?? L("site", "Operations");
+  const securityLabel = labels.nav_security ?? L("nav_security", "Security");
+  const closeLabel = L("nav_menu_close", "Close menu");
+  const drawerTitle = L("nav_drawer_title", L("settings", "Menu"));
   const sidebarNavItems: NavItem[] = useMemo(
     () => [
-      { id: "office", icon: Building2, label: labels.office ?? "Central", show: canAccessOffice },
+      { id: "office", icon: Building2, label: labels.office ?? dict.office ?? "Central", show: canAccessOffice },
       { id: "site", icon: HardHat, label: operationsLabel, show: canAccessSite },
-      { id: "schedule", icon: Calendar, label: labels.schedule ?? "Horario", show: canAccessSchedule },
-      { id: "warehouse", icon: Warehouse, label: labels.warehouse ?? "Logística", show: canAccessWarehouse },
+      { id: "schedule", icon: Calendar, label: labels.schedule ?? dict.schedule ?? "Schedule", show: canAccessSchedule },
+      {
+        id: "warehouse",
+        icon: Warehouse,
+        label: labels.warehouse ?? dict.warehouse ?? "Logistics",
+        show: canAccessWarehouse,
+      },
       { id: "security", icon: Shield, label: securityLabel, show: canAccessSecurity },
-      { id: "settings", icon: Settings, label: labels.settings ?? "Ajustes", show: canAccessSettings },
+      { id: "settings", icon: Settings, label: labels.settings ?? dict.settings ?? "Settings", show: canAccessSettings },
     ],
     [
       labels.office,
       labels.schedule,
       labels.warehouse,
       labels.settings,
+      dict,
       operationsLabel,
       securityLabel,
       canAccessOffice,
@@ -105,13 +104,10 @@ export function Sidebar({
     }
   };
 
-  const barIconClass = (isActive: boolean) =>
-    isActive ? "text-[#f97316] dark:text-orange-400" : "text-zinc-500 dark:text-gray-400";
-
-  const barTextClass = (isActive: boolean) =>
-    isActive ? "text-[#f97316] dark:text-orange-400" : "text-zinc-600 dark:text-gray-400";
-
-  const barColumnCount = visibleItems.length;
+  const navigate = (id: MainSection) => {
+    setActiveSection(id);
+    onMobileDrawerOpenChange?.(false);
+  };
 
   return (
     <>
@@ -127,7 +123,7 @@ export function Sidebar({
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => navigate(item.id)}
                 className={buttonClass(item.id, isActive, itemColorClass(item.id))}
                 title={collapsed ? item.label : undefined}
               >
@@ -141,39 +137,53 @@ export function Sidebar({
         </div>
       </aside>
 
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 lg:hidden pb-[env(safe-area-inset-bottom,0px)]"
-        aria-label="Navegación principal"
+      {/* Móvil / tablet: overlay + drawer (sin barra inferior fija) */}
+      {mobileDrawerOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-[100] bg-black/50 lg:hidden"
+          aria-label={closeLabel}
+          onClick={() => onMobileDrawerOpenChange?.(false)}
+        />
+      ) : null}
+
+      <aside
+        id="app-mobile-drawer"
+        className={`fixed inset-y-0 left-0 z-[101] flex w-[min(20rem,92vw)] flex-col border-r border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-950 pt-[env(safe-area-inset-top,0px)] shadow-xl transition-transform duration-200 ease-out lg:hidden ${
+          mobileDrawerOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
+        }`}
+        aria-hidden={!mobileDrawerOpen}
       >
-        <div
-          className="grid gap-0.5 px-1 py-1.5"
-          style={{ gridTemplateColumns: `repeat(${barColumnCount}, minmax(0, 1fr))` }}
-        >
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-slate-800 px-3 py-3">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{drawerTitle}</h2>
+          <button
+            type="button"
+            onClick={() => onMobileDrawerOpenChange?.(false)}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            aria-label={closeLabel}
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+        <nav className="flex-1 overflow-y-auto p-2" aria-label={drawerTitle}>
           {visibleItems.map((item) => {
             const isActive = activeSection === item.id;
-            const short = mobileBarShortLabel(item.id, item.label);
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveSection(item.id)}
-                className={`flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] w-full rounded-lg px-0.5 py-0.5 transition-colors ${
-                  isActive ? "bg-amber-500/10 dark:bg-amber-500/15" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
-                }`}
+                onClick={() => navigate(item.id)}
+                className={buttonClass(item.id, isActive, itemColorClass(item.id))}
               >
-                <span className="h-[22px] w-[22px] shrink-0 flex items-center justify-center">
-                  <item.icon className={`h-[22px] w-[22px] ${barIconClass(isActive)}`} aria-hidden />
+                <span className="h-5 w-5 shrink-0 flex items-center justify-center">
+                  <item.icon className="h-5 w-5" />
                 </span>
-                <span
-                  className={`max-w-[4rem] truncate text-center text-[9px] font-medium leading-tight w-full px-0.5 ${barTextClass(isActive)}`}
-                >
-                  {short}
-                </span>
+                <span className="min-w-0 flex-1 text-left break-words leading-snug">{item.label}</span>
               </button>
             );
           })}
-        </div>
-      </nav>
+        </nav>
+      </aside>
     </>
   );
 }

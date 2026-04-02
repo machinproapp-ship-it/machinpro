@@ -34,7 +34,7 @@ export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleH
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-[60] flex h-11 min-h-[44px] w-11 min-w-[44px] items-center justify-center rounded-full border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-lg hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 md:hidden"
+        className="fixed bottom-4 right-4 z-[60] flex h-14 w-14 min-h-[56px] min-w-[56px] items-center justify-center rounded-full border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-lg hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 md:hidden"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={L("help_module_button", "Help")}
@@ -54,7 +54,7 @@ export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleH
             role="dialog"
             aria-modal="true"
             aria-labelledby={`module-help-title-${moduleKey}`}
-            className="fixed bottom-20 left-4 right-4 z-[80] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 md:hidden"
+            className="fixed bottom-[5.5rem] left-3 right-3 z-[80] max-h-[min(70vh,28rem)] w-auto max-w-[95vw] mx-auto overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 md:hidden"
           >
             <div className="mb-3 flex items-start justify-between gap-2">
               <h2 id={`module-help-title-${moduleKey}`} className="text-base font-semibold text-zinc-900 dark:text-white">

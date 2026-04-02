@@ -97,7 +97,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-0 top-3 z-[200] flex flex-col items-center gap-2 px-3 sm:inset-auto sm:bottom-6 sm:right-6 sm:top-auto sm:items-end"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-0 sm:inset-auto sm:bottom-6 sm:right-6 sm:top-auto sm:items-end sm:px-0 sm:pb-0"
         aria-live="polite"
       >
         {items.map((item) => {
@@ -105,17 +105,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           return (
             <div
               key={item.id}
-              className={`pointer-events-auto flex max-w-[min(100%,20rem)] items-start gap-2 rounded-xl border px-3 py-2.5 text-sm shadow-lg transition-all duration-200 min-h-[44px] ${
+              className={`pointer-events-auto flex w-full max-w-none items-start gap-2 rounded-xl border px-3 py-2.5 text-sm shadow-lg transition-all duration-200 min-h-[44px] sm:max-w-[min(100%,20rem)] ${
                 item.exiting ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
               } ${stylesFor(item.variant)}`}
               role="status"
             >
               <Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
-              <p className="min-w-0 flex-1 leading-snug">{item.message}</p>
+              <p className="min-w-0 flex-1 leading-snug break-words">{item.message}</p>
               <button
                 type="button"
                 onClick={() => remove(item.id)}
-                className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium opacity-70 hover:opacity-100 min-h-[36px] min-w-[36px]"
+                className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium opacity-70 hover:opacity-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="OK"
               >
                 ×

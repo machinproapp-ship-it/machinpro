@@ -60,6 +60,7 @@ import {
   X,
   Bell,
   Settings,
+  Menu,
 } from "lucide-react";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import { postAppNotification } from "@/lib/clientNotifications";
@@ -1853,6 +1854,7 @@ export default function Home() {
   /** null = aún no hidratado desde localStorage (evita sobrescribir la clave antes de leerla). */
   const [darkMode, setDarkMode] = useState<boolean | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     const checkWidth = () => setSidebarCollapsed(typeof window !== "undefined" && window.innerWidth < 1024);
@@ -1860,6 +1862,24 @@ export default function Home() {
     window.addEventListener("resize", checkWidth);
     return () => window.removeEventListener("resize", checkWidth);
   }, []);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen]);
 
   useEffect(() => {
     if (profile?.companyName && !companyName) setCompanyName(profile.companyName);
@@ -3480,18 +3500,37 @@ export default function Home() {
           canAccessSettings={perms.canViewSettings ?? false}
           labels={labels}
           collapsed={sidebarCollapsed}
+          mobileDrawerOpen={mobileNavOpen}
+          onMobileDrawerOpenChange={setMobileNavOpen}
         />
 
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-20 lg:pb-8">
-          <header className="mb-6 sm:mb-8 border-b border-gray-200 dark:border-gray-800 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="min-w-0 flex items-center">
-              <div className="flex flex-col">
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-8">
+          <header className="mb-4 sm:mb-8 border-b border-gray-200 dark:border-gray-800 pb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-gray-700 dark:bg-gray-900 dark:text-zinc-100 dark:hover:bg-zinc-800 lg:hidden"
+                onClick={() => setMobileNavOpen(true)}
+                aria-expanded={mobileNavOpen}
+                aria-controls="app-mobile-drawer"
+                aria-label={(t as Record<string, string>).nav_menu_open ?? "Open menu"}
+              >
+                <Menu className="h-6 w-6 shrink-0" aria-hidden />
+              </button>
+              {logoUrl?.trim() ? (
+                <img
+                  src={logoUrl.trim()}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700 lg:hidden"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1 flex flex-col">
                 {(companyName || profile?.companyName) ? (
-                  <span className="text-lg font-bold text-zinc-900 dark:text-white leading-tight">
+                  <span className="truncate text-base font-bold leading-tight text-zinc-900 dark:text-white sm:text-lg">
                     {companyName || profile?.companyName}
                   </span>
                 ) : (
-                  <BrandWordmark tone="onLight" className="text-lg font-bold tracking-tight" />
+                  <BrandWordmark tone="onLight" className="text-base font-bold tracking-tight sm:text-lg min-w-0" />
                 )}
               </div>
             </div>
@@ -3538,7 +3577,7 @@ export default function Home() {
                   {complianceNotifOpen && (
                     <div
                       role="menu"
-                      className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                      className="absolute right-0 top-full z-50 mt-2 w-[min(95vw,22rem)] max-md:left-1/2 max-md:right-auto max-md:-translate-x-1/2 rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       <p className="border-b border-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-900 dark:border-zinc-700 dark:text-white">
                         {(t as Record<string, string>).notifications ?? ""}

@@ -61,7 +61,18 @@ export function VisitorModule({
   const [loading, setLoading] = useState(true);
   const [activeInsideCount, setActiveInsideCount] = useState(0);
   const [qrOpen, setQrOpen] = useState(false);
+  const [qrCanvasSize, setQrCanvasSize] = useState(260);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const upd = () => {
+      const vw = window.innerWidth;
+      setQrCanvasSize(vw < 768 ? Math.min(300, Math.max(224, Math.floor(vw * 0.72))) : 260);
+    };
+    upd();
+    window.addEventListener("resize", upd);
+    return () => window.removeEventListener("resize", upd);
+  }, []);
 
   const loadActiveInside = useCallback(async () => {
     if (!supabase || !companyId) {
@@ -515,11 +526,11 @@ export function VisitorModule({
                 {lx.visitor_qr_subtitle ?? ""}
               </p>
             </div>
-            <div className="flex justify-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-center p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 sm:p-4">
               <QRCodeCanvas
                 ref={qrCanvasRef}
                 value={checkInUrl}
-                size={260}
+                size={qrCanvasSize}
                 level="M"
                 marginSize={2}
                 className="max-w-full h-auto"
