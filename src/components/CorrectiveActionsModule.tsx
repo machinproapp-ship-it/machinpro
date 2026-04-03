@@ -15,6 +15,7 @@ import {
   type ActionType,
 } from "@/types/correctiveAction";
 import { formatDateTime } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 const CLOUDINARY_CLOUD = "dwdlmxmkt";
 const CLOUDINARY_PRESET = "i5dmd07o";
@@ -123,6 +124,7 @@ export function CorrectiveActionsModule({
   dateLocale,
   timeZone,
 }: CorrectiveActionsModuleProps) {
+  void useMachinProDisplayPrefs();
   const readOnly = userRole === "worker";
   const { showToast } = useToast();
   const lastCreateSig = useRef(0);

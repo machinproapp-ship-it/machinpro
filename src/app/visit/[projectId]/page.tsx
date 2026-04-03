@@ -10,6 +10,8 @@ import { supabase } from "@/lib/supabase";
 import { useVisitorPublicT } from "@/lib/visitorPublicLocale";
 import { buildVisitorCheckInUrl, buildVisitorProjectCheckInUrl } from "@/lib/visitorQrUrl";
 import type { VisitorFormData } from "@/types/visitor";
+import { formatDateTime, resolveUserTimezone } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 const PHOTO_MAX_BYTES = 400_000;
 
@@ -76,6 +78,10 @@ export default function VisitorCheckInPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const [hasSignature, setHasSignature] = useState(false);
+
+  void useMachinProDisplayPrefs();
+  const visitLocale = typeof navigator !== "undefined" ? navigator.language : "en-US";
+  const visitTz = resolveUserTimezone(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -411,7 +417,7 @@ export default function VisitorCheckInPage() {
             <span className="font-semibold">{done.visitor_name}</span>
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t.visitors_checkin ?? "Check-in"}: {new Date(done.check_in).toLocaleString()}
+            {t.visitors_checkin ?? "Check-in"}: {formatDateTime(done.check_in, visitLocale, visitTz)}
           </p>
           <Link
             href={checkoutUrl}

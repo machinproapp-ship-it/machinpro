@@ -8,6 +8,8 @@ import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import { supabase } from "@/lib/supabase";
 import { insertSignature } from "@/lib/dailyReportsDb";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
+import { formatDateLong, formatTime, formatTimeHm, resolveUserTimezone } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 /** Alineado con ScheduleEntry en page.tsx (evita import circular). */
 export type EmployeeShiftScheduleEntry = {
@@ -111,6 +113,7 @@ export function EmployeeShiftDayView({
   currentUserDisplayName,
   colleagueNames,
   onDailyReportSigned,
+  timeZone: timeZoneProp,
 }: {
   open: boolean;
   onClose: () => void;
@@ -137,9 +140,14 @@ export function EmployeeShiftDayView({
   currentUserDisplayName: string;
   colleagueNames: string[];
   onDailyReportSigned?: () => void;
+  timeZone?: string;
 }) {
   const tl = labels;
   const locale = localeFromLanguage(language);
+  const tz = timeZoneProp ?? resolveUserTimezone(null);
+  void useMachinProDisplayPrefs();
+  const wallClockLabel = (s: string) =>
+    /^\d{1,2}:\d{2}$/.test(String(s).trim()) ? formatTimeHm(s, locale, tz) : s;
   const [tick, setTick] = useState(0);
   const [signBusy, setSignBusy] = useState(false);
   const [signErr, setSignErr] = useState<string | null>(null);
@@ -153,13 +161,8 @@ export function EmployeeShiftDayView({
 
   const dateLabel = useMemo(() => {
     const d = new Date(scheduleEntry.date + "T12:00:00");
-    return d.toLocaleDateString(locale, {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  }, [scheduleEntry.date, locale]);
+    return formatDateLong(d, locale, tz);
+  }, [scheduleEntry.date, locale, tz]);
 
   const mapsUrl = useMemo(() => {
     if (!project) return null;
@@ -218,9 +221,8 @@ export function EmployeeShiftDayView({
 
   const signedAtLabel = useMemo(() => {
     if (!mySignature?.signedAt) return "";
-    const d = new Date(mySignature.signedAt);
-    return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-  }, [mySignature, locale]);
+    return formatTime(mySignature.signedAt, locale, tz);
+  }, [mySignature, locale, tz]);
 
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : false
@@ -296,7 +298,7 @@ export function EmployeeShiftDayView({
             {scheduleEntry.type === "shift" && (
               <p className="text-sm tabular-nums text-zinc-700 dark:text-zinc-300 mt-1 flex items-center gap-1.5">
                 <Clock className="h-4 w-4 shrink-0" aria-hidden />
-                {scheduleEntry.startTime} → {scheduleEntry.endTime}
+                {wallClockLabel(scheduleEntry.startTime)} → {wallClockLabel(scheduleEntry.endTime)}
               </p>
             )}
             {mapsUrl && (
@@ -333,7 +335,7 @@ export function EmployeeShiftDayView({
                 {clockEntry
                   ? clockEntry.clockOut
                     ? `${tl.timeWorked ?? "Tiempo trabajado"}: ${workedCompleted || "—"}`
-                    : `${tl.clockInEntry ?? "Entrada"}: ${clockEntry.clockIn}`
+                    : `${tl.clockInEntry ?? "Entrada"}: ${wallClockLabel(clockEntry.clockIn)}`
                   : tl.shiftNoClockThatDay ?? ""}
               </p>
             ) : !clockEntry ? (
@@ -423,7 +425,8 @@ export function EmployeeShiftDayView({
             ) : !clockEntry.clockOut ? (
               <div className="space-y-3">
                 <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                  {tl.clockInEntry ?? "Entrada"}: <span className="font-mono font-medium">{clockEntry.clockIn}</span>
+                  {tl.clockInEntry ?? "Entrada"}:{" "}
+                  <span className="font-mono font-medium">{wallClockLabel(clockEntry.clockIn)}</span>
                 </p>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
                   {tl.timeWorked ?? "Tiempo trabajado"}:{" "}
@@ -442,8 +445,9 @@ export function EmployeeShiftDayView({
               <div className="space-y-2 text-sm">
                 <p className="text-zinc-700 dark:text-zinc-300">
                   {tl.clockInEntry ?? "Entrada"}:{" "}
-                  <span className="font-mono">{clockEntry.clockIn}</span> · {tl.clockOutEntry ?? "Salida"}:{" "}
-                  <span className="font-mono">{clockEntry.clockOut}</span>
+                  <span className="font-mono">{wallClockLabel(clockEntry.clockIn)}</span> ·{" "}
+                  {tl.clockOutEntry ?? "Salida"}:{" "}
+                  <span className="font-mono">{wallClockLabel(clockEntry.clockOut ?? "")}</span>
                 </p>
                 <p className="text-zinc-600 dark:text-zinc-400">
                   {tl.timeWorked ?? "Tiempo trabajado"}:{" "}

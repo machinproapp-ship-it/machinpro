@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Play, Square, Clock, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { formatTime, resolveUserTimezone } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 export const GPS_INTERVAL_MS = 300_000;
 
@@ -23,6 +25,8 @@ export function ProjectTimeclockSection({
   assignedEmployeeNames,
   canClock,
   canViewAttendance,
+  dateLocale = typeof navigator !== "undefined" ? navigator.language : "en-US",
+  timeZone: timeZoneProp,
 }: {
   companyId: string | null | undefined;
   projectId: string;
@@ -31,7 +35,11 @@ export function ProjectTimeclockSection({
   assignedEmployeeNames: { id: string; name: string }[];
   canClock: boolean;
   canViewAttendance: boolean;
+  dateLocale?: string;
+  timeZone?: string;
 }) {
+  void useMachinProDisplayPrefs();
+  const timeZone = timeZoneProp ?? resolveUserTimezone(null);
   const [active, setActive] = useState<TimeEntryRow | null>(null);
   const [todayList, setTodayList] = useState<TimeEntryRow[]>([]);
   const [tick, setTick] = useState(0);
@@ -227,10 +235,10 @@ export function ProjectTimeclockSection({
                 >
                   <span className="font-mono text-xs text-zinc-500">{row.user_id.slice(0, 8)}…</span>
                   <span>
-                    {new Date(row.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {formatTime(row.clock_in_at, dateLocale, timeZone)}
                     {" — "}
                     {row.clock_out_at
-                      ? new Date(row.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      ? formatTime(row.clock_out_at, dateLocale, timeZone)
                       : (t as Record<string, string>).timeclock_shift_active ?? "Active"}
                   </span>
                 </li>

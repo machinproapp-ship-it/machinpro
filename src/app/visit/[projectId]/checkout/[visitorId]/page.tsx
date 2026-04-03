@@ -7,6 +7,8 @@ import { BrandWordmark } from "@/components/BrandWordmark";
 import { useParams } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 import { useVisitorPublicT } from "@/lib/visitorPublicLocale";
+import { formatDateTime, resolveUserTimezone } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 export default function VisitorCheckoutPage() {
   const params = useParams();
@@ -24,6 +26,10 @@ export default function VisitorCheckoutPage() {
   const [companyName, setCompanyName] = useState("");
   const [bye, setBye] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  void useMachinProDisplayPrefs();
+  const visitLocale = typeof navigator !== "undefined" ? navigator.language : "en-US";
+  const visitTz = resolveUserTimezone(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -195,7 +201,8 @@ export default function VisitorCheckoutPage() {
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-6 space-y-3">
           <p className="text-lg font-semibold">{visitorName}</p>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {t.visitors_checkin ?? "Check-in"}: {checkIn ? new Date(checkIn).toLocaleString() : "—"}
+            {t.visitors_checkin ?? "Check-in"}:{" "}
+            {checkIn ? formatDateTime(checkIn, visitLocale, visitTz) : "—"}
           </p>
           {status === "checked_out" && (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">

@@ -8,6 +8,7 @@ import type { PlanKey } from "@/lib/stripe";
 import { PricingModule } from "@/components/PricingModule";
 import type { UserRole } from "@/types/shared";
 import { formatDate } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { planUsersDescriptionI18nKey } from "@/lib/stripe";
 
 export interface BillingModuleProps {
@@ -86,6 +87,7 @@ export function BillingModule({
   dateLocale,
   timeZone,
 }: BillingModuleProps) {
+  void useMachinProDisplayPrefs();
   const {
     subscription,
     loading,

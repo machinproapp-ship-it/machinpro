@@ -22,6 +22,8 @@ import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { supabase } from "@/lib/supabase";
+import { formatDate, resolveUserTimezone } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import type { CustomRole, RolePermissions } from "@/types/roles";
 import {
   ROLE_PERMISSION_KEYS,
@@ -58,6 +60,8 @@ export interface EmployeesModuleProps {
   vacationRequests?: VacationRequestRow[];
   /** Vuelve a Central (pestaña Oficina). */
   onBackToOffice?: () => void;
+  dateLocale?: string;
+  timeZone?: string;
 }
 
 type ProfileRow = {
@@ -255,8 +259,12 @@ export function EmployeesModule({
   onComplianceRecordsChange,
   vacationRequests = [],
   onBackToOffice,
+  dateLocale = "en-US",
+  timeZone: timeZoneProp,
 }: EmployeesModuleProps) {
   const { showToast } = useToast();
+  void useMachinProDisplayPrefs();
+  const timeZone = timeZoneProp ?? resolveUserTimezone(null);
   const canDelete = canDeleteEmployeeProp !== undefined ? canDeleteEmployeeProp : canManageEmployees;
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1013,7 +1021,7 @@ export function EmployeesModule({
             <p className="text-sm">
               <span className="text-zinc-500">{tl.employees_start_date ?? tl.employees_joined ?? ""}</span>
               <span className="block mt-1">
-                {selected.created_at ? new Date(selected.created_at).toLocaleDateString() : tl.common_dash ?? ""}
+                {selected.created_at ? formatDate(selected.created_at, dateLocale, timeZone) : tl.common_dash ?? ""}
               </span>
             </p>
           </div>

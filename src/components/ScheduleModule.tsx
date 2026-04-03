@@ -16,7 +16,8 @@ import {
   Download,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
-import { resolveUserTimezone } from "@/lib/dateUtils";
+import { resolveUserTimezone, formatCalendarYmd, formatTimeHm } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
@@ -431,6 +432,8 @@ function TimesheetsView({
   employeeLabels = {},
   companyName = "",
   companyIdFallback = "",
+  dateLocale = "es-ES",
+  timeZone: sheetTz,
 }: {
   clockEntries: ClockEntryForSchedule[];
   employees: SchedEmployee[];
@@ -441,8 +444,11 @@ function TimesheetsView({
   employeeLabels?: Record<string, string>;
   companyName?: string;
   companyIdFallback?: string;
+  dateLocale?: string;
+  timeZone?: string;
 }) {
   const { showToast } = useToast();
+  const tz = sheetTz ?? resolveUserTimezone(null);
   const [periodType, setPeriodType] = useState<"weekly" | "biweekly" | "monthly">("weekly");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
@@ -495,7 +501,7 @@ function TimesheetsView({
           lines.push(
             [
               csvCell(getEmployeeName(sheet.employeeId)),
-              csvCell(ent.date),
+              csvCell(formatCalendarYmd(ent.date, dateLocale, tz)),
               csvCell(String(ent.hoursWorked)),
               csvCell(ent.projectName ?? "—"),
               csvCell(statusLabel),
@@ -661,8 +667,8 @@ function TimesheetsView({
                         </div>
                       )}
                     </td>
-                    <td className="py-2">{ent.clockIn}</td>
-                    <td className="py-2">{ent.clockOut ?? "—"}</td>
+                    <td className="py-2">{formatTimeHm(ent.clockIn, dateLocale, tz)}</td>
+                    <td className="py-2">{ent.clockOut ? formatTimeHm(ent.clockOut, dateLocale, tz) : "—"}</td>
                     <td className="py-2 text-right font-medium">{ent.hoursWorked.toFixed(1)}h</td>
                   </tr>
                 ))}
@@ -751,6 +757,9 @@ export default function ScheduleModule({
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const scheduleTz = scheduleTimeZoneProp ?? resolveUserTimezone(null);
+  void useMachinProDisplayPrefs();
+  const wallClockLabel = (s: string) =>
+    /^\d{1,2}:\d{2}$/.test(String(s).trim()) ? formatTimeHm(s, dateLocale, scheduleTz) : s;
   const today = new Date();
   const todayYmd = toYMD(today);
   const todayEntry = clockEntries.find(
@@ -1291,7 +1300,9 @@ export default function ScheduleModule({
                                 <span className="font-mono text-xs">{entry.projectCode}</span>
                               )}
                               {entry.type !== "shift" && scheduleEntryTypeLabel(entry, lx)}
-                              {entry.type === "shift" && !entry.projectCode && (entry.startTime + "–" + entry.endTime)}
+                              {entry.type === "shift" &&
+                                !entry.projectCode &&
+                                wallClockLabel(entry.startTime) + "–" + wallClockLabel(entry.endTime)}
                             </div>
                           ))}
                           {extraCount > 0 && (
@@ -1338,6 +1349,8 @@ export default function ScheduleModule({
           employeeLabels={employeeLabels}
           companyName={companyName}
           companyIdFallback={companyId}
+          dateLocale={dateLocale}
+          timeZone={scheduleTz}
         />
       )}
 
@@ -1385,7 +1398,8 @@ export default function ScheduleModule({
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                              {entry.startTime} → {entry.endTime}
+                              {formatTimeHm(entry.startTime, dateLocale, scheduleTz)} →{" "}
+                              {formatTimeHm(entry.endTime, dateLocale, scheduleTz)}
                             </p>
                             {entry.type === "shift" && proj && (
                               <p className="flex items-center gap-1.5 mt-1 text-sm">
@@ -1468,11 +1482,11 @@ export default function ScheduleModule({
                   {todayEntry && (
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <span className="text-emerald-600 dark:text-emerald-400">
-                        ✓ {labels.clockInEntry ?? "Entrada"}: {todayEntry.clockIn}
+                        ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
                       </span>
                       {todayEntry.clockOut && (
                         <span className="text-zinc-500 dark:text-zinc-400">
-                          · {labels.clockOutEntry ?? "Salida"}: {todayEntry.clockOut}
+                          · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
                         </span>
                       )}
                       {todayEntry.locationAlert && (

@@ -36,6 +36,8 @@ import type {
 import type { Hazard } from "@/types/hazard";
 import type { CorrectiveAction } from "@/types/correctiveAction";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import { formatDateTime, resolveUserTimezone } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
@@ -66,12 +68,9 @@ function normalizeBlueprintRow(r: Record<string, unknown>): BlueprintRow {
   };
 }
 
-function formatBlueprintWhen(iso: string, locale: string | undefined): string {
+function formatBlueprintWhen(iso: string, locale: string, timeZone: string): string {
   try {
-    return new Date(iso).toLocaleString(locale || undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    return formatDateTime(iso, locale, timeZone);
   } catch {
     return iso;
   }
@@ -192,6 +191,8 @@ export interface BlueprintViewerProps {
   userRole: string;
   onNavigateToHazard?: (hazardId: string) => void;
   onNavigateToCorrective?: (actionId: string) => void;
+  dateLocale?: string;
+  timeZone?: string;
 }
 
 export default function BlueprintViewer({
@@ -204,7 +205,10 @@ export default function BlueprintViewer({
   userRole,
   onNavigateToHazard,
   onNavigateToCorrective,
+  dateLocale: dateLocaleProp,
+  timeZone: timeZoneProp,
 }: BlueprintViewerProps) {
+  void useMachinProDisplayPrefs();
   const tl = t as Record<string, string>;
   const tx = (k: string) => tl[k] ?? PM_EN[k] ?? k;
   const canEditPins = userRole === "admin" || userRole === "supervisor";
@@ -276,8 +280,12 @@ export default function BlueprintViewer({
   const selected = useMemo(() => rows.find((r) => r.id === selectedId) ?? null, [rows, selectedId]);
 
   const browserLocale = useMemo(
-    () => (typeof navigator !== "undefined" ? navigator.language : undefined),
-    []
+    () => dateLocaleProp ?? (typeof navigator !== "undefined" ? navigator.language : "en-US"),
+    [dateLocaleProp]
+  );
+  const blueprintTz = useMemo(
+    () => timeZoneProp ?? resolveUserTimezone(null),
+    [timeZoneProp]
   );
 
   const blueprintOptions = useMemo(() => {
@@ -1584,7 +1592,7 @@ export default function BlueprintViewer({
                             <span className="mt-1 text-[9px] font-medium text-gray-800/90 truncate">
                               {(ann.author_name ?? tx("common_dash")) +
                                 " · " +
-                                formatBlueprintWhen(ann.created_at, browserLocale)}
+                                formatBlueprintWhen(ann.created_at, browserLocale, blueprintTz)}
                             </span>
                           </button>
                         );
@@ -2098,7 +2106,7 @@ export default function BlueprintViewer({
                         <span className="font-medium text-gray-600 dark:text-gray-300">
                           {tx("blueprints_version_date")}:{" "}
                         </span>
-                        {formatBlueprintWhen(row.created_at, browserLocale)}
+                        {formatBlueprintWhen(row.created_at, browserLocale, blueprintTz)}
                       </p>
                       {row.version_notes && (
                         <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
@@ -2250,7 +2258,7 @@ export default function BlueprintViewer({
                 <span className="font-medium text-gray-600 dark:text-gray-300">
                   {tx("blueprints_version_date")}:{" "}
                 </span>
-                {formatBlueprintWhen(annotationPopup.created_at, browserLocale)}
+                {formatBlueprintWhen(annotationPopup.created_at, browserLocale, blueprintTz)}
               </p>
             </div>
             {annotationPopup.is_resolved && (

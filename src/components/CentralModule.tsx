@@ -30,6 +30,7 @@ import {
   formatDateMedium,
   getClockHourInTimeZone,
 } from '@/lib/dateUtils';
+import { useMachinProDisplayPrefs } from '@/hooks/useMachinProDisplayPrefs';
 import { isProjectOperationallyActive, resolveProjectLifecycleStatus } from '@/lib/projectFilters';
 
 interface Certificate {
@@ -419,6 +420,7 @@ export function CentralModule({
     () => dateLocaleForUser(language, countryForDates),
     [language, countryForDates]
   );
+  void useMachinProDisplayPrefs();
   const [employeePanelId, setEmployeePanelId] = useState<string | null>(null);
   const [centralView, setCentralView] = useState<
     "dashboard" | "projects" | "personnel" | "roles" | "auditlog" | "compliance"

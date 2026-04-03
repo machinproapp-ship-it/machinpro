@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { dateLocaleForUser, resolveUserTimezone, formatDate, formatDateTime } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { supabase } from "@/lib/supabase";
 import { PAID_PLAN_ORDER, type PaidPlanKey } from "@/lib/stripe";
 import type { Invitation, InvitationPlan } from "@/types/invitation";
@@ -95,6 +97,9 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
   const tl = t as Record<string, string>;
   const l = (k: string) => tl[k] ?? PM_EN[k] ?? k;
   const { showToast } = useToast();
+  void useMachinProDisplayPrefs();
+  const saLocale = dateLocaleForUser("en", "CA");
+  const saTz = resolveUserTimezone(null);
   const [companies, setCompanies] = useState<SuperadminCompany[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -518,10 +523,10 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {inv.created_at ? new Date(inv.created_at).toLocaleString() : l("common_dash")}
+                      {inv.created_at ? formatDateTime(inv.created_at, saLocale, saTz) : l("common_dash")}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : l("common_dash")}
+                      {inv.expires_at ? formatDateTime(inv.expires_at, saLocale, saTz) : l("common_dash")}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -737,10 +742,10 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                       {c.storage_used_gb != null ? `${c.storage_used_gb} GB` : l("common_dash")}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {sub?.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString() : l("common_dash")}
+                      {sub?.trial_ends_at ? formatDate(sub.trial_ends_at, saLocale, saTz) : l("common_dash")}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : l("common_dash")}
+                      {sub?.current_period_end ? formatDate(sub.current_period_end, saLocale, saTz) : l("common_dash")}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -858,7 +863,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                                 : "";
                           return (
                             <li key={String(a.id)} className="border-b border-gray-100 dark:border-gray-700 pb-1">
-                              {a.created_at ? new Date(String(a.created_at)).toLocaleString() : ""}
+                              {a.created_at ? formatDateTime(String(a.created_at), saLocale, saTz) : ""}
                               {days !== "" ? ` · +${days} ${l("superadmin_extend_days_short")}` : ""}
                               {nv?.internal_note ? ` · ${String(nv.internal_note).slice(0, 80)}` : ""}
                             </li>
@@ -894,7 +899,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                           )}
                         </span>{" "}
                         · {String(a.user_name ?? "")} ·{" "}
-                        {a.created_at ? new Date(String(a.created_at)).toLocaleString() : ""}
+                        {a.created_at ? formatDateTime(String(a.created_at), saLocale, saTz) : ""}
                       </li>
                     ))}
                   </ul>

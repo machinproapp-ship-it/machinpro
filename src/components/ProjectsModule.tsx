@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import {
   Building2,
   Package,
@@ -679,6 +680,7 @@ export function ProjectsModule({
   const canEdit = canEditProp ?? (currentUserRole === "admin" || currentUserRole === "supervisor" || currentUserRole === "projectManager");
   const canAnnotate = canAnnotateBlueprints ?? canEdit;
 
+  const displayPrefsRev = useMachinProDisplayPrefs();
   const userTz = timeZoneProp ?? resolveUserTimezone(null);
   const dateLoc = useMemo(() => dateLocaleForUser(language, countryCode), [language, countryCode]);
   const fmtYmd = useCallback(
@@ -687,7 +689,7 @@ export function ProjectsModule({
       const ymd = iso.includes("T") ? iso.split("T")[0]! : iso.slice(0, 10);
       return formatCalendarYmd(ymd, dateLoc, userTz);
     },
-    [dateLoc, userTz]
+    [dateLoc, userTz, displayPrefsRev]
   );
 
   const selectedProject = selectedProjectId
@@ -1392,6 +1394,8 @@ export function ProjectsModule({
                   assignedEmployeeNames={assignedEmployees.map((e) => ({ id: e.id, name: e.name }))}
                   canClock={canUseProjectTimeclock && userAssignedToProject}
                   canViewAttendance={canViewAttendancePanel}
+                  dateLocale={dateLoc}
+                  timeZone={userTz}
                 />
               )}
 
@@ -2271,6 +2275,8 @@ export function ProjectsModule({
             userRole={currentUserRole ?? "worker"}
             onNavigateToHazard={onOpenHazardFromBlueprint}
             onNavigateToCorrective={onOpenCorrectiveFromBlueprint}
+            dateLocale={dateLoc}
+            timeZone={userTz}
           />
         )}
 
@@ -3191,6 +3197,8 @@ export function ProjectsModule({
                         companyName,
                         language,
                         labels: t as Record<string, string>,
+                        dateLocaleBcp47: dateLoc,
+                        timeZone: userTz,
                       });
                     }}
                     className="flex-1 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white py-3 text-sm font-medium flex items-center justify-center gap-2"
@@ -3644,6 +3652,8 @@ export function ProjectsModule({
                     includeDate: pdfIncludeDate,
                     includeNotes: pdfIncludeNotes,
                     orientation: pdfOrientation,
+                    dateLocaleBcp47: dateLoc,
+                    timeZone: userTz,
                   });
                   setPdfConfigOpen(false);
                 }}

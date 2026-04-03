@@ -1,4 +1,5 @@
 import type { SafetyChecklist } from "@/types/safetyChecklist";
+import { formatCalendarYmd, resolveUserTimezone } from "@/lib/dateUtils";
 
 function escapeHtml(s: string): string {
   return s
@@ -37,9 +38,12 @@ export function generateSafetyChecklistPdf(params: {
   companyName: string;
   language?: string;
   labels: Record<string, string>;
+  dateLocaleBcp47?: string;
+  timeZone?: string;
 }): void {
-  const { checklist, projectName, companyName, language, labels: t } = params;
-  const locale = localeForLanguage(language);
+  const { checklist, projectName, companyName, language, labels: t, dateLocaleBcp47, timeZone: tzParam } = params;
+  const locale = dateLocaleBcp47 ?? localeForLanguage(language);
+  const tz = tzParam ?? resolveUserTimezone(null);
   const title = t.safetyChecklist ?? "Safety Checklist";
   const conducted = t.conductedBy ?? "Conducted by";
   const actionBy = t.checklistActionBy ?? "Action by";
@@ -75,7 +79,9 @@ export function generateSafetyChecklistPdf(params: {
     }
   }
 
-  const dateStr = new Date(checklist.date).toLocaleDateString(locale);
+  const rawD = String(checklist.date ?? "").trim();
+  const ymdKey = rawD.includes("T") ? rawD.split("T")[0]! : rawD.slice(0, 10);
+  const dateStr = formatCalendarYmd(ymdKey, locale, tz);
   const statusStr =
     checklist.status === "draft"
       ? t.checklistStatusDraft ?? t.formStatusDraft ?? "Draft"

@@ -116,35 +116,150 @@ function toDate(input: Date | string | number): Date {
   return input instanceof Date ? input : new Date(input);
 }
 
-export function formatDate(date: Date | string | number, locale: string, timeZone: string): string {
-  const d = toDate(date);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat(locale, {
-    timeZone,
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
+/** Values written by Settings → General (`machinpro_date_format`). */
+export type UserDateOrder = "dmy" | "mdy" | "ymd";
+/** Values written by Settings → General (`machinpro_time_format`). */
+export type UserTimePreference = "12" | "24";
+
+export function readUserDateFormatPreference(): UserDateOrder {
+  if (typeof window === "undefined") return "dmy";
+  try {
+    const v = localStorage.getItem("machinpro_date_format");
+    if (v === "mdy" || v === "ymd" || v === "dmy") return v;
+  } catch {
+    /* ignore */
+  }
+  return "dmy";
 }
 
-export function formatTime(date: Date | string | number, locale: string, timeZone: string): string {
+export function readUserTimeFormatPreference(): UserTimePreference {
+  if (typeof window === "undefined") return "24";
+  try {
+    const v = localStorage.getItem("machinpro_time_format");
+    if (v === "12" || v === "24") return v;
+  } catch {
+    /* ignore */
+  }
+  return "24";
+}
+
+export type FormatPreferenceOpts = {
+  /** Override `machinpro_date_format` for this call only. */
+  dateFormat?: UserDateOrder;
+  /** Override `machinpro_time_format` for this call only. */
+  timeFormat?: UserTimePreference;
+};
+
+function ymdInTimeZone(d: Date, timeZone: string): { y: number; m: number; day: number } {
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const y = +(p.find((x) => x.type === "year")?.value ?? "0");
+  const m = +(p.find((x) => x.type === "month")?.value ?? "0");
+  const day = +(p.find((x) => x.type === "day")?.value ?? "0");
+  return { y, m, day };
+}
+
+function hmInTimeZone(d: Date, timeZone: string): { h: number; min: number } {
+  const p = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const h = +(p.find((x) => x.type === "hour")?.value ?? "0");
+  const min = +(p.find((x) => x.type === "minute")?.value ?? "0");
+  return { h, min };
+}
+
+function formatYmdWithOrder(y: number, m: number, day: number, order: UserDateOrder): string {
+  const dd = String(day).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  const yy = String(y);
+  if (order === "ymd") return `${yy}-${mm}-${dd}`;
+  if (order === "mdy") return `${mm}/${dd}/${yy}`;
+  return `${dd}/${mm}/${yy}`;
+}
+
+/**
+ * Date only — uses `machinpro_date_format` (fallback DD/MM/YYYY).
+ * `locale` is kept for API compatibility; ordering follows user preference.
+ */
+export function formatDate(
+  date: Date | string | number,
+  locale: string,
+  timeZone: string,
+  opts?: FormatPreferenceOpts
+): string {
+  void locale;
   const d = toDate(date);
   if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat(locale, {
+  const order = opts?.dateFormat ?? readUserDateFormatPreference();
+  const { y, m, day } = ymdInTimeZone(d, timeZone);
+  if (!y || !m || !day) return "—";
+  return formatYmdWithOrder(y, m, day, order);
+}
+
+/**
+ * Time only — uses `machinpro_time_format` (fallback 24h).
+ */
+export function formatTime(
+  date: Date | string | number,
+  locale: string,
+  timeZone: string,
+  opts?: FormatPreferenceOpts
+): string {
+  void locale;
+  const d = toDate(date);
+  if (Number.isNaN(d.getTime())) return "—";
+  const pref = opts?.timeFormat ?? readUserTimeFormatPreference();
+  if (pref === "24") {
+    const { h, min } = hmInTimeZone(d, timeZone);
+    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+  }
+  return new Intl.DateTimeFormat("en-US", {
     timeZone,
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   }).format(d);
 }
 
-export function formatDateTime(date: Date | string | number, locale: string, timeZone: string): string {
-  const d = toDate(date);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat(locale, {
-    timeZone,
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(d);
+/**
+ * Wall-clock `HH:mm` / `H:mm` (fichaje, planificación) usando preferencia 12h/24h.
+ * Ancla en UTC para no desplazar el reloj por zona.
+ */
+export function formatTimeHm(
+  hm: string,
+  locale: string,
+  timeZone: string,
+  opts?: FormatPreferenceOpts
+): string {
+  void timeZone;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hm).trim());
+  if (!m) return hm;
+  const hh = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+  const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+  const iso = `1970-01-01T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00.000Z`;
+  return formatTime(iso, locale, "UTC", opts);
+}
+
+/** Date + time using the same storage prefs as `formatDate` / `formatTime`. */
+export function formatDateTime(
+  date: Date | string | number,
+  locale: string,
+  timeZone: string,
+  opts?: FormatPreferenceOpts
+): string {
+  const da = formatDate(date, locale, timeZone, opts);
+  const ti = formatTime(date, locale, timeZone, opts);
+  if (da === "—" && ti === "—") return "—";
+  if (da === "—") return ti;
+  if (ti === "—") return da;
+  return `${da} ${ti}`;
 }
 
 /** Long calendar line e.g. weekday — used in dashboard greeting. */

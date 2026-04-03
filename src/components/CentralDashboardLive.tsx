@@ -46,6 +46,7 @@ import {
 } from "@/lib/centralDashboardCache";
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { useDismissOnEscape } from "@/hooks/useDismissOnEscape";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { useToast } from "@/components/Toast";
 import {
   dateLocaleForUser,
@@ -98,6 +99,38 @@ type VisitorWidgetRow = {
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Evita huecos en grid 2 columnas (md+): último impar a ancho completo; antes de `quick_access` (ancho completo) también. */
+function mdColSpanForOperationsWidget(ids: DashboardWidgetId[], index: number): string {
+  let col = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const w = ids[i]!;
+    if (w === "quick_access") {
+      if (i === index) return "md:col-span-2";
+      col = 0;
+      continue;
+    }
+    if (col === 0) {
+      const isLast = i === ids.length - 1;
+      if (isLast) {
+        if (i === index) return "md:col-span-2";
+        col = 0;
+        continue;
+      }
+      if (ids[i + 1] === "quick_access") {
+        if (i === index) return "md:col-span-2";
+        col = 0;
+        continue;
+      }
+      if (i === index) return "";
+      col = 1;
+      continue;
+    }
+    if (i === index) return "";
+    col = 0;
+  }
+  return "";
+}
 
 function auditActorLabel(
   row: AuditLogEntry,
@@ -367,6 +400,7 @@ function CentralDashboardBody(
   const labels = labelsProp;
   const L = (key: string) => labels[key] ?? "";
   const { showToast } = useToast();
+  void useMachinProDisplayPrefs();
 
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
   const dateLoc = dateLocaleForUser(language, countryCode);
@@ -1407,48 +1441,90 @@ function CentralDashboardBody(
       {showZone1 ? (
         <>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-            {(canViewEmployees || canManageEmployees) ? (
-            <UnifiedDashCard
-              icon={<Users className="h-5 w-5 text-white" />}
-              iconWrapClassName="bg-blue-500"
-              label={L("personnel") ?? L("employees_title")}
-              value={empCountLoading ? "—" : empActiveCount ?? "—"}
-              subContent={
-                !empCountLoading && empActiveCount === 0 ? (
-                  <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{L("dashboard_trend_neutral")}</span>
-                ) : undefined
-              }
-              onClick={() => onNavigateAppSection("employees")}
-              disabled={!canAccessEmployees}
-            />
-            ) : null}
-            {(canViewRoles || canManageRoles) ? (
-            <UnifiedDashCard
-              icon={<KeyRound className="h-5 w-5 text-white" />}
-              iconWrapClassName="bg-violet-500"
-              label={L("roles") ?? L("permManageRoles")}
-              value={customRolesCount}
-              onClick={() => onOpenRolesInCentral()}
-              disabled={!(canViewRoles || canManageRoles)}
-            />
-            ) : null}
-            {canViewProjectsManagement ? (
-            <UnifiedDashCard
-              icon={<Briefcase className="h-5 w-5 text-white" />}
-              iconWrapClassName="bg-amber-500"
-              label={L("projects")}
-              value={activeProjectsCount}
-              subContent={
-                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
-                  {activeProjectsCount === 0 ? L("empty_state_projects") || L("activeProjects") : L("activeProjects")}
-                </span>
-              }
-              onClick={() => {
-                onProjectsManagementCardClick?.();
-              }}
-            />
-            ) : null}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 md:grid-flow-dense min-w-0">
+            {(
+              (canViewEmployees || canManageEmployees
+                ? [
+                    {
+                      key: "mgmt-emp",
+                      node: (
+                        <UnifiedDashCard
+                          icon={<Users className="h-5 w-5 text-white" />}
+                          iconWrapClassName="bg-blue-500"
+                          label={L("personnel") ?? L("employees_title")}
+                          value={empCountLoading ? "—" : empActiveCount ?? "—"}
+                          subContent={
+                            !empCountLoading && empActiveCount === 0 ? (
+                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                                {L("dashboard_trend_neutral")}
+                              </span>
+                            ) : undefined
+                          }
+                          onClick={() => onNavigateAppSection("employees")}
+                          disabled={!canAccessEmployees}
+                        />
+                      ),
+                    },
+                  ]
+                : []
+              )
+                .concat(
+                  canViewRoles || canManageRoles
+                    ? [
+                        {
+                          key: "mgmt-roles",
+                          node: (
+                            <UnifiedDashCard
+                              icon={<KeyRound className="h-5 w-5 text-white" />}
+                              iconWrapClassName="bg-violet-500"
+                              label={L("roles") ?? L("permManageRoles")}
+                              value={customRolesCount}
+                              onClick={() => onOpenRolesInCentral()}
+                              disabled={!(canViewRoles || canManageRoles)}
+                            />
+                          ),
+                        },
+                      ]
+                    : []
+                )
+                .concat(
+                  canViewProjectsManagement
+                    ? [
+                        {
+                          key: "mgmt-proj",
+                          node: (
+                            <UnifiedDashCard
+                              icon={<Briefcase className="h-5 w-5 text-white" />}
+                              iconWrapClassName="bg-amber-500"
+                              label={L("projects")}
+                              value={activeProjectsCount}
+                              subContent={
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                                  {activeProjectsCount === 0
+                                    ? L("empty_state_projects") || L("activeProjects")
+                                    : L("activeProjects")}
+                                </span>
+                              }
+                              onClick={() => {
+                                onProjectsManagementCardClick?.();
+                              }}
+                            />
+                          ),
+                        },
+                      ]
+                    : []
+                )
+                .map((item, index, arr) => (
+                  <div
+                    key={item.key}
+                    className={`min-w-0 ${
+                      arr.length % 2 === 1 && index === arr.length - 1 ? "md:col-span-2" : ""
+                    }`}
+                  >
+                    {item.node}
+                  </div>
+                ))
+            )}
           </div>
         </>
       ) : null}
@@ -1456,10 +1532,15 @@ function CentralDashboardBody(
       {canViewDashboardWidgets ? (
         <>
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {orderedVisibleWidgets.filter(canShowWidget).map((id) => (
-          <div key={id}>{renderWidget(id)}</div>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0 md:grid-flow-dense md:auto-rows-min">
+        {(() => {
+          const opsIds = orderedVisibleWidgets.filter(canShowWidget);
+          return opsIds.map((id, index) => (
+            <div key={id} className={`min-w-0 ${mdColSpanForOperationsWidget(opsIds, index)}`}>
+              {renderWidget(id)}
+            </div>
+          ));
+        })()}
       </div>
         </>
       ) : null}

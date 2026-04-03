@@ -1,4 +1,4 @@
-import { dateLocaleForUser, resolveUserTimezone } from "@/lib/dateUtils";
+import { dateLocaleForUser, resolveUserTimezone, formatDateTime } from "@/lib/dateUtils";
 
 export { dateLocaleForUser };
 
@@ -34,9 +34,5 @@ export function formatReportDateTime(
   const tz = timeZone ?? resolveUserTimezone(null);
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat(locale, {
-    timeZone: tz,
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
+  return formatDateTime(d, locale, tz);
 }

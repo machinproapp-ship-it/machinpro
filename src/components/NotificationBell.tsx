@@ -5,7 +5,8 @@ import { Bell, X } from "lucide-react";
 import { useNotifications, type AppNotificationRow } from "@/hooks/useNotifications";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notificationDisplayBody, notificationDisplayTitle } from "@/lib/notificationUi";
-import { formatRelative } from "@/lib/dateUtils";
+import { formatDateTime, formatRelative } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 type Props = {
   supabase: SupabaseClient | null;
@@ -13,9 +14,11 @@ type Props = {
   enabled: boolean;
   /** BCP 47 (`dateLocaleForUser`) for relative timestamps. */
   localeBcp47: string;
+  /** IANA TZ for absolute date/time line. */
+  timeZone: string;
 };
 
-export function NotificationBell({ supabase, labels, enabled, localeBcp47 }: Props) {
+export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZone }: Props) {
   const tl = labels;
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -24,6 +27,7 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47 }: Pro
     supabase,
     enabled
   );
+  void useMachinProDisplayPrefs();
 
   useEffect(() => {
     if (!open) return;
@@ -125,6 +129,7 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47 }: Pro
                       tl
                     );
                     const rel = formatRelative(n.created_at, localeBcp47);
+                    const abs = formatDateTime(n.created_at, localeBcp47, timeZone);
                     return (
                       <li key={n.id}>
                         <button
@@ -140,7 +145,10 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47 }: Pro
                           {body ? (
                             <span className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">{body}</span>
                           ) : null}
-                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{rel}</span>
+                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                            {rel}
+                            {abs && abs !== "—" ? ` · ${abs}` : ""}
+                          </span>
                         </button>
                       </li>
                     );

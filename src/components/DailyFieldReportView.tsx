@@ -32,6 +32,7 @@ import {
   saveDailyReportFull,
 } from "@/lib/dailyReportsDb";
 import { supabase } from "@/lib/supabase";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 const WEATHER_OPTIONS: { value: DailyReportWeather; Icon: typeof Sun }[] = [
   { value: "sunny", Icon: Sun },
@@ -160,6 +161,7 @@ export function DailyFieldReportView({
   onReportCreated,
   onReportPublished,
 }: DailyFieldReportViewProps) {
+  void useMachinProDisplayPrefs();
   const tl = rawLabels as Record<string, string>;
   const isEmployeeView = variant === "employee";
   const [draft, setDraft] = useState<DailyFieldReport>(() =>

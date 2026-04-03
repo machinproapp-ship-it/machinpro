@@ -22,6 +22,8 @@ import { generateFormPDF } from "@/lib/generateFormPDF";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import QRCode from "qrcode";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import { formatTime, resolveUserTimezone } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
@@ -54,6 +56,8 @@ export interface FormsModuleProps {
   onUpdateTemplate: (tpl: FormTemplate) => void;
   onDeleteTemplate: (id: string) => void;
   labels?: Record<string, string>;
+  dateLocale?: string;
+  timeZone?: string;
 }
 
 const defaultLabels: Record<string, string> = {
@@ -222,7 +226,11 @@ export function FormsModule({
   onUpdateTemplate,
   onDeleteTemplate,
   labels: labelsProp,
+  dateLocale = typeof navigator !== "undefined" ? navigator.language : "en-US",
+  timeZone: timeZoneProp,
 }: FormsModuleProps) {
+  void useMachinProDisplayPrefs();
+  const timeZone = timeZoneProp ?? resolveUserTimezone(null);
   const t = { ...defaultLabels, ...labelsProp };
   const l = (k: string) => (t as Record<string, string>)[k] ?? PM_EN[k] ?? k;
   const [view, setView] = useState<FormsView>("list");
@@ -805,7 +813,7 @@ export function FormsModule({
                                       </p>
                                       {att.signedAt ? (
                                         <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                                          ✓ {t.signedAt} · {new Date(att.signedAt).toLocaleTimeString()}
+                                          ✓ {t.signedAt} · {formatTime(att.signedAt, dateLocale, timeZone)}
                                         </p>
                                       ) : (
                                         <p className="text-xs text-zinc-400">{t.pendingSignature}</p>

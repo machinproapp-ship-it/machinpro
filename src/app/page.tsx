@@ -85,7 +85,7 @@ import {
   persistUserLocale,
   persistUserTimezone,
 } from "@/lib/localePreference";
-import { dateLocaleForUser, resolveUserTimezone } from "@/lib/dateUtils";
+import { dateLocaleForUser, resolveUserTimezone, formatTime } from "@/lib/dateUtils";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import {
   type CustomRole,
@@ -2686,10 +2686,7 @@ export default function Home() {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(openEntry.id);
 
     const applyClockOut = (lat?: number, lng?: number) => {
-      const outTime = new Date().toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      const outTime = formatTime(new Date(), dateLocaleBcp47, userTimeZone);
       if (isUuid && supabase) {
         void (async () => {
           const { data: row } = await supabase
@@ -2749,7 +2746,7 @@ export default function Home() {
       },
       { timeout: 8000, maximumAge: 60000 }
     );
-  }, [displayClockEntries, currentUserEmployeeId, supabase]);
+  }, [displayClockEntries, currentUserEmployeeId, supabase, dateLocaleBcp47, userTimeZone]);
 
   const handleDailyReportPublished = useCallback(
     (report: DailyFieldReport) => {
@@ -3579,6 +3576,7 @@ export default function Home() {
                   labels={labels as Record<string, string>}
                   enabled
                   localeBcp47={dateLocaleBcp47}
+                  timeZone={userTimeZone}
                 />
               ) : null}
               {pendingSync.length > 0 ? (
@@ -4141,6 +4139,8 @@ export default function Home() {
                 complianceRecords={complianceRecords}
                 onComplianceRecordsChange={setComplianceRecords}
                 vacationRequests={vacationRequests}
+                dateLocale={dateLocaleBcp47}
+                timeZone={userTimeZone}
               />
               <ModuleHelpFab
                 moduleKey="employees"
@@ -4698,6 +4698,8 @@ export default function Home() {
                 onDeleteTemplate={(id) =>
                   setFormTemplates((prev) => prev.filter((t) => t.id !== id || t.isBase))}
                 labels={t as Record<string, string>}
+                dateLocale={dateLocaleBcp47}
+                timeZone={userTimeZone}
               />
               <ModuleHelpFab
                 moduleKey="forms"
@@ -5646,6 +5648,7 @@ export default function Home() {
           }
           colleagueNames={employeeShiftModalModel.colleagueNames}
           onDailyReportSigned={() => void reloadDailyReports()}
+          timeZone={userTimeZone}
         />
       )}
       <InstallPWABanner labels={t} isDark={darkMode ?? false} />

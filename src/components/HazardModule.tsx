@@ -26,6 +26,7 @@ import { useToast } from "@/components/Toast";
 import { requestCompanyPushNotification } from "@/lib/clientCompanyPush";
 import { FilterGrid } from "@/components/FilterGrid";
 import { formatDateTime } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 const CLOUDINARY_CLOUD = "dwdlmxmkt";
 const CLOUDINARY_PRESET = "i5dmd07o";
@@ -136,6 +137,7 @@ export function HazardModule({
 }: HazardModuleProps) {
   const readOnly = userRole === "worker";
   const { showToast } = useToast();
+  void useMachinProDisplayPrefs();
   const lastCreateSig = useRef(0);
   const [rows, setRows] = useState<Hazard[]>([]);
   const [caByHazard, setCaByHazard] = useState<
@@ -1222,7 +1224,7 @@ export function HazardModule({
               <div>
                 <dt className="text-gray-500 dark:text-gray-400">{t.hazards_resolved ?? ""}</dt>
                 <dd className="text-gray-900 dark:text-white">
-                  {detail.resolved_at ? new Date(detail.resolved_at).toLocaleString() : "—"}
+                  {detail.resolved_at ? formatDateTime(detail.resolved_at, dateLocale, timeZone) : "—"}
                 </dd>
               </div>
             </dl>

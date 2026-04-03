@@ -9,6 +9,7 @@ import { FilterGrid } from "@/components/FilterGrid";
 import { useToast } from "@/components/Toast";
 import type { Visitor, VisitorStatus } from "@/types/visitor";
 import { formatDateTime, visitorPeriodToCheckInBounds, type VisitorPeriodFilter } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
@@ -51,6 +52,7 @@ export function VisitorModule({
   dateLocale,
   timeZone,
 }: VisitorModuleProps) {
+  void useMachinProDisplayPrefs();
   const { showToast } = useToast();
   const lx = t as Record<string, string>;
   const l = (k: string) => lx[k] ?? PM_EN[k] ?? k;

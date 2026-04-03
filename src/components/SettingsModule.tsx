@@ -351,6 +351,9 @@ export function SettingsModule({
     } catch {
       /* ignore */
     }
+    if (typeof window !== "undefined" && (key === "machinpro_date_format" || key === "machinpro_time_format")) {
+      window.dispatchEvent(new Event("machinpro-display-prefs"));
+    }
   }, []);
 
   const handleCountryChange = (country: string) => {

@@ -17,6 +17,8 @@ import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/dateUtils";
+import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 export type SecurityTabId = "hazards" | "actions" | "documents" | "audit";
 
@@ -111,6 +113,7 @@ export function SecurityModule({
   timeZone,
 }: SecurityModuleProps) {
   const { showToast } = useToast();
+  void useMachinProDisplayPrefs();
   const firstAllowed =
     (canShowHazards ? "hazards" : null) ||
     (canShowActions ? "actions" : null) ||
@@ -152,9 +155,6 @@ export function SecurityModule({
     (t[k] as string | undefined) ||
     (ALL_TRANSLATIONS.en as Record<string, string>)[k] ||
     fb;
-  const auditLocale =
-    typeof navigator !== "undefined" && navigator.language ? navigator.language : "es";
-
   const exportAuditCsv = useCallback(() => {
     const whenH = L("auditWhen", L("date", "Date"));
     const userH = L("auditUserColumn", L("sessionRole", "User"));
@@ -166,10 +166,7 @@ export function SecurityModule({
         [whenH, userH, actionH, entityH, detailsH].map((h) => csvCell(h)).join(","),
       ];
       for (const row of auditLogs) {
-        const when = new Date(row.created_at).toLocaleString(auditLocale, {
-          dateStyle: "short",
-          timeStyle: "short",
-        });
+        const when = formatDateTime(row.created_at, dateLocale, timeZone);
         const user = row.user_name ?? row.user_id ?? "—";
         const action = getAuditActionLabel(row.action, row.entity_type, t);
         const entity = [row.entity_name ?? row.entity_id, getAuditEntityTypeLabel(row.entity_type, t)]
@@ -194,7 +191,7 @@ export function SecurityModule({
     } catch {
       showToast("error", L("export_error", "Export error"));
     }
-  }, [auditLogs, auditLocale, companyId, companyName, t, showToast]);
+  }, [auditLogs, companyId, companyName, dateLocale, timeZone, t, showToast]);
 
   const visibleTabs = TAB_CONFIG.filter((x) => allowed(x.id));
 
@@ -339,10 +336,7 @@ export function SecurityModule({
                       </thead>
                       <tbody>
                         {auditLogs.map((row) => {
-                          const when = new Date(row.created_at).toLocaleString(auditLocale, {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          });
+                          const when = formatDateTime(row.created_at, dateLocale, timeZone);
                           const actionIcon = row.action.startsWith("photo_") ? (
                             <Camera className="h-4 w-4 text-amber-600" aria-hidden />
                           ) : row.action.startsWith("employee_") ? (
@@ -384,10 +378,7 @@ export function SecurityModule({
                   </div>
                   <ul className="md:hidden divide-y divide-zinc-100 dark:divide-white/10">
                     {auditLogs.map((row) => {
-                      const when = new Date(row.created_at).toLocaleString(auditLocale, {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      });
+                      const when = formatDateTime(row.created_at, dateLocale, timeZone);
                       const actionIcon = row.action.startsWith("photo_") ? (
                         <Camera className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
                       ) : row.action.startsWith("employee_") ? (
