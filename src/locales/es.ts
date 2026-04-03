@@ -462,6 +462,8 @@ export default {
   company_profile_saving: "Guardando…",
   settings_website_placeholder: "https://",
   compliance_fields_empty: "Aún no hay campos de compliance. Añade uno abajo.",
+  compliance_vehicles_hint: "Gestionado en Logística → Flota",
+  compliance_vehicles_badge: "Logística → Flota",
   compliance_alert_days_label: "Avisar (días antes del vencimiento)",
   settingsTimezone: "Zona horaria",
   settingsDateFormat: "Formato de fecha",

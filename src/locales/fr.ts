@@ -424,6 +424,8 @@ export default {
   company_profile_saving: "Enregistrement…",
   settings_website_placeholder: "https://",
   compliance_fields_empty: "Aucun champ de conformité pour le moment. Ajoutez-en un ci-dessous.",
+  compliance_vehicles_hint: "Géré dans Logistique → Flotte",
+  compliance_vehicles_badge: "Logistique → Flotte",
   compliance_alert_days_label: "Rappel (jours avant expiration)",
   settingsTimezone: "Fuseau horaire",
   settingsDateFormat: "Format de date",

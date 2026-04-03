@@ -12,10 +12,13 @@ import {
   HelpCircle,
   Settings,
   User,
+  Users,
   Building2,
   Globe,
   Shield,
   CreditCard,
+  HardHat,
+  Truck,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
@@ -345,6 +348,14 @@ export function SettingsModule({
 
   const groupedZoneList = useMemo(() => allGroupedTimezones(), []);
 
+  /** Un campo puede listarse en varios grupos si su `target` incluye varios valores. */
+  const complianceByTarget = useMemo(() => {
+    const employee = complianceFields.filter((f) => f.target.includes("employee"));
+    const subcontractor = complianceFields.filter((f) => f.target.includes("subcontractor"));
+    const vehicle = complianceFields.filter((f) => f.target.includes("vehicle"));
+    return { employee, subcontractor, vehicle };
+  }, [complianceFields]);
+
   const persistLocalePref = useCallback((key: string, value: string) => {
     try {
       localStorage.setItem(key, value);
@@ -361,6 +372,72 @@ export function SettingsModule({
     onCountryChange(country, defaults);
     if (defaults) setAutoSetupMessage(t.autoSetupConfirm ?? "Country updated — currency and units configured");
   };
+
+  const renderComplianceFieldRow = (field: ComplianceField, groupKey: string) => (
+    <div
+      key={`${groupKey}-${field.id}`}
+      className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-slate-700 p-3 gap-2"
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+            {complianceFieldDisplayName(field, tl)}
+          </span>
+          {field.isDefault && (
+            <span className="text-xs rounded-full border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-slate-800/60 text-zinc-600 dark:text-zinc-400 px-2 py-0.5">
+              {t.defaultField ?? "Default"}
+            </span>
+          )}
+          {field.isRequired && (
+            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full px-2 py-0.5">
+              {t.required ?? "Required"}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {field.target.map((targetKey) => (
+            <span key={targetKey} className="text-xs text-zinc-500 dark:text-zinc-400">
+              {targetKey === "employee"
+                ? (t.employees ?? "Employees")
+                : targetKey === "subcontractor"
+                  ? (t.subcontractors ?? "Subcontractors")
+                  : (t.vehicles ?? "Vehicles")}
+            </span>
+          ))}
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">
+            {"\u00b7 "}
+            {t.alertBefore ?? "Alert"}: {field.alertDaysBefore}d
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {field.isDefault ? (
+          <Lock className="h-4 w-4 text-zinc-400" aria-hidden />
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingComplianceField(field);
+                setComplianceDraft({ ...field });
+                setComplianceModalOpen(true);
+              }}
+              className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onComplianceFieldsChange?.(complianceFields.filter((f) => f.id !== field.id))}
+              className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-8">
@@ -1049,71 +1126,78 @@ export function SettingsModule({
                     {tl.compliance_fields_empty ?? "No compliance fields yet. Add one below."}
                   </p>
                 ) : null}
-                <div className="space-y-2">
-                  {complianceFields.map((field) => (
-                    <div
-                      key={field.id}
-                      className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-slate-700 p-3 gap-2"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                            {complianceFieldDisplayName(field, tl)}
-                          </span>
-                          {field.isDefault && (
-                            <span className="text-xs rounded-full border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 px-2 py-0.5">
-                              {t.defaultField ?? "Default"}
-                            </span>
-                          )}
-                          {field.isRequired && (
-                            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full px-2 py-0.5">
-                              {t.required ?? "Required"}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {field.target.map((targetKey) => (
-                            <span key={targetKey} className="text-xs text-zinc-500 dark:text-zinc-400">
-                              {targetKey === "employee"
-                                ? (t.employees ?? "Employees")
-                                : targetKey === "subcontractor"
-                                ? (t.subcontractors ?? "Subcontractors")
-                                : (t.vehicles ?? "Vehicles")}
-                            </span>
-                          ))}
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                            · {t.alertBefore ?? "Alert"}: {field.alertDaysBefore}d
-                          </span>
-                        </div>
+                <div className="space-y-6">
+                  {complianceByTarget.employee.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Users
+                          className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+                          aria-hidden
+                        />
+                        <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                          {t.employees ?? "Employees"}
+                        </h4>
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
+                          ({complianceByTarget.employee.length})
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {field.isDefault ? (
-                          <Lock className="h-4 w-4 text-zinc-400" aria-hidden />
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingComplianceField(field);
-                                setComplianceDraft({ ...field });
-                                setComplianceModalOpen(true);
-                              }}
-                              className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onComplianceFieldsChange?.(complianceFields.filter((f) => f.id !== field.id))}
-                              className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
+                      <div className="space-y-2">
+                        {complianceByTarget.employee.map((field) => renderComplianceFieldRow(field, "emp"))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {complianceByTarget.subcontractor.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <HardHat
+                          className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+                          aria-hidden
+                        />
+                        <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                          {t.subcontractors ?? "Subcontractors"}
+                        </h4>
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
+                          ({complianceByTarget.subcontractor.length})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {complianceByTarget.subcontractor.map((field) =>
+                          renderComplianceFieldRow(field, "sub")
                         )}
                       </div>
                     </div>
-                  ))}
+                  ) : null}
+                  {complianceByTarget.vehicle.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-start gap-2">
+                        <Truck
+                          className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                              {t.vehicles ?? "Vehicles"}
+                            </h4>
+                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
+                              ({complianceByTarget.vehicle.length})
+                            </span>
+                            <span className="inline-flex min-h-[24px] items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:border-amber-600/50 dark:bg-amber-950/40 dark:text-amber-200">
+                              {tl.compliance_vehicles_badge ?? tl.compliance_vehicles_hint ?? ""}
+                            </span>
+                          </div>
+                          {(tl.compliance_vehicles_hint ?? "").trim() ? (
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              {tl.compliance_vehicles_hint}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {complianceByTarget.vehicle.map((field) => renderComplianceFieldRow(field, "veh"))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   type="button"

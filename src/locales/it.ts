@@ -424,6 +424,8 @@ export default {
   company_profile_saving: "Salvataggio in corso…",
   settings_website_placeholder: "https://",
   compliance_fields_empty: "Nessun campo di conformità per ora. Aggiungine uno qui sotto.",
+  compliance_vehicles_hint: "Gestito in Logistica → Flotta",
+  compliance_vehicles_badge: "Logistica → Flotta",
   compliance_alert_days_label: "Promemoria (giorni prima della scadenza)",
   settingsTimezone: "Fuso orario",
   settingsDateFormat: "Formato data",

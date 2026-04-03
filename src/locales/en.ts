@@ -503,6 +503,8 @@ export default {
   company_profile_saving: "Saving…",
   settings_website_placeholder: "https://",
   compliance_fields_empty: "No compliance fields yet. Add one below.",
+  compliance_vehicles_hint: "Managed in Logistics → Fleet",
+  compliance_vehicles_badge: "Logistics → Fleet",
   compliance_alert_days_label: "Remind (days before expiry)",
   settingsTimezone: "Time zone",
   settingsDateFormat: "Date format",

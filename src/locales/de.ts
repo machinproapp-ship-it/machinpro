@@ -425,6 +425,8 @@ export default {
   company_profile_saving: "Wird gespeichert…",
   settings_website_placeholder: "https://",
   compliance_fields_empty: "Noch keine Compliance-Felder. Fügen Sie unten eines hinzu.",
+  compliance_vehicles_hint: "Verwaltet in Logistik → Fuhrpark",
+  compliance_vehicles_badge: "Logistik → Fuhrpark",
   compliance_alert_days_label: "Erinnerung (Tage vor Ablauf)",
   settingsTimezone: "Zeitzone",
   settingsDateFormat: "Datumsformat",
