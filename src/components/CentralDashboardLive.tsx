@@ -1532,7 +1532,7 @@ function CentralDashboardBody(
       {canViewDashboardWidgets ? (
         <>
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0 md:grid-flow-dense md:auto-rows-min">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0 md:grid-flow-dense">
         {(() => {
           const opsIds = orderedVisibleWidgets.filter(canShowWidget);
           return opsIds.map((id, index) => (

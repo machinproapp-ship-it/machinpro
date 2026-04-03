@@ -1049,6 +1049,7 @@ export default {
   auditDocumentUploaded: "Dokument hochgeladen",
   auditNoLogs: "Keine Auditprotokolle",
   complianceWatchdog: "Compliance-Überwachung",
+  compliance_watchdog: "Compliance-Überwachung",
   complianceWatchdogDesc: "Zertifikate die Aufmerksamkeit erfordern",
   complianceGroupExpired: "Abgelaufen",
   complianceGroupCritical: "Kritisch — unter 7 Tagen",
