@@ -560,7 +560,7 @@ function TimesheetsView({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sheets.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400 col-span-full">
-            {labels.noEntries ?? "Sin hojas de horas"}
+            {(labels as Record<string, string>).empty_state_timesheets ?? labels.noEntries ?? ""}
           </p>
         ) : (
           sheets.map((sheet) => {

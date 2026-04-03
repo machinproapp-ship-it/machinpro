@@ -44,6 +44,8 @@ import {
   readCentralDashboardConfigCache,
   writeCentralDashboardConfigCache,
 } from "@/lib/centralDashboardCache";
+import { displayNameFromProfile } from "@/lib/profileDisplayName";
+import { useDismissOnEscape } from "@/hooks/useDismissOnEscape";
 import {
   dateLocaleForUser,
   resolveUserTimezone,
@@ -106,19 +108,18 @@ function auditActorLabel(
   const p =
     uid ? profileByUserId[uid] ?? profileByUserId[uidLower] : undefined;
   if (p) {
-    const fn = (p.full_name ?? "").trim();
-    if (fn) return fn;
-    const dn = (p.display_name ?? "").trim();
-    if (dn) return dn;
-    const em = (p.email ?? "").trim();
-    if (em) return em;
+    const label = displayNameFromProfile(p.full_name, p.display_name, p.email);
+    if (label) return label;
   }
   const rawName = (row.user_name ?? "").trim();
   const badGeneric =
     /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
   const un = rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
   if (un) return un;
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawName)) return rawName;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawName)) {
+    const local = displayNameFromProfile(null, null, rawName);
+    if (local) return local;
+  }
   return (labels.dashboard_activity_unknown_user ?? "").trim() || "—";
 }
 
@@ -386,6 +387,7 @@ function CentralDashboardBody(
   const [visitorsLoading, setVisitorsLoading] = useState(true);
   const [hazardsLoading, setHazardsLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
+  const [dashboardRefreshTk, setDashboardRefreshTk] = useState(0);
 
   const [resolvedConfig, setResolvedConfig] = useState<ResolvedDashboardConfig>(() => parseDashboardConfig(null));
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -812,7 +814,10 @@ function CentralDashboardBody(
     canAccessHazards,
     canManageComplianceAlerts,
     loadDashboardConfig,
+    dashboardRefreshTk,
   ]);
+
+  useDismissOnEscape(customizeOpen, () => setCustomizeOpen(false));
 
   useEffect(() => {
     if (!companyId || teamTimeRows.length === 0) {
@@ -842,10 +847,7 @@ function CentralDashboardBody(
         }[]) {
           const idRaw = (row.id ?? "").trim();
           if (!idRaw) continue;
-          const fn = (row.full_name ?? "").trim();
-          const dn = (row.display_name ?? "").trim();
-          const em = (row.email ?? "").trim();
-          const label = fn || dn || em || `${idRaw.slice(0, 8)}…`;
+          const label = displayNameFromProfile(row.full_name, row.display_name, row.email) || `${idRaw.slice(0, 8)}…`;
           next[idRaw] = label;
           next[idRaw.toLowerCase()] = label;
         }
@@ -1171,6 +1173,7 @@ function CentralDashboardBody(
           </>
         );
       case "compliance_alerts":
+        if (!primaryReady) return widgetSkeleton(2);
         return widgetChrome(
           id,
           <>
@@ -1306,6 +1309,7 @@ function CentralDashboardBody(
           </>
         );
       case "critical_inventory":
+        if (!primaryReady) return widgetSkeleton(2);
         return widgetChrome(
           id,
           <>
@@ -1363,14 +1367,24 @@ function CentralDashboardBody(
       {loadErrors.length > 0 ? (
         <div
           role="alert"
-          className="rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 text-sm text-amber-950 dark:text-amber-100 mb-4 space-y-1"
+          className="rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 text-sm text-amber-950 dark:text-amber-100 mb-4 space-y-3"
         >
-          <p className="font-semibold">{L("dashboard_error_load_title")}</p>
+          <p className="font-semibold">{L("network_error") || L("dashboard_error_load_title")}</p>
           <ul className="list-disc pl-5 font-mono text-xs break-all">
             {loadErrors.map((e, i) => (
               <li key={i}>{e}</li>
             ))}
           </ul>
+          <button
+            type="button"
+            onClick={() => {
+              setLoadErrors([]);
+              setDashboardRefreshTk((n) => n + 1);
+            }}
+            className="min-h-[44px] rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-500"
+          >
+            {L("retry_button") || L("dashboard_error_retry") || "Retry"}
+          </button>
         </div>
       ) : null}
 
@@ -1388,6 +1402,11 @@ function CentralDashboardBody(
               iconWrapClassName="bg-blue-500"
               label={L("personnel") ?? L("employees_title")}
               value={empCountLoading ? "—" : empActiveCount ?? "—"}
+              subContent={
+                !empCountLoading && empActiveCount === 0 ? (
+                  <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{L("dashboard_trend_neutral")}</span>
+                ) : undefined
+              }
               onClick={() => onNavigateAppSection("employees")}
               disabled={!canAccessEmployees}
             />
@@ -1409,7 +1428,9 @@ function CentralDashboardBody(
               label={L("projects")}
               value={activeProjectsCount}
               subContent={
-                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{L("activeProjects")}</span>
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                  {activeProjectsCount === 0 ? L("empty_state_projects") || L("activeProjects") : L("activeProjects")}
+                </span>
               }
               onClick={() => {
                 onProjectsManagementCardClick?.();

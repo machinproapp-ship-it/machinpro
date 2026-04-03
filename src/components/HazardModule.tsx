@@ -828,7 +828,7 @@ export function HazardModule({
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50 py-14 px-4 text-center">
             <AlertTriangle className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {t.empty_no_hazards ?? t.hazards_no_results ?? "No hazards recorded"}
+              {t.empty_state_hazards ?? t.empty_no_hazards ?? t.hazards_no_results ?? ""}
             </h3>
             <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
               {t.empty_hazards_sub ?? ""}
@@ -894,7 +894,7 @@ export function HazardModule({
           <div className="flex flex-col items-center py-14 px-4 text-center">
             <AlertTriangle className="h-16 w-16 text-gray-300 dark:text-gray-600" aria-hidden />
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {t.empty_no_hazards ?? t.hazards_no_results ?? "No hazards recorded"}
+              {t.empty_state_hazards ?? t.empty_no_hazards ?? t.hazards_no_results ?? ""}
             </h3>
             <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
               {t.empty_hazards_sub ?? ""}

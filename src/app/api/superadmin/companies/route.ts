@@ -29,20 +29,23 @@ export async function GET(req: NextRequest) {
     if (row.company_id) subByCompany.set(row.company_id, s as Record<string, unknown>);
   }
 
-  const { data: profiles } = await admin.from("user_profiles").select("company_id");
+  const { data: profiles } = await admin.from("user_profiles").select("company_id, profile_status");
   const userCountByCompany: Record<string, number> = {};
   for (const p of profiles ?? []) {
-    const row = p as { company_id: string | null };
+    const row = p as { company_id: string | null; profile_status?: string | null };
     if (!row.company_id) continue;
+    const st = String(row.profile_status ?? "active").toLowerCase().trim();
+    if (st !== "active") continue;
     userCountByCompany[row.company_id] = (userCountByCompany[row.company_id] ?? 0) + 1;
   }
 
   let projectCountByCompany: Record<string, number> = {};
-  const { data: projects, error: pErr } = await admin.from("projects").select("company_id");
+  const { data: projects, error: pErr } = await admin.from("projects").select("company_id, archived");
   if (!pErr && projects) {
     for (const pr of projects) {
-      const row = pr as { company_id: string | null };
+      const row = pr as { company_id: string | null; archived?: boolean | null };
       if (!row.company_id) continue;
+      if (row.archived === true) continue;
       projectCountByCompany[row.company_id] = (projectCountByCompany[row.company_id] ?? 0) + 1;
     }
   } else {

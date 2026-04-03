@@ -45,6 +45,7 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { ModuleHelpFab } from "@/components/ModuleHelpFab";
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
+import { countOperationallyActiveProjects } from "@/lib/projectFilters";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/Toast";
 import type { AuthChangeEvent, PostgrestResponse, Session } from "@supabase/supabase-js";
@@ -4870,7 +4871,10 @@ export default function Home() {
                       companyName={profile?.companyName ?? companyName}
                       email={profile?.email ?? undefined}
                       employeesCount={activeEmployees.length}
-                      projectsCount={(projects ?? []).filter((p) => !p.archived).length}
+                      projectsCount={countOperationallyActiveProjects(
+                        projects ?? [],
+                        new Date().toISOString().split("T")[0]
+                      )}
                       storageUsedGb={0}
                       userRole={effectiveRole}
                       dateLocale={dateLocaleBcp47}
@@ -5067,7 +5071,7 @@ export default function Home() {
             className="hidden"
             onChange={handleFabFileChange}
           />
-          <div className="fixed bottom-20 right-4 z-40 sm:hidden">
+          <div className="fixed bottom-20 right-4 z-40 xl:hidden">
           <button
             type="button"
             onClick={() => setFabOpen(!fabOpen)}

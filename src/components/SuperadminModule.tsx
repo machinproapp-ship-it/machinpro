@@ -126,6 +126,17 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
   }>({ email: "", companyName: "", plan: "trial", message: "" });
   const [inviteSending, setInviteSending] = useState(false);
 
+  useEffect(() => {
+    if (!detailId && !extendTrialOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (extendTrialOpen) setExtendTrialOpen(false);
+      else setDetailId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detailId, extendTrialOpen]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);

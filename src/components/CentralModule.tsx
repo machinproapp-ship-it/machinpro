@@ -30,6 +30,7 @@ import {
   formatDateMedium,
   getClockHourInTimeZone,
 } from '@/lib/dateUtils';
+import { isProjectOperationallyActive, resolveProjectLifecycleStatus } from '@/lib/projectFilters';
 
 interface Certificate {
   id: string;
@@ -143,17 +144,6 @@ function formatProjectListDate(iso: string | undefined, locale: string, timeZone
   const d = new Date(iso.includes("T") ? iso : `${iso}T12:00:00`);
   if (Number.isNaN(d.getTime())) return "—";
   return formatDateMedium(d, locale, timeZone);
-}
-
-function resolveProjectLifecycleStatus(
-  p: CentralProject,
-  todayYmd: string
-): "active" | "paused" | "completed" {
-  const explicit = p.lifecycleStatus;
-  if (explicit === "paused" || explicit === "completed" || explicit === "active") return explicit;
-  const end = p.estimatedEnd?.slice(0, 10);
-  if (end && end < todayYmd) return "completed";
-  return "active";
 }
 
 function projectBudgetPct(spent: number | undefined, budget: number | undefined): number {
@@ -538,13 +528,12 @@ export function CentralModule({
     return { ...(fromDisplay ?? {}), ...(fromProjects ?? {}) } as CentralProject;
   };
 
-  const projectsManagementList = useMemo(
-    () =>
-      safeDisplayProjects.filter((p) =>
-        projectsMgmtTab === "active" ? !p.archived : !!p.archived
-      ),
-    [safeDisplayProjects, projectsMgmtTab]
-  );
+  const projectsManagementList = useMemo(() => {
+    const todayYmd = new Date().toISOString().split("T")[0];
+    return safeDisplayProjects.filter((p) =>
+      projectsMgmtTab === "active" ? isProjectOperationallyActive(p, todayYmd) : !!p.archived
+    );
+  }, [safeDisplayProjects, projectsMgmtTab]);
 
   useEffect(() => {
     if (centralView !== "projects" || dashboardCanViewProjectsManagement) return;
@@ -567,7 +556,6 @@ export function CentralModule({
   }, [safeDisplayProjects]);
 
   const recentEmployees = safeEmployees.filter((e) => activeEmployeeIdSet.has(e.id)).slice(0, 5);
-  const recentProjects = safeDisplayProjects.filter((p) => !p.archived).slice(0, 3);
 
   const getGreeting = (t: Record<string, string>) => {
     const hour = getClockHourInTimeZone(new Date(), timeZone);
@@ -579,8 +567,16 @@ export function CentralModule({
   const today = new Date().toISOString().split("T")[0];
   const formattedDate = formatDateLong(new Date(), dateLoc, timeZone);
 
+  const operationalActiveProjects = useMemo(
+    () => safeDisplayProjects.filter((p) => isProjectOperationallyActive(p, today)),
+    [safeDisplayProjects, today]
+  );
+  const activeProjectsCountForDashboard = operationalActiveProjects.length;
+  const recentProjects = operationalActiveProjects.slice(0, 3);
+
   const projectsWithBudget = (projects ?? []) as CentralProject[];
   const expiredCerts = safeEmployees.filter((e) =>
+    activeEmployeeIdSet.has(e.id) &&
     (e.certificates ?? []).some((c) => {
       if (!c.expiryDate) return (c as { status?: string }).status === "expired";
       const expDate = c.expiryDate.slice(0, 10);
@@ -588,20 +584,28 @@ export function CentralModule({
     })
   );
   const soonCerts = safeEmployees.filter((e) =>
+    activeEmployeeIdSet.has(e.id) &&
     (e.certificates ?? []).some((c) => {
       if (!c.expiryDate) return false;
       const days = Math.ceil((new Date(c.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       return days >= 0 && days <= 30;
     })
   );
-  const overBudgetProjects = projectsWithBudget.filter((p) => (p.budgetCAD ?? 0) > 0 && ((p.spentCAD ?? 0) / (p.budgetCAD ?? 1)) > 1);
+  const overBudgetProjects = projectsWithBudget.filter(
+    (p) =>
+      isProjectOperationallyActive(p, today) &&
+      (p.budgetCAD ?? 0) > 0 &&
+      ((p.spentCAD ?? 0) / (p.budgetCAD ?? 1)) > 1
+  );
   const nearBudgetProjects = projectsWithBudget.filter((p) => {
+    if (!isProjectOperationallyActive(p, today)) return false;
     const budget = p.budgetCAD ?? 0;
     if (budget <= 0) return false;
     const ratio = (p.spentCAD ?? 0) / budget;
     return ratio > 0.8 && ratio <= 1;
   });
   const urgentDeadlines = projectsWithBudget.filter((p) => {
+    if (!isProjectOperationallyActive(p, today)) return false;
     if (!p.estimatedEnd) return false;
     const days = Math.ceil((new Date(p.estimatedEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return days >= 0 && days <= 7;
@@ -778,7 +782,7 @@ export function CentralModule({
       actionLabel: labels.viewAll ?? "View all",
     });
   }
-  const activeProjectsNoIssue = safeDisplayProjects.filter((p) => !p.archived).length;
+  const activeProjectsNoIssue = operationalActiveProjects.length;
   if (activeProjectsNoIssue > 0 && overBudgetProjects.length === 0 && nearBudgetProjects.length === 0 && urgentDeadlines.length === 0) {
     briefingItems.push({
       type: "green",
@@ -820,7 +824,7 @@ export function CentralModule({
                 language={language}
                 countryCode={countryForDates}
                 timeZone={timeZone}
-                activeProjectsCount={safeDisplayProjects.filter((p) => !p.archived).length}
+                activeProjectsCount={activeProjectsCountForDashboard}
                 canViewProjectsManagement={dashboardCanViewProjectsManagement}
                 projectNameById={projectNameById}
                 currentUserRole={currentUserRole}

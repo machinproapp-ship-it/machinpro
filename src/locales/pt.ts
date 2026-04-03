@@ -1566,6 +1566,13 @@ export default {
   beta_request_submit: "Enviar pedido",
   beta_request_thanks: "Obrigado. Enviámos um email de confirmação.",
   beta_request_error: "Não foi possível enviar. Tente novamente.",
+
+  empty_state_hazards: "Nenhum incidente registado",
+  empty_state_timesheets: "Nenhuma folha de horas esta semana",
+  empty_state_projects: "Nenhum projeto ativo",
+  retry_button: "Tentar novamente",
+  network_error: "Erro de ligação. Verifique a sua internet.",
+  dashboard_error_retry: "Tentar novamente",
   superadmin_change_plan: "Mudar plano",
   superadmin_cancel: "Cancelar subscrição",
   superadmin_export_csv: "Exportar CSV",

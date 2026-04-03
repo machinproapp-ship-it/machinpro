@@ -1712,6 +1712,13 @@ export default {
   beta_request_submit: "Submit request",
   beta_request_thanks: "Thanks. We've sent you a confirmation email.",
   beta_request_error: "Could not submit. Please try again.",
+
+  empty_state_hazards: "No incidents recorded",
+  empty_state_timesheets: "No timesheets this week",
+  empty_state_projects: "No active projects",
+  retry_button: "Retry",
+  network_error: "Connection error. Check your internet.",
+  dashboard_error_retry: "Retry",
   superadmin_change_plan: "Change plan",
   superadmin_cancel: "Cancel subscription",
   superadmin_export_csv: "Export CSV",

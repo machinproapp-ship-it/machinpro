@@ -6,6 +6,10 @@ import "@/styles/dark-safelist";
 import { ClientRoot } from "./ClientRoot";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro"),
+  title: { default: "MachinPro", template: "%s · MachinPro" },
+  description:
+    "Gestión profesional de empresas de construcción — equipo, proyectos, horarios y cumplimiento.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -13,6 +17,7 @@ export const metadata: Metadata = {
     title: "MachinPro",
   },
   icons: {
+    icon: [{ url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }],
     apple: "/icons/icon-192x192.png",
   },
   other: {
