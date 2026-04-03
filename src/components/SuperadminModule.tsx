@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { PAID_PLAN_ORDER, type PaidPlanKey } from "@/lib/stripe";
 import type { Invitation, InvitationPlan } from "@/types/invitation";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import { useToast } from "@/components/Toast";
 
 const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
@@ -92,6 +93,7 @@ function statusBadgeClass(status: string | undefined): string {
 export function SuperadminModule({ t }: SuperadminModuleProps) {
   const tl = t as Record<string, string>;
   const l = (k: string) => tl[k] ?? PM_EN[k] ?? k;
+  const { showToast } = useToast();
   const [companies, setCompanies] = useState<SuperadminCompany[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,6 +115,9 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
   const [invPending, setInvPending] = useState(0);
   const [invAcceptedMonth, setInvAcceptedMonth] = useState(0);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [extendTrialOpen, setExtendTrialOpen] = useState(false);
+  const [extendDays, setExtendDays] = useState<30 | 60 | 90>(30);
+  const [extendNote, setExtendNote] = useState("");
   const [inviteForm, setInviteForm] = useState<{
     email: string;
     companyName: string;
@@ -187,19 +192,33 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
   );
 
   const runAction = useCallback(
-    async (companyId: string, action: "extend_trial" | "change_plan" | "cancel", planKey?: PaidPlanKey) => {
+    async (
+      companyId: string,
+      action: "extend_trial" | "change_plan" | "cancel",
+      planKey?: PaidPlanKey,
+      trialExtra?: { days?: number; preset?: string; internal_note?: string | null }
+    ) => {
       setActionLoading(`${companyId}-${action}`);
       try {
         const h = await authHeaders();
         const res = await fetch("/api/superadmin/company", {
           method: "POST",
           headers: { ...h, "Content-Type": "application/json" },
-          body: JSON.stringify({ companyId, action, planKey }),
+          body: JSON.stringify({
+            companyId,
+            action,
+            planKey,
+            ...(action === "extend_trial" && trialExtra ? trialExtra : {}),
+          }),
         });
         if (!res.ok) {
           const j = (await res.json()) as { error?: string };
           setError(j.error ?? PM_EN.register_error_generic);
           return;
+        }
+        if (action === "extend_trial") {
+          showToast("success", l("superadmin_extend_toast_ok"));
+          setExtendTrialOpen(false);
         }
         await load();
         if (detailId === companyId) void openDetail(companyId);
@@ -207,7 +226,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         setActionLoading(null);
       }
     },
-    [detailId, load, openDetail]
+    [detailId, load, openDetail, l, showToast]
   );
 
   const sendInvite = useCallback(async () => {
@@ -730,7 +749,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
 
       {detailId && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
+          <div className="w-full sm:max-w-2xl max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex justify-between gap-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {l("superadmin_detail")}
@@ -766,7 +785,11 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                   <button
                     type="button"
                     disabled={!!actionLoading}
-                    onClick={() => void runAction(detailId, "extend_trial")}
+                    onClick={() => {
+                      setExtendDays(30);
+                      setExtendNote("");
+                      setExtendTrialOpen(true);
+                    }}
                     className="min-h-[44px] rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium text-sm"
                   >
                     {l("superadmin_extend_trial")}
@@ -794,6 +817,44 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     {l("superadmin_cancel")}
                   </button>
                 </div>
+                {detailData.audits.filter((a) => String(a.action) === "superadmin_trial_extended").length > 0 ? (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      {l("superadmin_extend_history")}
+                    </h4>
+                    <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-2 max-h-36 overflow-y-auto">
+                      {detailData.audits
+                        .filter((a) => String(a.action) === "superadmin_trial_extended")
+                        .map((a) => {
+                          const rawNv = a.new_value;
+                          let nv: Record<string, unknown> | undefined;
+                          if (rawNv && typeof rawNv === "object" && !Array.isArray(rawNv)) {
+                            nv = rawNv as Record<string, unknown>;
+                          } else if (typeof rawNv === "string") {
+                            try {
+                              const p = JSON.parse(rawNv) as unknown;
+                              nv = p && typeof p === "object" && !Array.isArray(p) ? (p as Record<string, unknown>) : undefined;
+                            } catch {
+                              nv = undefined;
+                            }
+                          }
+                          const days =
+                            typeof nv?.days_added === "number"
+                              ? nv.days_added
+                              : typeof nv?.days_added === "string"
+                                ? nv.days_added
+                                : "";
+                          return (
+                            <li key={String(a.id)} className="border-b border-gray-100 dark:border-gray-700 pb-1">
+                              {a.created_at ? new Date(String(a.created_at)).toLocaleString() : ""}
+                              {days !== "" ? ` · +${days} ${l("superadmin_extend_days_short")}` : ""}
+                              {nv?.internal_note ? ` · ${String(nv.internal_note).slice(0, 80)}` : ""}
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  </div>
+                ) : null}
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     {l("superadmin_users_tab")}
@@ -824,6 +885,85 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
           </div>
         </div>
       )}
+
+      {detailId && extendTrialOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setExtendTrialOpen(false)}
+          role="presentation"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+            role="dialog"
+            aria-modal
+          >
+            <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">{l("superadmin_extend_trial")}</h4>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{l("superadmin_extend_days")}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {([30, 60, 90] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setExtendDays(d)}
+                  className={`min-h-[40px] flex-1 rounded-lg border px-3 text-sm font-semibold ${
+                    extendDays === d
+                      ? "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                      : "border-gray-300 text-gray-800 dark:border-gray-600 dark:text-gray-200"
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setExtendDays(90);
+                void runAction(detailId, "extend_trial", undefined, {
+                  preset: "beta_founder_90",
+                  internal_note: extendNote.trim() || null,
+                });
+              }}
+              disabled={!!actionLoading}
+              className="mt-3 w-full min-h-[44px] rounded-xl border border-amber-700 bg-amber-50 text-sm font-semibold text-amber-950 hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-950/30 dark:text-amber-100 disabled:opacity-50"
+            >
+              {l("superadmin_extend_beta_founder")}
+            </button>
+            <label className="mt-4 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              {l("superadmin_extend_note_label")}
+              <textarea
+                value={extendNote}
+                onChange={(e) => setExtendNote(e.target.value)}
+                rows={3}
+                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              />
+            </label>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                disabled={!!actionLoading}
+                onClick={() =>
+                  void runAction(detailId, "extend_trial", undefined, {
+                    days: extendDays,
+                    internal_note: extendNote.trim() || null,
+                  })
+                }
+                className="min-h-[44px] flex-1 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+              >
+                {l("superadmin_extend_confirm")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setExtendTrialOpen(false)}
+                className="min-h-[44px] flex-1 rounded-xl border border-gray-300 text-sm font-medium text-gray-800 dark:border-gray-600 dark:text-gray-200"
+              >
+                {l("cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

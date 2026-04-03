@@ -16,6 +16,8 @@ export async function PATCH(req: NextRequest) {
     phone?: string | null;
     email?: string | null;
     website?: string | null;
+    industry?: string | null;
+    company_size?: string | null;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -51,6 +53,8 @@ export async function PATCH(req: NextRequest) {
   if ("phone" in body) patch.phone = strOrNull(body.phone);
   if ("email" in body) patch.email = strOrNull(body.email);
   if ("website" in body) patch.website = strOrNull(body.website);
+  if ("industry" in body) patch.industry = strOrNull(body.industry);
+  if ("company_size" in body) patch.company_size = strOrNull(body.company_size);
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

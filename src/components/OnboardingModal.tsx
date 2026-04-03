@@ -5,8 +5,6 @@ import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { TextWithBrandMarks } from "@/components/BrandWordmark";
 import { Check, ChevronLeft } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
-import type { CustomRole } from "@/types/roles";
-import { pickDefaultWorkerRoleId } from "@/types/roles";
 import type { Language } from "@/types/shared";
 import { CURRENCY_META, type Currency } from "@/lib/i18n";
 import { IANA_TIMEZONE_OPTIONS, resolveUserTimezone } from "@/lib/dateUtils";
@@ -71,6 +69,21 @@ const COUNTRIES = [
   { code: "TR", flag: "🇹🇷", name: "Türkiye" },
 ] as const;
 
+const ONBOARDING_INDUSTRY_OPTIONS = [
+  { value: "construction", labelKey: "onboarding_industry_construction" },
+  { value: "installation", labelKey: "onboarding_industry_installation" },
+  { value: "services", labelKey: "onboarding_industry_services" },
+  { value: "manufacturing", labelKey: "onboarding_industry_manufacturing" },
+  { value: "other", labelKey: "onboarding_industry_other" },
+] as const;
+
+const ONBOARDING_SIZE_OPTIONS = [
+  { value: "1-10", labelKey: "onboarding_size_1_10" },
+  { value: "11-50", labelKey: "onboarding_size_11_50" },
+  { value: "51-200", labelKey: "onboarding_size_51_200" },
+  { value: "201+", labelKey: "onboarding_size_201_plus" },
+] as const;
+
 const TZ_BY_COUNTRY: Record<string, string> = {
   CA: "America/Toronto",
   US: "America/New_York",
@@ -110,7 +123,6 @@ export interface OnboardingModalProps {
   currency: Currency;
   measurementSystem: "metric" | "imperial";
   logoUrl: string;
-  customRoles: CustomRole[];
   onCompanyNameChange: (v: string) => void;
   onCountryChange: (country: string, defaults?: { currency: string; measurementSystem: "metric" | "imperial" }) => void;
   onCurrencyChange: (c: Currency) => void;
@@ -149,7 +161,6 @@ export function OnboardingModal({
   currency,
   measurementSystem,
   logoUrl,
-  customRoles,
   onCompanyNameChange,
   onCountryChange,
   onCurrencyChange,
@@ -188,19 +199,8 @@ export function OnboardingModal({
     setStep1Tz(resolveUserTimezone(profileTimeZone));
   }, [profileTimeZone]);
 
-  const roleOptions = useMemo(() => customRoles.filter((r) => r.id !== "role-admin"), [customRoles]);
-  const defaultRoleId = useMemo(() => {
-    const id = pickDefaultWorkerRoleId(roleOptions.length ? roleOptions : customRoles);
-    return id || roleOptions[0]?.id || customRoles[0]?.id || "";
-  }, [customRoles, roleOptions]);
-
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRoleId, setInviteRoleId] = useState(defaultRoleId);
-
-  useEffect(() => {
-    setInviteRoleId(defaultRoleId);
-  }, [defaultRoleId]);
+  const [step2Industry, setStep2Industry] = useState("");
+  const [step2Size, setStep2Size] = useState("");
 
   const [projName, setProjName] = useState("");
   const [projLocation, setProjLocation] = useState("");
@@ -239,6 +239,16 @@ export function OnboardingModal({
     setPhase("wizard");
     setWizardStep(1);
   }, []);
+
+  const skipEntireOnboarding = useCallback(async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await onComplete();
+    } finally {
+      setBusy(false);
+    }
+  }, [onComplete]);
 
   const saveStep1AndNext = useCallback(async () => {
     setError(null);
@@ -325,15 +335,9 @@ export function OnboardingModal({
     onUserTimezoneSaved,
   ]);
 
-  const sendInviteAndNext = useCallback(async () => {
+  const saveStep2AndNext = useCallback(async () => {
     setError(null);
-    const mail = inviteEmail.trim().toLowerCase();
-    const nm = inviteName.trim();
-    if (!mail || !nm) {
-      setError(lx.register_error_generic ?? "");
-      return;
-    }
-    if (!companyId || !inviteRoleId) {
+    if (!companyId) {
       setError(lx.register_error_generic ?? "");
       return;
     }
@@ -341,17 +345,15 @@ export function OnboardingModal({
     if (!h) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/employees/create", {
-        method: "POST",
+      const patch: Record<string, unknown> = {
+        companyId,
+        industry: step2Industry.trim() || null,
+        company_size: step2Size.trim() || null,
+      };
+      const res = await fetch("/api/onboarding/company", {
+        method: "PATCH",
         headers: h,
-        body: JSON.stringify({
-          companyId,
-          fullName: nm,
-          email: mail,
-          customRoleId: inviteRoleId,
-          profileStatus: "active",
-          useRolePermissions: true,
-        }),
+        body: JSON.stringify(patch),
       });
       const raw = await res.text();
       let j: { error?: string } = {};
@@ -368,7 +370,7 @@ export function OnboardingModal({
     } finally {
       setBusy(false);
     }
-  }, [inviteEmail, inviteName, companyId, inviteRoleId, authHeader, lx.register_error_generic]);
+  }, [companyId, authHeader, step2Industry, step2Size, lx.register_error_generic]);
 
   const skipToStep3 = useCallback(() => {
     setError(null);
@@ -477,11 +479,16 @@ export function OnboardingModal({
               </div>
               <h2 id="onboarding-title" className="text-xl font-bold text-zinc-900 dark:text-white sm:text-2xl">
                 <TextWithBrandMarks
-                  text={lx.onboarding_welcome_title ?? ""}
+                  text={lx.onboarding_welcome ?? lx.onboarding_welcome_title ?? ""}
                   tone="onLight"
                   className="contents"
                 />
               </h2>
+              {companyName.trim() ? (
+                <p className="text-base font-semibold text-zinc-800 dark:text-zinc-200 max-w-sm mx-auto">
+                  {companyName.trim()}
+                </p>
+              ) : null}
               <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-sm mx-auto">
                 {lx.onboarding_welcome_subtitle ?? ""}
               </p>
@@ -491,6 +498,14 @@ export function OnboardingModal({
                 className="mt-2 w-full min-h-[44px] rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-500 transition-colors"
               >
                 {lx.onboarding_start ?? ""}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void skipEntireOnboarding()}
+                className="w-full min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                {lx.onboarding_skip_all ?? lx.onboarding_skip ?? ""}
               </button>
             </div>
           </>
@@ -526,6 +541,16 @@ export function OnboardingModal({
                     </div>
                   );
                 })}
+              </div>
+              <div className="mt-2 flex justify-center">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void skipEntireOnboarding()}
+                  className="text-xs font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-400 disabled:opacity-50"
+                >
+                  {lx.onboarding_skip_all ?? ""}
+                </button>
               </div>
             </div>
 
@@ -630,36 +655,37 @@ export function OnboardingModal({
 
               {wizardStep === 2 ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">{lx.onboarding_invite_message ?? ""}</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">{lx.onboarding_step2_intro ?? ""}</p>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{lx.email ?? ""}</label>
-                    <input
-                      type="email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
+                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                      {lx.onboarding_sector_label ?? ""}
+                    </label>
+                    <select
+                      value={step2Industry}
+                      onChange={(e) => setStep2Industry(e.target.value)}
                       className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{lx.name ?? ""}</label>
-                    <input
-                      value={inviteName}
-                      onChange={(e) => setInviteName(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
-                    />
+                    >
+                      <option value="">{lx.onboarding_sector_placeholder ?? ""}</option>
+                      {ONBOARDING_INDUSTRY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {lx[opt.labelKey] ?? opt.value}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                      {lx.employees_role ?? lx.employees_assigned_role ?? ""}
+                      {lx.onboarding_company_size_label ?? ""}
                     </label>
                     <select
-                      value={inviteRoleId}
-                      onChange={(e) => setInviteRoleId(e.target.value)}
+                      value={step2Size}
+                      onChange={(e) => setStep2Size(e.target.value)}
                       className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                     >
-                      {(roleOptions.length ? roleOptions : customRoles).map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
+                      <option value="">{lx.onboarding_size_placeholder ?? ""}</option>
+                      {ONBOARDING_SIZE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {lx[opt.labelKey] ?? opt.value}
                         </option>
                       ))}
                     </select>
@@ -709,23 +735,33 @@ export function OnboardingModal({
 
             <div className="flex flex-col gap-2 border-t border-zinc-200 dark:border-slate-700 px-5 py-4">
               {wizardStep === 1 ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void saveStep1AndNext()}
-                  className="w-full min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
-                >
-                  {lx.onboarding_next ?? ""}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void saveStep1AndNext()}
+                    className="w-full min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    {lx.onboarding_next ?? ""}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void skipEntireOnboarding()}
+                    className="w-full min-h-[44px] rounded-xl border border-zinc-300 py-3 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200 disabled:opacity-50"
+                  >
+                    {lx.onboarding_skip_all ?? ""}
+                  </button>
+                </>
               ) : wizardStep === 2 ? (
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => void sendInviteAndNext()}
+                    onClick={() => void saveStep2AndNext()}
                     className="flex-1 min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
                   >
-                    {lx.onboarding_send_invite ?? ""}
+                    {lx.onboarding_next ?? ""}
                   </button>
                   <button
                     type="button"
@@ -757,6 +793,17 @@ export function OnboardingModal({
                 </div>
               )}
 
+              {wizardStep === 3 ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void skipEntireOnboarding()}
+                  className="w-full min-h-[44px] rounded-xl py-2.5 text-xs font-semibold text-amber-800 underline-offset-2 hover:underline dark:text-amber-300 disabled:opacity-50"
+                >
+                  {lx.onboarding_skip_all ?? ""}
+                </button>
+              ) : null}
+
               {wizardStep > 1 ? (
                 <button
                   type="button"
@@ -777,7 +824,12 @@ export function OnboardingModal({
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white">
               <Check className="h-8 w-8" aria-hidden />
             </div>
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{lx.onboarding_finish ?? ""}</h3>
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+              {lx.onboarding_finish_headline ?? lx.onboarding_finish_subtitle ?? ""}
+            </h3>
+            {companyName.trim() ? (
+              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{companyName.trim()}</p>
+            ) : null}
             <p className="text-sm text-zinc-600 dark:text-zinc-400">{lx.onboarding_finish_subtitle ?? ""}</p>
             <button
               type="button"
@@ -785,7 +837,7 @@ export function OnboardingModal({
               onClick={() => void finalizeOnboarding()}
               className="w-full min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
             >
-              {lx.onboarding_done_cta ?? lx.next ?? ""}
+              {lx.onboarding_finish ?? lx.onboarding_done_cta ?? lx.next ?? ""}
             </button>
           </div>
         )}

@@ -44,6 +44,7 @@ import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { ModuleHelpFab } from "@/components/ModuleHelpFab";
+import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/Toast";
 import type { AuthChangeEvent, PostgrestResponse, Session } from "@supabase/supabase-js";
@@ -1066,27 +1067,6 @@ export default function Home() {
     })();
   }, [supabase, companyId, session]);
 
-  const completeOnboarding = useCallback(async () => {
-    setOnboardingComplete(true);
-    try {
-      localStorage.setItem(ONBOARDING_LS_KEY, "true");
-    } catch {
-      /* ignore */
-    }
-    const token = session?.access_token;
-    if (token && companyId) {
-      try {
-        await fetch("/api/onboarding/complete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ companyId }),
-        });
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [session?.access_token, companyId]);
-
   const handleLogoUpload = useCallback(() => {
     if (typeof window === "undefined") return;
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -1126,6 +1106,29 @@ export default function Home() {
   const [fabIncidentNotes, setFabIncidentNotes] = useState<string>("");
 
   const [activeSection, setActiveSection] = useState<MainSection>("office");
+
+  const completeOnboarding = useCallback(async () => {
+    setOnboardingComplete(true);
+    setActiveSection("office");
+    try {
+      localStorage.setItem(ONBOARDING_LS_KEY, "true");
+    } catch {
+      /* ignore */
+    }
+    const token = session?.access_token;
+    if (token && companyId) {
+      try {
+        await fetch("/api/onboarding/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ companyId }),
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [session?.access_token, companyId, setActiveSection]);
+
   const [operationsMainTab, setOperationsMainTab] = useState<"projects" | "subcontractors">("projects");
   const [correctivePrefill, setCorrectivePrefill] = useState<CorrectiveActionsPrefill | null>(null);
   const [focusHazardId, setFocusHazardId] = useState<string | null>(null);
@@ -1811,15 +1814,15 @@ export default function Home() {
       setTeamProfiles(
         activeRows.map((row: Record<string, unknown>) => {
           const id = String(row.id ?? "");
-          const fn = typeof row.full_name === "string" ? row.full_name.trim() : "";
-          const dn = typeof row.display_name === "string" ? row.display_name.trim() : "";
-          const em = typeof row.email === "string" ? row.email.trim() : "";
-          const name = fn || dn || em || "";
+          const fn = typeof row.full_name === "string" ? row.full_name : undefined;
+          const dn = typeof row.display_name === "string" ? row.display_name : undefined;
+          const em = typeof row.email === "string" ? row.email : undefined;
+          const name = displayNameFromProfile(fn, dn, em);
           return {
             id,
             employeeId: row.employee_id != null ? String(row.employee_id) : null,
-            name,
-            email: em || undefined,
+            name: name || id,
+            email: typeof em === "string" ? em.trim() || undefined : undefined,
           };
         })
       );
@@ -2926,17 +2929,7 @@ export default function Home() {
     [supabase, companyId, user?.id]
   );
 
-  const vacationEmployeeNames = useMemo(() => {
-    const out: Record<string, string> = {};
-    for (const req of vacationRequests) {
-      const eid = userToEmployeeMap[req.user_id];
-      const name = eid ? employees.find((e) => e.id === eid)?.name : undefined;
-      out[req.user_id] = name ?? "—";
-    }
-    return out;
-  }, [vacationRequests, userToEmployeeMap, employees]);
-
-  /** Resuelve nombres en turnos (IDs de perfil, employee_id legacy, o demo e1/e2). */
+  /** Resuelve nombres en turnos (IDs de perfil, employee_id legacy, o demo e1/e2). Perfil MachinPro gana sobre nombre de employee. */
   const scheduleEmployeeLabels = useMemo(() => {
     const m: Record<string, string> = {};
     for (const e of INITIAL_EMPLOYEES) {
@@ -2948,15 +2941,28 @@ export default function Home() {
       m[e.id] = nm || em || e.id;
     }
     for (const p of teamProfiles) {
-      const lbl =
-        (p.name ?? "").trim() ||
-        (p.email ?? "").trim() ||
-        p.id;
+      const lbl = (p.name ?? "").trim() || (p.email ? displayNameFromProfile(null, null, p.email) : "") || p.id;
       m[p.id] = lbl;
       if (p.employeeId) m[p.employeeId] = lbl;
     }
     return m;
   }, [activeEmployees, teamProfiles]);
+
+  const vacationEmployeeNames = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const req of vacationRequests) {
+      const uid = req.user_id;
+      const byProfile = teamProfiles.find((p) => p.id === uid);
+      const eid = userToEmployeeMap[uid];
+      const label =
+        (byProfile?.name ?? "").trim() ||
+        scheduleEmployeeLabels[uid] ||
+        (eid ? scheduleEmployeeLabels[eid] : undefined) ||
+        (eid ? employees.find((e) => e.id === eid)?.name : undefined);
+      out[uid] = (label && String(label).trim()) || "—";
+    }
+    return out;
+  }, [vacationRequests, userToEmployeeMap, employees, teamProfiles, scheduleEmployeeLabels]);
 
   const employeeShiftModalModel = useMemo(() => {
     if (!employeeShiftDayOpen) return null;
@@ -3498,7 +3504,6 @@ export default function Home() {
           currency={currency}
           measurementSystem={measurementSystem}
           logoUrl={logoUrl}
-          customRoles={customRoles}
           onCompanyNameChange={setCompanyName}
           onCountryChange={(country, defaults) => {
             setCompanyCountry(country);

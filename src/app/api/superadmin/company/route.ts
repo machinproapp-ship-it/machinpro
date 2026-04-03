@@ -9,6 +9,10 @@ type Body = {
   companyId: string;
   action: "extend_trial" | "change_plan" | "cancel";
   planKey?: PaidPlanKey | string;
+  /** Days to add to current trial end (or from now if no trial). Capped server-side. */
+  days?: number;
+  preset?: string;
+  internal_note?: string | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -35,7 +39,13 @@ export async function POST(req: NextRequest) {
   const { data: sub } = await admin.from("subscriptions").select("*").eq("company_id", companyId).maybeSingle();
 
   if (action === "extend_trial") {
-    const extraDays = 14;
+    let extraDays = 14;
+    if (body.preset === "beta_founder_90") {
+      extraDays = 90;
+    } else if (typeof body.days === "number" && Number.isFinite(body.days)) {
+      const n = Math.floor(body.days);
+      if (n > 0 && n <= 365) extraDays = n;
+    }
     const base = sub?.trial_ends_at ? new Date(sub.trial_ends_at as string) : new Date();
     const end = new Date(base.getTime() + extraDays * 86400000).toISOString();
     const lim = getLimitsForPlan("esencial");
@@ -53,6 +63,7 @@ export async function POST(req: NextRequest) {
         geo_tier: 1,
       });
     }
+    const note = typeof body.internal_note === "string" ? body.internal_note.trim() || null : null;
     await admin.from("audit_logs").insert({
       company_id: companyId,
       user_id: auth.userId,
@@ -60,9 +71,14 @@ export async function POST(req: NextRequest) {
       action: "superadmin_trial_extended",
       entity_type: "company",
       entity_id: companyId,
-      new_value: { trial_ends_at: end },
+      new_value: {
+        trial_ends_at: end,
+        days_added: extraDays,
+        preset: body.preset ?? null,
+        internal_note: note,
+      },
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, trial_ends_at: end, days_added: extraDays });
   }
 
   if (action === "change_plan") {

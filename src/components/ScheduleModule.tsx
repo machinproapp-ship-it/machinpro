@@ -467,7 +467,8 @@ function TimesheetsView({
   const CIRCLE_R = 20;
   const CIRCLE_C = 2 * Math.PI * CIRCLE_R;
 
-  const getEmployeeName = (id: string) => employees.find((e) => e.id === id)?.name ?? id;
+  const getEmployeeName = (id: string) =>
+    employeeLabels[id] || employees.find((e) => e.id === id)?.name || id;
 
   const exportTimesheetsCsv = () => {
     const lx = labels as Record<string, string>;
@@ -538,7 +539,9 @@ function TimesheetsView({
           >
             <option value="">{(labels as Record<string, string>).personnel ?? "Todos"}</option>
             {employees.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
+              <option key={e.id} value={e.id}>
+                {employeeLabels[e.id] || e.name}
+              </option>
             ))}
           </select>
         )}
