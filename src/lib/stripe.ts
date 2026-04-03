@@ -113,7 +113,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     annual: { priceId: "price_1THiu4HskIYiyc3EH98ZjVsN" },
     seats: 15,
     projects: null,
-    storageGb: 10,
+    storageGb: 15,
     usersDescriptionKey: "plan_users_esencial",
     featureKeys: [
       "pricing_feat_esencial_1",
@@ -141,7 +141,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     annual: { priceId: "price_1THiw2HskIYiyc3EXSUNCS3E" },
     seats: 30,
     projects: null,
-    storageGb: 10,
+    storageGb: 30,
     usersDescriptionKey: "plan_users_logistica",
     featureKeys: [
       "pricing_feat_logistica_1",
@@ -155,7 +155,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     annual: { priceId: "price_1THiwsHskIYiyc3Eg2DrbW1m" },
     seats: 999_999,
     projects: null,
-    storageGb: 50,
+    storageGb: 200,
     usersDescriptionKey: "plan_users_todo_incluido",
     featureKeys: ["pricing_feat_all_1", "pricing_feat_all_2", "pricing_feat_all_3"],
   },
@@ -197,7 +197,14 @@ export function getLimitsForPlan(plan: PlanKey | string | null | undefined): {
   projects_limit: number;
   storage_limit_gb: number;
 } {
-  const raw = (plan ?? "esencial").toString();
+  const raw = (plan ?? "esencial").toString().toLowerCase();
+  if (raw === "trial") {
+    return {
+      seats_limit: 999_999,
+      projects_limit: 999_999,
+      storage_limit_gb: 999,
+    };
+  }
   const paidKey = LEGACY_LIMIT_KEY[raw] ?? "esencial";
   const p = PLANS[paidKey];
   return {

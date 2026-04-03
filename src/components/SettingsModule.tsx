@@ -25,9 +25,10 @@ import { LANGUAGES, CURRENCY_META, ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
 import {
   DEFAULT_IANA_TIMEZONE,
-  IANA_TIMEZONE_OPTIONS,
+  isValidIanaTimeZone,
   resolveUserTimezone,
 } from "@/lib/dateUtils";
+import { REGIONAL_TIMEZONE_GROUPS, allGroupedTimezones, cityLabelFromIana } from "@/lib/regionalTimezones";
 import type { ComplianceField, ComplianceFieldType, ComplianceTarget } from "@/app/page";
 
 const COUNTRY_DEFAULTS: Record<
@@ -145,6 +146,9 @@ export interface SettingsModuleProps {
   onPersistUserTimeZone?: (tz: string) => void | Promise<void>;
   /** Increment to open the Help & tutorials section (e.g. from module help on mobile). */
   focusHelpSectionSignal?: number;
+  /** Theme control (moved from app header). */
+  darkMode?: boolean;
+  onDarkModeChange?: (dark: boolean) => void;
 }
 
 export function SettingsModule({
@@ -197,6 +201,8 @@ export function SettingsModule({
   savedProfileTimeZone = null,
   onPersistUserTimeZone,
   focusHelpSectionSignal = 0,
+  darkMode = false,
+  onDarkModeChange,
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -209,6 +215,15 @@ export function SettingsModule({
   const [prefHazard, setPrefHazard] = useState(true);
   const [prefAction, setPrefAction] = useState(true);
   const [prefVisitor, setPrefVisitor] = useState(true);
+  const [prefNewEmployees, setPrefNewEmployees] = useState(true);
+  const [prefVacationReq, setPrefVacationReq] = useState(true);
+  const [prefDailyReports, setPrefDailyReports] = useState(true);
+  const [prefNewVisitors, setPrefNewVisitors] = useState(true);
+  const [prefUserLimit, setPrefUserLimit] = useState(true);
+  const [dateFormat, setDateFormat] = useState<string>("dmy");
+  const [timeFormat, setTimeFormat] = useState<string>("24");
+  const [weekStart, setWeekStart] = useState<string>("monday");
+  const [numberFormat, setNumberFormat] = useState<string>("comma_decimal");
 
   type SettingsSectionId =
     | "general"
@@ -254,6 +269,15 @@ export function SettingsModule({
     setPrefHazard(localStorage.getItem("machinpro_push_hazard") !== "0");
     setPrefAction(localStorage.getItem("machinpro_push_action") !== "0");
     setPrefVisitor(localStorage.getItem("machinpro_push_visitor") !== "0");
+    setPrefNewEmployees(localStorage.getItem("machinpro_push_new_employees") !== "0");
+    setPrefVacationReq(localStorage.getItem("machinpro_push_vacation_requests") !== "0");
+    setPrefDailyReports(localStorage.getItem("machinpro_push_daily_reports") !== "0");
+    setPrefNewVisitors(localStorage.getItem("machinpro_push_new_visitors") !== "0");
+    setPrefUserLimit(localStorage.getItem("machinpro_push_user_limit") !== "0");
+    setDateFormat(localStorage.getItem("machinpro_date_format") || "dmy");
+    setTimeFormat(localStorage.getItem("machinpro_time_format") || "24");
+    setWeekStart(localStorage.getItem("machinpro_week_start") || "monday");
+    setNumberFormat(localStorage.getItem("machinpro_number_format") || "comma_decimal");
   }, []);
 
   useEffect(() => {
@@ -319,11 +343,15 @@ export function SettingsModule({
     [onPersistUserTimeZone]
   );
 
-  const timezoneSelectOptions = useMemo(() => {
-    const base = [...IANA_TIMEZONE_OPTIONS];
-    if (regionalTimezone && !base.includes(regionalTimezone)) base.unshift(regionalTimezone);
-    return base;
-  }, [regionalTimezone]);
+  const groupedZoneList = useMemo(() => allGroupedTimezones(), []);
+
+  const persistLocalePref = useCallback((key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const handleCountryChange = (country: string) => {
     const defaults = COUNTRY_DEFAULTS[country];
@@ -347,11 +375,11 @@ export function SettingsModule({
         >
           {(
             [
-              ["general", tl.settingsGeneral ?? t.tabGeneral ?? ""] as const,
+              ["general", tl.settings_general_title ?? tl.settingsGeneral ?? t.tabGeneral ?? ""] as const,
               ["profile", tl.settingsProfile ?? ""] as const,
               ["company", tl.settingsCompany ?? ""] as const,
               ["notifications", tl.settingsNotifications ?? ""] as const,
-              ["regional", tl.settingsRegional ?? ""] as const,
+              ["regional", tl.settings_regional_title ?? tl.settingsRegional ?? ""] as const,
               ["compliance", tl.settingsCompliance ?? ""] as const,
               ["billing", tl.settingsBilling ?? ""] as const,
               ["help", tl.helpAndTutorials ?? ""] as const,
@@ -360,7 +388,7 @@ export function SettingsModule({
             .filter(([id]) => {
               if (id === "company") return canEditCompanyProfile;
               if (id === "notifications") return !!(session?.access_token && companyId);
-              if (id === "regional") return canManageRegionalConfig;
+              if (id === "regional") return canManageRegionalConfig || canEditCompanyProfile;
               if (id === "compliance") return canManageCompliance && settingsWideNav;
               if (id === "billing") return showBillingSection && !!billingSection;
               return true;
@@ -411,7 +439,7 @@ export function SettingsModule({
           {activeSettingsSection === "general" && (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {tl.settingsGeneral ?? t.tabGeneral ?? ""}
+                {tl.settings_general_title ?? tl.settingsGeneral ?? t.tabGeneral ?? ""}
               </h3>
               {autoSetupMessage && (
                 <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
@@ -419,15 +447,104 @@ export function SettingsModule({
                 </div>
               )}
 
+          {onDarkModeChange ? (
+            <div>
+              <span className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                {tl.settings_theme_label ?? "Theme"}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onDarkModeChange(true)}
+                  className={`min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium ${
+                    darkMode
+                      ? "border-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
+                      : "border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200"
+                  }`}
+                >
+                  {(t as Record<string, string>).darkMode ?? "Dark"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDarkModeChange(false)}
+                  className={`min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium ${
+                    !darkMode
+                      ? "border-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
+                      : "border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200"
+                  }`}
+                >
+                  {(t as Record<string, string>).lightMode ?? "Light"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div>
-            <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.measurementSystem}</label>
+            <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              {tl.settings_measurement ?? t.measurementSystem}
+            </label>
             <select
               value={measurementSystem}
               onChange={(e) => setMeasurementSystem(e.target.value as "metric" | "imperial")}
               className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
             >
-              <option value="metric">{t.settingsMetric ?? "Metric"}</option>
-              <option value="imperial">{t.settingsImperial ?? "Imperial"}</option>
+              <option value="metric">{tl.settings_metric ?? t.settingsMetric ?? "Metric"}</option>
+              <option value="imperial">{tl.settings_imperial ?? t.settingsImperial ?? "Imperial"}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              {tl.settings_date_format ?? "Date format"}
+            </label>
+            <select
+              value={dateFormat}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDateFormat(v);
+                persistLocalePref("machinpro_date_format", v);
+              }}
+              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+            >
+              <option value="dmy">DD/MM/YYYY</option>
+              <option value="mdy">MM/DD/YYYY</option>
+              <option value="ymd">YYYY-MM-DD</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              {tl.settings_time_format ?? "Time format"}
+            </label>
+            <select
+              value={timeFormat}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTimeFormat(v);
+                persistLocalePref("machinpro_time_format", v);
+              }}
+              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+            >
+              <option value="24">{tl.settings_time_24 ?? "24h"}</option>
+              <option value="12">{tl.settings_time_12 ?? "12h"}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              {tl.settings_week_start ?? "First day of week"}
+            </label>
+            <select
+              value={weekStart}
+              onChange={(e) => {
+                const v = e.target.value;
+                setWeekStart(v);
+                persistLocalePref("machinpro_week_start", v);
+              }}
+              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+            >
+              <option value="monday">{tl.settings_monday ?? "Monday"}</option>
+              <option value="sunday">{tl.settings_sunday ?? "Sunday"}</option>
             </select>
           </div>
 
@@ -671,6 +788,46 @@ export function SettingsModule({
                     </span>
                   </label>
                 ) : null}
+                {(
+                  [
+                    [prefNewEmployees, setPrefNewEmployees, "machinpro_push_new_employees", "notif_new_employees"] as const,
+                    [prefVacationReq, setPrefVacationReq, "machinpro_push_vacation_requests", "notif_vacation_requests"] as const,
+                    [prefDailyReports, setPrefDailyReports, "machinpro_push_daily_reports", "notif_daily_reports"] as const,
+                    [prefNewVisitors, setPrefNewVisitors, "machinpro_push_new_visitors", "notif_new_visitors"] as const,
+                    [prefUserLimit, setPrefUserLimit, "machinpro_push_user_limit", "notif_user_limit"] as const,
+                  ] as const
+                ).map(([checked, setSt, storageKey, labelKey]) => (
+                  <label
+                    key={storageKey}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px] cursor-pointer"
+                  >
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">{tl[labelKey] ?? labelKey}</span>
+                    <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={(ev) => {
+                          const on = ev.target.checked;
+                          try {
+                            localStorage.setItem(storageKey, on ? "1" : "0");
+                          } catch {
+                            /* ignore */
+                          }
+                          setSt(on);
+                        }}
+                      />
+                      <span
+                        className={`relative h-7 w-12 rounded-full transition-colors ${checked ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
+                        aria-hidden
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[22px]" : ""}`}
+                        />
+                      </span>
+                    </span>
+                  </label>
+                ))}
               </div>
             </section>
             </div>
@@ -681,37 +838,8 @@ export function SettingsModule({
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
                 {tl.settingsCompany ?? ""}
               </h3>
-              <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.countryRegion ?? "Country / Region"}</label>
-                <select
-                  value={companyCountry}
-                  onChange={(e) => handleCountryChange(e.target.value)}
-                  className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.flag} {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.currency}</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
-                >
-                  {Object.entries(CURRENCY_META).map(([code, meta]) => (
-                    <option key={code} value={code}>
-                      {meta.symbol} — {code}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <section className="pt-4 border-t border-zinc-200 dark:border-slate-700">
+              <section className="pt-0">
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{t.companyIdentity ?? "Company identity"}</h3>
                 <div className="space-y-4">
                   <div>
@@ -815,30 +943,96 @@ export function SettingsModule({
             </div>
           ) : null}
 
-          {activeSettingsSection === "regional" && canManageRegionalConfig ? (
+          {activeSettingsSection === "regional" && (canManageRegionalConfig || canEditCompanyProfile) ? (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {tl.settingsRegional ?? ""}
+                {tl.settings_regional_title ?? tl.settingsRegional ?? ""}
               </h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 {tl.settings_regional_advanced_hint ?? ""}
               </p>
-              <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  {tl.settingsTimezone ?? "Time zone"}
-                </label>
-                <select
-                  value={regionalTimezone}
-                  onChange={(e) => handleRegionalTimezoneChange(e.target.value)}
-                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
-                >
-                  {timezoneSelectOptions.map((z) => (
-                    <option key={z} value={z}>
-                      {z.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
+
+              {canEditCompanyProfile ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                      {t.countryRegion ?? "Country / Region"}
+                    </label>
+                    <select
+                      value={companyCountry}
+                      onChange={(e) => handleCountryChange(e.target.value)}
+                      className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                    >
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.currency}</label>
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                    >
+                      {Object.entries(CURRENCY_META).map(([code, meta]) => (
+                        <option key={code} value={code}>
+                          {meta.symbol} — {code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                      {tl.settings_number_format ?? "Number format"}
+                    </label>
+                    <select
+                      value={numberFormat}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNumberFormat(v);
+                        persistLocalePref("machinpro_number_format", v);
+                      }}
+                      className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                    >
+                      <option value="comma_decimal">1.000,00</option>
+                      <option value="comma_thousands">1,000.00</option>
+                    </select>
+                  </div>
+                </>
+              ) : null}
+
+              {canManageRegionalConfig ? (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                    {tl.settingsTimezone ?? "Time zone"}
+                  </label>
+                  <select
+                    value={regionalTimezone}
+                    onChange={(e) => handleRegionalTimezoneChange(e.target.value)}
+                    className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                  >
+                    {regionalTimezone &&
+                    isValidIanaTimeZone(regionalTimezone) &&
+                    !groupedZoneList.includes(regionalTimezone) ? (
+                      <option value={regionalTimezone}>
+                        {cityLabelFromIana(regionalTimezone)} ({tl.settings_tz_custom ?? "Custom"})
+                      </option>
+                    ) : null}
+                    {REGIONAL_TIMEZONE_GROUPS.map((g) => (
+                      <optgroup key={g.labelKey} label={tl[g.labelKey] ?? g.labelKey}>
+                        {g.zones.map((z) => (
+                          <option key={z} value={z}>
+                            {cityLabelFromIana(z)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

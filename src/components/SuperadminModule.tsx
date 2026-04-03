@@ -6,6 +6,7 @@ import { PAID_PLAN_ORDER, type PaidPlanKey } from "@/lib/stripe";
 import type { Invitation, InvitationPlan } from "@/types/invitation";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { useToast } from "@/components/Toast";
+import { getAuditActionLabel } from "@/lib/auditDisplay";
 
 const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
@@ -885,7 +886,14 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                   <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-2 max-h-40 overflow-y-auto">
                     {detailData.audits.map((a) => (
                       <li key={String(a.id)} className="border-b border-gray-100 dark:border-gray-700 pb-1">
-                        <span className="font-medium">{String(a.action)}</span> · {String(a.user_name ?? "")} ·{" "}
+                        <span className="font-medium">
+                          {getAuditActionLabel(
+                            String(a.action),
+                            typeof a.entity_type === "string" ? a.entity_type : null,
+                            { ...PM_EN, ...(t as Record<string, string>) }
+                          )}
+                        </span>{" "}
+                        · {String(a.user_name ?? "")} ·{" "}
                         {a.created_at ? new Date(String(a.created_at)).toLocaleString() : ""}
                       </li>
                     ))}

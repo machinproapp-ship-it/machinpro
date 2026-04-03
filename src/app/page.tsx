@@ -2180,7 +2180,7 @@ export default function Home() {
   // Inventario: formulario añadir/editar
   const [newItemFormOpen, setNewItemFormOpen] = useState(false);
   const [newItemName, setNewItemName] = useState("");
-  const [newItemCategory, setNewItemCategory] = useState<"consumable" | "tool" | "equipment" | "material">("material");
+  const [newItemCategory, setNewItemCategory] = useState<"consumable" | "tool" | "equipment" | "material">("consumable");
   const [newItemSerialNumber, setNewItemSerialNumber] = useState("");
   const [newItemInternalId, setNewItemInternalId] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState("");
@@ -3182,7 +3182,7 @@ export default function Home() {
   function closeInventoryForm() {
     setNewItemFormOpen(false);
     setNewItemName("");
-    setNewItemCategory("material");
+    setNewItemCategory("consumable");
     setNewItemSerialNumber("");
     setNewItemInternalId("");
     setNewItemQuantity("");
@@ -3666,28 +3666,6 @@ export default function Home() {
                   ))}
                 </select>
               </label>
-              <button
-                type="button"
-                onClick={() => {
-                  const root = document.documentElement;
-                  const next = !root.classList.contains("dark");
-                  try {
-                    if (next) root.classList.add("dark");
-                    else root.classList.remove("dark");
-                    localStorage.setItem("machinpro_dark_mode", next ? "1" : "0");
-                  } catch {
-                    /* ignore */
-                  }
-                  setDarkMode(next);
-                }}
-                className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1 text-xs text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 min-h-[44px]"
-                aria-pressed={darkMode === true}
-                title={(darkMode ?? false) ? (t.lightMode ?? "Modo claro") : (t.darkMode ?? "Modo oscuro")}
-              >
-                {(darkMode ?? false)
-                  ? "☀️ " + (t.lightMode ?? "Modo claro")
-                  : "🌙 " + (t.darkMode ?? "Modo oscuro")}
-              </button>
               {session && (
                 <div className="flex items-center gap-2">
                   <span className="hidden sm:block">
@@ -4908,6 +4886,8 @@ export default function Home() {
                 savedProfileTimeZone={profile?.timezone ?? null}
                 onPersistUserTimeZone={(tz) => void applyUserTimezone(tz)}
                 focusHelpSectionSignal={settingsHelpFocusSignal}
+                darkMode={darkMode ?? false}
+                onDarkModeChange={(next) => setDarkMode(next)}
               />
               <ModuleHelpFab
                 moduleKey="settings"
@@ -5321,11 +5301,29 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.category ?? "Tipo"}</label>
-                <select value={editingInventoryId ? (editInventoryDraft?.type ?? "material") : newItemCategory} onChange={(e) => editingInventoryId ? setEditInventoryDraft((d) => d ? { ...d, type: e.target.value as InventoryItem["type"] } : d) : setNewItemCategory(e.target.value as InventoryItem["type"])} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
-                  <option value="consumable">{t.consumable ?? "Material"}</option>
+                <select
+                  value={
+                    editingInventoryId
+                      ? editInventoryDraft?.type === "material"
+                        ? "consumable"
+                        : (editInventoryDraft?.type ?? "consumable")
+                      : newItemCategory === "material"
+                        ? "consumable"
+                        : newItemCategory
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value as "consumable" | "tool" | "equipment";
+                    if (editingInventoryId) {
+                      setEditInventoryDraft((d) => (d ? { ...d, type: v } : d));
+                    } else {
+                      setNewItemCategory(v);
+                    }
+                  }}
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="consumable">{t.consumable ?? t.whTabMaterial ?? "Material"}</option>
                   <option value="tool">{t.whTabTools ?? "Herramientas"}</option>
-                  <option value="equipment">{t.equipment ?? "Equipo"}</option>
-                  <option value="material">{t.whTabMaterial ?? "Material"}</option>
+                  <option value="equipment">{t.equipment ?? "Equipamiento"}</option>
                 </select>
               </div>
               {((editingInventoryId ? editInventoryDraft?.type : newItemCategory) === "tool" || (editingInventoryId ? editInventoryDraft?.type : newItemCategory) === "equipment") && (

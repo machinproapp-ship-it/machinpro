@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyCanManageRoles } from "@/lib/verify-api-session";
+import { verifyCanManageEmployees } from "@/lib/verify-api-session";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 /**
@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "companyId and dashboard_config required" }, { status: 400 });
   }
 
-  const auth = await verifyCanManageRoles(req, companyId);
+  const auth = await verifyCanManageEmployees(req, companyId);
   if (!auth) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

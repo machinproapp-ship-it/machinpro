@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, ClipboardCheck, FolderOpen, ScrollText, Download } from "lucide-react";
 import type { UserRole } from "@/types/shared";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
-import { auditActionDescription } from "@/lib/auditActionLabel";
+import { getAuditActionLabel, getAuditEntityTypeLabel } from "@/lib/auditDisplay";
 import { Camera, Users, FileText, Shield } from "lucide-react";
 import type { Binder, BinderDocument } from "@/types/binders";
 import { HazardModule } from "@/components/HazardModule";
@@ -171,8 +171,10 @@ export function SecurityModule({
           timeStyle: "short",
         });
         const user = row.user_name ?? row.user_id ?? "—";
-        const action = auditActionDescription(row.action, t);
-        const entity = [row.entity_name ?? row.entity_id, row.entity_type].filter(Boolean).join(" · ");
+        const action = getAuditActionLabel(row.action, row.entity_type, t);
+        const entity = [row.entity_name ?? row.entity_id, getAuditEntityTypeLabel(row.entity_type, t)]
+          .filter(Boolean)
+          .join(" · ");
         let details = "";
         try {
           const payload: Record<string, unknown> = {};
@@ -308,75 +310,120 @@ export function SecurityModule({
                 </button>
               ) : null}
             </div>
-            <div className="overflow-x-auto">
+            <div>
               {auditLogs.length === 0 ? (
                 <p className="p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 italic">{t.auditNoLogs ?? ""}</p>
               ) : (
-                <table className="w-full min-w-[720px]">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50">
-                      <th className="w-12 py-3 px-2" aria-hidden />
-                      <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                        {t.auditWhen ?? t.date ?? ""}
-                      </th>
-                      <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                        {t.auditActionColumn ?? t.actions ?? ""}
-                      </th>
-                      <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                        {t.auditUserColumn ?? t.sessionRole ?? ""}
-                      </th>
-                      <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                        {t.auditEntityColumn ?? t.entity ?? ""}
-                      </th>
-                      <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                        {t.auditTypeColumn ?? t.category ?? ""}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <>
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full min-w-[720px]">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50">
+                          <th className="w-12 py-3 px-2" aria-hidden />
+                          <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                            {t.auditWhen ?? t.date ?? ""}
+                          </th>
+                          <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                            {t.auditActionColumn ?? t.actions ?? ""}
+                          </th>
+                          <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                            {t.auditUserColumn ?? t.sessionRole ?? ""}
+                          </th>
+                          <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                            {t.auditEntityColumn ?? t.entity ?? ""}
+                          </th>
+                          <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                            {t.auditTypeColumn ?? t.category ?? ""}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditLogs.map((row) => {
+                          const when = new Date(row.created_at).toLocaleString(auditLocale, {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          });
+                          const actionIcon = row.action.startsWith("photo_") ? (
+                            <Camera className="h-4 w-4 text-amber-600" aria-hidden />
+                          ) : row.action.startsWith("employee_") ? (
+                            <Users className="h-4 w-4 text-blue-600" aria-hidden />
+                          ) : row.action.startsWith("document_") ? (
+                            <FileText className="h-4 w-4 text-zinc-600" aria-hidden />
+                          ) : (
+                            <Shield className="h-4 w-4 text-zinc-500" aria-hidden />
+                          );
+                          return (
+                            <tr
+                              key={row.id}
+                              className="border-b border-zinc-100 dark:border-white/5 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30"
+                            >
+                              <td className="py-3 px-2">{actionIcon}</td>
+                              <td className="py-3 px-3 text-sm text-zinc-700 dark:text-zinc-200 whitespace-nowrap">{when}</td>
+                              <td className="py-3 px-3 text-sm text-zinc-800 dark:text-zinc-100">
+                                {getAuditActionLabel(row.action, row.entity_type, t)}
+                              </td>
+                              <td className="py-3 px-3 text-sm text-zinc-600 dark:text-zinc-300">
+                                {row.user_name ?? row.user_id ?? "—"}
+                              </td>
+                              <td
+                                className="py-3 px-3 text-sm text-zinc-700 dark:text-zinc-200 max-w-[200px] truncate"
+                                title={row.entity_name ?? row.entity_id}
+                              >
+                                {row.entity_name ?? row.entity_id}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                  {getAuditEntityTypeLabel(row.entity_type, t)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <ul className="md:hidden divide-y divide-zinc-100 dark:divide-white/10">
                     {auditLogs.map((row) => {
                       const when = new Date(row.created_at).toLocaleString(auditLocale, {
                         dateStyle: "short",
                         timeStyle: "short",
                       });
                       const actionIcon = row.action.startsWith("photo_") ? (
-                        <Camera className="h-4 w-4 text-amber-600" aria-hidden />
+                        <Camera className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
                       ) : row.action.startsWith("employee_") ? (
-                        <Users className="h-4 w-4 text-blue-600" aria-hidden />
+                        <Users className="h-4 w-4 shrink-0 text-blue-600" aria-hidden />
                       ) : row.action.startsWith("document_") ? (
-                        <FileText className="h-4 w-4 text-zinc-600" aria-hidden />
+                        <FileText className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
                       ) : (
-                        <Shield className="h-4 w-4 text-zinc-500" aria-hidden />
+                        <Shield className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
                       );
                       return (
-                        <tr
-                          key={row.id}
-                          className="border-b border-zinc-100 dark:border-white/5 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30"
-                        >
-                          <td className="py-3 px-2">{actionIcon}</td>
-                          <td className="py-3 px-3 text-sm text-zinc-700 dark:text-zinc-200 whitespace-nowrap">{when}</td>
-                          <td className="py-3 px-3 text-sm text-zinc-800 dark:text-zinc-100">
-                            {auditActionDescription(row.action, t)}
-                          </td>
-                          <td className="py-3 px-3 text-sm text-zinc-600 dark:text-zinc-300">
-                            {row.user_name ?? row.user_id ?? "—"}
-                          </td>
-                          <td
-                            className="py-3 px-3 text-sm text-zinc-700 dark:text-zinc-200 max-w-[200px] truncate"
-                            title={row.entity_name ?? row.entity_id}
-                          >
-                            {row.entity_name ?? row.entity_id}
-                          </td>
-                          <td className="py-3 px-3">
+                        <li key={row.id} className="p-4 flex gap-3">
+                          <div className="pt-0.5">{actionIcon}</div>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+                              {getAuditActionLabel(row.action, row.entity_type, t)}
+                            </p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              {(row.user_name ?? row.user_id ?? "—") + " · " + when}
+                            </p>
+                            {(row.entity_name ?? row.entity_id) ? (
+                              <p
+                                className="text-xs text-zinc-600 dark:text-zinc-300 truncate"
+                                title={row.entity_name ?? row.entity_id}
+                              >
+                                {row.entity_name ?? row.entity_id}
+                              </p>
+                            ) : null}
                             <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                              {row.entity_type}
+                              {getAuditEntityTypeLabel(row.entity_type, t)}
                             </span>
-                          </td>
-                        </tr>
+                          </div>
+                        </li>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </ul>
+                </>
               )}
             </div>
           </div>

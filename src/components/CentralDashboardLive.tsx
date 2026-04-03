@@ -46,6 +46,7 @@ import {
 } from "@/lib/centralDashboardCache";
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { useDismissOnEscape } from "@/hooks/useDismissOnEscape";
+import { useToast } from "@/components/Toast";
 import {
   dateLocaleForUser,
   resolveUserTimezone,
@@ -232,7 +233,7 @@ const WIDGET_LABEL_KEYS: Record<DashboardWidgetId, string> = {
   my_timeclock: "myClockIn",
   activity: "dashboard_widget_activity",
   compliance_alerts: "complianceWatchdog",
-  hazards: "dashboard_widget_hazards",
+  hazards: "hazards_title",
   visitors: "dashboard_widget_visitors",
   my_tasks: "myTasksToday",
   daily_report: "dailyReportToSign",
@@ -365,6 +366,7 @@ function CentralDashboardBody(
 
   const labels = labelsProp;
   const L = (key: string) => labels[key] ?? "";
+  const { showToast } = useToast();
 
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
   const dateLoc = dateLocaleForUser(language, countryCode);
@@ -499,19 +501,24 @@ function CentralDashboardBody(
           },
           body: JSON.stringify({ companyId, dashboard_config: payload }),
         });
-        if (!res.ok) return false;
+        if (!res.ok) {
+          showToast("error", L("dashboard_config_save_error") || L("toast_error") || "Could not save");
+          return false;
+        }
         clearCentralDashboardConfigCache();
         setResolvedConfig(next);
+        showToast("success", L("dashboard_config_saved") || L("push_saved") || "Saved");
         return true;
       } catch (e) {
         console.error("[CentralDashboard] persistConfig", e);
         setLoadErrors((prev) => [...prev, errMessage(e)]);
+        showToast("error", L("dashboard_config_save_error") || L("toast_error") || errMessage(e));
         return false;
       } finally {
         setSavingConfig(false);
       }
     },
-    [companyId, canManageEmployees]
+    [companyId, canManageEmployees, showToast, labels]
   );
 
   useEffect(() => {
@@ -920,7 +927,7 @@ function CentralDashboardBody(
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 text-sm font-semibold"
             >
               <Plus className="h-4 w-4 shrink-0" aria-hidden />
-              {L("dashboard_new_hazard")}
+              {L("new_hazard") || L("dashboard_new_hazard")}
             </button>
           );
         }
@@ -1500,7 +1507,7 @@ function CentralDashboardBody(
                 {QUICK_ACCESS_KEYS.map((k) => {
                   const labelKey =
                     k === "hazard"
-                      ? "dashboard_new_hazard"
+                      ? "new_hazard"
                       : k === "corrective"
                         ? "dashboard_new_action"
                         : k === "visitor"
@@ -1512,12 +1519,16 @@ function CentralDashboardBody(
                               : k === "rfi"
                                 ? "dashboard_quick_rfi"
                                 : "dashboard_quick_subcontractor";
+                  const quickLbl =
+                    k === "hazard"
+                      ? L("new_hazard") || L("dashboard_new_hazard")
+                      : L(labelKey);
                   return (
                     <li
                       key={k}
                       className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2"
                     >
-                      <span className="text-sm text-gray-800 dark:text-gray-200">{L(labelKey)}</span>
+                      <span className="text-sm text-gray-800 dark:text-gray-200">{quickLbl}</span>
                       <button
                         type="button"
                         role="switch"
@@ -1526,7 +1537,6 @@ function CentralDashboardBody(
                           const has = draftConfig.quickAccess.includes(k);
                           let qa = [...draftConfig.quickAccess];
                           if (has) {
-                            if (qa.length <= 1) return;
                             qa = qa.filter((x) => x !== k);
                           } else qa.push(k);
                           setDraftConfig({ ...draftConfig, quickAccess: qa });

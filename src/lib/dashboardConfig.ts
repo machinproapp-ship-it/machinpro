@@ -91,24 +91,29 @@ export function parseDashboardConfig(raw: unknown): ResolvedDashboardConfig {
   const hidden = stored.hidden ?? {};
 
   let ordered: DashboardWidgetId[] = [];
-  if (Array.isArray(stored.order) && stored.order.length > 0) {
-    for (const id of uniqStrings(stored.order.filter((x) => typeof x === "string"))) {
+  const orderKeyPresent = Object.prototype.hasOwnProperty.call(stored, "order") && Array.isArray(stored.order);
+  // Explicit `order: []` means all widgets off; omitted order falls back to defaults.
+  if (orderKeyPresent) {
+    for (const id of uniqStrings((stored.order ?? []).filter((x) => typeof x === "string"))) {
       const expanded = expandStoredWidgetId(id);
       for (const w of expanded) {
         if (!hidden[w] && !ordered.includes(w)) ordered.push(w);
       }
     }
-  }
-  if (ordered.length === 0) {
+  } else {
     ordered = DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => !hidden[id]);
   }
 
-  const quickRaw = Array.isArray(stored.quickAccess) ? stored.quickAccess.filter((x) => typeof x === "string") : [];
   const quickAccess: QuickAccessKey[] = [];
-  for (const k of uniqStrings(quickRaw)) {
-    if (isQuickKey(k)) quickAccess.push(k);
+  const qaKeyPresent =
+    Object.prototype.hasOwnProperty.call(stored, "quickAccess") && Array.isArray(stored.quickAccess);
+  if (qaKeyPresent) {
+    for (const k of uniqStrings((stored.quickAccess ?? []).filter((x) => typeof x === "string"))) {
+      if (isQuickKey(k)) quickAccess.push(k);
+    }
+  } else {
+    quickAccess.push(...DEFAULT_QUICK_ACCESS_KEYS);
   }
-  if (quickAccess.length === 0) quickAccess.push(...DEFAULT_QUICK_ACCESS_KEYS);
 
   return { orderedWidgets: ordered, quickAccess };
 }
@@ -133,9 +138,11 @@ export function mergeDashboardRaw(companyRaw: unknown, userRaw: unknown): unknow
       : undefined;
 
   const order =
-    Array.isArray(u.order) && u.order.length > 0 ? u.order : c?.order;
+    Object.prototype.hasOwnProperty.call(u, "order") && Array.isArray(u.order) ? u.order : c?.order;
   const quickAccess =
-    Array.isArray(u.quickAccess) && u.quickAccess.length > 0 ? u.quickAccess : c?.quickAccess;
+    Object.prototype.hasOwnProperty.call(u, "quickAccess") && Array.isArray(u.quickAccess)
+      ? u.quickAccess
+      : c?.quickAccess;
   const hidden = { ...c?.hidden, ...u.hidden };
 
   const out: DashboardConfigStored = { v: 1 };
