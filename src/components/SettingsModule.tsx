@@ -350,9 +350,7 @@ export function SettingsModule({
 
   const complianceByTarget = useMemo(() => {
     const employee = complianceFields.filter((f) => f.target.includes("employee"));
-    const subcontractor = complianceFields.filter(
-      (f) => f.target.includes("subcontractor") && !f.target.includes("employee")
-    );
+    const subcontractor = complianceFields.filter((f) => f.target.includes("subcontractor"));
     const vehicle = complianceFields.filter((f) => f.target.includes("vehicle"));
     return { employee, subcontractor, vehicle };
   }, [complianceFields]);
