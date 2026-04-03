@@ -4784,7 +4784,9 @@ export default function Home() {
                 measurementSystem={measurementSystem}
                 setMeasurementSystem={setMeasurementSystem}
                 canEditCompanyProfile={!!rolePerms.canEditCompanyProfile}
-                canManageCompliance={!!rolePerms.canManageCompliance}
+                canManageHazardActionPush={
+                  !!(rolePerms.canManageCompliance || rolePerms.canManageEmployees)
+                }
                 canManageProjectVisitors={!!rolePerms.canManageProjectVisitors}
                 canManageRegionalConfig={!!rolePerms.canManageRegionalConfig}
                 companyCountry={companyCountry}
@@ -4797,8 +4799,6 @@ export default function Home() {
                   const defaultFields = getDefaultComplianceFields(country);
                   setComplianceFields((prev) => [...defaultFields, ...prev.filter((f) => !f.isDefault)]);
                 }}
-                complianceFields={complianceFields}
-                onComplianceFieldsChange={setComplianceFields}
                 companyName={companyName}
                 onCompanyNameChange={setCompanyName}
                 logoUrl={logoUrl}

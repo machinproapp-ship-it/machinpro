@@ -3,22 +3,15 @@
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import {
   Sliders,
-  Lock,
-  Pencil,
-  Trash2,
   LogOut,
   Bell,
   ChevronLeft,
   HelpCircle,
   Settings,
   User,
-  Users,
   Building2,
   Globe,
-  Shield,
   CreditCard,
-  HardHat,
-  Truck,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
@@ -32,7 +25,8 @@ import {
   resolveUserTimezone,
 } from "@/lib/dateUtils";
 import { REGIONAL_TIMEZONE_GROUPS, allGroupedTimezones, cityLabelFromIana } from "@/lib/regionalTimezones";
-import type { ComplianceField, ComplianceFieldType, ComplianceTarget } from "@/app/page";
+
+const SETTINGS_SUPPORT_EMAIL = "support@machin.pro";
 
 const COUNTRY_DEFAULTS: Record<
   string,
@@ -84,17 +78,6 @@ const COUNTRIES = [
   { code: "TR", flag: "🇹🇷", name: "Türkiye" },
 ];
 
-function complianceFieldDisplayName(field: ComplianceField, t: Record<string, string>): string {
-  const m: Record<string, string> = {
-    "cf-liability": "compliance_field_liability_insurance",
-    "cf-compliance": "compliance_field_provincial_compliance",
-    "cf-vehicle-inspection": "compliance_field_safety_inspection",
-    "cf-vehicle-insurance": "compliance_field_vehicle_insurance",
-  };
-  const key = m[field.id];
-  return key ? (t[key] ?? field.name) : field.name;
-}
-
 export interface SettingsModuleProps {
   labels: Record<string, string>;
   language: Language;
@@ -104,7 +87,8 @@ export interface SettingsModuleProps {
   measurementSystem: "metric" | "imperial";
   setMeasurementSystem: (v: "metric" | "imperial") => void;
   canEditCompanyProfile: boolean;
-  canManageCompliance: boolean;
+  /** Alertas push de incidencias / acciones correctivas (antes ligado a permiso compliance). */
+  canManageHazardActionPush?: boolean;
   canManageProjectVisitors: boolean;
   canManageRegionalConfig: boolean;
   companyCountry: string;
@@ -123,8 +107,6 @@ export interface SettingsModuleProps {
   onCompanyWebsiteChange?: (v: string) => void;
   onSaveCompanyProfile?: () => void | Promise<void>;
   companyProfileSaveBusy?: boolean;
-  complianceFields?: ComplianceField[];
-  onComplianceFieldsChange?: (fields: ComplianceField[]) => void;
   session?: Session | null;
   onSignOut?: () => void;
   companyId?: string | null;
@@ -163,7 +145,7 @@ export function SettingsModule({
   measurementSystem,
   setMeasurementSystem,
   canEditCompanyProfile,
-  canManageCompliance,
+  canManageHazardActionPush = false,
   canManageProjectVisitors,
   canManageRegionalConfig,
   companyCountry,
@@ -182,8 +164,6 @@ export function SettingsModule({
   onCompanyWebsiteChange,
   onSaveCompanyProfile,
   companyProfileSaveBusy = false,
-  complianceFields = [],
-  onComplianceFieldsChange,
   session = null,
   onSignOut,
   companyId = null,
@@ -210,9 +190,6 @@ export function SettingsModule({
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
-  const [complianceModalOpen, setComplianceModalOpen] = useState(false);
-  const [editingComplianceField, setEditingComplianceField] = useState<ComplianceField | null>(null);
-  const [complianceDraft, setComplianceDraft] = useState<Partial<ComplianceField>>({});
   const [pushBusy, setPushBusy] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [prefHazard, setPrefHazard] = useState(true);
@@ -234,7 +211,6 @@ export function SettingsModule({
     | "company"
     | "notifications"
     | "regional"
-    | "compliance"
     | "billing"
     | "help";
 
@@ -244,14 +220,11 @@ export function SettingsModule({
     company: Building2,
     notifications: Bell,
     regional: Globe,
-    compliance: Shield,
     billing: CreditCard,
     help: HelpCircle,
   };
 
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("general");
-  /** Compliance (config obligatorios) solo en nav de escritorio; en móvil se gestiona desde Empleados / Logística. */
-  const [settingsWideNav, setSettingsWideNav] = useState(false);
   const [settingsMobileMenu, setSettingsMobileMenu] = useState(true);
   const [regionalTimezone, setRegionalTimezone] = useState(DEFAULT_IANA_TIMEZONE);
 
@@ -309,20 +282,6 @@ export function SettingsModule({
   }, [autoSetupMessage]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 768px)");
-    const sync = () => setSettingsWideNav(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  useEffect(() => {
-    if (settingsWideNav) return;
-    if (activeSettingsSection === "compliance") setActiveSettingsSection("general");
-  }, [settingsWideNav, activeSettingsSection]);
-
-  useEffect(() => {
     if (!focusHelpSectionSignal) return;
     setActiveSettingsSection("help");
     setSettingsMobileMenu(false);
@@ -348,13 +307,6 @@ export function SettingsModule({
 
   const groupedZoneList = useMemo(() => allGroupedTimezones(), []);
 
-  const complianceByTarget = useMemo(() => {
-    const employee = complianceFields.filter((f) => f.target.includes("employee"));
-    const subcontractor = complianceFields.filter((f) => f.target.includes("subcontractor"));
-    const vehicle = complianceFields.filter((f) => f.target.includes("vehicle"));
-    return { employee, subcontractor, vehicle };
-  }, [complianceFields]);
-
   const persistLocalePref = useCallback((key: string, value: string) => {
     try {
       localStorage.setItem(key, value);
@@ -371,72 +323,6 @@ export function SettingsModule({
     onCountryChange(country, defaults);
     if (defaults) setAutoSetupMessage(t.autoSetupConfirm ?? "Country updated — currency and units configured");
   };
-
-  const renderComplianceFieldRow = (field: ComplianceField, groupKey: string) => (
-    <div
-      key={`${groupKey}-${field.id}`}
-      className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-slate-700 p-3 gap-2"
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            {complianceFieldDisplayName(field, tl)}
-          </span>
-          {field.isDefault && (
-            <span className="text-xs rounded-full border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-slate-800/60 text-zinc-600 dark:text-zinc-400 px-2 py-0.5">
-              {t.defaultField ?? "Default"}
-            </span>
-          )}
-          {field.isRequired && (
-            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full px-2 py-0.5">
-              {t.required ?? "Required"}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          {field.target.map((targetKey) => (
-            <span key={targetKey} className="text-xs text-zinc-500 dark:text-zinc-400">
-              {targetKey === "employee"
-                ? (t.employees ?? "Employees")
-                : targetKey === "subcontractor"
-                  ? (t.subcontractors ?? "Subcontractors")
-                  : (t.vehicles ?? "Vehicles")}
-            </span>
-          ))}
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">
-            {"\u00b7 "}
-            {t.alertBefore ?? "Alert"}: {field.alertDaysBefore}d
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        {field.isDefault ? (
-          <Lock className="h-4 w-4 text-zinc-400" aria-hidden />
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingComplianceField(field);
-                setComplianceDraft({ ...field });
-                setComplianceModalOpen(true);
-              }}
-              className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onComplianceFieldsChange?.(complianceFields.filter((f) => f.id !== field.id))}
-              className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-8">
@@ -459,7 +345,6 @@ export function SettingsModule({
               ["company", tl.settingsCompany ?? ""] as const,
               ["notifications", tl.settingsNotifications ?? ""] as const,
               ["regional", tl.settings_regional_title ?? tl.settingsRegional ?? ""] as const,
-              ["compliance", tl.settingsCompliance ?? ""] as const,
               ["billing", tl.settingsBilling ?? ""] as const,
               ["help", tl.helpAndTutorials ?? ""] as const,
             ] as const
@@ -468,7 +353,6 @@ export function SettingsModule({
               if (id === "company") return canEditCompanyProfile;
               if (id === "notifications") return !!(session?.access_token && companyId);
               if (id === "regional") return canManageRegionalConfig || canEditCompanyProfile;
-              if (id === "compliance") return canManageCompliance && settingsWideNav;
               if (id === "billing") return showBillingSection && !!billingSection;
               return true;
             })
@@ -517,7 +401,8 @@ export function SettingsModule({
 
           {activeSettingsSection === "general" && (
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Settings className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
                 {tl.settings_general_title ?? tl.settingsGeneral ?? t.tabGeneral ?? ""}
               </h3>
               {autoSetupMessage && (
@@ -628,14 +513,18 @@ export function SettingsModule({
           </div>
 
           {onReopenOnboarding ? (
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <button
                 type="button"
                 onClick={onReopenOnboarding}
                 className="w-full max-w-md min-h-[44px] rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-950 hover:bg-amber-100 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-900/40 sm:w-auto"
               >
-                {tl.onboarding_reopen ?? ""}
+                {tl.settings_reopen_onboarding ?? tl.onboarding_reopen ?? ""}
               </button>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-md">
+                {tl.settings_reopen_onboarding_hint ??
+                  "Reconfigure your company name, country and currency"}
+              </p>
             </div>
           ) : null}
 
@@ -656,7 +545,8 @@ export function SettingsModule({
 
           {activeSettingsSection === "profile" && setProfileFullName && setProfilePhone && onSaveProfile && (
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                <User className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
                 {tl.settingsProfile ?? tl.myProfile ?? ""}
               </h3>
               <div>
@@ -669,7 +559,12 @@ export function SettingsModule({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.email ?? "Email"}</label>
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <label className="text-sm font-medium text-zinc-600 dark:text-zinc-400">{t.email ?? "Email"}</label>
+                  <span className="inline-flex min-h-[22px] items-center rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-400">
+                    {tl.settings_email_readonly ?? "Read-only"}
+                  </span>
+                </div>
                 <input
                   type="email"
                   value={profileEmail}
@@ -811,7 +706,7 @@ export function SettingsModule({
                 />
               </label>
               <div className="space-y-2">
-                {canManageCompliance
+                {canManageHazardActionPush
                   ? (
                     [
                       ["hazard", prefHazard, "push_type_hazard"] as const,
@@ -914,9 +809,16 @@ export function SettingsModule({
 
           {activeSettingsSection === "company" && canEditCompanyProfile ? (
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {tl.settingsCompany ?? ""}
-              </h3>
+              <div>
+                <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                  <Building2 className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                  {tl.settingsCompany ?? ""}
+                </h3>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 max-w-xl">
+                  {tl.settings_company_hint ??
+                    "Your information will appear in documents and PDF reports"}
+                </p>
+              </div>
 
               <section className="pt-0">
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{t.companyIdentity ?? "Company identity"}</h3>
@@ -1024,7 +926,8 @@ export function SettingsModule({
 
           {activeSettingsSection === "regional" && (canManageRegionalConfig || canEditCompanyProfile) ? (
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Globe className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
                 {tl.settings_regional_title ?? tl.settingsRegional ?? ""}
               </h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -1115,115 +1018,10 @@ export function SettingsModule({
             </div>
           ) : null}
 
-          {activeSettingsSection === "compliance" && canManageCompliance ? (
-              <section className="space-y-4">
-                <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                  {tl.settingsCompliance ?? t.complianceFields ?? ""}
-                </h3>
-                {complianceFields.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-zinc-200 dark:border-slate-600 bg-zinc-50/50 dark:bg-slate-800/40 px-4 py-6 text-sm text-zinc-600 dark:text-zinc-400 text-center">
-                    {tl.compliance_fields_empty ?? "No compliance fields yet. Add one below."}
-                  </p>
-                ) : null}
-                <div className="space-y-6">
-                  {complianceByTarget.employee.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Users
-                          className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
-                          aria-hidden
-                        />
-                        <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                          {t.employees ?? "Employees"}
-                        </h4>
-                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
-                          ({complianceByTarget.employee.length})
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {complianceByTarget.employee.map((field) => renderComplianceFieldRow(field, "emp"))}
-                      </div>
-                    </div>
-                  ) : null}
-                  {complianceByTarget.subcontractor.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <HardHat
-                          className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
-                          aria-hidden
-                        />
-                        <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                          {t.subcontractors ?? "Subcontractors"}
-                        </h4>
-                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
-                          ({complianceByTarget.subcontractor.length})
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {complianceByTarget.subcontractor.map((field) =>
-                          renderComplianceFieldRow(field, "sub")
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-                  {complianceByTarget.vehicle.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-start gap-2">
-                        <Truck
-                          className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
-                          aria-hidden
-                        />
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                              {t.vehicles ?? "Vehicles"}
-                            </h4>
-                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
-                              ({complianceByTarget.vehicle.length})
-                            </span>
-                            <span className="inline-flex min-h-[24px] items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:border-amber-600/50 dark:bg-amber-950/40 dark:text-amber-200">
-                              {tl.compliance_vehicles_badge ?? tl.compliance_vehicles_hint ?? ""}
-                            </span>
-                          </div>
-                          {(tl.compliance_vehicles_hint ?? "").trim() ? (
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                              {tl.compliance_vehicles_hint}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        {complianceByTarget.vehicle.map((field) => renderComplianceFieldRow(field, "veh"))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingComplianceField(null);
-                    setComplianceDraft({
-                      name: "",
-                      description: "",
-                      fieldType: "date",
-                      target: [],
-                      isRequired: false,
-                      alertDaysBefore: 30,
-                      isDefault: false,
-                      createdAt: new Date().toISOString(),
-                    });
-                    setComplianceModalOpen(true);
-                  }}
-                  className="mt-3 w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 py-3 text-sm text-zinc-400 dark:text-zinc-500 hover:border-amber-400 hover:text-amber-500 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-colors min-h-[44px]"
-                >
-                  + {t.addComplianceField ?? "Add compliance field"}
-                </button>
-              </section>
-          ) : null}
-
           {activeSettingsSection === "billing" && showBillingSection && billingSection && (
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                <CreditCard className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
                 {tl.settingsBilling ?? ""}
               </h3>
               <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/50 dark:bg-slate-800/30 p-4 sm:p-6">
@@ -1246,14 +1044,14 @@ export function SettingsModule({
                     {tl.help_email_support ?? "Support email"}
                   </p>
                   <a
-                    href={`mailto:${tl.help_support_email_value ?? "support@machin.pro"}`}
+                    href={`mailto:${SETTINGS_SUPPORT_EMAIL}`}
                     className="mt-1 block text-base font-medium text-zinc-900 dark:text-zinc-100 break-all hover:text-orange-600 dark:hover:text-orange-400"
                   >
-                    {tl.help_support_email_value ?? "support@machin.pro"}
+                    {tl.help_support_email_value?.trim() || SETTINGS_SUPPORT_EMAIL}
                   </a>
                 </div>
                 <a
-                  href={`mailto:${tl.help_support_email_value ?? "support@machin.pro"}`}
+                  href={`mailto:${SETTINGS_SUPPORT_EMAIL}`}
                   className="inline-flex min-h-[44px] w-full max-w-sm items-center justify-center rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 sm:w-auto"
                 >
                   {tl.help_contact_support ?? "Contact support"}
@@ -1304,133 +1102,6 @@ export function SettingsModule({
           )}
         </div>
       </div>
-
-      {complianceModalOpen && canManageCompliance && onComplianceFieldsChange && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/50" aria-hidden onClick={() => { setComplianceModalOpen(false); setEditingComplianceField(null); }} />
-          <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
-              {editingComplianceField ? (t.edit ?? "Edit") : (t.addComplianceField ?? "Add compliance field")}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.name ?? "Name"} *</label>
-                <input
-                  type="text"
-                  value={complianceDraft.name ?? ""}
-                  onChange={(e) => setComplianceDraft((d) => ({ ...d, name: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.description ?? "Description"}</label>
-                <textarea
-                  value={complianceDraft.description ?? ""}
-                  onChange={(e) => setComplianceDraft((d) => ({ ...d, description: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[80px] resize-none"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">{t.category ?? "Type"}</label>
-                <select
-                  value={complianceDraft.fieldType ?? "date"}
-                  onChange={(e) => setComplianceDraft((d) => ({ ...d, fieldType: e.target.value as ComplianceFieldType }))}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                >
-                  <option value="date">{t.fieldTypeDate ?? "Expiry date"}</option>
-                  <option value="document">{t.document ?? "Document URL"}</option>
-                  <option value="text">{t.text ?? "Text"}</option>
-                  <option value="checkbox">{t.checkbox ?? "Yes / No"}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">{t.appliesTo ?? "Applies to"}</label>
-                <div className="flex flex-wrap gap-3">
-                  {(["employee", "subcontractor", "vehicle"] as ComplianceTarget[]).map((targetKey) => (
-                    <label key={targetKey} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(complianceDraft.target ?? []).includes(targetKey)}
-                        onChange={(e) => {
-                          const prev = complianceDraft.target ?? [];
-                          setComplianceDraft((d) => ({
-                            ...d,
-                            target: e.target.checked ? [...prev, targetKey] : prev.filter((t) => t !== targetKey),
-                          }));
-                        }}
-                        className="rounded border-zinc-300 dark:border-zinc-600"
-                      />
-                      <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                        {targetKey === "employee" ? (t.employees ?? "Employees") : targetKey === "subcontractor" ? (t.subcontractors ?? "Subcontractors") : (t.vehicles ?? "Vehicles")}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={complianceDraft.isRequired ?? false}
-                    onChange={(e) => setComplianceDraft((d) => ({ ...d, isRequired: e.target.checked }))}
-                    className="rounded border-zinc-300 dark:border-zinc-600"
-                  />
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t.required ?? "Required"}</span>
-                </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  {tl.compliance_alert_days_label ?? t.alertBefore ?? "Remind (days before expiry)"}
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={complianceDraft.alertDaysBefore ?? 30}
-                  onChange={(e) => setComplianceDraft((d) => ({ ...d, alertDaysBefore: parseInt(e.target.value, 10) || 0 }))}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => { setComplianceModalOpen(false); setEditingComplianceField(null); }}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
-              >
-                {t.cancel ?? "Cancel"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!(complianceDraft.name ?? "").trim()) return;
-                  const newField: ComplianceField = {
-                    id: editingComplianceField?.id ?? "cf-" + Date.now(),
-                    name: (complianceDraft.name ?? "").trim(),
-                    description: complianceDraft.description?.trim() || undefined,
-                    fieldType: complianceDraft.fieldType ?? "date",
-                    target: (complianceDraft.target ?? []).length ? (complianceDraft.target as ComplianceTarget[]) : ["employee"],
-                    isRequired: complianceDraft.isRequired ?? false,
-                    alertDaysBefore: complianceDraft.alertDaysBefore ?? 30,
-                    isDefault: false,
-                    createdAt: editingComplianceField?.createdAt ?? new Date().toISOString(),
-                  };
-                  if (editingComplianceField) {
-                    onComplianceFieldsChange(complianceFields.map((f) => (f.id === newField.id ? newField : f)));
-                  } else {
-                    onComplianceFieldsChange([...complianceFields, newField]);
-                  }
-                  setComplianceModalOpen(false);
-                  setEditingComplianceField(null);
-                }}
-                className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
-              >
-                {t.save ?? "Save"}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
     </section>
   );
 }
