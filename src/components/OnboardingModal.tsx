@@ -199,7 +199,7 @@ export function OnboardingModal({
     setStep1Tz(resolveUserTimezone(profileTimeZone));
   }, [profileTimeZone]);
 
-  const [step2Industry, setStep2Industry] = useState("");
+  const [step2Industry, setStep2Industry] = useState("construction");
   const [step2Size, setStep2Size] = useState("");
 
   const [projName, setProjName] = useState("");
@@ -456,17 +456,22 @@ export function OnboardingModal({
 
   const currencies = useMemo(() => Object.keys(CURRENCY_META) as Currency[], []);
 
+  const benefitLines = useMemo(
+    () => [lx.onboarding_benefit_1, lx.onboarding_benefit_2, lx.onboarding_benefit_3],
+    [lx.onboarding_benefit_1, lx.onboarding_benefit_2, lx.onboarding_benefit_3]
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4 sm:py-6">
       <div
-        className="my-auto w-full max-w-lg rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 overflow-hidden"
+        className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:my-auto sm:max-h-[min(92dvh,720px)] sm:rounded-2xl"
         role="dialog"
         aria-modal
         aria-labelledby="onboarding-title"
       >
         {phase === "welcome" ? (
-          <>
-            <div className="px-6 pt-8 pb-6 text-center space-y-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="px-5 pt-8 pb-8 text-center sm:px-6 space-y-5">
               <div className="flex justify-center">
                 <BrandLogoImage
                   src="/logo-source.png"
@@ -489,13 +494,27 @@ export function OnboardingModal({
                   {companyName.trim()}
                 </p>
               ) : null}
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-sm mx-auto">
+              <p className="text-base leading-snug text-zinc-700 dark:text-zinc-300 max-w-md mx-auto px-1">
                 {lx.onboarding_welcome_subtitle ?? ""}
               </p>
+              <ul className="mx-auto max-w-sm space-y-3 pt-1 text-left">
+                {benefitLines.map((text, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 text-sm text-zinc-700 dark:text-zinc-300"
+                  >
+                    <Check
+                      className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                      aria-hidden
+                    />
+                    <span>{text ?? ""}</span>
+                  </li>
+                ))}
+              </ul>
               <button
                 type="button"
                 onClick={goWelcomeToWizard}
-                className="mt-2 w-full min-h-[44px] rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-500 transition-colors"
+                className="mt-2 w-full min-h-[48px] rounded-xl bg-amber-600 px-5 py-3.5 text-base font-bold text-white shadow-lg shadow-amber-900/25 ring-2 ring-amber-400/45 transition-all hover:bg-amber-500 hover:ring-amber-300/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:shadow-amber-950/40 dark:ring-amber-500/35 dark:focus-visible:ring-offset-slate-900"
               >
                 {lx.onboarding_start ?? ""}
               </button>
@@ -508,10 +527,10 @@ export function OnboardingModal({
                 {lx.onboarding_skip_all ?? lx.onboarding_skip ?? ""}
               </button>
             </div>
-          </>
+          </div>
         ) : phase === "wizard" ? (
-          <>
-            <div className="border-b border-zinc-200 dark:border-slate-700 px-4 py-3">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="shrink-0 border-b border-zinc-200 dark:border-slate-700 px-4 py-3">
               <p className="text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 {lx.onboarding_step ?? ""} {wizardStep} {lx.onboarding_of ?? ""} 3
               </p>
@@ -554,8 +573,15 @@ export function OnboardingModal({
               </div>
             </div>
 
-            <div className="max-h-[min(70vh,540px)] overflow-y-auto px-5 py-5 space-y-4">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{stepTitle(wizardStep)}</h3>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{stepTitle(wizardStep)}</h3>
+                {wizardStep === 2 ? (
+                  <span className="inline-flex min-h-[28px] items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:bg-slate-700 dark:text-zinc-300">
+                    {lx.onboarding_step2_optional ?? ""}
+                  </span>
+                ) : null}
+              </div>
               {error ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
                   {error}
@@ -566,12 +592,46 @@ export function OnboardingModal({
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                      {lx.companyLogo ?? ""}{" "}
+                      <span className="font-normal text-zinc-400">({lx.form_optional ?? ""})</span>
+                    </label>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {step1Logo ? (
+                        <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-600">
+                          <BrandLogoImage
+                            src={step1Logo}
+                            alt=""
+                            boxClassName="h-16 w-16 sm:h-20 sm:w-20"
+                            sizes="80px"
+                            scale={1.18}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="h-16 w-16 shrink-0 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 sm:h-20 sm:w-20"
+                          aria-hidden
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openCloudinaryForStep1();
+                        }}
+                        className="min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200"
+                      >
+                        {lx.uploadLogo ?? ""}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
                       {lx.companyName ?? ""}
                     </label>
                     <input
                       value={step1Name}
                       onChange={(e) => setStep1Name(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                      placeholder={lx.onboarding_company_name_placeholder || undefined}
+                      className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px] placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                     />
                   </div>
                   <div>
@@ -601,7 +661,9 @@ export function OnboardingModal({
                     >
                       {currencies.map((c) => (
                         <option key={c} value={c}>
-                          {c} · {CURRENCY_META[c].label}
+                          {c}
+                          {"\u00a0\u00b7 "}
+                          {CURRENCY_META[c].label}
                         </option>
                       ))}
                     </select>
@@ -622,34 +684,6 @@ export function OnboardingModal({
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                      {lx.companyLogo ?? ""}{" "}
-                      <span className="font-normal text-zinc-400">({lx.form_optional ?? ""})</span>
-                    </label>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {step1Logo ? (
-                        <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-slate-600">
-                          <BrandLogoImage
-                            src={step1Logo}
-                            alt=""
-                            boxClassName="h-12 w-12"
-                            sizes="48px"
-                            scale={1.18}
-                          />
-                        </div>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          openCloudinaryForStep1();
-                        }}
-                        className="min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm"
-                      >
-                        {lx.uploadLogo ?? ""}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               ) : null}
 
@@ -665,7 +699,6 @@ export function OnboardingModal({
                       onChange={(e) => setStep2Industry(e.target.value)}
                       className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                     >
-                      <option value="">{lx.onboarding_sector_placeholder ?? ""}</option>
                       {ONBOARDING_INDUSTRY_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {lx[opt.labelKey] ?? opt.value}
@@ -703,7 +736,8 @@ export function OnboardingModal({
                     <input
                       value={projName}
                       onChange={(e) => setProjName(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                      placeholder={lx.onboarding_step3_name_placeholder || undefined}
+                      className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px] placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                     />
                   </div>
                   <div>
@@ -733,7 +767,7 @@ export function OnboardingModal({
               ) : null}
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-zinc-200 dark:border-slate-700 px-5 py-4">
+            <div className="shrink-0 flex flex-col gap-2 border-t border-zinc-200 dark:border-slate-700 bg-white px-5 py-4 dark:bg-slate-900">
               {wizardStep === 1 ? (
                 <>
                   <button
@@ -754,12 +788,12 @@ export function OnboardingModal({
                   </button>
                 </>
               ) : wizardStep === 2 ? (
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col gap-2">
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => void saveStep2AndNext()}
-                    className="flex-1 min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+                    className="w-full min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
                   >
                     {lx.onboarding_next ?? ""}
                   </button>
@@ -767,9 +801,9 @@ export function OnboardingModal({
                     type="button"
                     disabled={busy}
                     onClick={skipToStep3}
-                    className="flex-1 min-h-[44px] rounded-xl border border-zinc-300 py-3 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                    className="w-full min-h-[44px] rounded-xl border-2 border-amber-600/70 bg-amber-50 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
                   >
-                    {lx.onboarding_skip ?? ""}
+                    {lx.onboarding_skip_step2 ?? lx.onboarding_skip ?? ""}
                   </button>
                 </div>
               ) : (
@@ -818,27 +852,36 @@ export function OnboardingModal({
                 </button>
               ) : null}
             </div>
-          </>
+          </div>
         ) : (
-          <div className="px-6 py-10 text-center space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white">
-              <Check className="h-8 w-8" aria-hidden />
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="px-5 py-10 text-center sm:px-6 space-y-5">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-900/25">
+                <Check className="h-10 w-10" aria-hidden />
+              </div>
+              <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">
+                {lx.onboarding_finished_title ?? lx.onboarding_finish_headline ?? ""}
+              </h3>
+              {companyName.trim() ? (
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{companyName.trim()}</p>
+              ) : null}
+              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 max-w-md mx-auto">
+                {lx.onboarding_finished_subtitle ?? lx.onboarding_finish_subtitle ?? ""}
+              </p>
+              {(lx.onboarding_beta_founder_note ?? "").trim() ? (
+                <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 max-w-md mx-auto">
+                  {lx.onboarding_beta_founder_note}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void finalizeOnboarding()}
+                className="w-full min-h-[48px] rounded-xl bg-amber-600 py-3.5 text-base font-bold text-white shadow-md hover:bg-amber-500 disabled:opacity-50"
+              >
+                {lx.onboarding_go_dashboard ?? lx.onboarding_finish ?? lx.onboarding_done_cta ?? lx.next ?? ""}
+              </button>
             </div>
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
-              {lx.onboarding_finish_headline ?? lx.onboarding_finish_subtitle ?? ""}
-            </h3>
-            {companyName.trim() ? (
-              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{companyName.trim()}</p>
-            ) : null}
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">{lx.onboarding_finish_subtitle ?? ""}</p>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void finalizeOnboarding()}
-              className="w-full min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
-            >
-              {lx.onboarding_finish ?? lx.onboarding_done_cta ?? lx.next ?? ""}
-            </button>
           </div>
         )}
       </div>
