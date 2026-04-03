@@ -48,7 +48,7 @@ import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { countOperationallyActiveProjects } from "@/lib/projectFilters";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/Toast";
-import type { AuthChangeEvent, PostgrestResponse, Session } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
   LogOut,
   Wifi,
@@ -870,16 +870,6 @@ export default function Home() {
   const complianceNotifRef = useRef<HTMLDivElement>(null);
   const { photos, uploadPhoto, approvePhoto, rejectPhoto } = useProjectPhotos(companyId);
 
-  useEffect(() => {
-    if (!companyId) return;
-    void supabase
-      .from("audit_logs")
-      .select("*")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false })
-      .limit(100)
-      .then((res: PostgrestResponse<AuditLogEntry>) => setAuditLogs(res.data ?? []));
-  }, [companyId]);
   const pendingPhotoCountByProject = useMemo(() => {
     const m: Record<string, number> = {};
     for (const ph of photos ?? []) {
@@ -1210,264 +1200,6 @@ export default function Home() {
     return Array.from(map.values());
   }, [dbClockEntries, clockEntries]);
 
-  useEffect(() => {
-    if (!supabase || !session || !companyId) {
-      setDbClockEntries([]);
-      setVacationRequests([]);
-      setUserToEmployeeMap({});
-      userIdToEmployeeIdRef.current = new Map();
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      const { data: profiles, error: profilesErr } = await supabase
-        .from("user_profiles")
-        .select("id, employee_id")
-        .eq("company_id", companyId);
-      if (profilesErr) {
-        console.error("[page] user_profiles (clock map)", profilesErr);
-      }
-      if (cancelled) return;
-      const userToEmp = new Map<string, string>();
-      const o: Record<string, string> = {};
-      for (const p of profiles ?? []) {
-        const row = p as { id: string; employee_id: string | null };
-        if (row.employee_id) {
-          userToEmp.set(row.id, row.employee_id);
-          o[row.id] = row.employee_id;
-        }
-      }
-      userIdToEmployeeIdRef.current = userToEmp;
-      setUserToEmployeeMap(o);
-      const { data: rows, error: timeErr } = await supabase
-        .from("time_entries")
-        .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
-        .eq("company_id", companyId)
-        .order("clock_in_at", { ascending: false })
-        .limit(500);
-      if (timeErr) {
-        console.error("[page] time_entries load", timeErr);
-      }
-      if (cancelled || !rows) return;
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const mapped: ClockEntry[] = (rows as Record<string, unknown>[]).map((row) => {
-        const userId = String(row.user_id);
-        const inD = new Date(String(row.clock_in_at));
-        const dateStr = `${inD.getFullYear()}-${pad(inD.getMonth() + 1)}-${pad(inD.getDate())}`;
-        const clockIn = `${pad(inD.getHours())}:${pad(inD.getMinutes())}`;
-        let clockOut: string | undefined;
-        if (row.clock_out_at) {
-          const outD = new Date(String(row.clock_out_at));
-          clockOut = `${pad(outD.getHours())}:${pad(outD.getMinutes())}`;
-        }
-        const empId = userToEmp.get(userId) ?? userId;
-        return {
-          id: String(row.id),
-          employeeId: empId,
-          projectId: row.project_id != null ? String(row.project_id) : undefined,
-          date: dateStr,
-          clockIn,
-          clockOut,
-        };
-      });
-      setDbClockEntries(mapped);
-      const { data: vac } = await supabase
-        .from("vacation_requests")
-        .select("*")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (!cancelled && vac) setVacationRequests(vac as VacationRequestRow[]);
-      const { data: schedRows, error: schedErr } = await supabase
-        .from("schedule_entries")
-        .select("*")
-        .eq("company_id", companyId)
-        .limit(4000);
-      const schedVac =
-        !schedErr && schedRows?.length
-          ? (schedRows as Record<string, unknown>[]).filter((row) => {
-              const st = String(row.type ?? "");
-              const el = row.event_label != null ? String(row.event_label) : "";
-              return st === "vacation" || (st === "event" && el === "vacation");
-            })
-          : [];
-      if (!cancelled && !schedErr && schedVac.length) {
-        const mapped: ScheduleEntry[] = schedVac.map((row) => {
-          const st = String(row.start_time ?? "00:00");
-          const et = String(row.end_time ?? "23:59");
-          return {
-            id: String(row.id),
-            type: "vacation" as const,
-            employeeIds: Array.isArray(row.employee_ids) ? (row.employee_ids as string[]) : [],
-            projectId: row.project_id != null ? String(row.project_id) : undefined,
-            projectCode: row.project_code != null ? String(row.project_code) : undefined,
-            date: String(row.date).slice(0, 10),
-            startTime: st.length >= 5 ? st.slice(0, 5) : st,
-            endTime: et.length >= 5 ? et.slice(0, 5) : et,
-            notes: row.notes != null ? String(row.notes) : undefined,
-            eventLabel: "vacation",
-            createdBy: row.created_by != null ? String(row.created_by) : "",
-          };
-        });
-        setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mapped]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [session, companyId]);
-
-  useEffect(() => {
-    if (!supabase || !session || !companyId) return;
-    const client = supabase;
-    const loadEmployees = async () => {
-      const { data, error } = await client
-        .from("user_profiles")
-        .select(
-          "id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
-        )
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
-      if (error) {
-        console.error("[page] user_profiles (employees state)", error);
-        return;
-      }
-      if (!data?.length) return;
-      setEmployees(
-        data.map((row: Record<string, unknown>) => {
-          const id = String(row.id);
-          const fn = row.full_name != null ? String(row.full_name).trim() : "";
-          const dn = row.display_name != null ? String(row.display_name).trim() : "";
-          const em = row.email != null ? String(row.email).trim() : "";
-          const name =
-            fn ||
-            dn ||
-            (em.includes("@") ? em.split("@")[0]!.trim() : em) ||
-            id.slice(0, 8);
-          const role = String(row.role ?? "worker");
-          let payType: Employee["payType"] | undefined;
-          const pt = String(row.pay_type ?? "").toLowerCase();
-          if (pt === "hourly") payType = "hourly";
-          else if (pt === "fixed" || pt === "salary") payType = "salary";
-          let hourlyRate: number | undefined;
-          let monthlySalary: number | undefined;
-          const payAmt = row.pay_amount != null ? Number(row.pay_amount) : undefined;
-          if (payType === "hourly" && payAmt != null && Number.isFinite(payAmt)) hourlyRate = payAmt;
-          if (payType === "salary" && payAmt != null && Number.isFinite(payAmt)) monthlySalary = payAmt;
-          return {
-            id,
-            name,
-            role,
-            profileStatus: row.profile_status != null ? String(row.profile_status) : "active",
-            hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
-            payType,
-            hourlyRate,
-            monthlySalary,
-            phone: row.phone != null ? String(row.phone) : undefined,
-            email: em || undefined,
-            certificates: certificatesFromProfileJson(row.certificates),
-            hoursLog: [],
-            customRoleId: row.custom_role_id != null ? String(row.custom_role_id) : undefined,
-            customPermissions: row.custom_permissions as Employee["customPermissions"],
-            useRolePermissions:
-              row.use_role_permissions != null ? Boolean(row.use_role_permissions) : undefined,
-          };
-        })
-      );
-    };
-    void loadEmployees();
-  }, [session, companyId]);
-
-  useEffect(() => {
-    if (!supabase || !session) {
-      setCustomRoles(INITIAL_CUSTOM_ROLES);
-      return;
-    }
-    if (!companyId) return;
-    const cid = companyId;
-    let cancelled = false;
-    void (async () => {
-      const { data: rows, error } = await supabase
-        .from("roles")
-        .select("*")
-        .eq("company_id", cid)
-        .order("created_at", { ascending: true });
-      if (cancelled) return;
-      if (error) {
-        console.error("[page] roles load", error);
-        return;
-      }
-      let list = (rows ?? []) as RolesTableRow[];
-      if (list.length === 0) {
-        const fromLs = readLegacyCustomRolesFromLocalStorage();
-        const seedRows = fromLs?.length
-          ? fromLs.map((r) => ({
-              company_id: cid,
-              name: r.name,
-              color: r.color,
-              permissions: r.permissions,
-              is_system: r.isSystem === true,
-            }))
-          : INITIAL_CUSTOM_ROLES.map((r) => ({
-              company_id: cid,
-              name: r.name,
-              color: r.color,
-              permissions: r.permissions,
-              is_system: true,
-            }));
-        const { data: inserted, error: insErr } = await supabase.from("roles").insert(seedRows).select("*");
-        if (cancelled) return;
-        if (insErr) {
-          console.error("[page] roles seed", insErr);
-          setCustomRoles(INITIAL_CUSTOM_ROLES);
-          return;
-        }
-        clearLegacyCustomRolesLocalStorage();
-        list = (inserted ?? []) as RolesTableRow[];
-      }
-      setCustomRoles(list.map(customRoleFromSupabaseRow));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, session, companyId]);
-
-  useEffect(() => {
-    if (!supabase || !session || !companyId) return;
-    const client = supabase;
-    const loadProjects = async () => {
-      const { data, error } = await client.from("projects").select("*").eq("company_id", companyId);
-      if (error) {
-        console.error("[page] projects", error);
-        return;
-      }
-      if (!data?.length) {
-        setProjects([]);
-        return;
-      }
-      setProjects(
-        data.map((p: Record<string, unknown>) => ({
-          id: String(p.id),
-          name: String(p.name),
-          type: String(p.type ?? ""),
-          location: String(p.location ?? ""),
-          projectCode: p.project_code != null ? String(p.project_code) : undefined,
-          budgetCAD: p.budget_cad != null ? Number(p.budget_cad) : undefined,
-          spentCAD: p.spent_cad != null ? Number(p.spent_cad) : undefined,
-          estimatedStart: String(p.estimated_start ?? ""),
-          estimatedEnd: String(p.estimated_end ?? ""),
-          locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
-          locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
-          archived: Boolean(p.archived),
-          assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
-            ? (p.assigned_employee_ids as string[])
-            : [],
-        }))
-      );
-    };
-    void loadProjects();
-  }, [session, companyId]);
-
   const [isOnline, setIsOnline] = useState(true);
 
   const [pendingSync, setPendingSync] = useState<PendingSync[]>(() => {
@@ -1781,6 +1513,326 @@ export default function Home() {
     { id: string; employeeId: string | null; name: string; email?: string }[]
   >([]);
 
+  /** Carga paralela: perfiles, fichajes, vacaciones, planificación, proyectos, roles, empresa, auditoría. */
+  useEffect(() => {
+    if (!supabase || !session) {
+      setCustomRoles(INITIAL_CUSTOM_ROLES);
+    }
+    if (!supabase || !session || !companyId) {
+      setDbClockEntries([]);
+      setVacationRequests([]);
+      setUserToEmployeeMap({});
+      userIdToEmployeeIdRef.current = new Map();
+      setTeamProfiles([]);
+      return;
+    }
+    const cid = companyId;
+    let cancelled = false;
+    void (async () => {
+      const [
+        profilesResult,
+        timeEntriesResult,
+        vacationsResult,
+        scheduleResult,
+        projectsResult,
+        rolesResult,
+        companyResult,
+        auditResult,
+      ] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select(
+            "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
+          )
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("time_entries")
+          .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
+          .eq("company_id", cid)
+          .order("clock_in_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("vacation_requests")
+          .select("*")
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabase.from("schedule_entries").select("*").eq("company_id", cid).limit(4000),
+        supabase.from("projects").select("*").eq("company_id", cid),
+        supabase.from("roles").select("*").eq("company_id", cid).order("created_at", { ascending: true }),
+        supabase
+          .from("companies")
+          .select("name, logo_url, address, phone, email, website")
+          .eq("id", cid)
+          .maybeSingle(),
+        supabase
+          .from("audit_logs")
+          .select("*")
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+
+      if (cancelled) return;
+
+      const { data: profiles, error: profilesErr } = profilesResult;
+      if (profilesErr) {
+        console.error("[page] user_profiles (consolidated)", profilesErr);
+      }
+
+      const userToEmp = new Map<string, string>();
+      const o: Record<string, string> = {};
+      for (const p of profiles ?? []) {
+        const row = p as { id: string; employee_id: string | null };
+        if (row.employee_id) {
+          userToEmp.set(row.id, row.employee_id);
+          o[row.id] = row.employee_id;
+        }
+      }
+      userIdToEmployeeIdRef.current = userToEmp;
+      setUserToEmployeeMap(o);
+
+      try {
+        const activeRows = (profiles ?? []).filter((row: Record<string, unknown>) => {
+          const st = String(row.profile_status ?? "active").toLowerCase().trim();
+          return st === "active";
+        });
+        setTeamProfiles(
+          activeRows.map((row: Record<string, unknown>) => {
+            const id = String(row.id ?? "");
+            const fn = typeof row.full_name === "string" ? row.full_name : undefined;
+            const dn = typeof row.display_name === "string" ? row.display_name : undefined;
+            const em = typeof row.email === "string" ? row.email : undefined;
+            const name = displayNameFromProfile(fn, dn, em);
+            return {
+              id,
+              employeeId: row.employee_id != null ? String(row.employee_id) : null,
+              name: name || id,
+              email: typeof em === "string" ? em.trim() || undefined : undefined,
+            };
+          })
+        );
+      } catch (e) {
+        console.error("[page] teamProfiles (consolidated)", e);
+        setTeamProfiles([]);
+      }
+
+      if (!cancelled) {
+        if (profilesErr || !profiles?.length) {
+          setEmployees([]);
+        } else {
+          setEmployees(
+            profiles.map((row: Record<string, unknown>) => {
+            const id = String(row.id);
+            const fn = row.full_name != null ? String(row.full_name).trim() : "";
+            const dn = row.display_name != null ? String(row.display_name).trim() : "";
+            const em = row.email != null ? String(row.email).trim() : "";
+            const name =
+              fn ||
+              dn ||
+              (em.includes("@") ? em.split("@")[0]!.trim() : em) ||
+              id.slice(0, 8);
+            const role = String(row.role ?? "worker");
+            let payType: Employee["payType"] | undefined;
+            const pt = String(row.pay_type ?? "").toLowerCase();
+            if (pt === "hourly") payType = "hourly";
+            else if (pt === "fixed" || pt === "salary") payType = "salary";
+            let hourlyRate: number | undefined;
+            let monthlySalary: number | undefined;
+            const payAmt = row.pay_amount != null ? Number(row.pay_amount) : undefined;
+            if (payType === "hourly" && payAmt != null && Number.isFinite(payAmt)) hourlyRate = payAmt;
+            if (payType === "salary" && payAmt != null && Number.isFinite(payAmt)) monthlySalary = payAmt;
+            return {
+              id,
+              name,
+              role,
+              profileStatus: row.profile_status != null ? String(row.profile_status) : "active",
+              hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
+              payType,
+              hourlyRate,
+              monthlySalary,
+              phone: row.phone != null ? String(row.phone) : undefined,
+              email: em || undefined,
+              certificates: certificatesFromProfileJson(row.certificates),
+              hoursLog: [],
+              customRoleId: row.custom_role_id != null ? String(row.custom_role_id) : undefined,
+              customPermissions: row.custom_permissions as Employee["customPermissions"],
+              useRolePermissions:
+                row.use_role_permissions != null ? Boolean(row.use_role_permissions) : undefined,
+            };
+          })
+          );
+        }
+      }
+
+      const { data: timeRows, error: timeErr } = timeEntriesResult;
+      if (timeErr) {
+        console.error("[page] time_entries load", timeErr);
+        if (!cancelled) setDbClockEntries([]);
+      } else if (!cancelled && timeRows) {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const mapped: ClockEntry[] = (timeRows as Record<string, unknown>[]).map((row) => {
+          const userId = String(row.user_id);
+          const inD = new Date(String(row.clock_in_at));
+          const dateStr = `${inD.getFullYear()}-${pad(inD.getMonth() + 1)}-${pad(inD.getDate())}`;
+          const clockIn = `${pad(inD.getHours())}:${pad(inD.getMinutes())}`;
+          let clockOut: string | undefined;
+          if (row.clock_out_at) {
+            const outD = new Date(String(row.clock_out_at));
+            clockOut = `${pad(outD.getHours())}:${pad(outD.getMinutes())}`;
+          }
+          const empId = userToEmp.get(userId) ?? userId;
+          return {
+            id: String(row.id),
+            employeeId: empId,
+            projectId: row.project_id != null ? String(row.project_id) : undefined,
+            date: dateStr,
+            clockIn,
+            clockOut,
+          };
+        });
+        setDbClockEntries(mapped);
+      }
+
+      const { data: vac, error: vacErr } = vacationsResult;
+      if (!cancelled) {
+        if (vacErr) {
+          console.error("[page] vacation_requests load", vacErr);
+          setVacationRequests([]);
+        } else {
+          setVacationRequests((vac ?? []) as VacationRequestRow[]);
+        }
+      }
+
+      const { data: schedRows, error: schedErr } = scheduleResult;
+      if (schedErr) {
+        console.error("[page] schedule_entries load", schedErr);
+      }
+      const schedVac =
+        !schedErr && schedRows?.length
+          ? (schedRows as Record<string, unknown>[]).filter((row) => {
+              const st = String(row.type ?? "");
+              const el = row.event_label != null ? String(row.event_label) : "";
+              return st === "vacation" || (st === "event" && el === "vacation");
+            })
+          : [];
+      if (!cancelled && !schedErr) {
+        const mappedSched: ScheduleEntry[] = schedVac.map((row) => {
+          const st = String(row.start_time ?? "00:00");
+          const et = String(row.end_time ?? "23:59");
+          return {
+            id: String(row.id),
+            type: "vacation" as const,
+            employeeIds: Array.isArray(row.employee_ids) ? (row.employee_ids as string[]) : [],
+            projectId: row.project_id != null ? String(row.project_id) : undefined,
+            projectCode: row.project_code != null ? String(row.project_code) : undefined,
+            date: String(row.date).slice(0, 10),
+            startTime: st.length >= 5 ? st.slice(0, 5) : st,
+            endTime: et.length >= 5 ? et.slice(0, 5) : et,
+            notes: row.notes != null ? String(row.notes) : undefined,
+            eventLabel: "vacation",
+            createdBy: row.created_by != null ? String(row.created_by) : "",
+          };
+        });
+        setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mappedSched]);
+      }
+
+      const { data: projData, error: projErr } = projectsResult;
+      if (projErr) {
+        console.error("[page] projects", projErr);
+      } else if (!cancelled) {
+        if (!projData?.length) {
+          setProjects([]);
+        } else {
+          setProjects(
+            projData.map((p: Record<string, unknown>) => ({
+              id: String(p.id),
+              name: String(p.name),
+              type: String(p.type ?? ""),
+              location: String(p.location ?? ""),
+              projectCode: p.project_code != null ? String(p.project_code) : undefined,
+              budgetCAD: p.budget_cad != null ? Number(p.budget_cad) : undefined,
+              spentCAD: p.spent_cad != null ? Number(p.spent_cad) : undefined,
+              estimatedStart: String(p.estimated_start ?? ""),
+              estimatedEnd: String(p.estimated_end ?? ""),
+              locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
+              locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
+              archived: Boolean(p.archived),
+              assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
+                ? (p.assigned_employee_ids as string[])
+                : [],
+            }))
+          );
+        }
+      }
+
+      if (cancelled) return;
+      const { data: rolesRows, error: rolesErr } = rolesResult;
+      if (rolesErr) {
+        console.error("[page] roles load", rolesErr);
+        setCustomRoles(INITIAL_CUSTOM_ROLES);
+      } else {
+        let list = (rolesRows ?? []) as RolesTableRow[];
+        if (list.length === 0) {
+          const fromLs = readLegacyCustomRolesFromLocalStorage();
+          const seedRows = fromLs?.length
+            ? fromLs.map((r) => ({
+                company_id: cid,
+                name: r.name,
+                color: r.color,
+                permissions: r.permissions,
+                is_system: r.isSystem === true,
+              }))
+            : INITIAL_CUSTOM_ROLES.map((r) => ({
+                company_id: cid,
+                name: r.name,
+                color: r.color,
+                permissions: r.permissions,
+                is_system: true,
+              }));
+          const { data: inserted, error: insErr } = await supabase.from("roles").insert(seedRows).select("*");
+          if (cancelled) return;
+          if (insErr) {
+            console.error("[page] roles seed", insErr);
+            setCustomRoles(INITIAL_CUSTOM_ROLES);
+          } else {
+            clearLegacyCustomRolesLocalStorage();
+            list = (inserted ?? []) as RolesTableRow[];
+            setCustomRoles(list.map(customRoleFromSupabaseRow));
+          }
+        } else {
+          setCustomRoles(list.map(customRoleFromSupabaseRow));
+        }
+      }
+
+      if (cancelled) return;
+      const { data: coData, error: coErr } = companyResult;
+      if (!coErr && coData) {
+        const row = coData as Record<string, unknown>;
+        if (typeof row.name === "string") setCompanyName(row.name);
+        if (typeof row.logo_url === "string" && row.logo_url.trim()) setLogoUrl(row.logo_url.trim());
+        const addr = row.address;
+        const ph = row.phone;
+        const em = row.email;
+        const web = row.website;
+        setCompanyAddress(typeof addr === "string" ? addr : "");
+        setCompanyPhone(typeof ph === "string" ? ph : "");
+        setCompanyEmail(typeof em === "string" ? em : "");
+        setCompanyWebsite(typeof web === "string" ? web : "");
+      }
+
+      if (!cancelled) {
+        const { data: auditData } = auditResult;
+        setAuditLogs((auditData ?? []) as AuditLogEntry[]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, session, companyId]);
+
   const reloadDailyReports = useCallback(async () => {
     if (!supabase || !companyId) {
       setDailyReports([]);
@@ -1789,53 +1841,6 @@ export default function Home() {
     const rows = await fetchDailyReportsForCompany(supabase, companyId);
     setDailyReports(rows);
   }, [companyId]);
-
-  useEffect(() => {
-    if (!supabase || !session || !companyId) {
-      setTeamProfiles([]);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("id, employee_id, full_name, display_name, email, profile_status")
-        .eq("company_id", companyId);
-      if (error) {
-        console.error("[page] teamProfiles load", error);
-        if (!cancelled) setTeamProfiles([]);
-        return;
-      }
-      if (cancelled) return;
-      const activeRows = (data ?? []).filter((row: Record<string, unknown>) => {
-        const st = String(row.profile_status ?? "active").toLowerCase().trim();
-        return st === "active";
-      });
-      setTeamProfiles(
-        activeRows.map((row: Record<string, unknown>) => {
-          const id = String(row.id ?? "");
-          const fn = typeof row.full_name === "string" ? row.full_name : undefined;
-          const dn = typeof row.display_name === "string" ? row.display_name : undefined;
-          const em = typeof row.email === "string" ? row.email : undefined;
-          const name = displayNameFromProfile(fn, dn, em);
-          return {
-            id,
-            employeeId: row.employee_id != null ? String(row.employee_id) : null,
-            name: name || id,
-            email: typeof em === "string" ? em.trim() || undefined : undefined,
-          };
-        })
-      );
-      } catch (e) {
-        console.error("[page] teamProfiles", e);
-        if (!cancelled) setTeamProfiles([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, session, companyId]);
 
   useEffect(() => {
     void reloadDailyReports();
@@ -1891,33 +1896,6 @@ export default function Home() {
   useEffect(() => {
     if (profile?.companyName && !companyName) setCompanyName(profile.companyName);
   }, [profile?.companyName]);
-
-  useEffect(() => {
-    if (!supabase || !companyId || !session) return;
-    let cancelled = false;
-    void (async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("name, logo_url, address, phone, email, website")
-        .eq("id", companyId)
-        .maybeSingle();
-      if (cancelled || error || !data) return;
-      const row = data as Record<string, unknown>;
-      if (typeof row.name === "string") setCompanyName(row.name);
-      if (typeof row.logo_url === "string" && row.logo_url.trim()) setLogoUrl(row.logo_url.trim());
-      const addr = row.address;
-      const ph = row.phone;
-      const em = row.email;
-      const web = row.website;
-      setCompanyAddress(typeof addr === "string" ? addr : "");
-      setCompanyPhone(typeof ph === "string" ? ph : "");
-      setCompanyEmail(typeof em === "string" ? em : "");
-      setCompanyWebsite(typeof web === "string" ? web : "");
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, companyId, session]);
 
   const handleSaveCompanyProfile = useCallback(async () => {
     if (!companyId || !session?.access_token) return;

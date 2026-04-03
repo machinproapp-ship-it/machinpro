@@ -1452,7 +1452,17 @@ function CentralDashboardBody(
                           icon={<Users className="h-5 w-5 text-white" />}
                           iconWrapClassName="bg-blue-500"
                           label={L("personnel") ?? L("employees_title")}
-                          value={empCountLoading ? "—" : empActiveCount ?? "—"}
+                          value={
+                            empCountLoading ? (
+                              <span
+                                className="inline-block h-8 w-16 max-w-[40%] rounded-md bg-gray-200 dark:bg-gray-600 animate-pulse"
+                                aria-busy="true"
+                                aria-label={L("loading") || "…"}
+                              />
+                            ) : (
+                              (empActiveCount ?? "—")
+                            )
+                          }
                           subContent={
                             !empCountLoading && empActiveCount === 0 ? (
                               <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
