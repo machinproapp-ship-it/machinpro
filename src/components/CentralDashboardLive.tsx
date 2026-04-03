@@ -502,12 +502,20 @@ function CentralDashboardBody(
           body: JSON.stringify({ companyId, dashboard_config: payload }),
         });
         if (!res.ok) {
-          showToast("error", L("dashboard_config_save_error") || L("toast_error") || "Could not save");
+          const errText = await res.text().catch(() => "");
+          let msg = L("dashboard_config_save_error") || L("toast_error") || "Could not save";
+          try {
+            const j = JSON.parse(errText) as { error?: string };
+            if (j?.error) msg = `${msg}: ${j.error}`;
+          } catch {
+            if (errText) msg = `${msg}: ${errText}`;
+          }
+          showToast("error", msg);
           return false;
         }
         clearCentralDashboardConfigCache();
-        setResolvedConfig(next);
         showToast("success", L("dashboard_config_saved") || L("push_saved") || "Saved");
+        await loadDashboardConfig();
         return true;
       } catch (e) {
         console.error("[CentralDashboard] persistConfig", e);
@@ -518,7 +526,7 @@ function CentralDashboardBody(
         setSavingConfig(false);
       }
     },
-    [companyId, canManageEmployees, showToast, labels]
+    [companyId, canManageEmployees, showToast, labels, loadDashboardConfig]
   );
 
   useEffect(() => {
@@ -869,11 +877,10 @@ function CentralDashboardBody(
     };
   }, [companyId, teamTimeRows]);
 
+  /** Enabled widgets in saved order only — do not append “missing” ids or turning everything off cannot persist. */
   const orderedVisibleWidgets = useMemo(() => {
     const allowed = new Set(DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id)));
-    const ordered = resolvedConfig.orderedWidgets.filter((id) => allowed.has(id));
-    const missing = DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => allowed.has(id) && !ordered.includes(id));
-    return [...ordered, ...missing];
+    return resolvedConfig.orderedWidgets.filter((id) => allowed.has(id));
   }, [resolvedConfig.orderedWidgets, canShowWidget]);
 
   const moveWidget = useCallback(
@@ -900,7 +907,6 @@ function CentralDashboardBody(
     const has = draftConfig.orderedWidgets.includes(id);
     let order = [...draftConfig.orderedWidgets];
     if (has) {
-      if (order.length <= 1) return;
       order = order.filter((w) => w !== id);
     } else order.push(id);
     setDraftConfig({ ...draftConfig, orderedWidgets: order });
@@ -909,8 +915,7 @@ function CentralDashboardBody(
   const saveCustomize = async () => {
     const allowed = new Set(DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id)));
     const filtered = draftConfig.orderedWidgets.filter((id) => allowed.has(id));
-    const missing = DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => allowed.has(id) && !filtered.includes(id));
-    const next = { ...draftConfig, orderedWidgets: [...filtered, ...missing] };
+    const next = { ...draftConfig, orderedWidgets: filtered };
     const ok = await persistConfig(next);
     if (ok) setCustomizeOpen(false);
   };

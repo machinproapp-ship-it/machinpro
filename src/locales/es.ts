@@ -153,7 +153,7 @@ export default {
   settings_tz_region_europe: "Europa",
   settings_tz_region_utc: "UTC",
   settings_tz_custom: "Personalizada",
-  dashboard_config_saved: "Panel guardado",
+  dashboard_config_saved: "Guardado",
   dashboard_config_save_error: "No se pudo guardar el panel",
   notif_new_employees: "Nuevos empleados",
   notif_vacation_requests: "Solicitudes de vacaciones",

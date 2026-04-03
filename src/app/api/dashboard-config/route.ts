@@ -4,7 +4,8 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 /**
  * Persist Central dashboard layout (companies.dashboard_config).
- * Requires JWT + canManageRoles for the company.
+ * Requires JWT + canManageEmployees. Clears the requesting user's personal
+ * dashboard_config so company layout is not overridden on reload by mergeDashboardRaw.
  */
 export async function PATCH(req: NextRequest) {
   let body: unknown;
@@ -29,9 +30,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const { error } = await admin.from("companies").update({ dashboard_config: b.dashboard_config }).eq("id", companyId);
+  const { error, data } = await admin
+    .from("companies")
+    .update({ dashboard_config: b.dashboard_config })
+    .eq("id", companyId)
+    .select("id");
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!data?.length) {
+    return NextResponse.json({ error: "Company not found or not updated" }, { status: 404 });
+  }
+
+  const { error: profileErr } = await admin
+    .from("user_profiles")
+    .update({ dashboard_config: null })
+    .eq("id", auth.userId);
+  if (profileErr) {
+    return NextResponse.json({ error: profileErr.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
