@@ -348,10 +348,11 @@ export function SettingsModule({
 
   const groupedZoneList = useMemo(() => allGroupedTimezones(), []);
 
-  /** Un campo puede listarse en varios grupos si su `target` incluye varios valores. */
   const complianceByTarget = useMemo(() => {
     const employee = complianceFields.filter((f) => f.target.includes("employee"));
-    const subcontractor = complianceFields.filter((f) => f.target.includes("subcontractor"));
+    const subcontractor = complianceFields.filter(
+      (f) => f.target.includes("subcontractor") && !f.target.includes("employee")
+    );
     const vehicle = complianceFields.filter((f) => f.target.includes("vehicle"));
     return { employee, subcontractor, vehicle };
   }, [complianceFields]);
