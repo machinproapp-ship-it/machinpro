@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
 import {
   Calendar,
@@ -778,44 +778,6 @@ export default function ScheduleModule({
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deleteConfirmEntryId, setDeleteConfirmEntryId] = useState<string | null>(null);
   const [clockInManualNeeded, setClockInManualNeeded] = useState(true);
-  const [calCompact, setCalCompact] = useState(false);
-  const [weekViewStart, setWeekViewStart] = useState(() => startOfWeekMonday(new Date()));
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const apply = () => setCalCompact(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-
-  useEffect(() => {
-    if (calCompact) setWeekViewStart(startOfWeekMonday(new Date()));
-  }, [calCompact]);
-
-  const weekDisplayDays = useMemo(() => {
-    const start = new Date(weekViewStart.getFullYear(), weekViewStart.getMonth(), weekViewStart.getDate());
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      return d;
-    });
-  }, [weekViewStart]);
-
-  const weekRangeLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat(dateLocale, { timeZone: scheduleTz, day: "numeric", month: "short" });
-    const end = new Date(weekViewStart.getFullYear(), weekViewStart.getMonth(), weekViewStart.getDate());
-    end.setDate(end.getDate() + 6);
-    return `${fmt.format(weekViewStart)} – ${fmt.format(end)}, ${weekViewStart.getFullYear()}`;
-  }, [weekViewStart, dateLocale, scheduleTz]);
-
-  const shiftWeekBy = (delta: number) => {
-    setWeekViewStart((prev) => {
-      const d = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate());
-      d.setDate(d.getDate() + delta * 7);
-      return d;
-    });
-  };
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -1165,37 +1127,31 @@ export default function ScheduleModule({
           <div className="mb-4 flex w-full min-w-0 flex-wrap items-center justify-center gap-2 sm:flex-nowrap sm:justify-between">
             <button
               type="button"
-              onClick={() => (calCompact ? shiftWeekBy(-1) : prevMonth())}
+              onClick={prevMonth}
               className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] sm:min-w-0"
-              aria-label={calCompact ? (lx.schedule_prev_week ?? labels.previousMonth ?? "Previous") : (labels.previousMonth ?? "Previous")}
+              aria-label={labels.previousMonth ?? "Previous"}
             >
               <span className="sm:hidden" aria-hidden>
                 ←
               </span>
               <span className="hidden sm:inline">
-                ←{" "}
-                {calCompact
-                  ? (lx.schedule_prev_week ?? labels.previousMonth ?? "Anterior")
-                  : (labels.previousMonth ?? "Anterior")}
+                ← {labels.previousMonth ?? "Anterior"}
               </span>
             </button>
             <h3 className="order-first w-full min-w-0 text-center text-sm font-semibold capitalize text-zinc-900 dark:text-white sm:order-none sm:flex-1 sm:text-lg sm:truncate">
-              {calCompact ? weekRangeLabel : `${monthName} ${viewYear}`}
+              {monthName} {viewYear}
             </h3>
             <button
               type="button"
-              onClick={() => (calCompact ? shiftWeekBy(1) : nextMonth())}
+              onClick={nextMonth}
               className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] sm:min-w-0"
-              aria-label={calCompact ? (lx.schedule_next_week ?? labels.nextMonth ?? "Next") : (labels.nextMonth ?? "Next")}
+              aria-label={labels.nextMonth ?? "Next"}
             >
               <span className="sm:hidden" aria-hidden>
                 →
               </span>
               <span className="hidden sm:inline">
-                {calCompact
-                  ? (lx.schedule_next_week ?? labels.nextMonth ?? "Siguiente")
-                  : (labels.nextMonth ?? "Siguiente")}{" "}
-                →
+                {labels.nextMonth ?? "Siguiente"} →
               </span>
             </button>
             <button
@@ -1219,9 +1175,9 @@ export default function ScheduleModule({
                   {(labels as Record<string, string>)[key] ?? "L M X J V S D".split(" ")[i]}
                 </div>
               ))}
-              {(calCompact ? weekDisplayDays : calendarDays).map((day) => {
+              {calendarDays.map((day) => {
                 const ymd = toYMD(day);
-                const isCurrentMonth = calCompact || day.getMonth() === viewMonth;
+                const isCurrentMonth = day.getMonth() === viewMonth;
                 const isToday = ymd === todayYmd;
                 const isSelected = selectedDay === ymd;
                 const dayEntries = entriesForDay(ymd);
