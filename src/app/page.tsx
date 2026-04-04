@@ -3472,6 +3472,7 @@ export default function Home() {
         entity_id: id,
         entity_name: emp.name,
       });
+      invalidateDashboardCache();
     } else if (editingEmployeeId) {
       const picked = customRoles.find((r) => r.id === newEmployeeCustomRoleId);
       const roleName = newEmployeeRoleMode === "list" && picked ? picked.name : newEmployeeRole || "worker";
@@ -3491,8 +3492,8 @@ export default function Home() {
             : e
         )
       );
+      invalidateDashboardCache();
     }
-    invalidateDashboardCache();
     closeEmployeeForm();
   }
 
