@@ -1057,7 +1057,7 @@ function CentralDashboardBody(
   );
 
   const widgetChrome = (id: DashboardWidgetId, children: React.ReactNode) => (
-    <div className="relative rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+    <div className="relative min-w-0 max-w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
       {canManageEmployees ? (
         <div className="absolute top-2 right-2 flex items-center gap-1">
           <button
@@ -1107,7 +1107,7 @@ function CentralDashboardBody(
               <Clock className="h-4 w-4 text-blue-500" aria-hidden />
               {title}
             </h3>
-            <ul className="text-sm space-y-2 text-gray-800 dark:text-gray-200 max-h-48 overflow-y-auto">
+            <ul className="text-sm space-y-2 text-gray-800 dark:text-gray-200 max-h-48 min-h-0 overflow-y-auto overscroll-contain">
               {teamTimeRows.length === 0 ? (
                 <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
               ) : (
@@ -1197,14 +1197,14 @@ function CentralDashboardBody(
               <ClipboardCheck className="h-4 w-4 text-violet-500" aria-hidden />
               {title}
             </h3>
-            <ul className="text-sm space-y-2 max-h-56 overflow-y-auto">
+            <ul className="text-sm space-y-2 max-h-56 min-h-0 overflow-y-auto overscroll-contain">
               {activityRows.length === 0 ? (
                 <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
               ) : (
                 activityRows.map((row) => (
-                  <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2">
+                  <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 min-w-0">
                     <span className="text-xs text-gray-500">{formatRelative(row.created_at, dateLoc)}</span>
-                    <p className="mt-0.5">
+                    <p className="mt-0.5 break-words">
                       {formatActivityLine(
                         row,
                         labels,
@@ -1389,23 +1389,23 @@ function CentralDashboardBody(
 
   return (
     <>
-      <section className="space-y-2 mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-lg font-medium text-gray-900 dark:text-white">
+      <section className="mb-4 w-full min-w-0 max-w-full space-y-2">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <p className="min-w-0 text-lg font-medium text-gray-900 dark:text-white break-words">
             {getGreeting()} — {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
           </p>
           {canManageEmployees ? (
             <button
               type="button"
               onClick={() => setCustomizeOpen(true)}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+              className="inline-flex w-full min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 sm:w-auto"
             >
-              <Settings2 className="h-4 w-4" aria-hidden />
+              <Settings2 className="h-4 w-4 shrink-0" aria-hidden />
               {L("dashboard_customize_open")}
             </button>
           ) : null}
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm text-gray-600 dark:text-gray-300 break-words">
           {(labels.dashboard_all_clear_named ?? "").replace("{company}", companyName ?? L("dashboard_company"))}
         </p>
       </section>
@@ -1557,8 +1557,8 @@ function CentralDashboardBody(
 
       {customizeOpen ? (
         <>
-          <div className="fixed inset-0 z-[70] bg-black/50" aria-hidden onClick={() => setCustomizeOpen(false)} />
-          <div className="fixed z-[71] left-2 right-2 bottom-2 max-h-[min(85vh,95dvh)] w-auto max-w-[min(95vw,32rem)] mx-auto overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-lg">
+          <div className="fixed inset-0 z-[70] min-h-[100dvh] bg-black/50" aria-hidden onClick={() => setCustomizeOpen(false)} />
+          <div className="fixed z-[71] inset-x-0 bottom-0 max-h-[min(88vh,96dvh)] w-full max-w-none overflow-y-auto rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:mx-auto sm:w-full sm:max-w-lg sm:rounded-xl sm:-translate-x-1/2 sm:-translate-y-1/2">
             <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <GripVertical className="h-4 w-4" aria-hidden />
@@ -1650,11 +1650,11 @@ function CentralDashboardBody(
                 })}
               </ul>
             </div>
-            <div className="sticky bottom-0 flex flex-wrap gap-2 justify-end border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-white dark:bg-gray-900">
+            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 dark:border-gray-700 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white dark:bg-gray-900 sm:flex-row sm:flex-wrap sm:justify-end">
               <button
                 type="button"
                 onClick={() => setCustomizeOpen(false)}
-                className="min-h-[44px] px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold"
+                className="min-h-[44px] w-full px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold sm:w-auto"
               >
                 {L("dashboard_customize_cancel")}
               </button>
@@ -1662,7 +1662,7 @@ function CentralDashboardBody(
                 type="button"
                 disabled={savingConfig}
                 onClick={() => void saveCustomize()}
-                className="min-h-[44px] px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-60"
+                className="min-h-[44px] w-full px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-60 sm:w-auto"
               >
                 {L("dashboard_customize_save")}
               </button>

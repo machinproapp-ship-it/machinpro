@@ -143,7 +143,7 @@ export function Sidebar({
       {mobileDrawerOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-[100] bg-black/50 lg:hidden"
+          className="fixed inset-0 z-[100] min-h-[100dvh] w-full max-w-none bg-black/50 lg:hidden touch-manipulation"
           aria-label={closeLabel}
           onClick={() => onMobileDrawerOpenChange?.(false)}
         />

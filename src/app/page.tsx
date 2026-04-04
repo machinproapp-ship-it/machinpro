@@ -3518,8 +3518,8 @@ export default function Home() {
         />
 
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-8">
-          <header className="mb-4 sm:mb-8 border-b border-gray-200 dark:border-gray-800 pb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-2">
+          <header className="mb-4 sm:mb-8 border-b border-gray-200 dark:border-gray-800 pb-4 flex w-full min-w-0 max-w-full flex-col gap-3 overflow-x-hidden sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 max-w-full flex-1 items-center gap-2">
               <button
                 type="button"
                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-gray-700 dark:bg-gray-900 dark:text-zinc-100 dark:hover:bg-zinc-800 lg:hidden"
@@ -3547,7 +3547,7 @@ export default function Home() {
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex w-full min-w-0 max-w-full flex-wrap items-center justify-stretch gap-2 sm:w-auto sm:justify-end sm:gap-3">
               {session && companyId ? (
                 <NotificationBell
                   supabase={supabase}
@@ -3627,13 +3627,13 @@ export default function Home() {
                   )}
                 </div>
               )}
-              <label className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial">
+              <label className="flex min-w-0 flex-[1_1_8rem] items-center gap-2 sm:flex-initial sm:flex-none">
                 <span className="sr-only">{(t as Record<string, string>).language ?? "Language"}</span>
                 <select
                   value={language}
                   onChange={(e) => void applyLanguage(e.target.value as Language)}
                   aria-label={(t as Record<string, string>).language ?? "Language"}
-                  className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:min-w-[10rem] sm:flex-none"
+                  className="min-h-[44px] w-full min-w-0 max-w-[min(100%,9.5rem)] flex-1 rounded-lg border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:max-w-none sm:min-w-[10rem] sm:flex-none sm:px-3 sm:text-sm"
                 >
                   {LANGUAGES.map((lang) => (
                     <option key={lang.code} value={lang.code}>
@@ -3643,7 +3643,7 @@ export default function Home() {
                 </select>
               </label>
               {session && (
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
                   <span className="hidden sm:block">
                     <BrandWordmark tone="onLight" className="text-xs font-semibold" />
                   </span>
@@ -3653,7 +3653,9 @@ export default function Home() {
                   {profile?.isSuperadmin && (
                     <Link
                       href="/superadmin"
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/50 px-3 py-2 text-sm font-medium text-violet-800 dark:text-violet-200 hover:bg-violet-100 dark:hover:bg-violet-900/40"
+                      title={(t as Record<string, string>).superadmin_panel ?? "Panel Admin"}
+                      aria-label={(t as Record<string, string>).superadmin_panel ?? "Panel Admin"}
+                      className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/50 px-2.5 py-2 text-sm font-medium text-violet-800 dark:text-violet-200 hover:bg-violet-100 dark:hover:bg-violet-900/40 sm:min-w-0 sm:px-3"
                     >
                       <Settings className="h-4 w-4 shrink-0" aria-hidden />
                       <span className="hidden sm:inline">
@@ -3664,10 +3666,14 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => void handleLogout()}
-                    className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
+                    title={(t as Record<string, string>).settings_sign_out ?? "Sign out"}
+                    aria-label={(t as Record<string, string>).settings_sign_out ?? "Sign out"}
+                    className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-2.5 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 sm:min-w-0 sm:px-4"
                   >
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">{(t as Record<string, string>).settings_sign_out ?? "Sign out"}</span>
+                    <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">
+                      {(t as Record<string, string>).settings_sign_out ?? "Sign out"}
+                    </span>
                   </button>
                 </div>
               )}

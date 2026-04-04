@@ -1162,46 +1162,59 @@ export default function ScheduleModule({
 
       {scheduleSubTab === "calendar" && (
         <>
-          <div className="flex flex-nowrap items-center gap-2 mb-4 w-full min-w-0">
+          <div className="mb-4 flex w-full min-w-0 flex-wrap items-center justify-center gap-2 sm:flex-nowrap sm:justify-between">
             <button
               type="button"
               onClick={() => (calCompact ? shiftWeekBy(-1) : prevMonth())}
-              className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
+              className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] sm:min-w-0"
+              aria-label={calCompact ? (lx.schedule_prev_week ?? labels.previousMonth ?? "Previous") : (labels.previousMonth ?? "Previous")}
             >
-              ←{" "}
-              {calCompact
-                ? (lx.schedule_prev_week ?? labels.previousMonth ?? "Anterior")
-                : (labels.previousMonth ?? "Anterior")}
+              <span className="sm:hidden" aria-hidden>
+                ←
+              </span>
+              <span className="hidden sm:inline">
+                ←{" "}
+                {calCompact
+                  ? (lx.schedule_prev_week ?? labels.previousMonth ?? "Anterior")
+                  : (labels.previousMonth ?? "Anterior")}
+              </span>
             </button>
-            <h3 className="flex-1 min-w-0 text-center text-sm sm:text-lg font-semibold text-zinc-900 dark:text-white capitalize truncate">
+            <h3 className="order-first w-full min-w-0 text-center text-sm font-semibold capitalize text-zinc-900 dark:text-white sm:order-none sm:flex-1 sm:text-lg sm:truncate">
               {calCompact ? weekRangeLabel : `${monthName} ${viewYear}`}
             </h3>
             <button
               type="button"
               onClick={() => (calCompact ? shiftWeekBy(1) : nextMonth())}
-              className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
+              className="shrink-0 rounded-lg border border-zinc-200 dark:border-slate-700 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] sm:min-w-0"
+              aria-label={calCompact ? (lx.schedule_next_week ?? labels.nextMonth ?? "Next") : (labels.nextMonth ?? "Next")}
             >
-              {calCompact
-                ? (lx.schedule_next_week ?? labels.nextMonth ?? "Siguiente")
-                : (labels.nextMonth ?? "Siguiente")}{" "}
-              →
+              <span className="sm:hidden" aria-hidden>
+                →
+              </span>
+              <span className="hidden sm:inline">
+                {calCompact
+                  ? (lx.schedule_next_week ?? labels.nextMonth ?? "Siguiente")
+                  : (labels.nextMonth ?? "Siguiente")}{" "}
+                →
+              </span>
             </button>
             <button
               type="button"
               onClick={goToToday}
-              className="shrink-0 text-xs px-2.5 py-2 rounded-lg border border-amber-300 dark:border-amber-600 text-amber-600 dark:text-amber-400 min-h-[44px] font-medium"
+              className="shrink-0 rounded-lg border border-amber-300 dark:border-amber-600 px-2.5 py-2 text-xs font-medium text-amber-600 dark:text-amber-400 min-h-[44px] min-w-[44px] sm:min-w-0"
+              aria-label={labels.today ?? "Today"}
             >
               {labels.today ?? "Hoy"}
             </button>
           </div>
 
           <HorizontalScrollFade className="-mx-4 px-0 sm:mx-0 sm:px-0">
-            <div className="overflow-x-auto px-4 sm:overflow-visible sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
-            <div className="grid grid-cols-7 gap-1 min-w-[320px]">
+            <div className="w-full min-w-0 overflow-x-auto px-2 sm:overflow-visible sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
+            <div className="grid w-full min-w-0 grid-cols-7 gap-0.5 sm:gap-1">
               {["monShort", "tueShort", "wedShort", "thuShort", "friShort", "satShort", "sunShort"].map((key, i) => (
                 <div
                   key={key}
-                  className="text-center text-xs font-semibold text-zinc-500 dark:text-zinc-400 py-1"
+                  className="py-1 text-center text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 sm:text-xs"
                 >
                   {(labels as Record<string, string>)[key] ?? "L M X J V S D".split(" ")[i]}
                 </div>
@@ -1240,7 +1253,7 @@ export default function ScheduleModule({
                         openDayPanel();
                       }
                     }}
-                    className={`rounded-xl border p-1.5 sm:p-2 h-16 min-h-[64px] sm:h-24 sm:min-h-[96px] flex flex-col gap-0.5 cursor-pointer hover:ring-2 hover:ring-amber-400/50 transition-shadow ${
+                    className={`rounded-lg border p-1 sm:p-2 h-[52px] min-h-[52px] sm:h-24 sm:min-h-[96px] flex flex-col gap-0.5 cursor-pointer hover:ring-2 hover:ring-amber-400/50 transition-shadow sm:rounded-xl ${
                       !isCurrentMonth ? "opacity-40" : ""
                     } ${
                       isToday
@@ -1572,7 +1585,14 @@ export default function ScheduleModule({
                     <div className="rounded-xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 flex items-start justify-between gap-2">
                       <p className="text-sm text-amber-800 dark:text-amber-200">{clockInAlertMessage}</p>
                       {onDismissClockInAlert && (
-                        <button type="button" onClick={onDismissClockInAlert} className="shrink-0 p-1 rounded-lg hover:bg-amber-200/50 dark:hover:bg-amber-800/30 text-amber-700 dark:text-amber-300" aria-label="Cerrar">×</button>
+                        <button
+                          type="button"
+                          onClick={onDismissClockInAlert}
+                          className="shrink-0 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-lg leading-none hover:bg-amber-200/50 dark:hover:bg-amber-800/30 text-amber-700 dark:text-amber-300"
+                          aria-label={(labels as Record<string, string>).common_close ?? "Close"}
+                        >
+                          ×
+                        </button>
                       )}
                     </div>
                   )}

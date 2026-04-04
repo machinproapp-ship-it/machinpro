@@ -1065,17 +1065,17 @@ export function ProjectsModule({
   if (!selectedProject) {
     return (
       <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
-        <div className="border-b border-zinc-200 dark:border-slate-700 px-6 py-5">
+        <div className="border-b border-zinc-200 dark:border-slate-700 px-4 py-4 sm:px-6 sm:py-5 min-w-0">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
             <Building2 className="h-5 w-5 text-amber-500" />
             {t.siteAdminView ?? PM_EN.siteAdminView}
           </h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Selecciona un proyecto para ver su detalle completo
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 break-words">
+            {t.projects_select_detail_hint ?? PM_EN.projects_select_detail_hint}
           </p>
         </div>
 
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full min-w-0">
           {(projects ?? []).map((proj) => {
             const assigned = (allEmployees ?? []).filter((e) => (proj.assignedEmployeeIds ?? []).includes(e.id));
             const pendingCount = (diaryEntries ?? []).filter(
@@ -1778,7 +1778,7 @@ export function ProjectsModule({
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                   <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? PM_EN.invPhotosTitle}
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 w-full min-w-0">
                   {invPhotos.flatMap((entry) =>
                     (entry.photoUrls || []).map((url, i) => (
                       <button
@@ -2034,7 +2034,7 @@ export function ProjectsModule({
                     })}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 w-full min-w-0">
                     {filteredPendingObra.map((entry) => {
                       const cat = entry.photoCategory ?? "progress";
                       const catBadgeClass =
@@ -2188,7 +2188,7 @@ export function ProjectsModule({
                     }
                   />
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full min-w-0">
                     {[...inspectionPhotosPool]
                       .sort(
                         (a, b) =>

@@ -100,6 +100,7 @@ export default {
   projects_no_active: "No hay proyectos activos",
   projects_no_archived: "No hay proyectos archivados",
   projects_view_detail: "Ver detalle",
+  projects_select_detail_hint: "Selecciona un proyecto para ver su detalle completo.",
   projects_status_active: "Activo",
   projects_status_paused: "Pausado",
   projects_status_completed: "Completado",
