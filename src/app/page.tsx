@@ -1163,6 +1163,28 @@ export default function Home() {
   /** user_profiles.id → employees.id */
   const [userToEmployeeMap, setUserToEmployeeMap] = useState<Record<string, string>>({});
   const userIdToEmployeeIdRef = useRef<Map<string, string>>(new Map());
+  const dashboardCacheRef = useRef<{
+    companyId: string;
+    employees: Employee[];
+    projects: Project[];
+    clockEntries: ClockEntry[];
+    vacationRequests: VacationRequestRow[];
+    scheduleEntries: ScheduleEntry[];
+    customRoles: CustomRole[];
+    teamProfiles: { id: string; employeeId: string | null; name: string; email?: string }[];
+    auditLogs: AuditLogEntry[];
+    companyName: string;
+    logoUrl: string;
+    companyAddress: string;
+    companyPhone: string;
+    companyEmail: string;
+    companyWebsite: string;
+    userToEmployeeMap: Record<string, string>;
+    lastFetched: number;
+  } | null>(null);
+  const invalidateDashboardCache = useCallback(() => {
+    dashboardCacheRef.current = null;
+  }, []);
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>(() => {
     if (typeof window === "undefined") return INITIAL_FORM_TEMPLATES;
@@ -1519,6 +1541,7 @@ export default function Home() {
       setCustomRoles(INITIAL_CUSTOM_ROLES);
     }
     if (!supabase || !session || !companyId) {
+      dashboardCacheRef.current = null;
       setDbClockEntries([]);
       setVacationRequests([]);
       setUserToEmployeeMap({});
@@ -1528,6 +1551,31 @@ export default function Home() {
     }
     const cid = companyId;
     let cancelled = false;
+
+    const CACHE_TTL_MS = 60_000;
+    const cached = dashboardCacheRef.current;
+    if (cached && cached.companyId === cid && Date.now() - cached.lastFetched < CACHE_TTL_MS) {
+      userIdToEmployeeIdRef.current = new Map(Object.entries(cached.userToEmployeeMap));
+      setUserToEmployeeMap(cached.userToEmployeeMap);
+      setEmployees(cached.employees);
+      setProjects(cached.projects);
+      setDbClockEntries(cached.clockEntries);
+      setVacationRequests(cached.vacationRequests);
+      setCustomRoles(cached.customRoles);
+      setTeamProfiles(cached.teamProfiles);
+      setAuditLogs(cached.auditLogs);
+      if (cached.companyName) setCompanyName(cached.companyName);
+      if (cached.logoUrl) setLogoUrl(cached.logoUrl);
+      setCompanyAddress(cached.companyAddress ?? "");
+      setCompanyPhone(cached.companyPhone ?? "");
+      setCompanyEmail(cached.companyEmail ?? "");
+      setCompanyWebsite(cached.companyWebsite ?? "");
+      setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...cached.scheduleEntries]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     void (async () => {
       const [
         profilesResult,
@@ -1576,6 +1624,26 @@ export default function Home() {
 
       if (cancelled) return;
 
+      let mappedEmployees: Employee[] = [];
+      let mappedTeamProfiles: {
+        id: string;
+        employeeId: string | null;
+        name: string;
+        email?: string;
+      }[] = [];
+      let mappedClockEntries: ClockEntry[] = [];
+      let mappedVacations: VacationRequestRow[] = [];
+      let mappedScheduleVacation: ScheduleEntry[] = [];
+      let mappedProjects: Project[] = [];
+      let mappedCustomRoles: CustomRole[] = INITIAL_CUSTOM_ROLES;
+      let mappedCompanyName = "";
+      let mappedLogoUrl = "";
+      let mappedCompanyAddress = "";
+      let mappedCompanyPhone = "";
+      let mappedCompanyEmail = "";
+      let mappedCompanyWebsite = "";
+      let mappedAuditLogs: AuditLogEntry[] = [];
+
       const { data: profiles, error: profilesErr } = profilesResult;
       if (profilesErr) {
         console.error("[page] user_profiles (consolidated)", profilesErr);
@@ -1598,32 +1666,32 @@ export default function Home() {
           const st = String(row.profile_status ?? "active").toLowerCase().trim();
           return st === "active";
         });
-        setTeamProfiles(
-          activeRows.map((row: Record<string, unknown>) => {
-            const id = String(row.id ?? "");
-            const fn = typeof row.full_name === "string" ? row.full_name : undefined;
-            const dn = typeof row.display_name === "string" ? row.display_name : undefined;
-            const em = typeof row.email === "string" ? row.email : undefined;
-            const name = displayNameFromProfile(fn, dn, em);
-            return {
-              id,
-              employeeId: row.employee_id != null ? String(row.employee_id) : null,
-              name: name || id,
-              email: typeof em === "string" ? em.trim() || undefined : undefined,
-            };
-          })
-        );
+        mappedTeamProfiles = activeRows.map((row: Record<string, unknown>) => {
+          const id = String(row.id ?? "");
+          const fn = typeof row.full_name === "string" ? row.full_name : undefined;
+          const dn = typeof row.display_name === "string" ? row.display_name : undefined;
+          const em = typeof row.email === "string" ? row.email : undefined;
+          const name = displayNameFromProfile(fn, dn, em);
+          return {
+            id,
+            employeeId: row.employee_id != null ? String(row.employee_id) : null,
+            name: name || id,
+            email: typeof em === "string" ? em.trim() || undefined : undefined,
+          };
+        });
+        setTeamProfiles(mappedTeamProfiles);
       } catch (e) {
         console.error("[page] teamProfiles (consolidated)", e);
+        mappedTeamProfiles = [];
         setTeamProfiles([]);
       }
 
       if (!cancelled) {
         if (profilesErr || !profiles?.length) {
+          mappedEmployees = [];
           setEmployees([]);
         } else {
-          setEmployees(
-            profiles.map((row: Record<string, unknown>) => {
+          mappedEmployees = profiles.map((row: Record<string, unknown>) => {
             const id = String(row.id);
             const fn = row.full_name != null ? String(row.full_name).trim() : "";
             const dn = row.display_name != null ? String(row.display_name).trim() : "";
@@ -1661,18 +1729,21 @@ export default function Home() {
               useRolePermissions:
                 row.use_role_permissions != null ? Boolean(row.use_role_permissions) : undefined,
             };
-          })
-          );
+          });
+          setEmployees(mappedEmployees);
         }
       }
 
       const { data: timeRows, error: timeErr } = timeEntriesResult;
       if (timeErr) {
         console.error("[page] time_entries load", timeErr);
-        if (!cancelled) setDbClockEntries([]);
+        if (!cancelled) {
+          mappedClockEntries = [];
+          setDbClockEntries([]);
+        }
       } else if (!cancelled && timeRows) {
         const pad = (n: number) => String(n).padStart(2, "0");
-        const mapped: ClockEntry[] = (timeRows as Record<string, unknown>[]).map((row) => {
+        mappedClockEntries = (timeRows as Record<string, unknown>[]).map((row) => {
           const userId = String(row.user_id);
           const inD = new Date(String(row.clock_in_at));
           const dateStr = `${inD.getFullYear()}-${pad(inD.getMonth() + 1)}-${pad(inD.getDate())}`;
@@ -1692,16 +1763,18 @@ export default function Home() {
             clockOut,
           };
         });
-        setDbClockEntries(mapped);
+        setDbClockEntries(mappedClockEntries);
       }
 
       const { data: vac, error: vacErr } = vacationsResult;
       if (!cancelled) {
         if (vacErr) {
           console.error("[page] vacation_requests load", vacErr);
+          mappedVacations = [];
           setVacationRequests([]);
         } else {
-          setVacationRequests((vac ?? []) as VacationRequestRow[]);
+          mappedVacations = (vac ?? []) as VacationRequestRow[];
+          setVacationRequests(mappedVacations);
         }
       }
 
@@ -1718,7 +1791,7 @@ export default function Home() {
             })
           : [];
       if (!cancelled && !schedErr) {
-        const mappedSched: ScheduleEntry[] = schedVac.map((row) => {
+        mappedScheduleVacation = schedVac.map((row) => {
           const st = String(row.start_time ?? "00:00");
           const et = String(row.end_time ?? "23:59");
           return {
@@ -1735,7 +1808,7 @@ export default function Home() {
             createdBy: row.created_by != null ? String(row.created_by) : "",
           };
         });
-        setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mappedSched]);
+        setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mappedScheduleVacation]);
       }
 
       const { data: projData, error: projErr } = projectsResult;
@@ -1743,27 +1816,27 @@ export default function Home() {
         console.error("[page] projects", projErr);
       } else if (!cancelled) {
         if (!projData?.length) {
+          mappedProjects = [];
           setProjects([]);
         } else {
-          setProjects(
-            projData.map((p: Record<string, unknown>) => ({
-              id: String(p.id),
-              name: String(p.name),
-              type: String(p.type ?? ""),
-              location: String(p.location ?? ""),
-              projectCode: p.project_code != null ? String(p.project_code) : undefined,
-              budgetCAD: p.budget_cad != null ? Number(p.budget_cad) : undefined,
-              spentCAD: p.spent_cad != null ? Number(p.spent_cad) : undefined,
-              estimatedStart: String(p.estimated_start ?? ""),
-              estimatedEnd: String(p.estimated_end ?? ""),
-              locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
-              locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
-              archived: Boolean(p.archived),
-              assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
-                ? (p.assigned_employee_ids as string[])
-                : [],
-            }))
-          );
+          mappedProjects = projData.map((p: Record<string, unknown>) => ({
+            id: String(p.id),
+            name: String(p.name),
+            type: String(p.type ?? ""),
+            location: String(p.location ?? ""),
+            projectCode: p.project_code != null ? String(p.project_code) : undefined,
+            budgetCAD: p.budget_cad != null ? Number(p.budget_cad) : undefined,
+            spentCAD: p.spent_cad != null ? Number(p.spent_cad) : undefined,
+            estimatedStart: String(p.estimated_start ?? ""),
+            estimatedEnd: String(p.estimated_end ?? ""),
+            locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
+            locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
+            archived: Boolean(p.archived),
+            assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
+              ? (p.assigned_employee_ids as string[])
+              : [],
+          }));
+          setProjects(mappedProjects);
         }
       }
 
@@ -1771,6 +1844,7 @@ export default function Home() {
       const { data: rolesRows, error: rolesErr } = rolesResult;
       if (rolesErr) {
         console.error("[page] roles load", rolesErr);
+        mappedCustomRoles = INITIAL_CUSTOM_ROLES;
         setCustomRoles(INITIAL_CUSTOM_ROLES);
       } else {
         let list = (rolesRows ?? []) as RolesTableRow[];
@@ -1795,14 +1869,17 @@ export default function Home() {
           if (cancelled) return;
           if (insErr) {
             console.error("[page] roles seed", insErr);
+            mappedCustomRoles = INITIAL_CUSTOM_ROLES;
             setCustomRoles(INITIAL_CUSTOM_ROLES);
           } else {
             clearLegacyCustomRolesLocalStorage();
             list = (inserted ?? []) as RolesTableRow[];
-            setCustomRoles(list.map(customRoleFromSupabaseRow));
+            mappedCustomRoles = list.map(customRoleFromSupabaseRow);
+            setCustomRoles(mappedCustomRoles);
           }
         } else {
-          setCustomRoles(list.map(customRoleFromSupabaseRow));
+          mappedCustomRoles = list.map(customRoleFromSupabaseRow);
+          setCustomRoles(mappedCustomRoles);
         }
       }
 
@@ -1810,21 +1887,62 @@ export default function Home() {
       const { data: coData, error: coErr } = companyResult;
       if (!coErr && coData) {
         const row = coData as Record<string, unknown>;
-        if (typeof row.name === "string") setCompanyName(row.name);
-        if (typeof row.logo_url === "string" && row.logo_url.trim()) setLogoUrl(row.logo_url.trim());
+        if (typeof row.name === "string") {
+          mappedCompanyName = row.name;
+          setCompanyName(row.name);
+        }
+        if (typeof row.logo_url === "string" && row.logo_url.trim()) {
+          mappedLogoUrl = row.logo_url.trim();
+          setLogoUrl(mappedLogoUrl);
+        }
         const addr = row.address;
         const ph = row.phone;
         const em = row.email;
         const web = row.website;
-        setCompanyAddress(typeof addr === "string" ? addr : "");
-        setCompanyPhone(typeof ph === "string" ? ph : "");
-        setCompanyEmail(typeof em === "string" ? em : "");
-        setCompanyWebsite(typeof web === "string" ? web : "");
+        mappedCompanyAddress = typeof addr === "string" ? addr : "";
+        mappedCompanyPhone = typeof ph === "string" ? ph : "";
+        mappedCompanyEmail = typeof em === "string" ? em : "";
+        mappedCompanyWebsite = typeof web === "string" ? web : "";
+        setCompanyAddress(mappedCompanyAddress);
+        setCompanyPhone(mappedCompanyPhone);
+        setCompanyEmail(mappedCompanyEmail);
+        setCompanyWebsite(mappedCompanyWebsite);
       }
 
       if (!cancelled) {
         const { data: auditData } = auditResult;
-        setAuditLogs((auditData ?? []) as AuditLogEntry[]);
+        mappedAuditLogs = (auditData ?? []) as AuditLogEntry[];
+        setAuditLogs(mappedAuditLogs);
+      }
+
+      const cacheWriteOk =
+        !cancelled &&
+        !profilesErr &&
+        !timeErr &&
+        !vacErr &&
+        !schedErr &&
+        !projErr &&
+        !rolesErr;
+      if (cacheWriteOk) {
+        dashboardCacheRef.current = {
+          companyId: cid,
+          employees: mappedEmployees,
+          projects: mappedProjects,
+          clockEntries: mappedClockEntries,
+          vacationRequests: mappedVacations,
+          scheduleEntries: mappedScheduleVacation,
+          customRoles: mappedCustomRoles,
+          teamProfiles: mappedTeamProfiles,
+          auditLogs: mappedAuditLogs,
+          companyName: mappedCompanyName,
+          logoUrl: mappedLogoUrl,
+          companyAddress: mappedCompanyAddress,
+          companyPhone: mappedCompanyPhone,
+          companyEmail: mappedCompanyEmail,
+          companyWebsite: mappedCompanyWebsite,
+          userToEmployeeMap: { ...o },
+          lastFetched: Date.now(),
+        };
       }
     })();
 
@@ -1921,6 +2039,7 @@ export default function Home() {
         }),
       });
       if (!res.ok) return;
+      invalidateDashboardCache();
       await syncSession();
     } finally {
       setCompanyProfileSaveBusy(false);
@@ -1938,6 +2057,7 @@ export default function Home() {
     companyEmail,
     companyWebsite,
     syncSession,
+    invalidateDashboardCache,
   ]);
 
   // Efecto 1: leer preferencia guardada al montar
@@ -3372,6 +3492,7 @@ export default function Home() {
         )
       );
     }
+    invalidateDashboardCache();
     closeEmployeeForm();
   }
 
@@ -3433,6 +3554,7 @@ export default function Home() {
       const id = "p" + Date.now().toString(36);
       setProjects((prev) => [...prev, { id, ...payload } as Project]);
     }
+    invalidateDashboardCache();
     closeProjectForm();
   }
 
@@ -3747,6 +3869,7 @@ export default function Home() {
                       entity_id: id,
                     });
                     setEmployees((prev) => prev.filter((e) => e.id !== id));
+                    invalidateDashboardCache();
                   }
                 }}
                 subcontractorCountryCode={subcontractorCountryCode}
