@@ -4665,6 +4665,16 @@ export default function Home() {
                 currentUserEmployeeId={currentUserEmployeeId ?? undefined}
                 employeeLabels={scheduleEmployeeLabels}
                 canWrite={!!rolePerms.canCreateShifts}
+                canViewTeamAvailability={
+                  !!(
+                    rolePerms.canViewTeamAvailability ||
+                    rolePerms.canViewSchedule ||
+                    rolePerms.canCreateShifts
+                  )
+                }
+                canManageTeamAvailability={
+                  !!(rolePerms.canManageTeamAvailability || rolePerms.canCreateShifts)
+                }
                 canClockIn={effectiveRole !== "admin"}
                 viewAll={!!rolePerms.canViewSchedule}
                 canApproveVacations={!!rolePerms.canManageVacations}
@@ -4768,6 +4778,9 @@ export default function Home() {
                   schedule_partial: (t as Record<string, string>).schedule_partial,
                   schedule_conflict_warning: (t as Record<string, string>).schedule_conflict_warning,
                   schedule_team_availability: (t as Record<string, string>).schedule_team_availability,
+                  schedule_this_week_btn: (t as Record<string, string>).schedule_this_week_btn,
+                  schedule_prev_week: (t as Record<string, string>).schedule_prev_week,
+                  schedule_next_week: (t as Record<string, string>).schedule_next_week,
                   schedule_availability_this_week: (t as Record<string, string>).schedule_availability_this_week,
                   schedule_availability_2plus: (t as Record<string, string>).schedule_availability_2plus,
                   schedule_deselect_filter: (t as Record<string, string>).schedule_deselect_filter,

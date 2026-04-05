@@ -42,6 +42,10 @@ export interface RolePermissions {
   // ─── Horario ─────────────────────────────────────────────
   canViewSchedule: boolean;
   canCreateShifts: boolean;
+  /** Ver el panel de disponibilidad del equipo (calendario / semana). */
+  canViewTeamAvailability: boolean;
+  /** Crear o editar turnos desde el panel de disponibilidad del equipo. */
+  canManageTeamAvailability: boolean;
   canManageVacations: boolean;
   canViewTimesheets: boolean;
   canManageTimesheets: boolean;
@@ -219,6 +223,8 @@ export const ROLE_PERMISSION_GROUPS: {
     keys: [
       "canViewSchedule",
       "canCreateShifts",
+      "canViewTeamAvailability",
+      "canManageTeamAvailability",
       "canManageVacations",
       "canViewTimesheets",
       "canManageTimesheets",
@@ -307,6 +313,8 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageProjectVisitors: "Gestionar visitantes y QR",
   canViewSchedule: "Ver horario",
   canCreateShifts: "Crear turnos y eventos",
+  canViewTeamAvailability: "Ver disponibilidad del equipo",
+  canManageTeamAvailability: "Gestionar disponibilidad del equipo",
   canManageVacations: "Gestionar vacaciones",
   canViewTimesheets: "Ver hojas de horas",
   canManageTimesheets: "Editar hojas de horas",

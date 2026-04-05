@@ -109,6 +109,10 @@ export interface ScheduleModuleProps {
   projects: SchedProject[];
   currentUserEmployeeId?: string;
   canWrite: boolean;
+  /** Ver el panel de disponibilidad del equipo (además de permisos de horario heredados desde page). */
+  canViewTeamAvailability?: boolean;
+  /** Botón para añadir turno dentro del panel de disponibilidad. */
+  canManageTeamAvailability?: boolean;
   canClockIn?: boolean;
   viewAll: boolean;
   labels: {
@@ -221,6 +225,9 @@ export interface ScheduleModuleProps {
     schedule_partial?: string;
     schedule_conflict_warning?: string;
     schedule_team_availability?: string;
+    schedule_this_week_btn?: string;
+    schedule_prev_week?: string;
+    schedule_next_week?: string;
     schedule_availability_this_week?: string;
     /** Leyenda: celda con 2+ turnos el mismo día */
     schedule_availability_2plus?: string;
@@ -843,6 +850,8 @@ export default function ScheduleModule({
   projects,
   currentUserEmployeeId,
   canWrite,
+  canViewTeamAvailability = true,
+  canManageTeamAvailability = false,
   canClockIn = false,
   viewAll,
   labels,
@@ -942,6 +951,7 @@ export default function ScheduleModule({
   const [vacReqNote, setVacReqNote] = useState("");
   const [vacAdminComment, setVacAdminComment] = useState<Record<string, string>>({});
   const [teamAvailabilityOpen, setTeamAvailabilityOpen] = useState(true);
+  const [availabilityWeekOffset, setAvailabilityWeekOffset] = useState(0);
 
   const calendarDays = useMemo(
     () => getCalendarDays(viewYear, viewMonth),
@@ -1075,22 +1085,29 @@ export default function ScheduleModule({
     return m;
   }, [fEmployeeIds, shiftFormCalendarDays, shiftFormCalMonth, entries]);
 
-  const mainCalendarWeekYmds = useMemo(
-    () => weekYmdsMondayFirstInTimeZone(scheduleTz),
-    [scheduleTz, todayYmd]
+  const availabilityWeekYmds = useMemo(
+    () => weekYmdsMondayFirstInTimeZone(scheduleTz, availabilityWeekOffset),
+    [scheduleTz, todayYmd, availabilityWeekOffset]
   );
+
+  const availabilityWeekRangeLabel = useMemo(() => {
+    const a = availabilityWeekYmds[0];
+    const b = availabilityWeekYmds[6];
+    if (!a || !b) return "";
+    return `${formatCalendarYmd(a, dateLocale, scheduleTz)} – ${formatCalendarYmd(b, dateLocale, scheduleTz)}`;
+  }, [availabilityWeekYmds, dateLocale, scheduleTz]);
 
   const teamWeekAvailabilityRows = useMemo(
     () =>
       employees.map((emp) => ({
         emp,
-        cells: mainCalendarWeekYmds.map((ymd) => {
+        cells: availabilityWeekYmds.map((ymd) => {
           const list = shiftEntriesForEmployeeOnDay(emp.id, ymd, entries);
           const names = list.map((e) => shiftProjectLabelForEntry(e, projects));
           return { ymd, count: list.length, title: names.join(", ") };
         }),
       })),
-    [employees, mainCalendarWeekYmds, entries, projects]
+    [employees, availabilityWeekYmds, entries, projects]
   );
 
   const mapsUrl = (proj: SchedProject) =>
@@ -1295,6 +1312,16 @@ export default function ScheduleModule({
     }
   };
 
+  const openNewEntryForm = () => {
+    setEditingEntryId(null);
+    dispatchShiftFormDates({ type: "replace", dates: [toYMD(today)] });
+    setShiftFormCalMonth(today.getMonth());
+    setShiftFormCalYear(today.getFullYear());
+    setFormEmployeeSearch("");
+    setFormRoleFilterKey("all");
+    setFormOpen(true);
+  };
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1305,15 +1332,7 @@ export default function ScheduleModule({
         {canWrite && scheduleSubTab === "calendar" && (
           <button
             type="button"
-            onClick={() => {
-              setEditingEntryId(null);
-              dispatchShiftFormDates({ type: "replace", dates: [toYMD(today)] });
-              setShiftFormCalMonth(today.getMonth());
-              setShiftFormCalYear(today.getFullYear());
-              setFormEmployeeSearch("");
-              setFormRoleFilterKey("all");
-              setFormOpen(true);
-            }}
+            onClick={openNewEntryForm}
             className="flex items-center gap-2 rounded-xl bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px] min-w-[44px]"
           >
             <Plus className="h-4 w-4" />
@@ -1651,7 +1670,7 @@ export default function ScheduleModule({
             ))}
           </div>
 
-          {canWrite ? (
+          {canViewTeamAvailability && scheduleSubTab === "calendar" ? (
             <div className="mt-4 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
               <button
                 type="button"
@@ -1664,7 +1683,9 @@ export default function ScheduleModule({
                     {(labels as Record<string, string>).schedule_team_availability ?? ""}
                   </span>
                   <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                    {(labels as Record<string, string>).schedule_availability_this_week ?? ""}
+                    {availabilityWeekOffset === 0
+                      ? ((labels as Record<string, string>).schedule_availability_this_week ?? "")
+                      : availabilityWeekRangeLabel}
                   </span>
                 </span>
                 <ChevronDown
@@ -1674,6 +1695,47 @@ export default function ScheduleModule({
               </button>
               {teamAvailabilityOpen ? (
                 <div className="border-t border-zinc-200 dark:border-slate-700">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-2 py-2 dark:border-slate-800 sm:px-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAvailabilityWeekOffset((o) => o - 1)}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                        aria-label={
+                          (labels as Record<string, string>).schedule_prev_week ??
+                          ALL_TRANSLATIONS.es.schedule_prev_week ??
+                          "Previous week"
+                        }
+                      >
+                        <ChevronLeft className="h-5 w-5" aria-hidden />
+                      </button>
+                      <span className="min-w-0 flex-1 text-center text-xs font-medium text-zinc-800 dark:text-zinc-100 sm:text-sm">
+                        {availabilityWeekRangeLabel}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAvailabilityWeekOffset((o) => o + 1)}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                        aria-label={
+                          (labels as Record<string, string>).schedule_next_week ??
+                          ALL_TRANSLATIONS.es.schedule_next_week ??
+                          "Next week"
+                        }
+                      >
+                        <ChevronRight className="h-5 w-5" aria-hidden />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAvailabilityWeekOffset(0)}
+                      disabled={availabilityWeekOffset === 0}
+                      className="shrink-0 rounded-lg border border-amber-300 px-2.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:pointer-events-none disabled:opacity-40 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950/30 min-h-[40px]"
+                    >
+                      {(labels as Record<string, string>).schedule_this_week_btn ??
+                        ALL_TRANSLATIONS.es.schedule_this_week_btn ??
+                        "Esta semana"}
+                    </button>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[min(100%,520px)] text-xs sm:min-w-[640px]">
                       <thead>
@@ -1681,7 +1743,7 @@ export default function ScheduleModule({
                           <th className="sticky left-0 z-10 bg-white px-2 py-2 text-left text-[10px] font-semibold text-zinc-700 dark:bg-slate-900 dark:text-zinc-200 sm:text-xs">
                             {(labels as Record<string, string>).personnel ?? ""}
                           </th>
-                          {mainCalendarWeekYmds.map((ymd, i) => {
+                          {availabilityWeekYmds.map((ymd, i) => {
                             const keys = [
                               "monShort",
                               "tueShort",
@@ -1761,6 +1823,18 @@ export default function ScheduleModule({
                       {(labels as Record<string, string>).schedule_availability_2plus ?? "2+"}
                     </span>
                   </p>
+                  {canManageTeamAvailability ? (
+                    <div className="border-t border-zinc-200 px-3 py-2 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={openNewEntryForm}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-amber-500 dark:bg-amber-500 dark:hover:bg-amber-400 sm:w-auto min-h-[44px]"
+                      >
+                        <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                        {labels.addEntry ?? "Añadir turno"}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

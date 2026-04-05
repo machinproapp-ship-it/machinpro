@@ -414,13 +414,13 @@ export function visitorPeriodToCheckInBounds(
 }
 
 /** Lunes a domingo (YYYY-MM-DD) de la semana calendario que contiene "hoy" en `timeZone`. */
-export function weekYmdsMondayFirstInTimeZone(timeZone: string): string[] {
+export function weekYmdsMondayFirstInTimeZone(timeZone: string, weekOffset = 0): string[] {
   const now = new Date();
   const { y, m, d } = ymdPartsInTz(now, timeZone);
   const anchor = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
   const wd = weekdaySun0InTz(anchor, timeZone);
   const daysFromMonday = wd === 0 ? 6 : wd - 1;
-  const monday = addCalendarDays(y, m, d, -daysFromMonday);
+  const monday = addCalendarDays(y, m, d, -daysFromMonday + weekOffset * 7);
   const out: string[] = [];
   let cur = monday;
   for (let i = 0; i < 7; i++) {
