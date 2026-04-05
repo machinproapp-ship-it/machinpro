@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
 import {
   Calendar,
@@ -189,6 +189,9 @@ export interface ScheduleModuleProps {
     schedule_filter_by_role?: string;
     schedule_pick_employees?: string;
     schedule_pick_employees_error?: string;
+    schedule_search_employees?: string;
+    schedule_selected_count?: string;
+    schedule_deselect_filter?: string;
     export_csv?: string;
     export_pdf?: string;
     export_timesheets?: string;
@@ -851,6 +854,8 @@ export default function ScheduleModule({
 
   const [fType, setFType] = useState<"shift" | "event">("shift");
   const [fEmployeeIds, setFEmployeeIds] = useState<string[]>([]);
+  const [formEmployeeSearch, setFormEmployeeSearch] = useState("");
+  const [formRoleFilterKey, setFormRoleFilterKey] = useState<string>("all");
   const [fProjectId, setFProjectId] = useState("");
   const [fDates, setFDates] = useState<string[]>(() => [toYMD(today)]);
   const [fDateMode, setFDateMode] = useState<"single" | "range" | "specific">("single");
@@ -942,34 +947,95 @@ export default function ScheduleModule({
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
+  /** "Todos" + roles custom deduplicados por nombre (sin chips legacy duplicados). */
   const roleChips = useMemo(() => {
     const l = labels as Record<string, string>;
-    const chips: { key: string; label: string }[] = [
-      { key: "all", label: l.whFilterAll ?? "Todos" },
-      { key: "admin", label: l.admin ?? "" },
-      { key: "supervisor", label: l.supervisor ?? "" },
-      { key: "worker", label: l.worker ?? "" },
-      { key: "logistic", label: l.logistic ?? "" },
-    ];
+    const grouped = new Map<string, { label: string; matchingCustomRoleIds: string[] }>();
     for (const r of customRoles) {
-      chips.push({ key: `custom:${r.id}`, label: r.name });
+      const label = r.name.trim();
+      if (!label) continue;
+      const k = label.toLowerCase();
+      const g = grouped.get(k);
+      if (g) {
+        if (!g.matchingCustomRoleIds.includes(r.id)) g.matchingCustomRoleIds.push(r.id);
+      } else {
+        grouped.set(k, { label, matchingCustomRoleIds: [r.id] });
+      }
+    }
+    const chips: { key: string; label: string; matchingCustomRoleIds: string[] }[] = [
+      { key: "all", label: l.whFilterAll ?? "Todos", matchingCustomRoleIds: [] },
+    ];
+    const sortedKeys = [...grouped.keys()].sort((a, b) =>
+      (grouped.get(a)!.label ?? "").localeCompare(grouped.get(b)!.label ?? "", undefined, {
+        sensitivity: "base",
+      })
+    );
+    for (const k of sortedKeys) {
+      const g = grouped.get(k)!;
+      chips.push({ key: `g:${k}`, label: g.label, matchingCustomRoleIds: g.matchingCustomRoleIds });
     }
     return chips;
   }, [labels, customRoles]);
 
-  const selectEmployeesByRoleChip = useCallback(
-    (key: string) => {
-      if (key === "all") {
-        setFEmployeeIds(employees.map((e) => e.id));
-        return;
-      }
-      const ids = employees
-        .filter((e) => (e.scheduleRoleKey ?? "") === key)
-        .map((e) => e.id);
-      setFEmployeeIds(ids);
-    },
-    [employees]
+  useEffect(() => {
+    if (!roleChips.some((c) => c.key === formRoleFilterKey)) setFormRoleFilterKey("all");
+  }, [roleChips, formRoleFilterKey]);
+
+  const activeRoleChip = useMemo(
+    () => roleChips.find((c) => c.key === formRoleFilterKey) ?? roleChips[0]!,
+    [roleChips, formRoleFilterKey]
   );
+
+  const scheduleEmployeeRoleLabel = useCallback(
+    (emp: SchedEmployee) => {
+      const l = labels as Record<string, string>;
+      const key = emp.scheduleRoleKey ?? "";
+      if (key.startsWith("custom:")) {
+        const id = key.slice("custom:".length);
+        const cr = customRoles.find((r) => r.id === id);
+        return (cr?.name ?? emp.role ?? "").trim() || "—";
+      }
+      if (key === "admin") return (l.admin ?? emp.role ?? "").trim() || "—";
+      if (key === "supervisor") return (l.supervisor ?? emp.role ?? "").trim() || "—";
+      if (key === "logistic") return (l.logistic ?? emp.role ?? "").trim() || "—";
+      if (key === "worker") return (l.worker ?? emp.role ?? "").trim() || "—";
+      return (emp.role ?? "").trim() || "—";
+    },
+    [customRoles, labels]
+  );
+
+  const employeeMatchesRoleChip = (emp: SchedEmployee, chip: (typeof roleChips)[0]) => {
+    if (chip.key === "all") return true;
+    const srk = emp.scheduleRoleKey ?? "";
+    if (!srk.startsWith("custom:")) return false;
+    const rid = srk.slice("custom:".length);
+    return chip.matchingCustomRoleIds.includes(rid);
+  };
+
+  const filteredFormEmployees = useMemo(() => {
+    const q = formEmployeeSearch.trim().toLowerCase();
+    return employees.filter((emp) => {
+      if (!employeeMatchesRoleChip(emp, activeRoleChip)) return false;
+      if (!q) return true;
+      const name = (emp.name ?? "").toLowerCase();
+      const roleRaw = (emp.role ?? "").toLowerCase();
+      const roleLbl = scheduleEmployeeRoleLabel(emp).toLowerCase();
+      return name.includes(q) || roleRaw.includes(q) || roleLbl.includes(q);
+    });
+  }, [employees, formEmployeeSearch, activeRoleChip, scheduleEmployeeRoleLabel]);
+
+  const addFilteredEmployeesToSelection = useCallback(() => {
+    setFEmployeeIds((prev) => {
+      const s = new Set(prev);
+      for (const e of filteredFormEmployees) s.add(e.id);
+      return [...s];
+    });
+  }, [filteredFormEmployees]);
+
+  const clearFilteredEmployeesFromSelection = useCallback(() => {
+    const drop = new Set(filteredFormEmployees.map((e) => e.id));
+    setFEmployeeIds((prev) => prev.filter((id) => !drop.has(id)));
+  }, [filteredFormEmployees]);
 
   const resetForm = () => {
     setFType("shift");
@@ -985,6 +1051,8 @@ export default function ScheduleModule({
     setFEnd("16:00");
     setFNotes("");
     setFLabel("meeting");
+    setFormEmployeeSearch("");
+    setFormRoleFilterKey("all");
     setFormOpen(false);
     setEditingEntryId(null);
   };
@@ -1000,6 +1068,8 @@ export default function ScheduleModule({
     setFEnd(entry.endTime);
     setFNotes(entry.notes ?? "");
     setFLabel(entry.eventLabel ?? "meeting");
+    setFormEmployeeSearch("");
+    setFormRoleFilterKey("all");
     setEditingEntryId(entry.id);
     setFormOpen(true);
   };
@@ -1095,6 +1165,8 @@ export default function ScheduleModule({
               setFRangeEnd(toYMD(today));
               setFormPickerMonth(today.getMonth());
               setFormPickerYear(today.getFullYear());
+              setFormEmployeeSearch("");
+              setFormRoleFilterKey("all");
               setFormOpen(true);
             }}
             className="flex items-center gap-2 rounded-xl bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px] min-w-[44px]"
@@ -1795,10 +1867,10 @@ export default function ScheduleModule({
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                   {(labels as Record<string, string>).schedule_pick_employees ?? "Empleados"} *
                 </label>
-                <div className="flex flex-wrap gap-2 mb-2">
+                <div className="mb-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setFEmployeeIds(employees.map((e) => e.id))}
+                    onClick={addFilteredEmployeesToSelection}
                     className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
                   >
                     {(labels as Record<string, string>).schedule_select_all ?? ""}
@@ -1810,43 +1882,87 @@ export default function ScheduleModule({
                   >
                     {(labels as Record<string, string>).schedule_deselect_all ?? ""}
                   </button>
+                  <button
+                    type="button"
+                    onClick={clearFilteredEmployeesFromSelection}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
+                  >
+                    {(labels as Record<string, string>).schedule_deselect_filter ?? ""}
+                  </button>
                 </div>
-                <p className="text-xs text-zinc-500 mb-1">
+                <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
                   {(labels as Record<string, string>).schedule_filter_by_role ?? ""}
                 </p>
-                <div className="flex flex-wrap gap-2 mb-3">
+                <div className="mb-3 flex flex-wrap gap-2">
                   {roleChips.map((c) => (
                     <button
                       key={c.key}
                       type="button"
-                      onClick={() => selectEmployeesByRoleChip(c.key)}
-                      className="rounded-full border border-zinc-200 dark:border-slate-600 px-3 py-1.5 text-xs font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+                      onClick={() => setFormRoleFilterKey(c.key)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium min-h-[44px] transition-colors ${
+                        formRoleFilterKey === c.key
+                          ? "border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-400 dark:bg-amber-900/25 dark:text-amber-100"
+                          : "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:text-zinc-200 dark:hover:bg-slate-800"
+                      }`}
                     >
                       {c.label}
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                  {employees.map((emp) => (
-                    <button
-                      key={emp.id}
-                      type="button"
-                      onClick={() => toggleEmployee(emp.id)}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-left transition-colors min-h-[44px] ${
-                        fEmployeeIds.includes(emp.id)
-                          ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
-                          : "border-zinc-200 dark:border-slate-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      <span className="w-7 h-7 rounded-full bg-zinc-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold shrink-0">
-                        {emp.name[0]}
-                      </span>
-                      <span className="truncate">{emp.name}</span>
-                    </button>
-                  ))}
+                <input
+                  type="search"
+                  value={formEmployeeSearch}
+                  onChange={(e) => setFormEmployeeSearch(e.target.value)}
+                  placeholder={(labels as Record<string, string>).schedule_search_employees ?? ""}
+                  className="mb-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] placeholder:text-zinc-400"
+                  autoComplete="off"
+                />
+                <p className="mb-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  {(
+                    (labels as Record<string, string>).schedule_selected_count ?? "{n} selected"
+                  ).replace("{n}", String(fEmployeeIds.length))}
+                </p>
+                <div className="max-h-60 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 dark:border-slate-700 p-1.5 sm:max-h-72">
+                  {filteredFormEmployees.length === 0 ? (
+                    <p className="px-2 py-3 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                      {(labels as Record<string, string>).noEntries ?? ""}
+                    </p>
+                  ) : (
+                    filteredFormEmployees.map((emp) => {
+                      const initial = (emp.name?.trim()?.[0] ?? "?").toUpperCase();
+                      const roleLine = scheduleEmployeeRoleLabel(emp);
+                      const checked = fEmployeeIds.includes(emp.id);
+                      return (
+                        <label
+                          key={emp.id}
+                          className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors min-h-[44px] ${
+                            checked
+                              ? "border-amber-500 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20"
+                              : "border-transparent hover:bg-zinc-50 dark:hover:bg-slate-800/80"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleEmployee(emp.id)}
+                            className="h-4 w-4 shrink-0 rounded border-zinc-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-800"
+                          />
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-bold text-zinc-700 dark:bg-slate-700 dark:text-zinc-200">
+                            {initial}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                              {emp.name}
+                            </p>
+                            <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{roleLine}</p>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
                 {fEmployeeIds.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">
+                  <p className="mt-1 text-xs text-red-500">
                     {(labels as Record<string, string>).schedule_pick_employees_error ?? ""}
                   </p>
                 )}
