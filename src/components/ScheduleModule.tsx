@@ -6,6 +6,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Plus,
   MapPin,
   Users,
@@ -14,9 +15,15 @@ import {
   Pencil,
   Trash2,
   Download,
+  AlertTriangle,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
-import { resolveUserTimezone, formatCalendarYmd, formatTimeHm } from "@/lib/dateUtils";
+import {
+  resolveUserTimezone,
+  formatCalendarYmd,
+  formatTimeHm,
+  weekYmdsMondayFirstInTimeZone,
+} from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
@@ -209,6 +216,14 @@ export interface ScheduleModuleProps {
     whFilterAll?: string;
     openInMaps?: string;
     viewMyShift?: string;
+    schedule_available?: string;
+    schedule_busy?: string;
+    schedule_partial?: string;
+    schedule_conflict_warning?: string;
+    schedule_team_availability?: string;
+    schedule_availability_this_week?: string;
+    /** Leyenda: celda con 2+ turnos el mismo día */
+    schedule_availability_2plus?: string;
   };
   customRoles?: { id: string; name: string }[];
   canApproveVacations?: boolean;
@@ -304,6 +319,24 @@ function enumerateInclusiveYmd(start: string, end: string): string[] {
     cur.setDate(cur.getDate() + 1);
   }
   return out;
+}
+
+function shiftEntriesForEmployeeOnDay(
+  employeeId: string,
+  ymd: string,
+  entries: SchedEntry[]
+): SchedEntry[] {
+  return entries.filter(
+    (e) =>
+      e.type === "shift" &&
+      e.date === ymd &&
+      (e.employeeIds ?? []).includes(employeeId)
+  );
+}
+
+function shiftProjectLabelForEntry(entry: SchedEntry, projects: SchedProject[]): string {
+  const p = projects.find((x) => x.id === entry.projectId);
+  return (p?.name ?? entry.projectCode ?? "").trim() || "—";
 }
 
 type ShiftFormDatesState = { dates: string[]; rangeAnchor: string | null };
@@ -908,6 +941,7 @@ export default function ScheduleModule({
   const [vacReqEnd, setVacReqEnd] = useState("");
   const [vacReqNote, setVacReqNote] = useState("");
   const [vacAdminComment, setVacAdminComment] = useState<Record<string, string>>({});
+  const [teamAvailabilityOpen, setTeamAvailabilityOpen] = useState(true);
 
   const calendarDays = useMemo(
     () => getCalendarDays(viewYear, viewMonth),
@@ -972,6 +1006,91 @@ export default function ScheduleModule({
       scheduleSelfIds.length > 0 &&
       (entry.employeeIds ?? []).some((id) => scheduleSelfIds.includes(id)),
     [scheduleSelfIds]
+  );
+
+  const formSelectedDatesSorted = useMemo(
+    () => [...new Set(fDates)].filter(Boolean).sort(),
+    [fDates]
+  );
+
+  const formEmployeeShiftStatus = useMemo(() => {
+    const l = labels as Record<string, string>;
+    const shiftWord = l.schedule_type_shift ?? labels.shift ?? "Turno";
+    const map = new Map<
+      string,
+      | { kind: "none" }
+      | { kind: "free" }
+      | { kind: "partial"; title: string }
+      | { kind: "busy"; badge: string; title: string }
+    >();
+    const days = formSelectedDatesSorted;
+    for (const emp of employees) {
+      if (days.length === 0) {
+        map.set(emp.id, { kind: "none" });
+        continue;
+      }
+      const conflicts: { ymd: string; project: string }[] = [];
+      for (const ymd of days) {
+        const list = shiftEntriesForEmployeeOnDay(emp.id, ymd, entries);
+        if (list.length > 0) {
+          conflicts.push({ ymd, project: shiftProjectLabelForEntry(list[0]!, projects) });
+        }
+      }
+      const busy = conflicts.length;
+      const free = days.length - busy;
+      if (busy === 0) map.set(emp.id, { kind: "free" });
+      else if (free > 0) {
+        map.set(emp.id, {
+          kind: "partial",
+          title: conflicts
+            .map((c) => `${c.project} · ${formatCalendarYmd(c.ymd, dateLocale, scheduleTz)}`)
+            .join("; "),
+        });
+      } else {
+        const first = conflicts[0]!;
+        const badge = `${shiftWord}: ${first.project} · ${formatCalendarYmd(first.ymd, dateLocale, scheduleTz)}`;
+        const title =
+          conflicts.length > 1
+            ? conflicts
+                .map((c) => `${c.project} · ${formatCalendarYmd(c.ymd, dateLocale, scheduleTz)}`)
+                .join("; ")
+            : badge;
+        map.set(emp.id, { kind: "busy", badge, title });
+      }
+    }
+    return map;
+  }, [formSelectedDatesSorted, employees, entries, projects, dateLocale, scheduleTz, labels]);
+
+  const formCalendarDayAvailabilityDot = useMemo(() => {
+    const m = new Map<string, "busy" | "free">();
+    if (fEmployeeIds.length === 0) return m;
+    for (const day of shiftFormCalendarDays) {
+      const ymd = ymdFromLocalDate(day);
+      if (day.getMonth() !== shiftFormCalMonth) continue;
+      const anyBusy = fEmployeeIds.some(
+        (id) => shiftEntriesForEmployeeOnDay(id, ymd, entries).length > 0
+      );
+      m.set(ymd, anyBusy ? "busy" : "free");
+    }
+    return m;
+  }, [fEmployeeIds, shiftFormCalendarDays, shiftFormCalMonth, entries]);
+
+  const mainCalendarWeekYmds = useMemo(
+    () => weekYmdsMondayFirstInTimeZone(scheduleTz),
+    [scheduleTz, todayYmd]
+  );
+
+  const teamWeekAvailabilityRows = useMemo(
+    () =>
+      employees.map((emp) => ({
+        emp,
+        cells: mainCalendarWeekYmds.map((ymd) => {
+          const list = shiftEntriesForEmployeeOnDay(emp.id, ymd, entries);
+          const names = list.map((e) => shiftProjectLabelForEntry(e, projects));
+          return { ymd, count: list.length, title: names.join(", ") };
+        }),
+      })),
+    [employees, mainCalendarWeekYmds, entries, projects]
   );
 
   const mapsUrl = (proj: SchedProject) =>
@@ -1531,6 +1650,121 @@ export default function ScheduleModule({
               </span>
             ))}
           </div>
+
+          {canWrite ? (
+            <div className="mt-4 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setTeamAvailabilityOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left min-h-[44px] hover:bg-zinc-50 dark:hover:bg-slate-800/80"
+                aria-expanded={teamAvailabilityOpen}
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-zinc-900 dark:text-white">
+                    {(labels as Record<string, string>).schedule_team_availability ?? ""}
+                  </span>
+                  <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                    {(labels as Record<string, string>).schedule_availability_this_week ?? ""}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={`h-5 w-5 shrink-0 text-zinc-500 transition-transform ${teamAvailabilityOpen ? "rotate-180" : ""}`}
+                  aria-hidden
+                />
+              </button>
+              {teamAvailabilityOpen ? (
+                <div className="border-t border-zinc-200 dark:border-slate-700">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[min(100%,520px)] text-xs sm:min-w-[640px]">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-slate-700">
+                          <th className="sticky left-0 z-10 bg-white px-2 py-2 text-left text-[10px] font-semibold text-zinc-700 dark:bg-slate-900 dark:text-zinc-200 sm:text-xs">
+                            {(labels as Record<string, string>).personnel ?? ""}
+                          </th>
+                          {mainCalendarWeekYmds.map((ymd, i) => {
+                            const keys = [
+                              "monShort",
+                              "tueShort",
+                              "wedShort",
+                              "thuShort",
+                              "friShort",
+                              "satShort",
+                              "sunShort",
+                            ] as const;
+                            const k = keys[i] ?? "monShort";
+                            return (
+                              <th
+                                key={ymd}
+                                className="px-1 py-2 text-center text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 sm:text-xs"
+                              >
+                                <span className="block truncate">
+                                  {(labels as Record<string, string>)[k] ?? ""}
+                                </span>
+                                <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                                  {ymd.slice(8)}
+                                </span>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teamWeekAvailabilityRows.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={8}
+                              className="px-3 py-4 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                            >
+                              {(labels as Record<string, string>).noEntries ?? ""}
+                            </td>
+                          </tr>
+                        ) : (
+                          teamWeekAvailabilityRows.map(({ emp, cells }) => (
+                            <tr
+                              key={emp.id}
+                              className="border-b border-zinc-100 dark:border-slate-800"
+                            >
+                              <td className="sticky left-0 z-10 max-w-[120px] truncate bg-white px-2 py-1.5 text-[10px] font-medium text-zinc-800 dark:bg-slate-900 dark:text-zinc-100 sm:max-w-[180px] sm:text-xs">
+                                {resolveSchedulePerson(emp.id)}
+                              </td>
+                              {cells.map(({ ymd, count, title }) => (
+                                <td key={ymd} className="px-0.5 py-1 align-middle text-center">
+                                  <span
+                                    title={title || undefined}
+                                    className={`mx-auto block min-h-[26px] min-w-[26px] rounded-md sm:min-h-[32px] sm:min-w-[32px] ${
+                                      count === 0
+                                        ? "bg-emerald-100 dark:bg-emerald-900/35"
+                                        : count === 1
+                                          ? "bg-amber-100 dark:bg-amber-900/35"
+                                          : "bg-red-100 dark:bg-red-900/35"
+                                    }`}
+                                  />
+                                </td>
+                              ))}
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-100 px-3 py-2 text-[10px] text-zinc-500 dark:border-slate-800 dark:text-zinc-400">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="h-2 w-2 shrink-0 rounded-sm bg-emerald-500" aria-hidden />
+                      {(labels as Record<string, string>).schedule_available ?? ""}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="h-2 w-2 shrink-0 rounded-sm bg-amber-500" aria-hidden />
+                      {(labels as Record<string, string>).schedule_busy ?? ""}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="h-2 w-2 shrink-0 rounded-sm bg-red-500" aria-hidden />
+                      {(labels as Record<string, string>).schedule_availability_2plus ?? "2+"}
+                    </span>
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </>
       )}
 
@@ -1916,6 +2150,7 @@ export default function ScheduleModule({
                       const initial = (emp.name?.trim()?.[0] ?? "?").toUpperCase();
                       const roleLine = scheduleEmployeeRoleLabel(emp);
                       const checked = fEmployeeIds.includes(emp.id);
+                      const st = formEmployeeShiftStatus.get(emp.id) ?? { kind: "none" as const };
                       return (
                         <label
                           key={emp.id}
@@ -1935,10 +2170,48 @@ export default function ScheduleModule({
                             {initial}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                              {emp.name}
+                            <p className="flex min-w-0 items-center gap-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                              {(st.kind === "busy" || st.kind === "partial") && (
+                                <span
+                                  className="inline-flex shrink-0"
+                                  title={
+                                    (labels as Record<string, string>).schedule_conflict_warning ?? ""
+                                  }
+                                >
+                                  <AlertTriangle
+                                    className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                                    aria-hidden
+                                  />
+                                </span>
+                              )}
+                              <span className="truncate">{emp.name}</span>
                             </p>
                             <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{roleLine}</p>
+                            {st.kind === "free" && formSelectedDatesSorted.length > 0 ? (
+                              <span className="mt-1 inline-flex max-w-full rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
+                                <span className="truncate">
+                                  {(labels as Record<string, string>).schedule_available ?? ""}
+                                </span>
+                              </span>
+                            ) : null}
+                            {st.kind === "partial" ? (
+                              <span
+                                className="mt-1 inline-flex max-w-full rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+                                title={st.title}
+                              >
+                                <span className="truncate">
+                                  {(labels as Record<string, string>).schedule_partial ?? ""}
+                                </span>
+                              </span>
+                            ) : null}
+                            {st.kind === "busy" ? (
+                              <span
+                                className="mt-1 inline-flex max-w-full rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+                                title={st.title}
+                              >
+                                <span className="truncate">{st.badge}</span>
+                              </span>
+                            ) : null}
                           </div>
                         </label>
                       );
@@ -2026,13 +2299,17 @@ export default function ScheduleModule({
                       const inMonth = day.getMonth() === shiftFormCalMonth;
                       const selected = fDates.includes(ymd);
                       const isAnchor = shiftFormRangeAnchorYmd === ymd && selected;
+                      const dot =
+                        inMonth && fEmployeeIds.length > 0
+                          ? formCalendarDayAvailabilityDot.get(ymd)
+                          : undefined;
                       return (
                         <button
                           key={`${ymd}-${day.getTime()}`}
                           type="button"
                           onClick={() => inMonth && dispatchShiftFormDates({ type: "click", ymd })}
                           disabled={!inMonth}
-                          className={`flex aspect-square min-h-[36px] max-h-10 items-center justify-center rounded-lg text-xs font-medium sm:text-sm ${
+                          className={`relative flex aspect-square min-h-[36px] max-h-10 items-center justify-center rounded-lg text-xs font-medium sm:text-sm ${
                             !inMonth
                               ? "pointer-events-none opacity-30"
                               : selected
@@ -2041,6 +2318,17 @@ export default function ScheduleModule({
                           }`}
                         >
                           {day.getDate()}
+                          {dot === "busy" ? (
+                            <span
+                              className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-red-500 ring-1 ring-white dark:ring-slate-900"
+                              aria-hidden
+                            />
+                          ) : dot === "free" ? (
+                            <span
+                              className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900"
+                              aria-hidden
+                            />
+                          ) : null}
                         </button>
                       );
                     })}
