@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useReducer } from "react";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
 import {
   Calendar,
@@ -192,6 +192,7 @@ export interface ScheduleModuleProps {
     schedule_search_employees?: string;
     schedule_selected_count?: string;
     schedule_deselect_filter?: string;
+    schedule_days_selected?: string;
     export_csv?: string;
     export_pdf?: string;
     export_timesheets?: string;
@@ -303,6 +304,40 @@ function enumerateInclusiveYmd(start: string, end: string): string[] {
     cur.setDate(cur.getDate() + 1);
   }
   return out;
+}
+
+type ShiftFormDatesState = { dates: string[]; rangeAnchor: string | null };
+
+function reduceShiftFormDates(
+  state: ShiftFormDatesState,
+  action:
+    | { type: "click"; ymd: string }
+    | { type: "replace"; dates: string[] }
+    | { type: "discard_anchor" }
+): ShiftFormDatesState {
+  if (action.type === "discard_anchor") {
+    return state.rangeAnchor == null ? state : { ...state, rangeAnchor: null };
+  }
+  if (action.type === "replace") {
+    const d = [...new Set(action.dates)].filter(Boolean).sort();
+    return { dates: d.length ? d : [], rangeAnchor: null };
+  }
+  const { ymd } = action;
+  const { dates, rangeAnchor } = state;
+  const s = new Set(dates);
+  if (rangeAnchor !== null) {
+    if (rangeAnchor === ymd) {
+      s.delete(ymd);
+      return { dates: [...s].sort(), rangeAnchor: null };
+    }
+    for (const d of enumerateInclusiveYmd(rangeAnchor, ymd)) s.add(d);
+    return { dates: [...s].sort(), rangeAnchor: null };
+  }
+  if (s.has(ymd)) {
+    return { dates, rangeAnchor: ymd };
+  }
+  s.add(ymd);
+  return { dates: [...s].sort(), rangeAnchor: null };
 }
 
 // Monday = first column (0). Returns the Monday of the week containing the given date.
@@ -857,12 +892,14 @@ export default function ScheduleModule({
   const [formEmployeeSearch, setFormEmployeeSearch] = useState("");
   const [formRoleFilterKey, setFormRoleFilterKey] = useState<string>("all");
   const [fProjectId, setFProjectId] = useState("");
-  const [fDates, setFDates] = useState<string[]>(() => [toYMD(today)]);
-  const [fDateMode, setFDateMode] = useState<"single" | "range" | "specific">("single");
-  const [fRangeStart, setFRangeStart] = useState(() => toYMD(today));
-  const [fRangeEnd, setFRangeEnd] = useState(() => toYMD(today));
-  const [formPickerMonth, setFormPickerMonth] = useState(() => today.getMonth());
-  const [formPickerYear, setFormPickerYear] = useState(() => today.getFullYear());
+  const [{ dates: fDates, rangeAnchor: shiftFormRangeAnchorYmd }, dispatchShiftFormDates] = useReducer(
+    reduceShiftFormDates,
+    undefined,
+    (): ShiftFormDatesState => ({ dates: [toYMD(today)], rangeAnchor: null })
+  );
+  /** Mes visible del calendario del formulario (sustituye formPickerMonth/Year). */
+  const [shiftFormCalMonth, setShiftFormCalMonth] = useState(() => today.getMonth());
+  const [shiftFormCalYear, setShiftFormCalYear] = useState(() => today.getFullYear());
   const [fStart, setFStart] = useState("07:00");
   const [fEnd, setFEnd] = useState("16:00");
   const [fNotes, setFNotes] = useState("");
@@ -877,9 +914,9 @@ export default function ScheduleModule({
     [viewYear, viewMonth]
   );
 
-  const formPickerCalendarDays = useMemo(
-    () => getCalendarDays(formPickerYear, formPickerMonth),
-    [formPickerYear, formPickerMonth]
+  const shiftFormCalendarDays = useMemo(
+    () => getCalendarDays(shiftFormCalYear, shiftFormCalMonth),
+    [shiftFormCalYear, shiftFormCalMonth]
   );
 
   const monthNameKey = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"][viewMonth] as keyof typeof labels;
@@ -887,7 +924,7 @@ export default function ScheduleModule({
     (labels[monthNameKey] as string) ??
     new Intl.DateTimeFormat(dateLocale, { timeZone: scheduleTz, month: "long" }).format(new Date(viewYear, viewMonth, 1));
 
-  const formPickerMonthNameKey = [
+  const shiftFormCalMonthNameKey = [
     "january",
     "february",
     "march",
@@ -900,11 +937,11 @@ export default function ScheduleModule({
     "october",
     "november",
     "december",
-  ][formPickerMonth] as keyof typeof labels;
-  const formPickerMonthName =
-    (labels[formPickerMonthNameKey] as string) ??
+  ][shiftFormCalMonth] as keyof typeof labels;
+  const shiftFormCalMonthName =
+    (labels[shiftFormCalMonthNameKey] as string) ??
     new Intl.DateTimeFormat(dateLocale, { timeZone: scheduleTz, month: "long" }).format(
-      new Date(formPickerYear, formPickerMonth, 1)
+      new Date(shiftFormCalYear, shiftFormCalMonth, 1)
     );
 
   const visibleEntries = useMemo(() => {
@@ -1032,21 +1069,13 @@ export default function ScheduleModule({
     });
   }, [filteredFormEmployees]);
 
-  const clearFilteredEmployeesFromSelection = useCallback(() => {
-    const drop = new Set(filteredFormEmployees.map((e) => e.id));
-    setFEmployeeIds((prev) => prev.filter((id) => !drop.has(id)));
-  }, [filteredFormEmployees]);
-
   const resetForm = () => {
     setFType("shift");
     setFEmployeeIds([]);
     setFProjectId("");
-    setFDates([toYMD(today)]);
-    setFDateMode("single");
-    setFRangeStart(toYMD(today));
-    setFRangeEnd(toYMD(today));
-    setFormPickerMonth(today.getMonth());
-    setFormPickerYear(today.getFullYear());
+    dispatchShiftFormDates({ type: "replace", dates: [toYMD(today)] });
+    setShiftFormCalMonth(today.getMonth());
+    setShiftFormCalYear(today.getFullYear());
     setFStart("07:00");
     setFEnd("16:00");
     setFNotes("");
@@ -1062,8 +1091,10 @@ export default function ScheduleModule({
     setFType(entry.type === "event" ? "event" : "shift");
     setFEmployeeIds([...entry.employeeIds]);
     setFProjectId(entry.projectId ?? "");
-    setFDateMode("single");
-    setFDates([entry.date]);
+    dispatchShiftFormDates({ type: "replace", dates: [entry.date] });
+    const ed = parseYmdToLocalDate(entry.date);
+    setShiftFormCalMonth(ed.getMonth());
+    setShiftFormCalYear(ed.getFullYear());
     setFStart(entry.startTime);
     setFEnd(entry.endTime);
     setFNotes(entry.notes ?? "");
@@ -1074,48 +1105,31 @@ export default function ScheduleModule({
     setFormOpen(true);
   };
 
-  const formPickerPrevMonth = () => {
-    if (formPickerMonth === 0) {
-      setFormPickerMonth(11);
-      setFormPickerYear((y) => y - 1);
+  const shiftFormCalPrevMonth = () => {
+    dispatchShiftFormDates({ type: "discard_anchor" });
+    if (shiftFormCalMonth === 0) {
+      setShiftFormCalMonth(11);
+      setShiftFormCalYear((y) => y - 1);
     } else {
-      setFormPickerMonth((m) => m - 1);
+      setShiftFormCalMonth((m) => m - 1);
     }
   };
 
-  const formPickerNextMonth = () => {
-    if (formPickerMonth === 11) {
-      setFormPickerMonth(0);
-      setFormPickerYear((y) => y + 1);
+  const shiftFormCalNextMonth = () => {
+    dispatchShiftFormDates({ type: "discard_anchor" });
+    if (shiftFormCalMonth === 11) {
+      setShiftFormCalMonth(0);
+      setShiftFormCalYear((y) => y + 1);
     } else {
-      setFormPickerMonth((m) => m + 1);
+      setShiftFormCalMonth((m) => m + 1);
     }
-  };
-
-  const toggleFormPickerDay = (ymd: string) => {
-    setFDates((prev) => {
-      const s = new Set(prev);
-      if (s.has(ymd)) s.delete(ymd);
-      else s.add(ymd);
-      return [...s].sort();
-    });
   };
 
   const handleSave = () => {
     if (fEmployeeIds.length === 0) return;
     if (fType === "shift" && !fProjectId) return;
 
-    let datesToSave: string[];
-    if (editingEntryId) {
-      datesToSave = [fDates[0] ?? toYMD(today)];
-    } else if (fDateMode === "single") {
-      datesToSave = [fDates[0] ?? toYMD(today)];
-    } else if (fDateMode === "range") {
-      datesToSave = enumerateInclusiveYmd(fRangeStart, fRangeEnd);
-    } else {
-      datesToSave = [...fDates].sort();
-    }
-    const uniqueDates = [...new Set(datesToSave)].filter(Boolean).sort();
+    const uniqueDates = [...new Set(fDates)].filter(Boolean).sort();
     if (uniqueDates.length === 0) return;
 
     const proj = projects.find((p) => p.id === fProjectId);
@@ -1159,12 +1173,9 @@ export default function ScheduleModule({
             type="button"
             onClick={() => {
               setEditingEntryId(null);
-              setFDateMode("single");
-              setFDates([toYMD(today)]);
-              setFRangeStart(toYMD(today));
-              setFRangeEnd(toYMD(today));
-              setFormPickerMonth(today.getMonth());
-              setFormPickerYear(today.getFullYear());
+              dispatchShiftFormDates({ type: "replace", dates: [toYMD(today)] });
+              setShiftFormCalMonth(today.getMonth());
+              setShiftFormCalYear(today.getFullYear());
               setFormEmployeeSearch("");
               setFormRoleFilterKey("all");
               setFormOpen(true);
@@ -1867,48 +1878,6 @@ export default function ScheduleModule({
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                   {(labels as Record<string, string>).schedule_pick_employees ?? "Empleados"} *
                 </label>
-                <div className="mb-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={addFilteredEmployeesToSelection}
-                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
-                  >
-                    {(labels as Record<string, string>).schedule_select_all ?? ""}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFEmployeeIds([])}
-                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
-                  >
-                    {(labels as Record<string, string>).schedule_deselect_all ?? ""}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearFilteredEmployeesFromSelection}
-                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
-                  >
-                    {(labels as Record<string, string>).schedule_deselect_filter ?? ""}
-                  </button>
-                </div>
-                <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  {(labels as Record<string, string>).schedule_filter_by_role ?? ""}
-                </p>
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {roleChips.map((c) => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      onClick={() => setFormRoleFilterKey(c.key)}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-medium min-h-[44px] transition-colors ${
-                        formRoleFilterKey === c.key
-                          ? "border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-400 dark:bg-amber-900/25 dark:text-amber-100"
-                          : "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:text-zinc-200 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
                 <input
                   type="search"
                   value={formEmployeeSearch}
@@ -1922,7 +1891,7 @@ export default function ScheduleModule({
                     (labels as Record<string, string>).schedule_selected_count ?? "{n} selected"
                   ).replace("{n}", String(fEmployeeIds.length))}
                 </p>
-                <div className="max-h-60 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 dark:border-slate-700 p-1.5 sm:max-h-72">
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 dark:border-slate-700 p-1.5">
                   {filteredFormEmployees.length === 0 ? (
                     <p className="px-2 py-3 text-center text-sm text-zinc-500 dark:text-zinc-400">
                       {(labels as Record<string, string>).noEntries ?? ""}
@@ -1937,7 +1906,7 @@ export default function ScheduleModule({
                           key={emp.id}
                           className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors min-h-[44px] ${
                             checked
-                              ? "border-amber-500 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20"
+                              ? "border-amber-500 bg-amber-500/10 dark:border-amber-400 dark:bg-amber-500/15"
                               : "border-transparent hover:bg-zinc-50 dark:hover:bg-slate-800/80"
                           }`}
                         >
@@ -1961,6 +1930,41 @@ export default function ScheduleModule({
                     })
                   )}
                 </div>
+                <div className="mb-1 mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={addFilteredEmployeesToSelection}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
+                  >
+                    {(labels as Record<string, string>).schedule_select_all ?? ""}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFEmployeeIds([])}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm min-h-[44px] text-zinc-700 dark:text-zinc-200"
+                  >
+                    {(labels as Record<string, string>).schedule_deselect_all ?? ""}
+                  </button>
+                </div>
+                <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  {(labels as Record<string, string>).schedule_filter_by_role ?? ""}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {roleChips.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setFormRoleFilterKey(c.key)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium min-h-[44px] transition-colors ${
+                        formRoleFilterKey === c.key
+                          ? "border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-400 dark:bg-amber-900/25 dark:text-amber-100"
+                          : "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:text-zinc-200 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
                 {fEmployeeIds.length === 0 && (
                   <p className="mt-1 text-xs text-red-500">
                     {(labels as Record<string, string>).schedule_pick_employees_error ?? ""}
@@ -1972,123 +1976,68 @@ export default function ScheduleModule({
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   {(labels as Record<string, string>).schedule_date_label ?? "Fecha"} *
                 </label>
-                {!editingEntryId ? (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div className="rounded-xl border border-zinc-200 dark:border-slate-700 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={shiftFormCalPrevMonth}
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-slate-600"
+                      aria-label={labels.previousMonth ?? "Previous"}
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <span className="text-center text-sm font-semibold capitalize text-zinc-900 dark:text-white">
+                      {shiftFormCalMonthName} {shiftFormCalYear}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={shiftFormCalNextMonth}
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-slate-600"
+                      aria-label={labels.nextMonth ?? "Next"}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 sm:text-xs">
+                    {(["monShort", "tueShort", "wedShort", "thuShort", "friShort", "satShort", "sunShort"] as const).map(
+                      (key, i) => (
+                        <div key={key}>{(labels as Record<string, string>)[key] ?? ["L", "M", "X", "J", "V", "S", "D"][i]}</div>
+                      )
+                    )}
+                  </div>
+                  <div className="mt-1 grid grid-cols-7 gap-0.5">
+                    {shiftFormCalendarDays.map((day) => {
+                      const ymd = ymdFromLocalDate(day);
+                      const inMonth = day.getMonth() === shiftFormCalMonth;
+                      const selected = fDates.includes(ymd);
+                      const isAnchor = shiftFormRangeAnchorYmd === ymd && selected;
+                      return (
+                        <button
+                          key={`${ymd}-${day.getTime()}`}
+                          type="button"
+                          onClick={() => inMonth && dispatchShiftFormDates({ type: "click", ymd })}
+                          disabled={!inMonth}
+                          className={`flex aspect-square min-h-[36px] max-h-10 items-center justify-center rounded-lg text-xs font-medium sm:text-sm ${
+                            !inMonth
+                              ? "pointer-events-none opacity-30"
+                              : selected
+                                ? `bg-amber-500 text-white dark:bg-amber-600 ${isAnchor ? "ring-2 ring-amber-800 ring-offset-1 dark:ring-amber-300 dark:ring-offset-slate-900" : ""}`
+                                : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-slate-800 dark:text-zinc-100 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {day.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
                     {(
-                      [
-                        { m: "single" as const, lbl: (lx as Record<string, string>).schedule_date_mode_single ?? "Fecha única" },
-                        { m: "range" as const, lbl: (lx as Record<string, string>).schedule_date_mode_range ?? "Rango de fechas" },
-                        { m: "specific" as const, lbl: (lx as Record<string, string>).schedule_date_mode_specific ?? "Días específicos" },
-                      ] as const
-                    ).map(({ m, lbl }) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setFDateMode(m)}
-                        className={`rounded-lg border px-3 py-2.5 text-left text-sm font-medium min-h-[44px] flex-1 sm:flex-none sm:min-w-0 ${
-                          fDateMode === m
-                            ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200"
-                            : "border-zinc-200 dark:border-slate-600 text-zinc-700 dark:text-zinc-300"
-                        }`}
-                      >
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                {editingEntryId || fDateMode === "single" ? (
-                  <input
-                    type="date"
-                    value={fDates[0] ?? ""}
-                    onChange={(e) => setFDates([e.target.value])}
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                  />
-                ) : null}
-                {!editingEntryId && fDateMode === "range" ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <span className="mb-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                        {(lx as Record<string, string>).schedule_date_from ?? "Desde"}
-                      </span>
-                      <input
-                        type="date"
-                        value={fRangeStart}
-                        onChange={(e) => setFRangeStart(e.target.value)}
-                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                      />
-                    </div>
-                    <div>
-                      <span className="mb-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                        {(lx as Record<string, string>).schedule_date_to ?? "Hasta"}
-                      </span>
-                      <input
-                        type="date"
-                        value={fRangeEnd}
-                        onChange={(e) => setFRangeEnd(e.target.value)}
-                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                      />
-                    </div>
-                  </div>
-                ) : null}
-                {!editingEntryId && fDateMode === "specific" ? (
-                  <div className="rounded-xl border border-zinc-200 dark:border-slate-700 p-3">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={formPickerPrevMonth}
-                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-slate-600"
-                        aria-label={labels.previousMonth ?? "Previous"}
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </button>
-                      <span className="text-center text-sm font-semibold capitalize text-zinc-900 dark:text-white">
-                        {formPickerMonthName} {formPickerYear}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={formPickerNextMonth}
-                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-slate-600"
-                        aria-label={labels.nextMonth ?? "Next"}
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 sm:text-xs">
-                      {(["monShort", "tueShort", "wedShort", "thuShort", "friShort", "satShort", "sunShort"] as const).map(
-                        (key, i) => (
-                          <div key={key}>{(labels as Record<string, string>)[key] ?? ["L", "M", "X", "J", "V", "S", "D"][i]}</div>
-                        )
-                      )}
-                    </div>
-                    <div className="mt-1 grid grid-cols-7 gap-0.5">
-                      {formPickerCalendarDays.map((day) => {
-                        const ymd = ymdFromLocalDate(day);
-                        const inMonth = day.getMonth() === formPickerMonth;
-                        const selected = fDates.includes(ymd);
-                        return (
-                          <button
-                            key={`${ymd}-${day.getTime()}`}
-                            type="button"
-                            onClick={() => inMonth && toggleFormPickerDay(ymd)}
-                            disabled={!inMonth}
-                            className={`flex aspect-square min-h-[36px] max-h-10 items-center justify-center rounded-lg text-xs font-medium sm:text-sm ${
-                              !inMonth
-                                ? "pointer-events-none opacity-30"
-                                : selected
-                                  ? "bg-amber-500 text-white dark:bg-amber-600"
-                                  : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-slate-800 dark:text-zinc-100 dark:hover:bg-slate-700"
-                            }`}
-                          >
-                            {day.getDate()}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                      {(lx.schedule_dates_selected_count ?? "{n} día(s) seleccionado(s)").replace("{n}", String(fDates.length))}
-                    </p>
-                  </div>
-                ) : null}
+                      (labels as Record<string, string>).schedule_days_selected ??
+                      lx.schedule_dates_selected_count ??
+                      "{n} día(s) seleccionado(s)"
+                    ).replace("{n}", String(fDates.length))}
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2143,8 +2092,7 @@ export default function ScheduleModule({
                 disabled={
                   fEmployeeIds.length === 0 ||
                   (fType === "shift" && !fProjectId) ||
-                  (!editingEntryId && fDateMode === "specific" && fDates.length === 0) ||
-                  (!editingEntryId && fDateMode === "range" && (!fRangeStart || !fRangeEnd))
+                  (!editingEntryId && fDates.length === 0)
                 }
                 className="rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
               >

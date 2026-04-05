@@ -81,6 +81,7 @@ export default {
   schedule_deselect_all: "Deseleccionar todos",
   schedule_search_employees: "Buscar empleados...",
   schedule_selected_count: "{n} empleado(s) seleccionado(s)",
+  schedule_days_selected: "{n} día(s) seleccionado(s)",
   schedule_deselect_filter: "Deseleccionar filtro",
   schedule_filter_by_role: "Filtrar por rol",
   schedule_pick_employees: "Empleados",

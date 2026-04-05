@@ -4762,6 +4762,7 @@ export default function Home() {
                   schedule_pick_employees_error: (t as Record<string, string>).schedule_pick_employees_error,
                   schedule_search_employees: (t as Record<string, string>).schedule_search_employees,
                   schedule_selected_count: (t as Record<string, string>).schedule_selected_count,
+                  schedule_days_selected: (t as Record<string, string>).schedule_days_selected,
                   schedule_deselect_filter: (t as Record<string, string>).schedule_deselect_filter,
                   export_csv: (t as Record<string, string>).export_csv ?? "Export CSV",
                   export_pdf: (t as Record<string, string>).export_pdf ?? "Export PDF",
