@@ -87,6 +87,8 @@ export default {
   schedule_busy: "Busy",
   schedule_partial: "Partially busy",
   schedule_conflict_warning: "Already has a shift this day",
+  schedule_no_project: "No project",
+  schedule_shift_general_option: "No project / General",
   schedule_team_availability: "Team availability",
   schedule_this_week_btn: "This week",
   perm_canViewTeamAvailability: "View team availability",

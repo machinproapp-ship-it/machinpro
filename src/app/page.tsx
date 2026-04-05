@@ -4777,6 +4777,8 @@ export default function Home() {
                   schedule_busy: (t as Record<string, string>).schedule_busy,
                   schedule_partial: (t as Record<string, string>).schedule_partial,
                   schedule_conflict_warning: (t as Record<string, string>).schedule_conflict_warning,
+                  schedule_no_project: (t as Record<string, string>).schedule_no_project,
+                  schedule_shift_general_option: (t as Record<string, string>).schedule_shift_general_option,
                   schedule_team_availability: (t as Record<string, string>).schedule_team_availability,
                   schedule_this_week_btn: (t as Record<string, string>).schedule_this_week_btn,
                   schedule_prev_week: (t as Record<string, string>).schedule_prev_week,

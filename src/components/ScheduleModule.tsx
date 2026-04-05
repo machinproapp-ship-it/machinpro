@@ -224,6 +224,9 @@ export interface ScheduleModuleProps {
     schedule_busy?: string;
     schedule_partial?: string;
     schedule_conflict_warning?: string;
+    schedule_no_project?: string;
+    /** Opción vacía del selector de proyecto en turnos */
+    schedule_shift_general_option?: string;
     schedule_team_availability?: string;
     schedule_this_week_btn?: string;
     schedule_prev_week?: string;
@@ -412,14 +415,28 @@ const EVENT_COLORS: Record<string, string> = {
   other: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-200",
 };
 
+const SHIFT_NO_PROJECT_PILL =
+  "bg-zinc-100 text-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-100";
+
+function shiftEntryHasProject(entry: SchedEntry): boolean {
+  if (entry.type !== "shift") return true;
+  return Boolean(
+    String(entry.projectId ?? "").trim() || String(entry.projectCode ?? "").trim()
+  );
+}
+
 function entryColor(entry: SchedEntry): string {
-  if (entry.type === "shift") return EVENT_COLORS.shift;
+  if (entry.type === "shift") {
+    return shiftEntryHasProject(entry) ? EVENT_COLORS.shift : SHIFT_NO_PROJECT_PILL;
+  }
   if (entry.type === "vacation") return EVENT_COLORS.vacation;
   return EVENT_COLORS[entry.eventLabel ?? "other"] ?? EVENT_COLORS.other;
 }
 
 function entryDotClass(entry: SchedEntry): string {
-  if (entry.type === "shift") return "bg-amber-500";
+  if (entry.type === "shift") {
+    return shiftEntryHasProject(entry) ? "bg-amber-500" : "bg-zinc-400 dark:bg-zinc-500";
+  }
   if (entry.type === "vacation") return "bg-emerald-500";
   const k = entry.eventLabel ?? "other";
   if (k === "meeting") return "bg-blue-500";
@@ -438,9 +455,12 @@ function calendarCellPillLabel(
   wallClockLabel: (s: string) => string
 ): string {
   if (entry.type === "shift") {
+    const t = `${wallClockLabel(entry.startTime)}-${wallClockLabel(entry.endTime)}`;
+    if (!shiftEntryHasProject(entry)) {
+      return `${lx.schedule_no_project ?? "Sin proyecto"} · ${t}`;
+    }
     const name = (proj?.name ?? entry.projectCode ?? "").trim();
     const short = name.length > 12 ? `${name.slice(0, 12)}…` : name;
-    const t = `${wallClockLabel(entry.startTime)}-${wallClockLabel(entry.endTime)}`;
     return short ? `${short} ${t}` : t;
   }
   return scheduleEntryTypeLabel(entry, lx);
@@ -1278,17 +1298,16 @@ export default function ScheduleModule({
 
   const handleSave = () => {
     if (fEmployeeIds.length === 0) return;
-    if (fType === "shift" && !fProjectId) return;
 
     const uniqueDates = [...new Set(fDates)].filter(Boolean).sort();
     if (uniqueDates.length === 0) return;
 
-    const proj = projects.find((p) => p.id === fProjectId);
+    const proj = fProjectId ? projects.find((p) => p.id === fProjectId) : undefined;
     const basePayload = {
       type: fType,
       employeeIds: fEmployeeIds,
-      projectId: fType === "shift" ? fProjectId : undefined,
-      projectCode: fType === "shift" ? proj?.projectCode : undefined,
+      projectId: fType === "shift" && fProjectId ? fProjectId : undefined,
+      projectCode: fType === "shift" && fProjectId ? proj?.projectCode : undefined,
       startTime: fStart,
       endTime: fEnd,
       notes: fNotes || undefined,
@@ -1906,15 +1925,19 @@ export default function ScheduleModule({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            {entry.type === "shift" && (proj?.name || entry.projectCode) && (
+                            {entry.type === "shift" && (
                               <p className="flex items-center gap-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">
                                 <Briefcase className="h-4 w-4 shrink-0" />
-                                <span className="truncate">{proj?.name ?? entry.projectCode}</span>
+                                <span className="truncate">
+                                  {(proj?.name || entry.projectCode)?.trim()
+                                    ? (proj?.name ?? entry.projectCode)
+                                    : (lx.schedule_no_project ?? "Sin proyecto")}
+                                </span>
                               </p>
                             )}
                             <p
                               className={`font-medium text-zinc-800 dark:text-zinc-200 ${
-                                entry.type === "shift" && (proj?.name || entry.projectCode)
+                                entry.type === "shift"
                                   ? "mt-1 text-sm"
                                   : "text-base font-semibold text-zinc-900 dark:text-zinc-100"
                               }`}
@@ -2179,14 +2202,17 @@ export default function ScheduleModule({
               {fType === "shift" && (
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    {(labels as Record<string, string>).project ?? "Proyecto"} *
+                    {(labels as Record<string, string>).project ?? "Proyecto"}
                   </label>
                   <select
                     value={fProjectId}
                     onChange={(e) => setFProjectId(e.target.value)}
                     className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                   >
-                    <option value="">Seleccionar proyecto…</option>
+                    <option value="">
+                      {(labels as Record<string, string>).schedule_shift_general_option ??
+                        "Sin proyecto / General"}
+                    </option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.projectCode ? `[${p.projectCode}] ` : ""}
@@ -2467,9 +2493,7 @@ export default function ScheduleModule({
                 type="button"
                 onClick={handleSave}
                 disabled={
-                  fEmployeeIds.length === 0 ||
-                  (fType === "shift" && !fProjectId) ||
-                  (!editingEntryId && fDates.length === 0)
+                  fEmployeeIds.length === 0 || (!editingEntryId && fDates.length === 0)
                 }
                 className="rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
               >
