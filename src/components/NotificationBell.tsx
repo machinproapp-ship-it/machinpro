@@ -85,7 +85,7 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
             ref={panelRef}
             role="dialog"
             aria-label={tl.notifications_title ?? ""}
-            className="fixed inset-0 z-[61] flex flex-col bg-white dark:bg-slate-900 md:absolute md:inset-auto md:right-0 md:top-full md:mt-2 md:h-auto md:max-h-[min(70vh,32rem)] md:w-[min(100vw-2rem,22rem)] md:rounded-xl md:border md:border-zinc-200 md:shadow-lg dark:md:border-zinc-700"
+            className="fixed inset-0 z-[61] flex flex-col bg-white dark:bg-slate-900 md:absolute md:inset-auto md:right-0 md:top-full md:mt-2 md:h-auto md:max-h-[min(70vh,32rem)] md:w-[min(100vw-2rem,22rem)] md:rounded-xl md:border md:border-zinc-200 md:shadow-lg dark:md:border-zinc-700 md:z-[100]"
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
               <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
@@ -113,7 +113,12 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
             ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto">
               {loading ? (
-                <p className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">…</p>
+                <p
+                  className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                  role="status"
+                >
+                  {tl.notifications_loading ?? "Loading..."}
+                </p>
               ) : notifications.length === 0 ? (
                 <p className="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
                   {tl.notifications_empty ?? "All caught up"}
