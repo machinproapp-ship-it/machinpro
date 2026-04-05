@@ -412,3 +412,20 @@ export function visitorPeriodToCheckInBounds(
     end: `${sunday.y}-${String(sunday.m).padStart(2, "0")}-${String(sunday.d).padStart(2, "0")}T23:59:59.999`,
   };
 }
+
+/** Lunes a domingo (YYYY-MM-DD) de la semana calendario que contiene "hoy" en `timeZone`. */
+export function weekYmdsMondayFirstInTimeZone(timeZone: string): string[] {
+  const now = new Date();
+  const { y, m, d } = ymdPartsInTz(now, timeZone);
+  const anchor = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const wd = weekdaySun0InTz(anchor, timeZone);
+  const daysFromMonday = wd === 0 ? 6 : wd - 1;
+  const monday = addCalendarDays(y, m, d, -daysFromMonday);
+  const out: string[] = [];
+  let cur = monday;
+  for (let i = 0; i < 7; i++) {
+    out.push(`${cur.y}-${String(cur.m).padStart(2, "0")}-${String(cur.d).padStart(2, "0")}`);
+    cur = addCalendarDays(cur.y, cur.m, cur.d, 1);
+  }
+  return out;
+}

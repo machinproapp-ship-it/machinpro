@@ -324,13 +324,13 @@ function getCalendarDays(viewYear: number, viewMonth: number): Date[] {
 }
 
 const EVENT_COLORS: Record<string, string> = {
-  shift: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-100",
-  meeting: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-100",
-  vacation: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100",
-  training: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-100",
-  company_event: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-100",
-  collective_off: "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100",
-  personal_leave: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-100",
+  shift: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100",
+  meeting: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-100",
+  vacation: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100",
+  training: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-100",
+  company_event: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-100",
+  collective_off: "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100",
+  personal_leave: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
   other: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-200",
 };
 
@@ -345,12 +345,27 @@ function entryDotClass(entry: SchedEntry): string {
   if (entry.type === "vacation") return "bg-emerald-500";
   const k = entry.eventLabel ?? "other";
   if (k === "meeting") return "bg-blue-500";
-  if (k === "vacation") return "bg-emerald-500";
-  if (k === "training") return "bg-purple-500";
-  if (k === "company_event") return "bg-pink-500";
-  if (k === "collective_off") return "bg-slate-500";
-  if (k === "personal_leave") return "bg-cyan-500";
+  if (k === "training") return "bg-teal-500";
+  if (k === "company_event") return "bg-purple-500";
+  if (k === "collective_off") return "bg-zinc-400 dark:bg-zinc-500";
+  if (k === "personal_leave") return "bg-zinc-500 dark:bg-zinc-400";
   return "bg-zinc-500";
+}
+
+/** Text for calendar cell pill (desktop): shift = short project + times; event = type label. */
+function calendarCellPillLabel(
+  entry: SchedEntry,
+  proj: SchedProject | undefined,
+  lx: Record<string, string>,
+  wallClockLabel: (s: string) => string
+): string {
+  if (entry.type === "shift") {
+    const name = (proj?.name ?? entry.projectCode ?? "").trim();
+    const short = name.length > 12 ? `${name.slice(0, 12)}…` : name;
+    const t = `${wallClockLabel(entry.startTime)}-${wallClockLabel(entry.endTime)}`;
+    return short ? `${short} ${t}` : t;
+  }
+  return scheduleEntryTypeLabel(entry, lx);
 }
 
 /** Human-readable schedule type for calendar (not raw DB keys). */
@@ -1301,13 +1316,12 @@ export default function ScheduleModule({
                 const isToday = ymd === todayYmd;
                 const isSelected = selectedDay === ymd;
                 const dayEntries = entriesForDay(ymd);
-                const useCompact = dayEntries.length > 1;
-                const displayEntries = useCompact ? dayEntries.slice(0, 1) : dayEntries.slice(0, 3);
-                const extraCount = useCompact
-                  ? Math.max(0, dayEntries.length - 1)
-                  : dayEntries.length > 3
-                    ? dayEntries.length - 3
-                    : 0;
+                const mobileExtra = dayEntries.length > 2 ? dayEntries.length - 2 : 0;
+                const desktopExtra = dayEntries.length > 3 ? dayEntries.length - 3 : 0;
+                const moreDesktopText =
+                  desktopExtra > 0
+                    ? (lx.schedule_calendar_more ?? "+{n} más").replace("{n}", String(desktopExtra))
+                    : "";
                 const openDayPanel = () => {
                   const dayList = entriesForDay(ymd);
                   const myShifts = !viewAll && onOpenMyShiftView ? dayList.filter(isSelfShift) : [];
@@ -1342,21 +1356,26 @@ export default function ScheduleModule({
                     <p className={`text-xs font-semibold shrink-0 ${isToday ? "text-amber-600 dark:text-amber-400" : "text-zinc-600 dark:text-zinc-400"}`}>
                       {day.getDate()}
                     </p>
-                    <div className="flex flex-col gap-0.5 min-h-0 overflow-hidden">
-                      {useCompact ? (
-                        <div className="flex items-center gap-1 justify-center min-h-[1.25rem]">
+                    <div className="flex min-h-0 flex-1 flex-col justify-center gap-0.5 overflow-hidden">
+                      <div className="flex flex-wrap items-center justify-center gap-1 sm:hidden">
+                        {dayEntries.slice(0, 2).map((entry) => (
                           <span
-                            className={`h-2 w-2 rounded-full shrink-0 ${entryColor(dayEntries[0]).replace(/text-\S+/g, "").trim() || "bg-amber-500"}`}
-                            style={{ backgroundColor: "currentColor" }}
+                            key={entry.id}
+                            className={`h-2 w-2 shrink-0 rounded-full ${entryDotClass(entry)}`}
                             aria-hidden
                           />
-                          <span className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 tabular-nums">
-                            +{extraCount}
+                        ))}
+                        {mobileExtra > 0 && (
+                          <span className="text-[10px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+                            +{mobileExtra}
                           </span>
-                        </div>
-                      ) : (
-                        <>
-                          {displayEntries.map((entry) => (
+                        )}
+                      </div>
+                      <div className="hidden min-h-0 flex-1 flex-col gap-0.5 overflow-hidden sm:flex">
+                        {dayEntries.slice(0, 3).map((entry) => {
+                          const proj = getProject(entry.projectId);
+                          const pillText = calendarCellPillLabel(entry, proj, lx, wallClockLabel);
+                          return (
                             <div
                               key={entry.id}
                               role={!viewAll && onOpenMyShiftView && isSelfShift(entry) ? "button" : undefined}
@@ -1378,27 +1397,17 @@ export default function ScheduleModule({
                                     }
                                   : undefined
                               }
-                              className={`rounded px-1 py-0.5 text-[10px] truncate ${entryColor(entry)}`}
-                              title={`${entry.startTime}–${entry.endTime} ${
-                                entry.type === "shift"
-                                  ? (entry.projectCode ?? "")
-                                  : scheduleEntryTypeLabel(entry, lx)
-                              }`}
+                              className={`min-w-0 truncate rounded px-1 py-0.5 text-[10px] leading-tight ${entryColor(entry)}`}
+                              title={`${entry.startTime}–${entry.endTime} ${pillText}`}
                             >
-                              {entry.type === "shift" && entry.projectCode && (
-                                <span className="font-mono text-xs">{entry.projectCode}</span>
-                              )}
-                              {entry.type !== "shift" && scheduleEntryTypeLabel(entry, lx)}
-                              {entry.type === "shift" &&
-                                !entry.projectCode &&
-                                wallClockLabel(entry.startTime) + "–" + wallClockLabel(entry.endTime)}
+                              {pillText}
                             </div>
-                          ))}
-                          {extraCount > 0 && (
-                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">+{extraCount}</span>
-                          )}
-                        </>
-                      )}
+                          );
+                        })}
+                        {desktopExtra > 0 && (
+                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{moreDesktopText}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1477,7 +1486,12 @@ export default function ScheduleModule({
                 </p>
               ) : (
                 <ul className="space-y-3">
-                  {entriesForDay(selectedDay).map((entry) => {
+                  {[...entriesForDay(selectedDay)]
+                    .sort(
+                      (a, b) =>
+                        a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id)
+                    )
+                    .map((entry) => {
                     const proj = getProject(entry.projectId);
                     return (
                       <li
@@ -1486,18 +1500,24 @@ export default function ScheduleModule({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {entry.type === "shift" && (proj?.name || entry.projectCode) && (
+                              <p className="flex items-center gap-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                                <Briefcase className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{proj?.name ?? entry.projectCode}</span>
+                              </p>
+                            )}
+                            <p
+                              className={`font-medium text-zinc-800 dark:text-zinc-200 ${
+                                entry.type === "shift" && (proj?.name || entry.projectCode)
+                                  ? "mt-1 text-sm"
+                                  : "text-base font-semibold text-zinc-900 dark:text-zinc-100"
+                              }`}
+                            >
                               {formatTimeHm(entry.startTime, dateLocale, scheduleTz)} →{" "}
                               {formatTimeHm(entry.endTime, dateLocale, scheduleTz)}
                             </p>
-                            {entry.type === "shift" && proj && (
-                              <p className="flex items-center gap-1.5 mt-1 text-sm">
-                                <Briefcase className="h-4 w-4 shrink-0" />
-                                {proj.name}
-                              </p>
-                            )}
                             {entry.type !== "shift" && (
-                              <p className="text-sm mt-1">
+                              <p className="mt-1 text-sm">
                                 {entry.notes?.trim()
                                   ? `${scheduleEntryTypeLabel(entry, lx)} — ${entry.notes}`
                                   : scheduleEntryTypeLabel(entry, lx)}

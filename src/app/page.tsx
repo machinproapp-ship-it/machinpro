@@ -4265,6 +4265,7 @@ export default function Home() {
                 complianceRecords={complianceRecords}
                 onComplianceRecordsChange={setComplianceRecords}
                 vacationRequests={vacationRequests}
+                scheduleEntries={scheduleEntries}
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
               />

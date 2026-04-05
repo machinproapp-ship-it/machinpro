@@ -17,12 +17,19 @@ import {
   Pencil,
   X,
   ChevronLeft,
+  Calendar,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { supabase } from "@/lib/supabase";
-import { formatDate, resolveUserTimezone } from "@/lib/dateUtils";
+import {
+  formatCalendarYmd,
+  formatDate,
+  formatTimeHm,
+  resolveUserTimezone,
+  weekYmdsMondayFirstInTimeZone,
+} from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import type { CustomRole, RolePermissions } from "@/types/roles";
 import {
@@ -32,7 +39,12 @@ import {
   permLocaleKey,
   pickDefaultWorkerRoleId,
 } from "@/types/roles";
-import type { ComplianceField, ComplianceRecord, VacationRequestRow } from "@/app/page";
+import type {
+  ComplianceField,
+  ComplianceRecord,
+  ScheduleEntry,
+  VacationRequestRow,
+} from "@/app/page";
 
 export interface EmployeesModuleProps {
   companyId: string | null;
@@ -58,6 +70,8 @@ export interface EmployeesModuleProps {
   complianceRecords?: ComplianceRecord[];
   onComplianceRecordsChange?: (records: ComplianceRecord[]) => void;
   vacationRequests?: VacationRequestRow[];
+  /** Turnos / planificación (misma fuente que el calendario Central). */
+  scheduleEntries?: ScheduleEntry[];
   /** Vuelve a Central (pestaña Oficina). */
   onBackToOffice?: () => void;
   dateLocale?: string;
@@ -258,6 +272,7 @@ export function EmployeesModule({
   complianceRecords = [],
   onComplianceRecordsChange,
   vacationRequests = [],
+  scheduleEntries,
   onBackToOffice,
   dateLocale = "en-US",
   timeZone: timeZoneProp,
@@ -367,6 +382,33 @@ export function EmployeesModule({
     () => rows.find((r) => r.id === selectedId) ?? null,
     [rows, selectedId]
   );
+
+  const weekYmds = useMemo(() => weekYmdsMondayFirstInTimeZone(timeZone), [timeZone]);
+
+  const scheduleShiftsByWeekDay = useMemo(() => {
+    if (scheduleEntries === undefined || !selected) return null;
+    const ids = new Set<string>();
+    ids.add(selected.id);
+    const mapped = userProfileToEmployeeId[selected.id];
+    if (mapped) ids.add(mapped);
+    if (selected.employee_id) ids.add(String(selected.employee_id));
+    const map = new Map<string, ScheduleEntry[]>();
+    for (const y of weekYmds) map.set(y, []);
+    for (const e of scheduleEntries) {
+      if (e.type !== "shift") continue;
+      if (!weekYmds.includes(e.date)) continue;
+      if (!(e.employeeIds ?? []).some((id) => ids.has(id))) continue;
+      const arr = map.get(e.date) ?? [];
+      arr.push(e);
+      map.set(e.date, arr);
+    }
+    for (const y of weekYmds) {
+      const arr = map.get(y) ?? [];
+      arr.sort((a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
+      map.set(y, arr);
+    }
+    return map;
+  }, [scheduleEntries, selected, weekYmds, userProfileToEmployeeId]);
 
   useEffect(() => {
     if (selected) {
@@ -917,6 +959,10 @@ export function EmployeesModule({
       return tl.common_dash ?? "";
     };
 
+    const hasAnyShiftThisWeek =
+      scheduleShiftsByWeekDay != null &&
+      weekYmds.some((ymd) => (scheduleShiftsByWeekDay.get(ymd) ?? []).length > 0);
+
     const backBtn = (
       <div
         style={{
@@ -1055,6 +1101,72 @@ export function EmployeesModule({
             </label>
           </div>
         </section>
+
+        {scheduleShiftsByWeekDay && (
+          <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+              <Calendar className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.schedule_this_week ?? ""}
+            </h3>
+            {!hasAnyShiftThisWeek ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">{tl.schedule_no_shifts_week ?? ""}</p>
+            ) : null}
+            <div className="space-y-2">
+              {weekYmds.map((ymd) => {
+                const list = scheduleShiftsByWeekDay.get(ymd) ?? [];
+                const parts = ymd.split("-").map((x) => parseInt(x, 10));
+                const y0 = parts[0] ?? 0;
+                const m0 = parts[1] ?? 1;
+                const d0 = parts[2] ?? 1;
+                const utcNoon = new Date(Date.UTC(y0, m0 - 1, d0, 12, 0, 0));
+                const wdShort = new Intl.DateTimeFormat(dateLocale, {
+                  timeZone,
+                  weekday: "short",
+                }).format(utcNoon);
+                return (
+                  <div
+                    key={ymd}
+                    className="flex flex-col gap-2 border-b border-zinc-100 pb-2 last:border-b-0 last:pb-0 dark:border-slate-700 sm:flex-row sm:items-start sm:gap-4"
+                  >
+                    <div className="w-28 shrink-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        {wdShort}
+                      </p>
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                        {formatCalendarYmd(ymd, dateLocale, timeZone)}
+                      </p>
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      {list.length === 0 ? (
+                        <p className="text-sm text-zinc-400 dark:text-zinc-500">{tl.common_dash ?? "—"}</p>
+                      ) : (
+                        list.map((e) => {
+                          const pname =
+                            projects.find((p) => p.id === e.projectId)?.name ??
+                            e.projectCode ??
+                            tl.common_dash ??
+                            "—";
+                          return (
+                            <div
+                              key={e.id}
+                              className="rounded-lg border border-amber-200/80 bg-amber-50/50 px-2.5 py-2 text-sm dark:border-amber-900/50 dark:bg-amber-950/20"
+                            >
+                              <span className="font-medium text-zinc-900 dark:text-zinc-100">{pname}</span>
+                              <span className="mt-0.5 block text-xs text-zinc-600 dark:text-zinc-400">
+                                {formatTimeHm(e.startTime, dateLocale, timeZone)} →{" "}
+                                {formatTimeHm(e.endTime, dateLocale, timeZone)}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{tl.employees_payment_section ?? ""}</h3>
