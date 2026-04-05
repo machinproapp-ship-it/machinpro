@@ -3658,7 +3658,7 @@ export default function Home() {
           onMobileDrawerOpenChange={setMobileNavOpen}
         />
 
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-8">
+        <main className="flex-1 flex flex-col min-w-0 overflow-x-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-8">
           <header className="mb-4 sm:mb-8 border-b border-gray-200 dark:border-gray-800 pb-4 flex w-full min-w-0 max-w-full flex-col gap-3 overflow-x-hidden sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 max-w-full flex-1 items-center gap-2">
               <button
