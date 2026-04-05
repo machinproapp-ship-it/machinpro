@@ -1044,9 +1044,24 @@ export default function ScheduleModule({
   const employeeMatchesRoleChip = (emp: SchedEmployee, chip: (typeof roleChips)[0]) => {
     if (chip.key === "all") return true;
     const srk = emp.scheduleRoleKey ?? "";
-    if (!srk.startsWith("custom:")) return false;
-    const rid = srk.slice("custom:".length);
-    return chip.matchingCustomRoleIds.includes(rid);
+    if (srk.startsWith("custom:")) {
+      const rid = srk.slice("custom:".length);
+      return chip.matchingCustomRoleIds.includes(rid);
+    }
+    const chipLabel = chip.label.trim().toLowerCase();
+    const empRoleLower = (emp.role ?? "").trim().toLowerCase();
+    const legacyMap: Record<string, string[]> = {
+      administrador: ["admin", "administrador"],
+      administrator: ["admin", "administrador"],
+      supervisor: ["supervisor"],
+      trabajador: ["worker", "trabajador", "empleado"],
+      worker: ["worker", "trabajador", "empleado"],
+      employee: ["worker", "trabajador", "empleado"],
+      logística: ["logistic", "logística"],
+      logistics: ["logistic", "logística"],
+    };
+    const legacyMatches = legacyMap[chipLabel] ?? [chipLabel];
+    return legacyMatches.includes(empRoleLower) || empRoleLower === chipLabel;
   };
 
   const filteredFormEmployees = useMemo(() => {
