@@ -269,6 +269,39 @@ function toYMD(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
+function ymdFromLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseYmdToLocalDate(ymd: string): Date {
+  const parts = ymd.split("-").map(Number);
+  const y = parts[0] ?? 1970;
+  const mo = (parts[1] ?? 1) - 1;
+  const day = parts[2] ?? 1;
+  return new Date(y, mo, day);
+}
+
+/** Inclusive range of calendar days (local), sorted ascending. */
+function enumerateInclusiveYmd(start: string, end: string): string[] {
+  let a = parseYmdToLocalDate(start);
+  let b = parseYmdToLocalDate(end);
+  if (a.getTime() > b.getTime()) {
+    const t = a;
+    a = b;
+    b = t;
+  }
+  const out: string[] = [];
+  const cur = new Date(a);
+  while (cur.getTime() <= b.getTime()) {
+    out.push(ymdFromLocalDate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 // Monday = first column (0). Returns the Monday of the week containing the given date.
 function startOfWeekMonday(date: Date): Date {
   const d = new Date(date);
@@ -804,7 +837,12 @@ export default function ScheduleModule({
   const [fType, setFType] = useState<"shift" | "event">("shift");
   const [fEmployeeIds, setFEmployeeIds] = useState<string[]>([]);
   const [fProjectId, setFProjectId] = useState("");
-  const [fDate, setFDate] = useState(toYMD(today));
+  const [fDates, setFDates] = useState<string[]>(() => [toYMD(today)]);
+  const [fDateMode, setFDateMode] = useState<"single" | "range" | "specific">("single");
+  const [fRangeStart, setFRangeStart] = useState(() => toYMD(today));
+  const [fRangeEnd, setFRangeEnd] = useState(() => toYMD(today));
+  const [formPickerMonth, setFormPickerMonth] = useState(() => today.getMonth());
+  const [formPickerYear, setFormPickerYear] = useState(() => today.getFullYear());
   const [fStart, setFStart] = useState("07:00");
   const [fEnd, setFEnd] = useState("16:00");
   const [fNotes, setFNotes] = useState("");
@@ -819,10 +857,35 @@ export default function ScheduleModule({
     [viewYear, viewMonth]
   );
 
+  const formPickerCalendarDays = useMemo(
+    () => getCalendarDays(formPickerYear, formPickerMonth),
+    [formPickerYear, formPickerMonth]
+  );
+
   const monthNameKey = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"][viewMonth] as keyof typeof labels;
   const monthName =
     (labels[monthNameKey] as string) ??
     new Intl.DateTimeFormat(dateLocale, { timeZone: scheduleTz, month: "long" }).format(new Date(viewYear, viewMonth, 1));
+
+  const formPickerMonthNameKey = [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+  ][formPickerMonth] as keyof typeof labels;
+  const formPickerMonthName =
+    (labels[formPickerMonthNameKey] as string) ??
+    new Intl.DateTimeFormat(dateLocale, { timeZone: scheduleTz, month: "long" }).format(
+      new Date(formPickerYear, formPickerMonth, 1)
+    );
 
   const visibleEntries = useMemo(() => {
     if (viewAll) return entries;
@@ -897,7 +960,12 @@ export default function ScheduleModule({
     setFType("shift");
     setFEmployeeIds([]);
     setFProjectId("");
-    setFDate(toYMD(today));
+    setFDates([toYMD(today)]);
+    setFDateMode("single");
+    setFRangeStart(toYMD(today));
+    setFRangeEnd(toYMD(today));
+    setFormPickerMonth(today.getMonth());
+    setFormPickerYear(today.getFullYear());
     setFStart("07:00");
     setFEnd("16:00");
     setFNotes("");
@@ -911,7 +979,8 @@ export default function ScheduleModule({
     setFType(entry.type === "event" ? "event" : "shift");
     setFEmployeeIds([...entry.employeeIds]);
     setFProjectId(entry.projectId ?? "");
-    setFDate(entry.date);
+    setFDateMode("single");
+    setFDates([entry.date]);
     setFStart(entry.startTime);
     setFEnd(entry.endTime);
     setFNotes(entry.notes ?? "");
@@ -920,16 +989,56 @@ export default function ScheduleModule({
     setFormOpen(true);
   };
 
+  const formPickerPrevMonth = () => {
+    if (formPickerMonth === 0) {
+      setFormPickerMonth(11);
+      setFormPickerYear((y) => y - 1);
+    } else {
+      setFormPickerMonth((m) => m - 1);
+    }
+  };
+
+  const formPickerNextMonth = () => {
+    if (formPickerMonth === 11) {
+      setFormPickerMonth(0);
+      setFormPickerYear((y) => y + 1);
+    } else {
+      setFormPickerMonth((m) => m + 1);
+    }
+  };
+
+  const toggleFormPickerDay = (ymd: string) => {
+    setFDates((prev) => {
+      const s = new Set(prev);
+      if (s.has(ymd)) s.delete(ymd);
+      else s.add(ymd);
+      return [...s].sort();
+    });
+  };
+
   const handleSave = () => {
     if (fEmployeeIds.length === 0) return;
     if (fType === "shift" && !fProjectId) return;
+
+    let datesToSave: string[];
+    if (editingEntryId) {
+      datesToSave = [fDates[0] ?? toYMD(today)];
+    } else if (fDateMode === "single") {
+      datesToSave = [fDates[0] ?? toYMD(today)];
+    } else if (fDateMode === "range") {
+      datesToSave = enumerateInclusiveYmd(fRangeStart, fRangeEnd);
+    } else {
+      datesToSave = [...fDates].sort();
+    }
+    const uniqueDates = [...new Set(datesToSave)].filter(Boolean).sort();
+    if (uniqueDates.length === 0) return;
+
     const proj = projects.find((p) => p.id === fProjectId);
-    const payload = {
+    const basePayload = {
       type: fType,
       employeeIds: fEmployeeIds,
       projectId: fType === "shift" ? fProjectId : undefined,
       projectCode: fType === "shift" ? proj?.projectCode : undefined,
-      date: fDate,
       startTime: fStart,
       endTime: fEnd,
       notes: fNotes || undefined,
@@ -937,9 +1046,11 @@ export default function ScheduleModule({
       createdBy: currentUserEmployeeId ?? "admin",
     };
     if (editingEntryId) {
-      onUpdateEntry?.(editingEntryId, payload);
+      onUpdateEntry?.(editingEntryId, { ...basePayload, date: uniqueDates[0]! });
     } else {
-      onAddEntry?.(payload);
+      for (const date of uniqueDates) {
+        onAddEntry?.({ ...basePayload, date });
+      }
     }
     resetForm();
   };
@@ -961,7 +1072,16 @@ export default function ScheduleModule({
         {canWrite && scheduleSubTab === "calendar" && (
           <button
             type="button"
-            onClick={() => setFormOpen(true)}
+            onClick={() => {
+              setEditingEntryId(null);
+              setFDateMode("single");
+              setFDates([toYMD(today)]);
+              setFRangeStart(toYMD(today));
+              setFRangeEnd(toYMD(today));
+              setFormPickerMonth(today.getMonth());
+              setFormPickerYear(today.getFullYear());
+              setFormOpen(true);
+            }}
             className="flex items-center gap-2 rounded-xl bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px] min-w-[44px]"
           >
             <Plus className="h-4 w-4" />
@@ -1571,7 +1691,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={resetForm}
           />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[min(95vw,calc(100%-2rem))] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed left-1/2 top-1/2 z-50 w-[min(95vw,calc(100%-2rem))] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-xl max-h-[min(90dvh,90vh)] overflow-y-auto max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:left-0 max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:rounded-t-2xl max-md:pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {editingEntryId
@@ -1712,16 +1832,127 @@ export default function ScheduleModule({
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Fecha *
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {(labels as Record<string, string>).schedule_date_label ?? "Fecha"} *
                 </label>
-                <input
-                  type="date"
-                  value={fDate}
-                  onChange={(e) => setFDate(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                />
+                {!editingEntryId ? (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    {(
+                      [
+                        { m: "single" as const, lbl: (lx as Record<string, string>).schedule_date_mode_single ?? "Fecha única" },
+                        { m: "range" as const, lbl: (lx as Record<string, string>).schedule_date_mode_range ?? "Rango de fechas" },
+                        { m: "specific" as const, lbl: (lx as Record<string, string>).schedule_date_mode_specific ?? "Días específicos" },
+                      ] as const
+                    ).map(({ m, lbl }) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setFDateMode(m)}
+                        className={`rounded-lg border px-3 py-2.5 text-left text-sm font-medium min-h-[44px] flex-1 sm:flex-none sm:min-w-0 ${
+                          fDateMode === m
+                            ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200"
+                            : "border-zinc-200 dark:border-slate-600 text-zinc-700 dark:text-zinc-300"
+                        }`}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {editingEntryId || fDateMode === "single" ? (
+                  <input
+                    type="date"
+                    value={fDates[0] ?? ""}
+                    onChange={(e) => setFDates([e.target.value])}
+                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                  />
+                ) : null}
+                {!editingEntryId && fDateMode === "range" ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <span className="mb-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                        {(lx as Record<string, string>).schedule_date_from ?? "Desde"}
+                      </span>
+                      <input
+                        type="date"
+                        value={fRangeStart}
+                        onChange={(e) => setFRangeStart(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                        {(lx as Record<string, string>).schedule_date_to ?? "Hasta"}
+                      </span>
+                      <input
+                        type="date"
+                        value={fRangeEnd}
+                        onChange={(e) => setFRangeEnd(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                {!editingEntryId && fDateMode === "specific" ? (
+                  <div className="rounded-xl border border-zinc-200 dark:border-slate-700 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={formPickerPrevMonth}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-slate-600"
+                        aria-label={labels.previousMonth ?? "Previous"}
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <span className="text-center text-sm font-semibold capitalize text-zinc-900 dark:text-white">
+                        {formPickerMonthName} {formPickerYear}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={formPickerNextMonth}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-slate-600"
+                        aria-label={labels.nextMonth ?? "Next"}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 sm:text-xs">
+                      {(["monShort", "tueShort", "wedShort", "thuShort", "friShort", "satShort", "sunShort"] as const).map(
+                        (key, i) => (
+                          <div key={key}>{(labels as Record<string, string>)[key] ?? ["L", "M", "X", "J", "V", "S", "D"][i]}</div>
+                        )
+                      )}
+                    </div>
+                    <div className="mt-1 grid grid-cols-7 gap-0.5">
+                      {formPickerCalendarDays.map((day) => {
+                        const ymd = ymdFromLocalDate(day);
+                        const inMonth = day.getMonth() === formPickerMonth;
+                        const selected = fDates.includes(ymd);
+                        return (
+                          <button
+                            key={`${ymd}-${day.getTime()}`}
+                            type="button"
+                            onClick={() => inMonth && toggleFormPickerDay(ymd)}
+                            disabled={!inMonth}
+                            className={`flex aspect-square min-h-[36px] max-h-10 items-center justify-center rounded-lg text-xs font-medium sm:text-sm ${
+                              !inMonth
+                                ? "pointer-events-none opacity-30"
+                                : selected
+                                  ? "bg-amber-500 text-white dark:bg-amber-600"
+                                  : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-slate-800 dark:text-zinc-100 dark:hover:bg-slate-700"
+                            }`}
+                          >
+                            {day.getDate()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      {(lx.schedule_dates_selected_count ?? "{n} día(s) seleccionado(s)").replace("{n}", String(fDates.length))}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1774,7 +2005,10 @@ export default function ScheduleModule({
                 type="button"
                 onClick={handleSave}
                 disabled={
-                  fEmployeeIds.length === 0 || (fType === "shift" && !fProjectId)
+                  fEmployeeIds.length === 0 ||
+                  (fType === "shift" && !fProjectId) ||
+                  (!editingEntryId && fDateMode === "specific" && fDates.length === 0) ||
+                  (!editingEntryId && fDateMode === "range" && (!fRangeStart || !fRangeEnd))
                 }
                 className="rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
               >

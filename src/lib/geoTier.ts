@@ -19,6 +19,11 @@ export const TIER1_COUNTRIES = new Set([
   "CH",
   "IE",
   "LU",
+  "AU",
+  "NZ",
+  "SG",
+  "JP",
+  "KR",
 ]);
 
 /**
@@ -102,6 +107,9 @@ export function resolveRegionTier(countryCode: string | null | undefined): { reg
   if (!c) return { region: "other", tier: 3 };
   if (c === "GB") return { region: "uk", tier: 1 };
   if (c === "CA" || c === "US") return { region: "northam", tier: 1 };
+  if (c === "AU" || c === "NZ" || c === "SG" || c === "JP" || c === "KR") {
+    return { region: "other", tier: 1 };
+  }
   if (LATAM_NORTE.has(c)) return { region: "latam_norte", tier: 3 };
   if (LATAM_SUR.has(c)) return { region: "latam_sur", tier: 2 };
   if (c === "CH" || EU_EEA.has(c)) {

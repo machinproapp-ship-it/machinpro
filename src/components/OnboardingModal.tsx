@@ -39,6 +39,13 @@ const COUNTRY_DEFAULTS: Record<string, { currency: string; measurementSystem: "m
   GR: { currency: "EUR", measurementSystem: "metric" },
   TR: { currency: "TRY", measurementSystem: "metric" },
   EU: { currency: "EUR", measurementSystem: "metric" },
+  AU: { currency: "AUD", measurementSystem: "metric" },
+  NZ: { currency: "NZD", measurementSystem: "metric" },
+  SG: { currency: "SGD", measurementSystem: "metric" },
+  JP: { currency: "JPY", measurementSystem: "metric" },
+  KR: { currency: "KRW", measurementSystem: "metric" },
+  IN: { currency: "INR", measurementSystem: "metric" },
+  ZA: { currency: "ZAR", measurementSystem: "metric" },
 };
 
 const COUNTRIES = [
@@ -110,6 +117,13 @@ const TZ_BY_COUNTRY: Record<string, string> = {
   HR: "Europe/Zagreb",
   GR: "Europe/Athens",
   TR: "Europe/Istanbul",
+  AU: "Australia/Sydney",
+  NZ: "Pacific/Auckland",
+  SG: "Asia/Singapore",
+  JP: "Asia/Tokyo",
+  KR: "Asia/Seoul",
+  IN: "Asia/Kolkata",
+  ZA: "Africa/Johannesburg",
 };
 
 export interface OnboardingModalProps {

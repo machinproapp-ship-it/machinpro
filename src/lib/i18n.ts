@@ -125,7 +125,14 @@ export type Currency =
   | "BGN"
   | "HRK"
   | "TRY"
-  | "UAH";
+  | "UAH"
+  | "AUD"
+  | "NZD"
+  | "SGD"
+  | "JPY"
+  | "KRW"
+  | "INR"
+  | "ZAR";
 
 export const CURRENCY_META: Record<Currency, { symbol: string; label: string; region: string }> = {
   CAD: { symbol: "C$", label: "Canadian Dollar", region: "CA" },
@@ -145,6 +152,13 @@ export const CURRENCY_META: Record<Currency, { symbol: string; label: string; re
   HRK: { symbol: "kn", label: "Croatian Kuna", region: "HR" },
   TRY: { symbol: "₺", label: "Turkish Lira", region: "TR" },
   UAH: { symbol: "₴", label: "Ukrainian Hryvnia", region: "UA" },
+  AUD: { symbol: "A$", label: "Australian Dollar", region: "AU" },
+  NZD: { symbol: "NZ$", label: "New Zealand Dollar", region: "NZ" },
+  SGD: { symbol: "S$", label: "Singapore Dollar", region: "SG" },
+  JPY: { symbol: "¥", label: "Japanese Yen", region: "JP" },
+  KRW: { symbol: "₩", label: "South Korean Won", region: "KR" },
+  INR: { symbol: "₹", label: "Indian Rupee", region: "IN" },
+  ZAR: { symbol: "R", label: "South African Rand", region: "ZA" },
 };
 
 export const REGION_DEFAULT_CURRENCY: Record<string, Currency> = {
@@ -163,5 +177,12 @@ export const REGION_DEFAULT_CURRENCY: Record<string, Currency> = {
   HR: "HRK",
   TR: "TRY",
   UA: "UAH",
+  AU: "AUD",
+  NZ: "NZD",
+  SG: "SGD",
+  JP: "JPY",
+  KR: "KRW",
+  IN: "INR",
+  ZA: "ZAR",
   EU: "EUR",
 };

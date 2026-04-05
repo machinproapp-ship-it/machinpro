@@ -172,6 +172,13 @@ const CURRENCY_SYMBOLS: Record<Currency, string> = {
   HRK: "kn",
   TRY: "₺",
   UAH: "₴",
+  AUD: "A$",
+  NZD: "NZ$",
+  SGD: "S$",
+  JPY: "¥",
+  KRW: "₩",
+  INR: "₹",
+  ZAR: "R",
 };
 const CURRENCY_RATES: Record<Currency, number> = {
   CAD: 1,
@@ -191,6 +198,13 @@ const CURRENCY_RATES: Record<Currency, number> = {
   HRK: 5.5,
   TRY: 24.0,
   UAH: 30.0,
+  AUD: 0.88,
+  NZD: 0.82,
+  SGD: 0.98,
+  JPY: 110,
+  KRW: 980,
+  INR: 61,
+  ZAR: 13.5,
 };
 
 const TRANSLATIONS = ALL_TRANSLATIONS;

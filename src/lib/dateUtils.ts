@@ -30,6 +30,13 @@ export const IANA_TIMEZONE_OPTIONS: readonly string[] = [
   "Europe/Brussels",
   "Europe/Zurich",
   "Europe/Warsaw",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+  "Asia/Singapore",
+  "Asia/Tokyo",
+  "Asia/Seoul",
+  "Asia/Kolkata",
+  "Africa/Johannesburg",
   "UTC",
 ] as const;
 
