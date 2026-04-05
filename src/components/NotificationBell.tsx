@@ -21,6 +21,8 @@ type Props = {
 export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZone }: Props) {
   const tl = labels;
   const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
+  const [mdPanelLayout, setMdPanelLayout] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const { notifications, unreadCount, loading, disabled, markAsRead, markAllAsRead } = useNotifications(
@@ -36,6 +38,33 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setMdPanelLayout(false);
+      return;
+    }
+    const updatePanelPosition = () => {
+      if (!btnRef.current) return;
+      const rect = btnRef.current.getBoundingClientRect();
+      setPanelPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+      setMdPanelLayout(window.matchMedia("(min-width: 768px)").matches);
+    };
+    updatePanelPosition();
+    requestAnimationFrame(updatePanelPosition);
+    const mq = window.matchMedia("(min-width: 768px)");
+    mq.addEventListener("change", updatePanelPosition);
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, true);
+    return () => {
+      mq.removeEventListener("change", updatePanelPosition);
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition, true);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -85,7 +114,17 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
             ref={panelRef}
             role="dialog"
             aria-label={tl.notifications_title ?? ""}
-            className="fixed inset-0 z-[61] flex flex-col bg-white dark:bg-slate-900 md:absolute md:inset-auto md:right-0 md:top-full md:mt-2 md:h-auto md:max-h-[min(70vh,32rem)] md:w-[min(100vw-2rem,22rem)] md:rounded-xl md:border md:border-zinc-200 md:shadow-lg dark:md:border-zinc-700 md:z-[100]"
+            className="fixed inset-0 z-[61] flex flex-col bg-white dark:bg-slate-900 md:fixed md:inset-auto md:left-auto md:bottom-auto md:h-auto md:max-h-[min(70vh,32rem)] md:w-[min(100vw-2rem,22rem)] md:rounded-xl md:border md:border-zinc-200 md:shadow-lg dark:md:border-zinc-700 md:z-[100]"
+            style={
+              open && mdPanelLayout
+                ? {
+                    top: panelPos.top,
+                    right: panelPos.right,
+                    left: "auto",
+                    bottom: "auto",
+                  }
+                : undefined
+            }
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
               <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
