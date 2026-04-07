@@ -21,6 +21,7 @@ import {
   Clock,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { supabase } from "@/lib/supabase";
@@ -63,6 +64,8 @@ export interface EmployeesModuleProps {
   canDeleteEmployee?: boolean;
   /** admin o permiso canManageEmployees — botón invitar / nuevo */
   showNewEmployeeButton?: boolean;
+  /** Solo administrador ve el pasaporte de otros; el empleado ve el suyo. */
+  viewerIsAdmin?: boolean;
   /** Perfil Supabase: permite cambiar propia foto */
   currentUserProfileId?: string | null;
   cloudinaryCloudName?: string;
@@ -291,6 +294,7 @@ export function EmployeesModule({
   canManageEmployees,
   canDeleteEmployee: canDeleteEmployeeProp,
   showNewEmployeeButton = false,
+  viewerIsAdmin = false,
   currentUserProfileId = null,
   cloudinaryCloudName = "",
   cloudinaryUploadPreset = "",
@@ -1100,6 +1104,19 @@ export function EmployeesModule({
             </label>
           )}
         </div>
+
+        {(viewerIsAdmin || selected.id === currentUserProfileId) && companyId ? (
+          <SafetyPassportPanel
+            t={t as Record<string, string>}
+            companyId={companyId}
+            profileId={selected.id}
+            profileName={name}
+            dateLocale={dateLocale}
+            complianceFields={complianceFields}
+            complianceRecords={complianceRecords}
+            userProfileToEmployeeId={userProfileToEmployeeId}
+          />
+        ) : null}
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">

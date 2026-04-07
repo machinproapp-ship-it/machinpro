@@ -1,11 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { AlertTriangle, ClipboardCheck, FolderOpen, ScrollText, Download } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  ClipboardCheck,
+  Download,
+  FileText,
+  FolderOpen,
+  GraduationCap,
+  ScrollText,
+  Shield,
+  Users,
+} from "lucide-react";
 import type { UserRole } from "@/types/shared";
+import type { CustomRole } from "@/types/roles";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
 import { getAuditActionLabel, getAuditEntityTypeLabel } from "@/lib/auditDisplay";
-import { Camera, Users, FileText, Shield } from "lucide-react";
 import type { Binder, BinderDocument } from "@/types/binders";
 import { HazardModule } from "@/components/HazardModule";
 import {
@@ -14,13 +25,14 @@ import {
 } from "@/components/CorrectiveActionsModule";
 import { BindersModule } from "@/components/BindersModule";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { TrainingHubModule, type TrainingEmployeeOption } from "@/components/TrainingHubModule";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
-export type SecurityTabId = "hazards" | "actions" | "documents" | "audit";
+export type SecurityTabId = "hazards" | "actions" | "documents" | "audit" | "training";
 
 export interface SecurityModuleProps {
   t: Record<string, string>;
@@ -30,7 +42,7 @@ export interface SecurityModuleProps {
   userName: string;
   userProfileId: string | null;
   projects: { id: string; name: string }[];
-  employees: { id: string; name: string }[];
+  employees: TrainingEmployeeOption[];
   focusHazardId: string | null;
   onFocusHazardConsumed: () => void;
   correctivePrefill: CorrectiveActionsPrefill | null;
@@ -51,6 +63,11 @@ export interface SecurityModuleProps {
   canShowActions: boolean;
   canShowDocuments: boolean;
   canShowAudit: boolean;
+  canShowTraining: boolean;
+  canManageTraining: boolean;
+  cloudinaryCloudName: string;
+  cloudinaryUploadPreset: string;
+  customRoles: CustomRole[];
   /** When set, switch to this tab once (e.g. deep link). */
   initialTab?: SecurityTabId | null;
   onInitialTabConsumed?: () => void;
@@ -73,6 +90,7 @@ const TAB_CONFIG: { id: SecurityTabId; icon: typeof AlertTriangle; labelKey: str
   { id: "actions", icon: ClipboardCheck, labelKey: "security_tab_actions" },
   { id: "documents", icon: FolderOpen, labelKey: "security_tab_documents" },
   { id: "audit", icon: ScrollText, labelKey: "security_tab_audit" },
+  { id: "training", icon: GraduationCap, labelKey: "training_hub" },
 ];
 
 export function SecurityModule({
@@ -104,6 +122,11 @@ export function SecurityModule({
   canShowActions,
   canShowDocuments,
   canShowAudit,
+  canShowTraining,
+  canManageTraining,
+  cloudinaryCloudName,
+  cloudinaryUploadPreset,
+  customRoles,
   initialTab = null,
   onInitialTabConsumed,
   onOpenCorrectiveFromHazard,
@@ -119,6 +142,7 @@ export function SecurityModule({
     (canShowActions ? "actions" : null) ||
     (canShowDocuments ? "documents" : null) ||
     (canShowAudit ? "audit" : null) ||
+    (canShowTraining ? "training" : null) ||
     "hazards";
 
   const [tab, setTab] = useState<SecurityTabId>(firstAllowed as SecurityTabId);
@@ -128,8 +152,9 @@ export function SecurityModule({
       (id === "hazards" && canShowHazards) ||
       (id === "actions" && canShowActions) ||
       (id === "documents" && canShowDocuments) ||
-      (id === "audit" && canShowAudit),
-    [canShowHazards, canShowActions, canShowDocuments, canShowAudit]
+      (id === "audit" && canShowAudit) ||
+      (id === "training" && canShowTraining),
+    [canShowHazards, canShowActions, canShowDocuments, canShowAudit, canShowTraining]
   );
 
   const selectSecurityTab = useCallback(
@@ -418,6 +443,21 @@ export function SecurityModule({
               )}
             </div>
           </div>
+        )}
+
+        {tab === "training" && canShowTraining && (
+          <TrainingHubModule
+            t={t}
+            companyId={companyId}
+            userProfileId={userProfileId}
+            userName={userName}
+            canManageTraining={canManageTraining}
+            employees={employees}
+            customRoles={customRoles}
+            dateLocale={dateLocale}
+            cloudinaryCloudName={cloudinaryCloudName}
+            cloudinaryUploadPreset={cloudinaryUploadPreset}
+          />
         )}
       </div>
     </div>

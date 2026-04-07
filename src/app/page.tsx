@@ -4339,6 +4339,7 @@ export default function Home() {
                 showNewEmployeeButton={
                   effectiveRole === "admin" || !!rolePerms.canManageEmployees
                 }
+                viewerIsAdmin={effectiveRole === "admin"}
                 currentUserProfileId={profile?.id ?? null}
                 cloudinaryCloudName={
                   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
@@ -4990,7 +4991,12 @@ export default function Home() {
                 userName={profile?.fullName ?? profile?.email ?? user?.email ?? "User"}
                 userProfileId={profile?.id ?? null}
                 projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
-                employees={activeEmployees.map((e) => ({ id: e.id, name: e.name }))}
+                employees={activeEmployees.map((e) => ({
+                  id: e.id,
+                  name: e.name,
+                  role: e.role,
+                  customRoleId: e.customRoleId,
+                }))}
                 focusHazardId={focusHazardId}
                 onFocusHazardConsumed={() => setFocusHazardId(null)}
                 correctivePrefill={correctivePrefill}
@@ -5027,6 +5033,15 @@ export default function Home() {
                   )
                 }
                 canShowAudit={!!(rolePerms.canViewSecurityAudit || rolePerms.canViewAuditLog)}
+                canShowTraining
+                canManageTraining={effectiveRole === "admin"}
+                cloudinaryCloudName={
+                  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
+                }
+                cloudinaryUploadPreset={
+                  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET?.trim() || "i5dmd07o"
+                }
+                customRoles={customRoles}
                 onOpenCorrectiveFromHazard={({ hazardId, projectId, projectName }) => {
                   setCorrectivePrefill({
                     hazardId,
