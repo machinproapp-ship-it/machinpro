@@ -4779,6 +4779,7 @@ export default function Home() {
                 canRequestVacation={!!session && !!companyId}
                 vacationRequests={vacationRequests}
                 vacationEmployeeNames={vacationEmployeeNames}
+                currentUserId={user?.id ?? ""}
                 onApproveVacation={handleApproveVacation}
                 onRejectVacation={handleRejectVacation}
                 onRequestVacation={handleCreateVacationRequest}
@@ -4890,6 +4891,24 @@ export default function Home() {
                   export_timesheets: (t as Record<string, string>).export_timesheets ?? "Export timesheets",
                   export_success: (t as Record<string, string>).export_success ?? "Export completed",
                   export_error: (t as Record<string, string>).export_error ?? "Export error",
+                  vacations_tab: (t as Record<string, string>).vacations_tab,
+                  vacations_request: (t as Record<string, string>).vacations_request,
+                  vacations_pending: (t as Record<string, string>).vacations_pending,
+                  vacations_approved: (t as Record<string, string>).vacations_approved,
+                  vacations_rejected: (t as Record<string, string>).vacations_rejected,
+                  vacations_filter_employee: (t as Record<string, string>).vacations_filter_employee,
+                  vacations_filter_status: (t as Record<string, string>).vacations_filter_status,
+                  vacations_all: (t as Record<string, string>).vacations_all,
+                  vacations_days_used: (t as Record<string, string>).vacations_days_used,
+                  vacations_days_remaining: (t as Record<string, string>).vacations_days_remaining,
+                  vacations_allowance_hint: (t as Record<string, string>).vacations_allowance_hint,
+                  vacations_list_heading: (t as Record<string, string>).vacations_list_heading,
+                  timesheet_weekly_summary: (t as Record<string, string>).timesheet_weekly_summary,
+                  timesheet_export: (t as Record<string, string>).timesheet_export,
+                  timesheet_total_month: (t as Record<string, string>).timesheet_total_month,
+                  timesheet_date_from: (t as Record<string, string>).timesheet_date_from,
+                  timesheet_date_to: (t as Record<string, string>).timesheet_date_to,
+                  timesheet_by_project: (t as Record<string, string>).timesheet_by_project,
                   admin: (t as Record<string, string>).admin,
                   supervisor: (t as Record<string, string>).supervisor,
                   worker: (t as Record<string, string>).worker,

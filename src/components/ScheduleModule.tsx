@@ -75,6 +75,7 @@ export interface ClockEntryForSchedule {
   hadPendingCerts?: boolean;
   projectId?: string;
   projectCode?: string;
+  projectName?: string;
 }
 
 export interface TimeEntryForSchedule {
@@ -233,6 +234,24 @@ export interface ScheduleModuleProps {
     schedule_no_shifts_day?: string;
     /** Pestaña Vacaciones (móvil) */
     schedule_tab_vacations?: string;
+    vacations_tab?: string;
+    vacations_request?: string;
+    vacations_pending?: string;
+    vacations_approved?: string;
+    vacations_rejected?: string;
+    vacations_filter_employee?: string;
+    vacations_filter_status?: string;
+    vacations_all?: string;
+    vacations_days_used?: string;
+    vacations_days_remaining?: string;
+    vacations_allowance_hint?: string;
+    vacations_list_heading?: string;
+    timesheet_weekly_summary?: string;
+    timesheet_export?: string;
+    timesheet_total_month?: string;
+    timesheet_date_from?: string;
+    timesheet_date_to?: string;
+    timesheet_by_project?: string;
     admin?: string;
     supervisor?: string;
     worker?: string;
@@ -297,6 +316,8 @@ export interface ScheduleModuleProps {
   companyName?: string;
   /** Fallback slug si no hay nombre de empresa. */
   companyId?: string;
+  /** Usuario autenticado (Supabase auth id) — vacaciones y filtros “solo mis solicitudes”. */
+  currentUserId?: string;
 }
 
 function startOfWeek(date: Date): Date {
@@ -538,6 +559,18 @@ function minYmdForTimesheetPeriod(period: "weekly" | "biweekly" | "monthly"): st
   return d.toISOString().split("T")[0];
 }
 
+function firstAndLastDayOfCurrentMonthYmd(): [string, string] {
+  const n = new Date();
+  const y = n.getFullYear();
+  const mo = n.getMonth();
+  const start = `${y}-${String(mo + 1).padStart(2, "0")}-01`;
+  const last = new Date(y, mo + 1, 0);
+  const end = `${y}-${String(mo + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+  return [start, end];
+}
+
+const DEFAULT_ANNUAL_VACATION_DAYS = 22;
+
 function generateTimeSheetsFromClock(
   clockEntries: ClockEntryForSchedule[],
   projects: SchedProject[]
@@ -588,6 +621,16 @@ function generateTimeSheetsFromClock(
   return sheets.sort((a, b) => b.weekStart.localeCompare(a.weekStart));
 }
 
+function projectNameForClockEntry(e: ClockEntryForSchedule, projects: SchedProject[]): string {
+  const fromEntry = (e.projectName ?? "").trim();
+  if (fromEntry) return fromEntry;
+  if (e.projectId) {
+    const p = projects.find((x) => x.id === e.projectId);
+    if (p?.name) return p.name;
+  }
+  return "—";
+}
+
 function TimesheetsView({
   clockEntries,
   employees,
@@ -615,22 +658,90 @@ function TimesheetsView({
 }) {
   const { showToast } = useToast();
   const tz = sheetTz ?? resolveUserTimezone(null);
+  const lx = labels as Record<string, string>;
+  const [exportFrom, setExportFrom] = useState(() => firstAndLastDayOfCurrentMonthYmd()[0]);
+  const [exportTo, setExportTo] = useState(() => firstAndLastDayOfCurrentMonthYmd()[1]);
   const [periodType, setPeriodType] = useState<"weekly" | "biweekly" | "monthly">("weekly");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
   const [sheetStatus, setSheetStatus] = useState<Record<string, { status: "approved" | "rejected"; notes?: string }>>({});
   const [notesDraft, setNotesDraft] = useState("");
 
-  const sheets = useMemo(() => {
-    let list = generateTimeSheetsFromClock(clockEntries, projects);
+  const filteredClockForTs = useMemo(() => {
+    let list = clockEntries.filter((e) => e.clockOut);
     if (!viewAll && currentUserEmployeeId) {
-      list = list.filter((s) => s.employeeId === currentUserEmployeeId);
+      list = list.filter((e) => e.employeeId === currentUserEmployeeId);
     }
     if (selectedEmployeeId) {
-      list = list.filter((s) => s.employeeId === selectedEmployeeId);
+      list = list.filter((e) => e.employeeId === selectedEmployeeId);
+    }
+    if (selectedProjectId) {
+      list = list.filter((e) => e.projectId === selectedProjectId);
     }
     return list;
-  }, [clockEntries, projects, viewAll, currentUserEmployeeId, selectedEmployeeId]);
+  }, [clockEntries, viewAll, currentUserEmployeeId, selectedEmployeeId, selectedProjectId]);
+
+  const minDisplayYmd = useMemo(() => minYmdForTimesheetPeriod(periodType), [periodType]);
+
+  const monthTotalHours = useMemo(() => {
+    const [mStart, mEnd] = firstAndLastDayOfCurrentMonthYmd();
+    let sum = 0;
+    for (const e of filteredClockForTs) {
+      if (e.date >= mStart && e.date <= mEnd) {
+        sum += hoursBetween(e.clockIn, e.clockOut!);
+      }
+    }
+    return sum;
+  }, [filteredClockForTs]);
+
+  const sheets = useMemo(() => {
+    let list = generateTimeSheetsFromClock(filteredClockForTs, projects);
+    list = list.filter((s) => s.weekEnd >= minDisplayYmd);
+    return list;
+  }, [filteredClockForTs, projects, minDisplayYmd]);
+
+  const weeklySummaries = useMemo(() => {
+    type Row = {
+      employeeId: string;
+      weekStart: string;
+      weekEnd: string;
+      totalHours: number;
+      byProject: { name: string; hours: number }[];
+    };
+    const map = new Map<string, { employeeId: string; weekStart: string; weekEnd: string; byProject: Map<string, number> }>();
+    for (const e of filteredClockForTs) {
+      const weekStart = getWeekStart(e.date);
+      const weekEnd = getWeekEnd(weekStart);
+      const key = `${e.employeeId}|${weekStart}`;
+      if (!map.has(key)) {
+        map.set(key, { employeeId: e.employeeId, weekStart, weekEnd, byProject: new Map() });
+      }
+      const row = map.get(key)!;
+      const h = hoursBetween(e.clockIn, e.clockOut!);
+      const pname = projectNameForClockEntry(e, projects);
+      const label = pname.trim() && pname !== "—" ? pname : lx.schedule_no_project ?? "—";
+      row.byProject.set(label, (row.byProject.get(label) ?? 0) + h);
+    }
+    const out: Row[] = [];
+    map.forEach((v) => {
+      let total = 0;
+      const byProject: { name: string; hours: number }[] = [];
+      v.byProject.forEach((hours, name) => {
+        total += hours;
+        byProject.push({ name, hours });
+      });
+      byProject.sort((a, b) => b.hours - a.hours);
+      out.push({
+        employeeId: v.employeeId,
+        weekStart: v.weekStart,
+        weekEnd: v.weekEnd,
+        totalHours: total,
+        byProject,
+      });
+    });
+    return out.sort((a, b) => b.weekStart.localeCompare(a.weekStart) || a.employeeId.localeCompare(b.employeeId));
+  }, [filteredClockForTs, projects, lx.schedule_no_project]);
 
   const selectedSheet = selectedSheetId ? sheets.find((s) => s.id === selectedSheetId) : null;
   const effectiveStatus = (sheet: TimeSheetForSchedule) =>
@@ -643,9 +754,9 @@ function TimesheetsView({
     employeeLabels[id] || employees.find((e) => e.id === id)?.name || id;
 
   const exportTimesheetsCsv = () => {
-    const lx = labels as Record<string, string>;
     try {
-      const minD = minYmdForTimesheetPeriod(periodType);
+      const from = exportFrom <= exportTo ? exportFrom : exportTo;
+      const to = exportFrom <= exportTo ? exportTo : exportFrom;
       const headers = [
         lx.personnel ?? "Employee",
         lx.date ?? "Date",
@@ -654,7 +765,8 @@ function TimesheetsView({
         labels.pending ?? "Status",
       ];
       const lines = [headers.map((h) => csvCell(h)).join(",")];
-      for (const sheet of sheets) {
+      const sheetsAll = generateTimeSheetsFromClock(filteredClockForTs, projects);
+      for (const sheet of sheetsAll) {
         const status = effectiveStatus(sheet);
         const statusLabel =
           status === "approved"
@@ -663,7 +775,7 @@ function TimesheetsView({
               ? (labels.rejected ?? status)
               : (labels.pending ?? status);
         for (const ent of sheet.entries) {
-          if (ent.date < minD) continue;
+          if (ent.date < from || ent.date > to) continue;
           lines.push(
             [
               csvCell(getEmployeeName(sheet.employeeId)),
@@ -676,7 +788,7 @@ function TimesheetsView({
         }
       }
       const slug = fileSlugCompany(companyName, companyIdFallback || "co");
-      downloadCsvUtf8(`hojas_horas_${slug}_${filenameDateYmd()}.csv`, lines);
+      downloadCsvUtf8(`hojas_horas_${slug}_${from}_${to}.csv`, lines);
       showToast("success", lx.export_success ?? "Export completed");
     } catch {
       showToast("error", lx.export_error ?? "Export error");
@@ -685,8 +797,15 @@ function TimesheetsView({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/50 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+          {lx.timesheet_total_month ?? "Total this month"}:{" "}
+          <span className="tabular-nums text-amber-700 dark:text-amber-400">{monthTotalHours.toFixed(1)}h</span>
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <span className="w-full text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:w-auto">
           {labels.weekly ?? "Semanal"} / {labels.biweekly ?? "Quincenal"} / {labels.monthly ?? "Mensual"}
         </span>
         {["weekly", "biweekly", "monthly"].map((p) => (
@@ -703,36 +822,111 @@ function TimesheetsView({
             {p === "weekly" ? (labels.weekly ?? "Semanal") : p === "biweekly" ? (labels.biweekly ?? "Quincenal") : (labels.monthly ?? "Mensual")}
           </button>
         ))}
-        {viewAll && (
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {viewAll ? (
           <select
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
-            className="w-full min-h-[44px] max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:w-auto sm:max-w-none"
+            className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+            aria-label={lx.personnel ?? "Employee"}
           >
-            <option value="">{(labels as Record<string, string>).personnel ?? "Todos"}</option>
+            <option value="">{lx.whFilterAll ?? lx.personnel ?? "Todos"}</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {employeeLabels[e.id] || e.name}
               </option>
             ))}
           </select>
-        )}
+        ) : null}
+        <select
+          value={selectedProjectId}
+          onChange={(e) => setSelectedProjectId(e.target.value)}
+          className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm lg:col-span-2"
+          aria-label={lx.project ?? "Project"}
+        >
+          <option value="">{lx.whFilterAll ?? (lx.project ?? "Todos los proyectos")}</option>
+          {projects
+            .filter((p) => !p.archived)
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+        </select>
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+          <span>{lx.timesheet_date_from ?? "Desde"}</span>
+          <input
+            type="date"
+            value={exportFrom}
+            onChange={(e) => setExportFrom(e.target.value)}
+            className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2 text-sm"
+          />
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+          <span>{lx.timesheet_date_to ?? "Hasta"}</span>
+          <input
+            type="date"
+            value={exportTo}
+            onChange={(e) => setExportTo(e.target.value)}
+            className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2 text-sm"
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => exportTimesheetsCsv()}
-          className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-slate-700 px-3 py-2 text-sm font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-slate-700 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
         >
           <Download className="h-4 w-4 shrink-0" aria-hidden />
-          {(labels as Record<string, string>).export_timesheets ??
-            (labels as Record<string, string>).export_csv ??
-            "CSV"}
+          {lx.timesheet_export ?? lx.export_timesheets ?? lx.export_csv ?? "Export"}
         </button>
       </div>
+
+      <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 sm:p-4">
+        <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+          {lx.timesheet_weekly_summary ?? "Weekly summary"}
+        </h4>
+        {weeklySummaries.length === 0 ? (
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            {lx.empty_state_timesheets ?? labels.noEntries ?? ""}
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-3">
+            {weeklySummaries.slice(0, 24).map((row) => (
+              <li
+                key={`${row.employeeId}-${row.weekStart}`}
+                className="rounded-lg border border-zinc-100 dark:border-slate-800 p-3 text-sm"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium text-zinc-900 dark:text-white">{getEmployeeName(row.employeeId)}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {row.weekStart} – {row.weekEnd}
+                  </span>
+                </div>
+                <p className="mt-1 tabular-nums font-semibold text-amber-700 dark:text-amber-400">{row.totalHours.toFixed(1)}h</p>
+                <p className="mt-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">{lx.timesheet_by_project ?? "Por proyecto"}</p>
+                <ul className="mt-1 space-y-0.5 text-xs text-zinc-700 dark:text-zinc-300">
+                  {row.byProject.map((bp) => (
+                    <li key={bp.name} className="flex justify-between gap-2">
+                      <span className="min-w-0 truncate">{bp.name}</span>
+                      <span className="shrink-0 tabular-nums">{bp.hours.toFixed(1)}h</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sheets.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400 col-span-full">
-            {(labels as Record<string, string>).empty_state_timesheets ?? labels.noEntries ?? ""}
+            {lx.empty_state_timesheets ?? labels.noEntries ?? ""}
           </p>
         ) : (
           sheets.map((sheet) => {
@@ -745,13 +939,23 @@ function TimesheetsView({
                 key={sheet.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => { setSelectedSheetId(sheet.id); setNotesDraft(sheetStatus[sheet.id]?.notes ?? ""); }}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { setSelectedSheetId(sheet.id); setNotesDraft(sheetStatus[sheet.id]?.notes ?? ""); } }}
-                className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => {
+                  setSelectedSheetId(sheet.id);
+                  setNotesDraft(sheetStatus[sheet.id]?.notes ?? "");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    setSelectedSheetId(sheet.id);
+                    setNotesDraft(sheetStatus[sheet.id]?.notes ?? "");
+                  }
+                }}
+                className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm transition-shadow hover:shadow-md cursor-pointer"
               >
                 <p className="font-semibold text-zinc-900 dark:text-white">{getEmployeeName(sheet.employeeId)}</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">{sheet.weekStart} – {sheet.weekEnd}</p>
-                <div className="flex items-center gap-4 mt-3">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {sheet.weekStart} – {sheet.weekEnd}
+                </p>
+                <div className="mt-3 flex items-center gap-4">
                   <svg width="56" height="56" viewBox="0 0 56 56" className="shrink-0">
                     <circle cx="28" cy="28" r={CIRCLE_R} fill="none" stroke="#e5e7eb" strokeWidth="4" />
                     <circle
@@ -766,19 +970,39 @@ function TimesheetsView({
                       strokeLinecap="round"
                       transform="rotate(-90 28 28)"
                     />
-                    <text x="28" y="32" textAnchor="middle" fontSize="11" fontWeight="600" fill="currentColor" className="text-zinc-900 dark:text-zinc-100">
+                    <text
+                      x="28"
+                      y="32"
+                      textAnchor="middle"
+                      fontSize="11"
+                      fontWeight="600"
+                      fill="currentColor"
+                      className="text-zinc-900 dark:text-zinc-100"
+                    >
                       {sheet.totalHours}h
                     </text>
                   </svg>
                   <div className="min-w-0">
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400">{labels.regularHours ?? "Horas regulares"}: {sheet.regularHours}h</p>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400">{labels.overtimeHours ?? "Horas extra"}: {sheet.overtimeHours}h</p>
-                    <span className={`inline-flex mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                      status === "approved" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
-                      status === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
-                      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    }`}>
-                      {status === "approved" ? (labels.approved ?? "Aprobado") : status === "rejected" ? (labels.rejected ?? "Rechazado") : (labels.pending ?? "Pendiente")}
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                      {labels.regularHours ?? "Horas regulares"}: {sheet.regularHours}h
+                    </p>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                      {labels.overtimeHours ?? "Horas extra"}: {sheet.overtimeHours}h
+                    </p>
+                    <span
+                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        status === "approved"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          : status === "rejected"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      }`}
+                    >
+                      {status === "approved"
+                        ? (labels.approved ?? "Aprobado")
+                        : status === "rejected"
+                          ? (labels.rejected ?? "Rechazado")
+                          : (labels.pending ?? "Pendiente")}
                     </span>
                   </div>
                 </div>
@@ -792,57 +1016,87 @@ function TimesheetsView({
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSheetId(null)} />
           <div className="fixed left-1/2 top-1/2 z-50 w-[min(95vw,calc(100%-2rem))] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl max-h-[90vh] overflow-y-auto sm:p-6">
-            <div className="flex items-center justify-between mb-4 gap-2">
+            <div className="mb-4 flex items-center justify-between gap-2">
               <h3 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-white sm:text-lg">
                 {getEmployeeName(selectedSheet.employeeId)} · {selectedSheet.weekStart} – {selectedSheet.weekEnd}
               </h3>
-              <button type="button" onClick={() => setSelectedSheetId(null)} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+              <button
+                type="button"
+                onClick={() => setSelectedSheetId(null)}
+                className="min-h-[44px] min-w-[44px] rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="-mx-1 overflow-x-auto">
-            <table className="w-full min-w-[32rem] text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                  <th className="text-left py-2 font-medium text-zinc-700 dark:text-zinc-300">{(labels as Record<string, string>).date ?? "Fecha"}</th>
-                  <th className="text-left py-2 font-medium text-zinc-700 dark:text-zinc-300">{(labels as Record<string, string>).project ?? "Proyecto"}</th>
-                  <th className="text-left py-2 font-medium text-zinc-700 dark:text-zinc-300">{labels.clockInEntry ?? "Entrada"}</th>
-                  <th className="text-left py-2 font-medium text-zinc-700 dark:text-zinc-300">{labels.clockOutEntry ?? "Salida"}</th>
-                  <th className="text-right py-2 font-medium text-zinc-700 dark:text-zinc-300">{(labels as Record<string, string>).hours ?? "Horas"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedSheet.entries.map((ent) => (
-                  <tr key={ent.id} className="border-b border-zinc-100 dark:border-zinc-800">
-                    <td className="py-2 text-zinc-600 dark:text-zinc-400">{ent.date}</td>
-                    <td className="py-2 text-zinc-600 dark:text-zinc-400">
-                      <span>{ent.projectName ?? "—"}</span>
-                      {(ent.locationAlert ?? ent.hadPendingCerts) && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {ent.locationAlert && (
-                            <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                              {(labels as Record<string, string>).outsideZone ?? "Fuera de zona"}
-                              {ent.locationAlertMeters != null && ` (${ent.locationAlertMeters}m)`}
-                            </span>
-                          )}
-                          {ent.hadPendingCerts && (
-                            <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                              {(labels as Record<string, string>).pendingCertsAtClockIn ?? "Certs pendientes al fichar"}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-2">{formatTimeHm(ent.clockIn, dateLocale, tz)}</td>
-                    <td className="py-2">{ent.clockOut ? formatTimeHm(ent.clockOut, dateLocale, tz) : "—"}</td>
-                    <td className="py-2 text-right font-medium">{ent.hoursWorked.toFixed(1)}h</td>
+            <div className="space-y-2 sm:hidden">
+              {selectedSheet.entries.map((ent) => (
+                <div
+                  key={ent.id}
+                  className="rounded-lg border border-zinc-100 dark:border-zinc-800 p-3 text-sm text-zinc-800 dark:text-zinc-100"
+                >
+                  <p className="font-medium">{ent.date}</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">{ent.projectName ?? "—"}</p>
+                  <p className="mt-1 text-xs">
+                    {formatTimeHm(ent.clockIn, dateLocale, tz)} –{" "}
+                    {ent.clockOut ? formatTimeHm(ent.clockOut, dateLocale, tz) : "—"}
+                  </p>
+                  <p className="mt-1 font-semibold tabular-nums">{ent.hoursWorked.toFixed(1)}h</p>
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full min-w-0 text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-700">
+                    <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
+                      {lx.date ?? "Date"}
+                    </th>
+                    <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
+                      {lx.project ?? "Project"}
+                    </th>
+                    <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
+                      {labels.clockInEntry ?? "Entrada"}
+                    </th>
+                    <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
+                      {labels.clockOutEntry ?? "Salida"}
+                    </th>
+                    <th className="py-2 text-right font-medium text-zinc-700 dark:text-zinc-300">{lx.hours ?? "Horas"}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {selectedSheet.entries.map((ent) => (
+                    <tr key={ent.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                      <td className="py-2 text-zinc-600 dark:text-zinc-400">{ent.date}</td>
+                      <td className="py-2 text-zinc-600 dark:text-zinc-400">
+                        <span>{ent.projectName ?? "—"}</span>
+                        {(ent.locationAlert ?? ent.hadPendingCerts) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {ent.locationAlert && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                {lx.outsideZone ?? "Fuera de zona"}
+                                {ent.locationAlertMeters != null && ` (${ent.locationAlertMeters}m)`}
+                              </span>
+                            )}
+                            {ent.hadPendingCerts && (
+                              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                {lx.pendingCertsAtClockIn ?? ""}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2">{formatTimeHm(ent.clockIn, dateLocale, tz)}</td>
+                      <td className="py-2">{ent.clockOut ? formatTimeHm(ent.clockOut, dateLocale, tz) : "—"}</td>
+                      <td className="py-2 text-right font-medium">{ent.hoursWorked.toFixed(1)}h</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <p className="mt-3 text-sm font-semibold text-zinc-900 dark:text-white">
-              Total: {selectedSheet.totalHours.toFixed(1)}h ({labels.regularHours ?? "Reg."}: {selectedSheet.regularHours.toFixed(1)}h, {labels.overtimeHours ?? "Extra"}: {selectedSheet.overtimeHours.toFixed(1)}h)
+              Total: {selectedSheet.totalHours.toFixed(1)}h ({labels.regularHours ?? "Reg."}:{" "}
+              {selectedSheet.regularHours.toFixed(1)}h, {labels.overtimeHours ?? "Extra"}:{" "}
+              {selectedSheet.overtimeHours.toFixed(1)}h)
             </p>
             {viewAll && (
               <div className="mt-4 space-y-3">
@@ -853,14 +1107,14 @@ function TimesheetsView({
                   rows={2}
                   className="w-full max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       setSheetStatus((s) => ({ ...s, [selectedSheet.id]: { status: "approved", notes: notesDraft } }));
                       setSelectedSheetId(null);
                     }}
-                    className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-sm font-medium min-h-[44px]"
+                    className="min-h-[44px] rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
                   >
                     {labels.approve ?? "Aprobar"}
                   </button>
@@ -870,7 +1124,7 @@ function TimesheetsView({
                       setSheetStatus((s) => ({ ...s, [selectedSheet.id]: { status: "rejected", notes: notesDraft } }));
                       setSelectedSheetId(null);
                     }}
-                    className="rounded-lg bg-red-600 hover:bg-red-500 text-white px-4 py-2 text-sm font-medium min-h-[44px]"
+                    className="min-h-[44px] rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
                   >
                     {labels.reject ?? "Rechazar"}
                   </button>
@@ -927,6 +1181,7 @@ export default function ScheduleModule({
   timeZone: scheduleTimeZoneProp,
   companyName = "",
   companyId = "",
+  currentUserId = "",
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
@@ -1011,6 +1266,8 @@ export default function ScheduleModule({
   const [vacReqEnd, setVacReqEnd] = useState("");
   const [vacReqNote, setVacReqNote] = useState("");
   const [vacAdminComment, setVacAdminComment] = useState<Record<string, string>>({});
+  const [vacFilterUserId, setVacFilterUserId] = useState("");
+  const [vacFilterStatus, setVacFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [teamAvailabilityOpen, setTeamAvailabilityOpen] = useState(true);
   const [availabilityWeekOffset, setAvailabilityWeekOffset] = useState(0);
 
@@ -1078,6 +1335,42 @@ export default function ScheduleModule({
       (entry.employeeIds ?? []).some((id) => scheduleSelfIds.includes(id)),
     [scheduleSelfIds]
   );
+
+  const vacationBalanceYear = today.getFullYear();
+
+  const approvedVacationDaysByUser = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const v of vacationRequests) {
+      if (v.status !== "approved") continue;
+      const y = Number(v.start_date.slice(0, 4));
+      if (y !== vacationBalanceYear) continue;
+      m.set(v.user_id, (m.get(v.user_id) ?? 0) + v.total_days);
+    }
+    return m;
+  }, [vacationRequests, vacationBalanceYear]);
+
+  const vacationFilterUserOptions = useMemo(() => {
+    const ids = new Set<string>();
+    for (const v of vacationRequests) ids.add(v.user_id);
+    if (currentUserId) ids.add(currentUserId);
+    return [...ids].sort((a, b) =>
+      (vacationEmployeeNames[a] ?? a).localeCompare(vacationEmployeeNames[b] ?? b)
+    );
+  }, [vacationRequests, vacationEmployeeNames, currentUserId]);
+
+  const filteredVacationRequests = useMemo(() => {
+    let list = [...vacationRequests];
+    if (!canApproveVacations && currentUserId) {
+      list = list.filter((v) => v.user_id === currentUserId);
+    }
+    if (canApproveVacations && vacFilterUserId) {
+      list = list.filter((v) => v.user_id === vacFilterUserId);
+    }
+    if (vacFilterStatus !== "all") {
+      list = list.filter((v) => v.status === vacFilterStatus);
+    }
+    return list.sort((a, b) => b.start_date.localeCompare(a.start_date) || a.id.localeCompare(b.id));
+  }, [vacationRequests, canApproveVacations, currentUserId, vacFilterUserId, vacFilterStatus]);
 
   const formSelectedDatesSorted = useMemo(
     () => [...new Set(fDates)].filter(Boolean).sort(),
@@ -1463,7 +1756,11 @@ export default function ScheduleModule({
                   : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
               }`}
             >
-              {lx.schedule_tab_vacations ?? lx.schedule_type_vacation ?? lx.schedule_vacation_request ?? "Vacaciones"}
+              {lx.vacations_tab ??
+                lx.schedule_tab_vacations ??
+                lx.schedule_type_vacation ??
+                lx.schedule_vacation_request ??
+                "Vacaciones"}
             </button>
           ) : null}
         </div>
@@ -1738,101 +2035,216 @@ export default function ScheduleModule({
       ) : null}
 
       {scheduleSubTab === "vacations" && showVacationsTab && (
-        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
-          {onRequestVacation && canRequestVacation && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                {(labels as Record<string, string>).schedule_vacation_request ?? "Solicitud de vacaciones"}
-              </h4>
-              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                <input
-                  type="date"
-                  value={vacReqStart}
-                  onChange={(e) => setVacReqStart(e.target.value)}
-                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                  aria-label={(labels as Record<string, string>).date ?? "Fecha inicio"}
-                />
-                <input
-                  type="date"
-                  value={vacReqEnd}
-                  onChange={(e) => setVacReqEnd(e.target.value)}
-                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                  aria-label={(labels as Record<string, string>).date ?? "Fecha fin"}
-                />
-                <input
-                  type="text"
-                  value={vacReqNote}
-                  onChange={(e) => setVacReqNote(e.target.value)}
-                  placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Nota (opcional)"}
-                  className="w-full min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] sm:flex-1 sm:min-w-[200px]"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!vacReqStart || !vacReqEnd) return;
-                    void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote);
-                    setVacReqNote("");
-                  }}
-                  className="rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium min-h-[44px] min-w-[44px]"
-                >
-                  {(labels as Record<string, string>).employees_request_vacation ?? "Solicitar vacaciones"}
-                </button>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
+            {canApproveVacations ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                  <span>{lx.vacations_filter_employee ?? lx.personnel ?? ""}</span>
+                  <select
+                    value={vacFilterUserId}
+                    onChange={(e) => setVacFilterUserId(e.target.value)}
+                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  >
+                    <option value="">{lx.vacations_all ?? lx.whFilterAll ?? ""}</option>
+                    {vacationFilterUserOptions.map((uid) => (
+                      <option key={uid} value={uid}>
+                        {vacationEmployeeNames[uid] ?? uid}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                  <span>{lx.vacations_filter_status ?? "Status"}</span>
+                  <select
+                    value={vacFilterStatus}
+                    onChange={(e) =>
+                      setVacFilterStatus(e.target.value as "all" | "pending" | "approved" | "rejected")
+                    }
+                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  >
+                    <option value="all">{lx.vacations_all ?? lx.whFilterAll ?? ""}</option>
+                    <option value="pending">{lx.vacations_pending ?? labels.pending ?? ""}</option>
+                    <option value="approved">{lx.vacations_approved ?? labels.approved ?? ""}</option>
+                    <option value="rejected">{lx.vacations_rejected ?? labels.rejected ?? ""}</option>
+                  </select>
+                </label>
               </div>
-            </div>
-          )}
-          {canApproveVacations && vacationRequests.filter((v) => v.status === "pending").length > 0 && (
-            <div className="space-y-2 border-t border-zinc-200 dark:border-slate-700 pt-4">
-              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                {(labels as Record<string, string>).schedule_vacation_pending_list ?? "Solicitudes pendientes"}
-              </h4>
-              <ul className="space-y-3">
-                {vacationRequests
-                  .filter((v) => v.status === "pending")
-                  .map((v) => (
+            ) : null}
+
+            {canApproveVacations && vacationFilterUserOptions.length > 0 ? (
+              <div className="rounded-lg border border-zinc-100 dark:border-slate-800 bg-zinc-50/80 dark:bg-slate-800/40 p-3">
+                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {vacationBalanceYear} — {lx.vacations_allowance_hint ?? ""}
+                </p>
+                <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {(vacFilterUserId ? [vacFilterUserId] : vacationFilterUserOptions).map((uid) => {
+                    const used = approvedVacationDaysByUser.get(uid) ?? 0;
+                    const rem = Math.max(0, DEFAULT_ANNUAL_VACATION_DAYS - used);
+                    return (
+                      <li
+                        key={uid}
+                        className="rounded-md border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs"
+                      >
+                        <p className="truncate font-medium text-zinc-900 dark:text-white">
+                          {vacationEmployeeNames[uid] ?? uid}
+                        </p>
+                        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                          {lx.vacations_days_used ?? "Used"}: {used} / {DEFAULT_ANNUAL_VACATION_DAYS}
+                        </p>
+                        <p className="text-amber-700 dark:text-amber-400">
+                          {lx.vacations_days_remaining ?? "Remaining"}: {rem}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+
+            {!canApproveVacations && currentUserId ? (
+              <div className="rounded-lg border border-zinc-100 dark:border-slate-800 bg-zinc-50/80 dark:bg-slate-800/40 p-3 text-sm">
+                <p className="font-medium text-zinc-900 dark:text-white">{vacationBalanceYear}</p>
+                <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                  {lx.vacations_days_used ?? "Used"}:{" "}
+                  <span className="tabular-nums font-semibold text-zinc-900 dark:text-white">
+                    {approvedVacationDaysByUser.get(currentUserId) ?? 0} / {DEFAULT_ANNUAL_VACATION_DAYS}
+                  </span>
+                </p>
+                <p className="text-amber-700 dark:text-amber-400">
+                  {lx.vacations_days_remaining ?? "Remaining"}:{" "}
+                  <span className="tabular-nums font-semibold">
+                    {Math.max(
+                      0,
+                      DEFAULT_ANNUAL_VACATION_DAYS - (approvedVacationDaysByUser.get(currentUserId) ?? 0)
+                    )}
+                  </span>
+                </p>
+              </div>
+            ) : null}
+
+            {onRequestVacation && canRequestVacation && (
+              <div className="space-y-3 border-t border-zinc-200 dark:border-slate-700 pt-4">
+                <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  {lx.vacations_request ?? lx.schedule_vacation_request ?? ""}
+                </h4>
+                <div className="flex flex-col flex-wrap gap-2 sm:flex-row">
+                  <input
+                    type="date"
+                    value={vacReqStart}
+                    onChange={(e) => setVacReqStart(e.target.value)}
+                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:w-auto"
+                    aria-label={lx.date ?? "Start"}
+                  />
+                  <input
+                    type="date"
+                    value={vacReqEnd}
+                    onChange={(e) => setVacReqEnd(e.target.value)}
+                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:w-auto"
+                    aria-label={lx.date ?? "End"}
+                  />
+                  <input
+                    type="text"
+                    value={vacReqNote}
+                    onChange={(e) => setVacReqNote(e.target.value)}
+                    placeholder={lx.schedule_vacation_comment ?? ""}
+                    className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:min-w-[200px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!vacReqStart || !vacReqEnd) return;
+                      void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote);
+                      setVacReqNote("");
+                    }}
+                    className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 sm:w-auto"
+                  >
+                    {lx.vacations_request ?? lx.employees_request_vacation ?? ""}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+            <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+              {lx.vacations_list_heading ?? lx.schedule_vacation_pending_list ?? ""}
+            </h4>
+            {filteredVacationRequests.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{labels.noEntries ?? ""}</p>
+            ) : (
+              <ul className="mt-3 space-y-3">
+                {filteredVacationRequests.map((v) => {
+                  const used = approvedVacationDaysByUser.get(v.user_id) ?? 0;
+                  const rem = Math.max(0, DEFAULT_ANNUAL_VACATION_DAYS - used);
+                  const stLabel =
+                    v.status === "approved"
+                      ? (lx.vacations_approved ?? labels.approved ?? "")
+                      : v.status === "rejected"
+                        ? (lx.vacations_rejected ?? labels.rejected ?? "")
+                        : (lx.vacations_pending ?? labels.pending ?? "");
+                  const stCls =
+                    v.status === "approved"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                      : v.status === "rejected"
+                        ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200";
+                  return (
                     <li
                       key={v.id}
-                      className="rounded-lg border border-zinc-200 dark:border-slate-700 p-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+                      className="rounded-lg border border-zinc-200 dark:border-slate-700 p-3 sm:flex sm:items-end sm:justify-between sm:gap-3"
                     >
-                      <div className="min-w-0 text-sm">
-                        <p className="font-medium text-zinc-900 dark:text-white">
-                          {vacationEmployeeNames[v.user_id] ?? "—"}
-                        </p>
+                      <div className="min-w-0 flex-1 text-sm">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-zinc-900 dark:text-white">
+                            {vacationEmployeeNames[v.user_id] ?? "—"}
+                          </p>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${stCls}`}>{stLabel}</span>
+                        </div>
                         <p className="text-zinc-600 dark:text-zinc-400">
-                          {v.start_date} → {v.end_date} · {v.total_days}{" "}
-                          {(labels as Record<string, string>).days ?? "días"}
+                          {v.start_date} → {v.end_date} · {v.total_days} {lx.days ?? ""}
                         </p>
-                        {v.notes ? <p className="text-xs text-zinc-500 mt-1">{v.notes}</p> : null}
-                        <input
-                          type="text"
-                          value={vacAdminComment[v.id] ?? ""}
-                          onChange={(e) =>
-                            setVacAdminComment((prev) => ({ ...prev, [v.id]: e.target.value }))
-                          }
-                          placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Comentario"}
-                          className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-xs min-h-[44px]"
-                        />
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          {lx.vacations_days_used ?? "Used"}: {used} / {DEFAULT_ANNUAL_VACATION_DAYS} ·{" "}
+                          {lx.vacations_days_remaining ?? "Remaining"}: {rem}
+                        </p>
+                        {v.notes ? <p className="mt-1 text-xs text-zinc-500">{v.notes}</p> : null}
+                        {canApproveVacations && v.status === "pending" ? (
+                          <input
+                            type="text"
+                            value={vacAdminComment[v.id] ?? ""}
+                            onChange={(e) =>
+                              setVacAdminComment((prev) => ({ ...prev, [v.id]: e.target.value }))
+                            }
+                            placeholder={lx.schedule_vacation_comment ?? ""}
+                            className="mt-2 min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                          />
+                        ) : null}
                       </div>
-                      <div className="flex gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => void onApproveVacation?.(v.id, vacAdminComment[v.id] ?? "")}
-                          className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                        >
-                          {labels.approve ?? "Aprobar"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void onRejectVacation?.(v.id, vacAdminComment[v.id] ?? "")}
-                          className="rounded-lg bg-red-600 hover:bg-red-500 text-white px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
-                        >
-                          {labels.reject ?? "Rechazar"}
-                        </button>
-                      </div>
+                      {canApproveVacations && v.status === "pending" ? (
+                        <div className="mt-3 flex shrink-0 gap-2 sm:mt-0">
+                          <button
+                            type="button"
+                            onClick={() => void onApproveVacation?.(v.id, vacAdminComment[v.id] ?? "")}
+                            className="min-h-[44px] min-w-[44px] rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-500"
+                          >
+                            {labels.approve ?? ""}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void onRejectVacation?.(v.id, vacAdminComment[v.id] ?? "")}
+                            className="min-h-[44px] min-w-[44px] rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-500"
+                          >
+                            {labels.reject ?? ""}
+                          </button>
+                        </div>
+                      ) : null}
                     </li>
-                  ))}
+                  );
+                })}
               </ul>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
