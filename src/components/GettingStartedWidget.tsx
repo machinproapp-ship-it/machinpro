@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Check, Circle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, Circle, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { MainSection } from "@/types/shared";
 
-const DISMISS_KEY = "machinpro_getting_started_dismissed";
+const ONBOARDING_COMPLETE_KEY = "machinpro_onboarding_complete";
 
 export interface GettingStartedWidgetProps {
   companyId: string;
@@ -15,24 +15,26 @@ export interface GettingStartedWidgetProps {
 
 export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }: GettingStartedWidgetProps) {
   const L = (k: string, fb: string) => labels[k] ?? fb;
-  const [dismissed, setDismissed] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [steps, setSteps] = useState<boolean[] | null>(null);
-  const [eligible, setEligible] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [justCompleted, setJustCompleted] = useState(false);
+  const completionMarkedRef = useRef(false);
 
   useEffect(() => {
     try {
-      const v = localStorage.getItem(DISMISS_KEY);
-      setDismissed(v === "1" || v === "true");
+      const v = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
+      if (v === "1" || v === "true") {
+        completionMarkedRef.current = true;
+      }
     } catch {
-      setDismissed(false);
+      completionMarkedRef.current = false;
     }
   }, []);
 
   const fetchStatus = useCallback(async () => {
     if (!supabase || !companyId) {
       setLoading(false);
-      setEligible(false);
       setSteps(null);
       return;
     }
@@ -40,7 +42,6 @@ export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }
     const token = sess.session?.access_token;
     if (!token) {
       setLoading(false);
-      setEligible(false);
       setSteps(null);
       return;
     }
@@ -50,20 +51,12 @@ export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) {
-        setEligible(false);
         setSteps(null);
         return;
       }
-      const j = (await res.json()) as { steps?: boolean[]; onboardingComplete?: boolean };
-      if (j.onboardingComplete !== true) {
-        setEligible(false);
-        setSteps(null);
-        return;
-      }
-      setEligible(true);
+      const j = (await res.json()) as { steps?: boolean[] };
       setSteps(Array.isArray(j.steps) ? j.steps : null);
     } catch {
-      setEligible(false);
       setSteps(null);
     } finally {
       setLoading(false);
@@ -76,55 +69,125 @@ export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }
     return () => clearInterval(id);
   }, [fetchStatus]);
 
-  const dismiss = () => {
+  const completeOnboarding = useCallback(() => {
+    if (completionMarkedRef.current) return;
+    completionMarkedRef.current = true;
     try {
-      localStorage.setItem(DISMISS_KEY, "1");
+      localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
     } catch {
       /* ignore */
     }
-    setDismissed(true);
-  };
+    setJustCompleted(true);
+    window.setTimeout(() => setJustCompleted(false), 3800);
+  }, []);
 
-  if (dismissed || loading || !eligible || !steps) return null;
-
+  if (loading || !steps) return null;
   const done = steps.filter(Boolean).length;
   const total = steps.length;
-  if (done >= total) return null;
+  if (done >= total) {
+    if (!completionMarkedRef.current) {
+      completeOnboarding();
+      return (
+        <section
+          className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm dark:border-emerald-800/60 dark:bg-emerald-950/30 sm:p-5"
+          aria-live="polite"
+        >
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            {L("onboarding_complete", "Everything is ready! Your company is set up.")}
+          </p>
+        </section>
+      );
+    }
+    if (justCompleted) {
+      return (
+        <section
+          className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm dark:border-emerald-800/60 dark:bg-emerald-950/30 sm:p-5"
+          aria-live="polite"
+        >
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            {L("onboarding_complete", "Everything is ready! Your company is set up.")}
+          </p>
+        </section>
+      );
+    }
+    return null;
+  }
+  if (completionMarkedRef.current) return null;
 
   const progressPct = Math.round((done / total) * 100);
+  const progressLabel = `${done} / ${total}`;
 
-  const progressLabel = L("getting_started_progress", "{done} of {total} steps completed")
-    .replace("{done}", String(done))
-    .replace("{total}", String(total));
-
-  const items: { done: boolean; label: string; section: MainSection }[] = [
-    { done: steps[0] ?? false, label: L("getting_started_step1", ""), section: "settings" },
-    { done: steps[1] ?? false, label: L("getting_started_step2", ""), section: "employees" },
-    { done: steps[2] ?? false, label: L("getting_started_step3", ""), section: "site" },
-    { done: steps[3] ?? false, label: L("getting_started_step4", ""), section: "schedule" },
-    { done: steps[4] ?? false, label: L("getting_started_step5", ""), section: "site" },
+  const items: { done: boolean; title: string; hint: string; section: MainSection }[] = [
+    {
+      done: steps[0] ?? false,
+      title: L("onboarding_step_company", "Complete your company profile"),
+      hint: `${L("settings", "Settings")} -> ${L("settings_company", "Company")}`,
+      section: "settings",
+    },
+    {
+      done: steps[1] ?? false,
+      title: L("onboarding_step_employee", "Add your first employee"),
+      hint: `${L("office", "Central")} -> ${L("employees_title", "Employees")}`,
+      section: "employees",
+    },
+    {
+      done: steps[2] ?? false,
+      title: L("onboarding_step_project", "Create your first project"),
+      hint: `${L("office", "Central")} -> ${L("projects", "Projects")}`,
+      section: "office",
+    },
+    {
+      done: steps[3] ?? false,
+      title: L("onboarding_step_roles", "Set your team roles"),
+      hint: `${L("office", "Central")} -> ${L("roles", "Roles")}`,
+      section: "office",
+    },
+    {
+      done: steps[4] ?? false,
+      title: L("onboarding_step_clock", "Register your first clock-in"),
+      hint: `${L("schedule", "Schedule")} -> ${L("clockIn", "Clock-in")}`,
+      section: "schedule",
+    },
   ];
+
+  if (minimized) {
+    return (
+      <section className="mb-6 rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30">
+        <button
+          type="button"
+          onClick={() => setMinimized(false)}
+          className="flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg px-2 text-left"
+        >
+          <div>
+            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{L("onboarding_title", "Set up your MachinPro")}</p>
+            <p className="text-xs text-amber-900/85 dark:text-amber-200/90">{progressLabel}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-amber-700 dark:text-amber-300" aria-hidden />
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section
       className="mb-6 rounded-xl border border-amber-200/80 bg-amber-50/90 p-4 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30 sm:p-5"
-      aria-labelledby="getting-started-title"
+      aria-labelledby="onboarding-checklist-title"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 id="getting-started-title" className="text-base font-semibold text-amber-950 dark:text-amber-100">
-            {L("getting_started_title", "Getting started")}
+          <h2 id="onboarding-checklist-title" className="text-base font-semibold text-amber-950 dark:text-amber-100">
+            {L("onboarding_title", "Set up your MachinPro")}
           </h2>
           <p className="mt-1 text-sm text-amber-900/85 dark:text-amber-200/90">
-            {L("getting_started_subtitle", "")}
+            {L("onboarding_subtitle", "Complete these steps to get started")}
           </p>
         </div>
         <button
           type="button"
-          onClick={dismiss}
+          onClick={() => setMinimized(true)}
           className="min-h-[44px] shrink-0 rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
         >
-          {L("getting_started_dismiss", "Dismiss")}
+          {L("onboarding_dismiss", "Minimize")}
         </button>
       </div>
 
@@ -143,12 +206,8 @@ export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }
 
       <ul className="mt-4 space-y-2">
         {items.map((item, i) => (
-          <li key={i}>
-            <button
-              type="button"
-              onClick={() => onNavigateAppSection(item.section)}
-              className="flex w-full min-h-[44px] items-start gap-3 rounded-lg px-2 py-2 text-left text-sm text-amber-950 hover:bg-amber-100/80 dark:text-amber-100 dark:hover:bg-amber-900/40 sm:items-center"
-            >
+          <li key={i} className="rounded-lg border border-amber-200/70 bg-white/80 p-3 dark:border-amber-800/40 dark:bg-amber-950/20">
+            <div className="flex items-start gap-3 sm:items-center">
               <span className="mt-0.5 shrink-0 sm:mt-0" aria-hidden>
                 {item.done ? (
                   <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
@@ -156,10 +215,20 @@ export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }
                   <Circle className="h-5 w-5 text-amber-600/70 dark:text-amber-400/80" />
                 )}
               </span>
-              <span className={item.done ? "text-amber-800/80 line-through dark:text-amber-200/70" : ""}>
-                {item.label}
-              </span>
-            </button>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium ${item.done ? "text-amber-800/80 line-through dark:text-amber-200/70" : "text-amber-950 dark:text-amber-100"}`}>
+                  {item.title}
+                </p>
+                <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">{item.hint}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigateAppSection(item.section)}
+                className="min-h-[44px] shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
+              >
+                {L("onboarding_go", "Go")}
+              </button>
+            </div>
           </li>
         ))}
       </ul>

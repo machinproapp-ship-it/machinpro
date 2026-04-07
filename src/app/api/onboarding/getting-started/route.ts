@@ -28,9 +28,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [{ data: co }, { data: otherEmps }, { count: projCount }, { count: timeCount }, { count: photoCount }] =
+    const [{ data: co }, { data: otherEmps }, { count: projCount }, { count: roleCount }, { count: timeCount }] =
       await Promise.all([
-        admin.from("companies").select("name, address, onboarding_complete").eq("id", companyId).maybeSingle(),
+        admin.from("companies").select("name, address").eq("id", companyId).maybeSingle(),
         admin
           .from("user_profiles")
           .select("id, profile_status")
@@ -42,17 +42,17 @@ export async function GET(req: NextRequest) {
           .eq("company_id", companyId)
           .eq("archived", false),
         admin
+          .from("custom_roles")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId),
+        admin
           .from("time_entries")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
-          .eq("user_id", auth.userId),
-        admin
-          .from("project_photos")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId),
+          .gt("minutes", 0),
       ]);
 
-    const row = co as { name?: string | null; address?: string | null; onboarding_complete?: boolean | null } | null;
+    const row = co as { name?: string | null; address?: string | null } | null;
     const step1 = !!(row && nonEmpty(row.name) && nonEmpty(row.address));
 
     const empRows = (otherEmps ?? []) as { profile_status?: string | null }[];
@@ -62,8 +62,8 @@ export async function GET(req: NextRequest) {
     });
 
     const step3 = (projCount ?? 0) > 0;
-    const step4 = (timeCount ?? 0) > 0;
-    const step5 = (photoCount ?? 0) > 0;
+    const step4 = (roleCount ?? 0) > 0;
+    const step5 = (timeCount ?? 0) > 0;
 
     const steps = [step1, step2, step3, step4, step5] as const;
     const done = steps.filter(Boolean).length;
@@ -72,7 +72,6 @@ export async function GET(req: NextRequest) {
       steps: [...steps],
       done,
       total: 5,
-      onboardingComplete: row?.onboarding_complete === true,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Query failed";
