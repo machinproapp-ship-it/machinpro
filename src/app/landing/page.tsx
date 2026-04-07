@@ -180,11 +180,6 @@ export default function LandingPage() {
   const [dark, setDark] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
   const [geoDetect, setGeoDetect] = useState<GeoDetect | null>(null);
-  const [betaModalOpen, setBetaModalOpen] = useState(false);
-  const [betaSubmitting, setBetaSubmitting] = useState(false);
-  const [betaFeedback, setBetaFeedback] = useState<"ok" | "err" | null>(null);
-  const [betaForm, setBetaForm] = useState({ name: "", email: "", company: "", country: "" });
-
   const betaFounderSpots = useMemo(() => {
     const raw = process.env.NEXT_PUBLIC_BETA_FOUNDER_SPOTS;
     const n = raw != null && raw !== "" ? Number(raw) : NaN;
@@ -495,16 +490,12 @@ export default function LandingPage() {
                 <p className="text-sm leading-relaxed text-teal-100/90 sm:text-base">
                   {tx("beta_founders_benefit", "")}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBetaFeedback(null);
-                    setBetaModalOpen(true);
-                  }}
+                <Link
+                  href="/beta"
                   className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#f97316] px-6 py-3 text-base font-semibold text-white shadow-lg shadow-orange-900/25 hover:bg-orange-600 transition-colors sm:w-auto"
                 >
                   {tx("beta_founders_cta", "Request beta access")}
-                </button>
+                </Link>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-6 text-left text-teal-50 shadow-xl backdrop-blur-sm lg:max-w-md">
                 <p className="text-sm font-medium">{betaSpotsLabel}</p>
@@ -834,111 +825,6 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {betaModalOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4">
-          <div
-            className="max-h-[95vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:rounded-2xl"
-            role="dialog"
-            aria-modal
-            aria-labelledby="beta-modal-title"
-          >
-            <h3 id="beta-modal-title" className="text-lg font-bold text-slate-900 dark:text-white">
-              {tx("beta_founders_cta", "Request beta access")}
-            </h3>
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setBetaSubmitting(true);
-                setBetaFeedback(null);
-                void fetch("/api/beta-request", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    name: betaForm.name.trim(),
-                    email: betaForm.email.trim(),
-                    company: betaForm.company.trim() || null,
-                    country: betaForm.country.trim() || null,
-                  }),
-                })
-                  .then(async (res) => {
-                    if (!res.ok) throw new Error();
-                    setBetaFeedback("ok");
-                    setBetaForm({ name: "", email: "", company: "", country: "" });
-                  })
-                  .catch(() => setBetaFeedback("err"))
-                  .finally(() => setBetaSubmitting(false));
-              }}
-            >
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  {tx("beta_request_name", "Name")}
-                </label>
-                <input
-                  required
-                  value={betaForm.name}
-                  onChange={(e) => setBetaForm((f) => ({ ...f, name: e.target.value }))}
-                  className="mt-1 w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  {tx("beta_request_email", "Email")}
-                </label>
-                <input
-                  required
-                  type="email"
-                  value={betaForm.email}
-                  onChange={(e) => setBetaForm((f) => ({ ...f, email: e.target.value }))}
-                  className="mt-1 w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  {tx("beta_request_company", "Company")}
-                </label>
-                <input
-                  value={betaForm.company}
-                  onChange={(e) => setBetaForm((f) => ({ ...f, company: e.target.value }))}
-                  className="mt-1 w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  {tx("beta_request_country", "Country")}
-                </label>
-                <input
-                  value={betaForm.country}
-                  onChange={(e) => setBetaForm((f) => ({ ...f, country: e.target.value }))}
-                  className="mt-1 w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                />
-              </div>
-              {betaFeedback === "ok" ? (
-                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{tx("beta_request_thanks", "")}</p>
-              ) : null}
-              {betaFeedback === "err" ? (
-                <p className="text-sm font-medium text-red-700 dark:text-red-400">{tx("beta_request_error", "")}</p>
-              ) : null}
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setBetaModalOpen(false)}
-                  className="min-h-[44px] rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-200"
-                >
-                  {tx("cancel", "Cancel")}
-                </button>
-                <button
-                  type="submit"
-                  disabled={betaSubmitting}
-                  className="min-h-[44px] rounded-xl bg-[#f97316] px-4 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
-                >
-                  {tx("beta_request_submit", "Submit")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
