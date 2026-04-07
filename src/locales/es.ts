@@ -1368,8 +1368,8 @@ export default {
   plan_users_unlimited: "Usuarios ilimitados",
   plan_beta_founder: "Beta Founder — 3 meses gratis",
   plan_users_esencial: "15 usuarios incluidos",
-  plan_users_operaciones: "Todo Esencial más 15 usuarios adicionales (30 en total)",
-  plan_users_logistica: "Todo Esencial más 15 usuarios adicionales (30 en total)",
+  plan_users_operaciones: "30 usuarios incluidos",
+  plan_users_logistica: "30 usuarios incluidos",
   plan_users_todo_incluido: "Usuarios ilimitados",
 
   pricing_foundation: "Foundation",
@@ -1702,6 +1702,8 @@ export default {
   beta_founders_spots: "Solo {{count}} plazas disponibles",
   beta_founders_cta: "Solicitar acceso beta",
   beta_founders_benefit: "Acceso completo gratis durante la beta + 3 meses de regalo al lanzar",
+  beta_founders_card_details:
+    "Acceso completo durante la beta · 3 meses gratis al lanzar · Soporte directo con el equipo · Solo 20 plazas",
   beta_founders_nav: "Beta Founders",
   beta_request_name: "Nombre",
   beta_request_email: "Email",

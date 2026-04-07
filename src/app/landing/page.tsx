@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
-import { Apple, PlayCircle, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
 import { LANGUAGES } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
@@ -25,8 +25,8 @@ function interpolateCount(template: string, count: number): string {
 
 const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
   plan_users_esencial: "15 users included",
-  plan_users_operaciones: "Everything in Essential plus 15 additional users (30 total)",
-  plan_users_logistica: "Everything in Essential plus 15 additional users (30 total)",
+  plan_users_operaciones: "30 users included",
+  plan_users_logistica: "30 users included",
   plan_users_todo_incluido: "Unlimited users",
 };
 
@@ -327,7 +327,7 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-1">
             <button
               type="button"
-              onClick={() => scrollToId("features")}
+              onClick={() => scrollToId("caracteristicas")}
               className={`min-h-[44px] px-3 text-sm font-medium rounded-lg transition-colors ${
                 navSolid
                   ? "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -442,16 +442,11 @@ export default function LandingPage() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => scrollToId("features")}
+                  onClick={() => scrollToId("caracteristicas")}
                   className="inline-flex min-h-[44px] items-center justify-center rounded-xl border-2 border-[#b8860b] bg-transparent px-6 py-3 text-base font-semibold text-[#f6e27a] hover:bg-[#b8860b]/10 transition-colors"
                 >
                   {tx("landing_cta_demo", "View demo")}
                 </button>
-              </div>
-              <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-teal-50">
-                <Apple className="h-4 w-4 shrink-0" aria-hidden />
-                <PlayCircle className="h-4 w-4 shrink-0" aria-hidden />
-                <span>{tx("landing_badge_mobile", "Available on iOS and Android")}</span>
               </div>
               <p className="mt-4 max-w-2xl text-center text-xs text-teal-200/85 dark:text-teal-200/70 sm:text-sm">
                 {tx(
@@ -514,7 +509,7 @@ export default function LandingPage() {
               <div className="rounded-2xl border border-white/15 bg-white/10 p-6 text-left text-teal-50 shadow-xl backdrop-blur-sm lg:max-w-md">
                 <p className="text-sm font-medium">{betaSpotsLabel}</p>
                 <p className="mt-2 text-xs leading-relaxed text-teal-100/85">
-                  {tx("landing_hero_subtitle", "")}
+                  {tx("beta_founders_card_details", "")}
                 </p>
               </div>
             </div>
@@ -522,7 +517,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="scroll-mt-24 bg-white dark:bg-slate-950 px-4 py-16 sm:py-24">
+      <section id="caracteristicas" className="scroll-mt-24 bg-white dark:bg-slate-950 px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <FadeSection>
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
@@ -772,7 +767,7 @@ export default function LandingPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => scrollToId("features")}
+                  onClick={() => scrollToId("caracteristicas")}
                   className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
                 >
                   {tx("landing_footer_features", "Features")}
