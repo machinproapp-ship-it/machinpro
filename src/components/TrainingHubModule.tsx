@@ -451,7 +451,7 @@ export function TrainingHubModule({
                     rel="noreferrer"
                     className="text-sm text-amber-600 dark:text-amber-400 underline"
                   >
-                    PDF
+                    {L(t, "training_open_pdf", "Open PDF")}
                   </a>
                 ) : null}
                 <button
@@ -603,7 +603,7 @@ export function TrainingHubModule({
                     className="border-b border-zinc-100 dark:border-white/5 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30"
                   >
                     <td className="py-2 px-3 text-zinc-900 dark:text-zinc-100">
-                      {c?.title ?? "—"}
+                      {c?.title ?? L(t, "common_dash", "—")}
                     </td>
                     {canManageTraining ? (
                       <td className="py-2 px-3 text-zinc-700 dark:text-zinc-200">
@@ -614,7 +614,7 @@ export function TrainingHubModule({
                     <td className="py-2 px-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
                       {a.completed_at
                         ? new Date(a.completed_at).toLocaleDateString(dateLocale)
-                        : "—"}
+                        : L(t, "common_dash", "—")}
                     </td>
                     <td className="py-2 px-3">
                       {disp !== "completed" && a.user_id === userProfileId ? (
@@ -814,7 +814,7 @@ function CourseEditModal({
 
   const categoryLabelLocal = (cat: TrainingCourseCategory) => {
     const k = `training_cat_${cat}`;
-    return (t[k] as string | undefined) || cat;
+    return L(t, k, cat);
   };
 
   return (
@@ -826,22 +826,20 @@ function CourseEditModal({
       <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:rounded-2xl">
         <div className="flex items-start justify-between gap-2">
           <h4 className="text-lg font-semibold text-zinc-900 dark:text-white">
-            {initial
-              ? (t.common_edit as string | undefined) || "Edit"
-              : (t.training_new_course as string | undefined) || "New course"}
+            {initial ? L(t, "common_edit", "Edit") : L(t, "training_new_course", "New course")}
           </h4>
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            aria-label={(t.common_close as string | undefined) || "Close"}
+            aria-label={L(t, "common_close", "Close")}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         <div className="mt-4 space-y-3">
           <label className="block text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">{(t.training_title as string) || "Title"}</span>
+            <span className="text-zinc-600 dark:text-zinc-400">{L(t, "training_title", "Title")}</span>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -849,9 +847,7 @@ function CourseEditModal({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">
-              {(t.training_description as string) || "Description"}
-            </span>
+            <span className="text-zinc-600 dark:text-zinc-400">{L(t, "training_description", "Description")}</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -860,9 +856,7 @@ function CourseEditModal({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">
-              {(t.training_filter_category as string) || "Category"}
-            </span>
+            <span className="text-zinc-600 dark:text-zinc-400">{L(t, "training_filter_category", "Category")}</span>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as TrainingCourseCategory)}
@@ -890,9 +884,7 @@ function CourseEditModal({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">
-              {(t.training_expires_days as string) || "Expires after (days)"}
-            </span>
+            <span className="text-zinc-600 dark:text-zinc-400">{L(t, "training_expires_days", "Expires after (days)")}</span>
             <input
               type="number"
               min={0}
@@ -904,9 +896,7 @@ function CourseEditModal({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">
-              {(t.training_document_url as string) || "Document URL"}
-            </span>
+            <span className="text-zinc-600 dark:text-zinc-400">{L(t, "training_document_url", "Document URL")}</span>
             <input
               value={documentUrl}
               onChange={(e) => setDocumentUrl(e.target.value)}
@@ -927,7 +917,7 @@ function CourseEditModal({
                   if (url) setDocumentUrl(url);
                 }}
               />
-              {uploading ? "…" : (t.training_upload_pdf as string) || "Upload PDF"}
+              {uploading ? L(t, "training_uploading", "Uploading…") : L(t, "training_upload_pdf", "Upload PDF")}
             </label>
           </label>
           {initial ? (
@@ -938,7 +928,7 @@ function CourseEditModal({
                 onChange={(e) => setIsArchived(e.target.checked)}
                 className="h-4 w-4 rounded border-zinc-300"
               />
-              {(t.training_archived as string) || "Archived"}
+              {L(t, "training_archived", "Archived")}
             </label>
           ) : null}
         </div>
@@ -948,7 +938,7 @@ function CourseEditModal({
             onClick={onClose}
             className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm min-h-[44px]"
           >
-            {(t.common_cancel as string) || "Cancel"}
+            {L(t, "common_cancel", "Cancel")}
           </button>
           <button
             type="button"
@@ -967,7 +957,7 @@ function CourseEditModal({
             }
             className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 min-h-[44px]"
           >
-            {(t.employees_save_changes as string) || "Save"}
+            {L(t, "employees_save_changes", "Save")}
           </button>
         </div>
       </div>

@@ -25,7 +25,36 @@ function L(t: Record<string, string>, key: string, fb: string) {
 function categoryLabel(t: Record<string, string>, cat: string | null): string {
   if (!cat) return L(t, "training_cat_other", "Other");
   const k = `training_cat_${cat}`;
-  return (t[k] as string | undefined) || cat;
+  return L(t, k, cat);
+}
+
+const HAZARD_STATUS_KEY: Record<HazardStatus, string> = {
+  open: "hazards_status_open",
+  in_progress: "hazards_status_in_progress",
+  resolved: "hazards_status_resolved",
+  closed: "hazards_status_closed",
+};
+
+const HAZARD_SEV_KEY: Record<HazardSeverity, string> = {
+  low: "hazards_sev_low",
+  medium: "hazards_sev_medium",
+  high: "hazards_sev_high",
+  critical: "hazards_sev_critical",
+};
+
+function hazardStatusLabel(t: Record<string, string>, s: HazardStatus) {
+  return L(t, HAZARD_STATUS_KEY[s], s);
+}
+
+function hazardSeverityLabel(t: Record<string, string>, s: HazardSeverity) {
+  return L(t, HAZARD_SEV_KEY[s], s);
+}
+
+function complianceRecordStatusLabel(t: Record<string, string>, status: string) {
+  if (status === "valid") return L(t, "valid", "Valid");
+  if (status === "expiring") return L(t, "expiring", "Expiring");
+  if (status === "expired") return L(t, "expired", "Expired");
+  return L(t, "missing", "Missing");
 }
 
 type HazardMini = {
@@ -278,12 +307,12 @@ export function SafetyPassportPanel({
         <div>
           <h4 className="text-sm font-semibold mb-2">{L(t, "training_completed", "Completed")}</h4>
           {completedTrainings.length === 0 ? (
-            <p className="text-sm text-zinc-500 italic">—</p>
+            <p className="text-sm text-zinc-500 italic">{L(t, "common_dash", "—")}</p>
           ) : (
             <ul className="space-y-1 text-sm">
               {completedTrainings.map(({ a, c }) => (
                 <li key={a.id}>
-                  {c?.title ?? "—"}
+                  {c?.title ?? L(t, "common_dash", "—")}
                   {a.completed_at
                     ? ` · ${new Date(a.completed_at).toLocaleDateString(dateLocale)}`
                     : ""}
@@ -296,12 +325,12 @@ export function SafetyPassportPanel({
         <div>
           <h4 className="text-sm font-semibold mb-2">{L(t, "training_pending", "Pending")}</h4>
           {pendingTrainings.length === 0 ? (
-            <p className="text-sm text-zinc-500 italic">—</p>
+            <p className="text-sm text-zinc-500 italic">{L(t, "common_dash", "—")}</p>
           ) : (
             <ul className="space-y-1 text-sm">
               {pendingTrainings.map(({ a, c }) => (
                 <li key={a.id}>
-                  {c?.title ?? "—"}
+                  {c?.title ?? L(t, "common_dash", "—")}
                   {c?.category ? ` · ${categoryLabel(t, c.category)}` : ""}
                 </li>
               ))}
@@ -314,7 +343,7 @@ export function SafetyPassportPanel({
             <h4 className="text-sm font-semibold mb-2 text-red-700">{L(t, "training_expired", "Expired")}</h4>
             <ul className="space-y-1 text-sm">
               {expiredTrainings.map(({ a, c }) => (
-                <li key={a.id}>{c?.title ?? "—"}</li>
+                <li key={a.id}>{c?.title ?? L(t, "common_dash", "—")}</li>
               ))}
             </ul>
           </div>
@@ -323,7 +352,7 @@ export function SafetyPassportPanel({
         <div>
           <h4 className="text-sm font-semibold mb-2">{L(t, "security_tab_hazards", "Hazards")}</h4>
           {hazards.length === 0 ? (
-            <p className="text-sm text-zinc-500 italic">—</p>
+            <p className="text-sm text-zinc-500 italic">{L(t, "common_dash", "—")}</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {hazards.map((h) => (
@@ -331,7 +360,7 @@ export function SafetyPassportPanel({
                   <span className="font-medium">{h.title}</span>
                   <span className="text-zinc-600">
                     {" "}
-                    · {h.status} · {h.severity}
+                    · {hazardStatusLabel(t, h.status)} · {hazardSeverityLabel(t, h.severity)}
                   </span>
                   {h.assigned_to === profileId ? (
                     <span className="block text-xs text-zinc-500">

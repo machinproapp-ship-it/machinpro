@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { TextWithBrandMarks } from "@/components/BrandWordmark";
 import { supabase } from "@/lib/supabase";
@@ -137,6 +138,14 @@ export default function LoginScreen({
           >
             {loading ? l("login_submit_loading", "…") : l("login_submit", "Sign in")}
           </button>
+          <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
+            <Link
+              href="/register"
+              className="font-medium text-amber-700 dark:text-amber-400 underline decoration-amber-600/40 underline-offset-2 hover:text-amber-800 dark:hover:text-amber-300"
+            >
+              {l("login_create_account", "Create an account")}
+            </Link>
+          </p>
         </div>
       </div>
 

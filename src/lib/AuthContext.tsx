@@ -43,6 +43,50 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+type ProfileSelectRow = {
+  id: string;
+  employee_id?: string | null;
+  role: UserProfile["role"];
+  company_id?: string | null;
+  companies?: { name: string } | null;
+} & Record<string, unknown>;
+
+function mapRowToProfile(data: ProfileSelectRow, email: string | null): UserProfile {
+  const row = data;
+  const fullName =
+    (typeof row.full_name === "string" && row.full_name
+      ? row.full_name
+      : typeof row.display_name === "string" && row.display_name
+        ? row.display_name
+        : null) ?? null;
+  const superRow = row as { is_superadmin?: boolean };
+  const customRoleRaw = row.custom_role_id;
+  const customRoleId =
+    customRoleRaw != null && String(customRoleRaw).trim() ? String(customRoleRaw).trim() : null;
+  const localeRaw = row.locale != null && String(row.locale).trim() ? String(row.locale).trim() : null;
+  const locale = isValidLanguage(localeRaw) ? localeRaw : null;
+  const tzRaw = row.timezone != null && String(row.timezone).trim() ? String(row.timezone).trim() : null;
+  const timezone = tzRaw && isValidIanaTimeZone(tzRaw) ? tzRaw : null;
+  const phoneRaw = row.phone;
+  const avatarRaw = row.avatar_url;
+  const companies = data.companies as { name: string } | null | undefined;
+  return {
+    id: data.id,
+    employeeId: data.employee_id ?? null,
+    role: data.role,
+    companyId: data.company_id ?? null,
+    companyName: companies?.name ?? null,
+    customRoleId,
+    fullName,
+    email,
+    isSuperadmin: superRow.is_superadmin === true,
+    locale,
+    timezone,
+    phone: typeof phoneRaw === "string" && phoneRaw.trim() ? phoneRaw.trim() : null,
+    avatarUrl: typeof avatarRaw === "string" && avatarRaw.trim() ? avatarRaw.trim() : null,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -56,46 +100,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("*, companies(name)")
       .eq("id", userId)
       .single();
+
     if (data) {
-      const companies = data.companies as { name: string } | null | undefined;
-      const row = data as Record<string, unknown>;
-      const fullName =
-        (typeof row.full_name === "string" && row.full_name
-          ? row.full_name
-          : typeof row.display_name === "string" && row.display_name
-            ? row.display_name
-            : null) ?? null;
       const { data: authUser } = await supabase.auth.getUser();
       const email = authUser?.user?.email ?? null;
-      const superRow = row as { is_superadmin?: boolean };
-      const customRoleRaw = row.custom_role_id;
-      const customRoleId =
-        customRoleRaw != null && String(customRoleRaw).trim() ? String(customRoleRaw).trim() : null;
-      const localeRaw =
-        row.locale != null && String(row.locale).trim() ? String(row.locale).trim() : null;
-      const locale = isValidLanguage(localeRaw) ? localeRaw : null;
-      const tzRaw = row.timezone != null && String(row.timezone).trim() ? String(row.timezone).trim() : null;
-      const timezone = tzRaw && isValidIanaTimeZone(tzRaw) ? tzRaw : null;
-      const phoneRaw = row.phone;
-      const avatarRaw = row.avatar_url;
-      setProfile({
-        id: data.id,
-        employeeId: data.employee_id ?? null,
-        role: data.role,
-        companyId: data.company_id ?? null,
-        companyName: companies?.name ?? null,
-        customRoleId,
-        fullName,
-        email,
-        isSuperadmin: superRow.is_superadmin === true,
-        locale,
-        timezone,
-        phone: typeof phoneRaw === "string" && phoneRaw.trim() ? phoneRaw.trim() : null,
-        avatarUrl: typeof avatarRaw === "string" && avatarRaw.trim() ? avatarRaw.trim() : null,
-      });
-    } else {
-      setProfile(null);
+      setProfile(mapRowToProfile(data as Parameters<typeof mapRowToProfile>[0], email));
+      return;
     }
+
+    const { data: sessWrap } = await supabase.auth.getSession();
+    const sess = sessWrap.session;
+    const u = sess?.user;
+    const token = sess?.access_token;
+    const meta = u?.user_metadata as Record<string, unknown> | undefined;
+    if (
+      u?.id === userId &&
+      token &&
+      meta?.registration_source === "free" &&
+      typeof meta.company_name === "string" &&
+      meta.company_name.trim() &&
+      typeof meta.full_name === "string" &&
+      meta.full_name.trim()
+    ) {
+      try {
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const res = await fetch(`${origin}/api/register-free/provision`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        });
+        if (res.ok) {
+          const { data: row2 } = await supabase
+            .from("user_profiles")
+            .select("*, companies(name)")
+            .eq("id", userId)
+            .single();
+          if (row2) {
+            const { data: authUser } = await supabase.auth.getUser();
+            const email = authUser?.user?.email ?? null;
+            setProfile(mapRowToProfile(row2 as ProfileSelectRow, email));
+            return;
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    setProfile(null);
   };
 
   const syncSession = async () => {
@@ -167,4 +222,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
-

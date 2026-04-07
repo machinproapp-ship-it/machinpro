@@ -2216,7 +2216,9 @@ export default function Home() {
             photoCategory: fabCategory,
             photoType: "obra",
             submittedByEmployeeId: effectiveEmployeeId ?? undefined,
-            submittedByName: (employees ?? []).find((e) => e.id === effectiveEmployeeId)?.name ?? "Unknown",
+            submittedByName:
+                (employees ?? []).find((e) => e.id === effectiveEmployeeId)?.name ??
+                ((t as Record<string, string>).employees_display_anonymous ?? "—"),
             notes: siteDiaryNotesDraft,
             companyId,
           });
@@ -2239,6 +2241,7 @@ export default function Home() {
       fabCategory,
       companyId,
       uploadPhoto,
+      t,
     ]
   );
 
@@ -4443,7 +4446,9 @@ export default function Home() {
                     photoCategory: photoCategory ?? "progress",
                     photoType: "obra",
                     submittedByEmployeeId: effectiveEmployeeId ?? undefined,
-                    submittedByName: (employees ?? []).find((e) => e.id === effectiveEmployeeId)?.name ?? "Unknown",
+                    submittedByName:
+                      (employees ?? []).find((e) => e.id === effectiveEmployeeId)?.name ??
+                      ((t as Record<string, string>).employees_display_anonymous ?? "—"),
                     notes: siteDiaryNotesDraft,
                     companyId,
                   });
