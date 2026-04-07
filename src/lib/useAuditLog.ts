@@ -43,7 +43,9 @@ export type AuditAction =
   | "rfi_answered"
   | "inspection_report_generated"
   | "photo_downloaded"
-  | "photos_bulk_downloaded";
+  | "photos_bulk_downloaded"
+  | "manual_clock_in"
+  | "manual_clock_out";
 
 export type AuditEntityType =
   | "photo"
@@ -59,7 +61,8 @@ export type AuditEntityType =
   | "hazard"
   | "corrective_action"
   | "blueprint"
-  | "rfi";
+  | "rfi"
+  | "clock_entry";
 
 export interface AuditEntry {
   company_id: string;

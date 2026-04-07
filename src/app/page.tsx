@@ -2864,6 +2864,87 @@ export default function Home() {
     );
   }, [displayClockEntries, currentUserEmployeeId, supabase, dateLocaleBcp47, userTimeZone]);
 
+  const handleManualClockIn = useCallback(
+    async (params: {
+      targetUserId: string;
+      date: string;
+      time: string;
+      projectId?: string | null;
+      notes?: string;
+    }) => {
+      if (!companyId || !session?.access_token) {
+        return { ok: false as const, error: "no_session" };
+      }
+      const res = await fetch("/api/time-entries/manual", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          companyId,
+          targetUserId: params.targetUserId,
+          mode: "in",
+          date: params.date,
+          time: params.time,
+          timeZone: userTimeZone,
+          projectId: params.projectId ?? null,
+          notes: params.notes?.trim() ? params.notes.trim() : null,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string; entry?: ClockEntry };
+      if (!res.ok || !json.ok || !json.entry) {
+        return { ok: false as const, error: json.error ?? "request_failed" };
+      }
+      setDbClockEntries((prev) => {
+        const rest = prev.filter((e) => e.id !== json.entry!.id);
+        return [json.entry!, ...rest];
+      });
+      return { ok: true as const };
+    },
+    [companyId, session?.access_token, userTimeZone]
+  );
+
+  const handleManualClockOut = useCallback(
+    async (params: {
+      targetUserId: string;
+      timeEntryId: string;
+      date: string;
+      time: string;
+      notes?: string;
+    }) => {
+      if (!companyId || !session?.access_token) {
+        return { ok: false as const, error: "no_session" };
+      }
+      const res = await fetch("/api/time-entries/manual", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          companyId,
+          targetUserId: params.targetUserId,
+          mode: "out",
+          timeEntryId: params.timeEntryId,
+          date: params.date,
+          time: params.time,
+          timeZone: userTimeZone,
+          notes: params.notes?.trim() ? params.notes.trim() : null,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string; entry?: ClockEntry };
+      if (!res.ok || !json.ok || !json.entry) {
+        return { ok: false as const, error: json.error ?? "request_failed" };
+      }
+      setDbClockEntries((prev) =>
+        prev.map((e) => (e.id === json.entry!.id ? json.entry! : e))
+      );
+      return { ok: true as const };
+    },
+    [companyId, session?.access_token, userTimeZone]
+  );
+
   const handleDailyReportPublished = useCallback(
     (report: DailyFieldReport) => {
       if (!companyId || !supabase) return;
@@ -4095,6 +4176,11 @@ export default function Home() {
                   if (mine.length >= 1) openEmployeeShiftDay(ymd, mine[0]!.id);
                 }}
                 myShiftCentralCard={myShiftCentralCard}
+                manualClockEmployeeOptions={activeEmployees.map((e) => ({ id: e.id, name: e.name }))}
+                manualClockProjectOptions={(projects ?? [])
+                  .filter((p) => !p.archived)
+                  .map((p) => ({ id: p.id, name: p.name }))}
+                registerManualClockIn={handleManualClockIn}
                 canViewProjects={!!rolePerms.canViewProjects}
                 canCreateProjects={!!rolePerms.canCreateProjects}
                 canEditProjects={!!rolePerms.canEditProjects}
@@ -4268,6 +4354,12 @@ export default function Home() {
                 scheduleEntries={scheduleEntries}
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
+                clockEntries={displayClockEntries}
+                canClockInPersonal={
+                  !!rolePerms.canViewTimeclock && effectiveRole !== "admin"
+                }
+                onManualClockIn={handleManualClockIn}
+                onManualClockOut={handleManualClockOut}
               />
               <ModuleHelpFab
                 moduleKey="employees"
@@ -4661,6 +4753,7 @@ export default function Home() {
                   locationLat: p.locationLat,
                   locationLng: p.locationLng,
                   location: p.location,
+                  archived: p.archived,
                 }))}
                 currentUserEmployeeId={currentUserEmployeeId ?? undefined}
                 employeeLabels={scheduleEmployeeLabels}
@@ -4676,6 +4769,11 @@ export default function Home() {
                   !!(rolePerms.canManageTeamAvailability || rolePerms.canCreateShifts)
                 }
                 canClockIn={effectiveRole !== "admin"}
+                canManageEmployees={!!rolePerms.canManageEmployees}
+                currentUserProfileId={profile?.id}
+                profileToLegacyEmployeeId={userToEmployeeMap}
+                onManualClockIn={handleManualClockIn}
+                onManualClockOut={handleManualClockOut}
                 viewAll={!!rolePerms.canViewSchedule}
                 canApproveVacations={!!rolePerms.canManageVacations}
                 canRequestVacation={!!session && !!companyId}
@@ -4686,6 +4784,7 @@ export default function Home() {
                 onRequestVacation={handleCreateVacationRequest}
                 labels={{
                   schedule: t.schedule ?? "Horario",
+                  clock_tab: (t as Record<string, string>).clock_tab,
                   schedule_tab_calendar: (t as Record<string, string>).schedule_tab_calendar,
                   shift: (t as Record<string, string>).shift ?? "Turno",
                   event: (t as Record<string, string>).event ?? "Evento",

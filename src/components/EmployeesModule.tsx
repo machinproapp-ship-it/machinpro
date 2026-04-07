@@ -18,6 +18,7 @@ import {
   X,
   ChevronLeft,
   Calendar,
+  Clock,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
@@ -27,8 +28,10 @@ import {
   formatCalendarYmd,
   formatDate,
   formatTimeHm,
+  formatTodayYmdInTimeZone,
   resolveUserTimezone,
   weekYmdsMondayFirstInTimeZone,
+  zonedYmdHmToUtcIso,
 } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import type { CustomRole, RolePermissions } from "@/types/roles";
@@ -76,6 +79,30 @@ export interface EmployeesModuleProps {
   onBackToOffice?: () => void;
   dateLocale?: string;
   timeZone?: string;
+  clockEntries?: Array<{
+    id: string;
+    employeeId: string;
+    date: string;
+    clockIn: string;
+    clockOut?: string;
+    projectId?: string;
+  }>;
+  /** Permiso fichar propio (lectura o contexto). */
+  canClockInPersonal?: boolean;
+  onManualClockIn?: (p: {
+    targetUserId: string;
+    date: string;
+    time: string;
+    projectId?: string | null;
+    notes?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  onManualClockOut?: (p: {
+    targetUserId: string;
+    timeEntryId: string;
+    date: string;
+    time: string;
+    notes?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
 }
 
 type ProfileRow = {
@@ -276,6 +303,10 @@ export function EmployeesModule({
   onBackToOffice,
   dateLocale = "en-US",
   timeZone: timeZoneProp,
+  clockEntries = [],
+  canClockInPersonal = false,
+  onManualClockIn,
+  onManualClockOut,
 }: EmployeesModuleProps) {
   const { showToast } = useToast();
   void useMachinProDisplayPrefs();
@@ -324,6 +355,12 @@ export function EmployeesModule({
   const [hardDeleteConfirmInput, setHardDeleteConfirmInput] = useState("");
   const [hardDeleteBusy, setHardDeleteBusy] = useState(false);
   const [employeesBrowseTab, setEmployeesBrowseTab] = useState<"people" | "compliance">("people");
+  const [fichajeInOpen, setFichajeInOpen] = useState(false);
+  const [fichajeOutOpen, setFichajeOutOpen] = useState(false);
+  const [fichajeProjectId, setFichajeProjectId] = useState("");
+  const [fichajeTime, setFichajeTime] = useState("");
+  const [fichajeNotes, setFichajeNotes] = useState("");
+  const [fichajeSaving, setFichajeSaving] = useState(false);
 
   const activeProjects = useMemo(
     () => projects.filter((p) => !p.archived),
@@ -963,6 +1000,45 @@ export function EmployeesModule({
       scheduleShiftsByWeekDay != null &&
       weekYmds.some((ymd) => (scheduleShiftsByWeekDay.get(ymd) ?? []).length > 0);
 
+    const fichajeTz = timeZone ?? resolveUserTimezone(null);
+    const todayYmdFichaje = formatTodayYmdInTimeZone(fichajeTz);
+    const legacyEmpId = selected.employee_id != null ? String(selected.employee_id) : null;
+    const todayClock = clockEntries.find(
+      (e) =>
+        e.date === todayYmdFichaje &&
+        (e.employeeId === selected.id || (!!legacyEmpId && e.employeeId === legacyEmpId))
+    );
+    const showFichajeSection =
+      !isDeletedProfile && (canManageEmployees || (canClockInPersonal === true && isSelf));
+    const showFichajeManage =
+      canManageEmployees === true && !!onManualClockIn && !!onManualClockOut;
+    let fichajeElapsedLabel = "";
+    if (todayClock && !todayClock.clockOut) {
+      try {
+        const startMs = new Date(zonedYmdHmToUtcIso(todayYmdFichaje, todayClock.clockIn, fichajeTz)).getTime();
+        const mins = Math.max(0, Math.round((Date.now() - startMs) / 60_000));
+        fichajeElapsedLabel = `${Math.floor(mins / 60)}h ${mins % 60}m`;
+      } catch {
+        fichajeElapsedLabel = tl.common_dash ?? "—";
+      }
+    }
+
+    const openFichajeInModal = () => {
+      const pad2 = (n: number) => String(n).padStart(2, "0");
+      const d = new Date();
+      setFichajeTime(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`);
+      setFichajeProjectId("");
+      setFichajeNotes("");
+      setFichajeInOpen(true);
+    };
+    const openFichajeOutModal = () => {
+      const pad2 = (n: number) => String(n).padStart(2, "0");
+      const d = new Date();
+      setFichajeTime(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`);
+      setFichajeNotes("");
+      setFichajeOutOpen(true);
+    };
+
     const backBtn = (
       <div
         style={{
@@ -1101,6 +1177,218 @@ export function EmployeesModule({
             </label>
           </div>
         </section>
+
+        {showFichajeSection ? (
+          <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+              <Clock className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.clock_tab ?? "Fichaje"}
+            </h3>
+            {showFichajeManage && !todayClock ? (
+              <button
+                type="button"
+                onClick={() => openFichajeInModal()}
+                className="w-full min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
+              >
+                {tl.clock_manual_in ?? ""}
+              </button>
+            ) : null}
+            {showFichajeManage && todayClock && !todayClock.clockOut ? (
+              <div className="space-y-3">
+                <div className="text-sm text-zinc-700 dark:text-zinc-200 space-y-1">
+                  <p>
+                    <span className="text-zinc-500">{tl.clock_active_since ?? ""}: </span>
+                    <span className="font-medium tabular-nums">{formatTimeHm(todayClock.clockIn, dateLocale, fichajeTz)}</span>
+                    {todayClock.projectId ? (
+                      <span className="text-zinc-500">
+                        {" · "}
+                        {projects.find((p) => p.id === todayClock.projectId)?.name ?? todayClock.projectId}
+                      </span>
+                    ) : null}
+                  </p>
+                  {fichajeElapsedLabel ? (
+                    <p className="text-xs text-zinc-500">
+                      {tl.timeWorked ?? "Worked"}: <span className="font-semibold tabular-nums">{fichajeElapsedLabel}</span>
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openFichajeOutModal()}
+                  className="w-full min-h-[44px] rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
+                >
+                  {tl.clock_manual_out ?? ""}
+                </button>
+              </div>
+            ) : null}
+            {showFichajeManage && todayClock?.clockOut ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {tl.clockInEntry ?? ""}: {formatTimeHm(todayClock.clockIn, dateLocale, fichajeTz)} · {tl.clockOutEntry ?? ""}:{" "}
+                {formatTimeHm(todayClock.clockOut, dateLocale, fichajeTz)}
+              </p>
+            ) : null}
+            {!showFichajeManage && canClockInPersonal && isSelf ? (
+              <div className="text-sm text-zinc-600 dark:text-zinc-300 space-y-1">
+                {!todayClock ? <p>{tl.clock_not_clocked_in ?? ""}</p> : null}
+                {todayClock && !todayClock.clockOut ? (
+                  <p>
+                    {tl.clock_active_since ?? ""}: {formatTimeHm(todayClock.clockIn, dateLocale, fichajeTz)}
+                    {fichajeElapsedLabel ? ` · ${tl.timeWorked ?? ""}: ${fichajeElapsedLabel}` : ""}
+                  </p>
+                ) : null}
+                {todayClock?.clockOut ? (
+                  <p>
+                    {tl.clockInEntry ?? ""}: {formatTimeHm(todayClock.clockIn, dateLocale, fichajeTz)} — {tl.clockOutEntry ?? ""}:{" "}
+                    {formatTimeHm(todayClock.clockOut, dateLocale, fichajeTz)}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {fichajeInOpen && showFichajeManage ? (
+          <>
+            <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => !fichajeSaving && setFichajeInOpen(false)} />
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">{tl.clock_manual_in ?? ""}</p>
+                <button
+                  type="button"
+                  disabled={fichajeSaving}
+                  onClick={() => setFichajeInOpen(false)}
+                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  aria-label={tl.cancel ?? ""}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+                {t.projects ?? "Project"}
+                <select
+                  value={fichajeProjectId}
+                  onChange={(e) => setFichajeProjectId(e.target.value)}
+                  className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                >
+                  <option value="">{tl.common_dash ?? "—"}</option>
+                  {activeProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+                {tl.clockInEntry ?? ""}
+                <input
+                  type="time"
+                  value={fichajeTime}
+                  onChange={(e) => setFichajeTime(e.target.value)}
+                  className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+                {t.notes ?? ""}
+                <textarea
+                  value={fichajeNotes}
+                  onChange={(e) => setFichajeNotes(e.target.value)}
+                  rows={2}
+                  className="mt-1 w-full max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={fichajeSaving || !fichajeTime}
+                onClick={() => {
+                  if (!onManualClockIn) return;
+                  setFichajeSaving(true);
+                  void onManualClockIn({
+                    targetUserId: selected.id,
+                    date: todayYmdFichaje,
+                    time: fichajeTime,
+                    projectId: fichajeProjectId.trim() ? fichajeProjectId : null,
+                    notes: fichajeNotes.trim() || undefined,
+                  }).then((r) => {
+                    setFichajeSaving(false);
+                    if (r.ok) {
+                      setFichajeInOpen(false);
+                      showToast("success", tl.clock_manual_in ?? "");
+                    } else {
+                      showToast("error", r.error ?? tl.export_error ?? "Error");
+                    }
+                  });
+                }}
+                className="w-full min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50"
+              >
+                {fichajeSaving ? "…" : tl.clock_manual_in ?? ""}
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {fichajeOutOpen && showFichajeManage && todayClock && !todayClock.clockOut ? (
+          <>
+            <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => !fichajeSaving && setFichajeOutOpen(false)} />
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">{tl.clock_manual_out ?? ""}</p>
+                <button
+                  type="button"
+                  disabled={fichajeSaving}
+                  onClick={() => setFichajeOutOpen(false)}
+                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  aria-label={tl.cancel ?? ""}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+                {tl.clockOutEntry ?? ""}
+                <input
+                  type="time"
+                  value={fichajeTime}
+                  onChange={(e) => setFichajeTime(e.target.value)}
+                  className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+                {t.notes ?? ""}
+                <textarea
+                  value={fichajeNotes}
+                  onChange={(e) => setFichajeNotes(e.target.value)}
+                  rows={2}
+                  className="mt-1 w-full max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={fichajeSaving || !fichajeTime}
+                onClick={() => {
+                  if (!onManualClockOut) return;
+                  setFichajeSaving(true);
+                  void onManualClockOut({
+                    targetUserId: selected.id,
+                    timeEntryId: todayClock.id,
+                    date: todayYmdFichaje,
+                    time: fichajeTime,
+                    notes: fichajeNotes.trim() || undefined,
+                  }).then((r) => {
+                    setFichajeSaving(false);
+                    if (r.ok) {
+                      setFichajeOutOpen(false);
+                      showToast("success", tl.clock_manual_out ?? "");
+                    } else {
+                      showToast("error", r.error ?? tl.export_error ?? "Error");
+                    }
+                  });
+                }}
+                className="w-full min-h-[44px] rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold disabled:opacity-50"
+              >
+                {fichajeSaving ? "…" : tl.clock_manual_out ?? ""}
+              </button>
+            </div>
+          </>
+        ) : null}
 
         {scheduleShiftsByWeekDay && (
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">

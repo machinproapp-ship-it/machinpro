@@ -56,6 +56,7 @@ import {
   formatRelative,
   formatDateTime,
   getClockHourInTimeZone,
+  formatTodayYmdInTimeZone,
 } from "@/lib/dateUtils";
 
 function startEndLocalDay(offsetDays: number): { start: string; end: string } {
@@ -166,7 +167,9 @@ function formatActivityLine(
   const action = (row.action ?? "").trim();
   const ent = row.entity_name ?? "";
   const nv = row.new_value as Record<string, unknown> | undefined;
-  const pid = typeof nv?.project_id === "string" ? nv.project_id : null;
+  const pid =
+    (typeof nv?.project_id === "string" ? nv.project_id : null) ??
+    (typeof nv?.projectId === "string" ? nv.projectId : null);
   const pfx = pid && projectNames[pid] ? ` · ${projectNames[pid]}` : "";
   const dash = labels.common_dash ?? "—";
   const byActionKey = labels[`audit_action_${action}`];
@@ -330,6 +333,15 @@ export interface CentralDashboardLiveProps {
     workedSummary?: string | null;
     clockedInNotOut?: boolean;
   };
+  manualClockEmployeeOptions?: { id: string; name: string }[];
+  manualClockProjectOptions?: { id: string; name: string }[];
+  registerManualClockIn?: (p: {
+    targetUserId: string;
+    date: string;
+    time: string;
+    projectId?: string | null;
+    notes?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
 }
 
 type TimeRow = {
@@ -395,6 +407,9 @@ function CentralDashboardBody(
     onOpenMyShiftView,
     onProjectsManagementCardClick,
     myShiftCentralCard,
+    manualClockEmployeeOptions = [],
+    manualClockProjectOptions = [],
+    registerManualClockIn,
   } = props;
 
   const labels = labelsProp;
@@ -424,6 +439,56 @@ function CentralDashboardBody(
   const [hazardsLoading, setHazardsLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [dashboardRefreshTk, setDashboardRefreshTk] = useState(0);
+  const [manualClockOpen, setManualClockOpen] = useState(false);
+  const [manualClockSaving, setManualClockSaving] = useState(false);
+  const [manualTargetUserId, setManualTargetUserId] = useState("");
+  const [manualDateYmd, setManualDateYmd] = useState("");
+  const [manualTimeHm, setManualTimeHm] = useState("");
+  const [manualProjectId, setManualProjectId] = useState("");
+  const [manualNotes, setManualNotes] = useState("");
+
+  const openManualClockModal = useCallback(() => {
+    const pad2 = (n: number) => String(n).padStart(2, "0");
+    const d = new Date();
+    setManualTimeHm(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`);
+    setManualDateYmd(formatTodayYmdInTimeZone(timeZone));
+    setManualProjectId("");
+    setManualNotes("");
+    setManualTargetUserId(manualClockEmployeeOptions[0]?.id ?? "");
+    setManualClockOpen(true);
+  }, [timeZone, manualClockEmployeeOptions]);
+
+  const submitManualClock = useCallback(async () => {
+    if (!registerManualClockIn || !manualTargetUserId || !manualDateYmd || !manualTimeHm) return;
+    setManualClockSaving(true);
+    try {
+      const r = await registerManualClockIn({
+        targetUserId: manualTargetUserId,
+        date: manualDateYmd,
+        time: manualTimeHm,
+        projectId: manualProjectId.trim() ? manualProjectId : null,
+        notes: manualNotes.trim() || undefined,
+      });
+      if (r.ok) {
+        showToast("success", L("clock_manual_in") || "OK");
+        setManualClockOpen(false);
+        setDashboardRefreshTk((n) => n + 1);
+      } else {
+        showToast("error", r.error ?? L("export_error") ?? "Error");
+      }
+    } finally {
+      setManualClockSaving(false);
+    }
+  }, [
+    registerManualClockIn,
+    manualTargetUserId,
+    manualDateYmd,
+    manualTimeHm,
+    manualProjectId,
+    manualNotes,
+    showToast,
+    L,
+  ]);
 
   const [resolvedConfig, setResolvedConfig] = useState<ResolvedDashboardConfig>(() => parseDashboardConfig(null));
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -1126,6 +1191,103 @@ function CentralDashboardBody(
                 ))
               )}
             </ul>
+            {canManageEmployees && registerManualClockIn && manualClockEmployeeOptions.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => openManualClockModal()}
+                className="mt-3 w-full min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/30 px-3 py-2 text-sm font-semibold text-blue-800 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-950/50"
+              >
+                <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                {L("clock_manual_entry")}
+              </button>
+            ) : null}
+            {manualClockOpen && canManageEmployees && registerManualClockIn ? (
+              <>
+                <div
+                  className="fixed inset-0 z-[70] bg-black/50"
+                  aria-hidden
+                  onClick={() => !manualClockSaving && setManualClockOpen(false)}
+                />
+                <div className="fixed z-[71] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-base font-semibold text-gray-900 dark:text-white">{L("clock_manual_entry")}</h4>
+                    <button
+                      type="button"
+                      disabled={manualClockSaving}
+                      onClick={() => setManualClockOpen(false)}
+                      className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      aria-label={L("cancel")}
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300">
+                    {L("personnel") || "Employee"}
+                    <select
+                      value={manualTargetUserId}
+                      onChange={(e) => setManualTargetUserId(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                    >
+                      {manualClockEmployeeOptions.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300">
+                    {L("project") || "Project"}
+                    <select
+                      value={manualProjectId}
+                      onChange={(e) => setManualProjectId(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                    >
+                      <option value="">{L("schedule_no_project") || "—"}</option>
+                      {manualClockProjectOptions.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300">
+                    {L("date") || "Date"}
+                    <input
+                      type="date"
+                      value={manualDateYmd}
+                      onChange={(e) => setManualDateYmd(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300">
+                    {L("clockInEntry") || "Time in"}
+                    <input
+                      type="time"
+                      value={manualTimeHm}
+                      onChange={(e) => setManualTimeHm(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300">
+                    {L("notes") || "Notes"}
+                    <textarea
+                      value={manualNotes}
+                      onChange={(e) => setManualNotes(e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full max-w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={manualClockSaving || !manualTargetUserId}
+                    onClick={() => void submitManualClock()}
+                    className="w-full min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    {manualClockSaving ? "…" : L("clock_manual_in")}
+                  </button>
+                </div>
+              </>
+            ) : null}
           </>
         );
       case "my_timeclock":

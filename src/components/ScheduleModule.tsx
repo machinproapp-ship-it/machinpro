@@ -22,6 +22,7 @@ import {
   resolveUserTimezone,
   formatCalendarYmd,
   formatTimeHm,
+  formatTodayYmdInTimeZone,
   weekYmdsMondayFirstInTimeZone,
 } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
@@ -44,6 +45,7 @@ export interface SchedProject {
   locationLat?: number;
   locationLng?: number;
   location?: string;
+  archived?: boolean;
 }
 
 export interface SchedEntry {
@@ -114,10 +116,28 @@ export interface ScheduleModuleProps {
   /** Botón para añadir turno dentro del panel de disponibilidad. */
   canManageTeamAvailability?: boolean;
   canClockIn?: boolean;
+  canManageEmployees?: boolean;
+  currentUserProfileId?: string;
+  profileToLegacyEmployeeId?: Record<string, string>;
+  onManualClockIn?: (p: {
+    targetUserId: string;
+    date: string;
+    time: string;
+    projectId?: string | null;
+    notes?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  onManualClockOut?: (p: {
+    targetUserId: string;
+    timeEntryId: string;
+    date: string;
+    time: string;
+    notes?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
   viewAll: boolean;
   labels: {
     schedule?: string;
     schedule_tab_calendar?: string;
+    clock_tab?: string;
     shift?: string;
     event?: string;
     addEntry?: string;
@@ -873,6 +893,11 @@ export default function ScheduleModule({
   canViewTeamAvailability = true,
   canManageTeamAvailability = false,
   canClockIn = false,
+  canManageEmployees = false,
+  currentUserProfileId,
+  profileToLegacyEmployeeId = {},
+  onManualClockIn,
+  onManualClockOut,
   viewAll,
   labels,
   canApproveVacations = false,
@@ -904,19 +929,28 @@ export default function ScheduleModule({
   companyId = "",
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
+  const { showToast } = useToast();
   const scheduleTz = scheduleTimeZoneProp ?? resolveUserTimezone(null);
   void useMachinProDisplayPrefs();
   const wallClockLabel = (s: string) =>
     /^\d{1,2}:\d{2}$/.test(String(s).trim()) ? formatTimeHm(s, dateLocale, scheduleTz) : s;
   const today = new Date();
-  const todayYmd = toYMD(today);
-  const todayEntry = clockEntries.find(
-    (e) =>
-      e.employeeId === (currentUserEmployeeId ?? "") &&
-      e.date === todayYmd
-  );
+  const todayYmd = formatTodayYmdInTimeZone(scheduleTz);
+  const todayEntry = clockEntries.find((e) => {
+    if (e.date !== todayYmd) return false;
+    const pid = (currentUserProfileId ?? "").trim();
+    const leg = (currentUserEmployeeId ?? "").trim();
+    const mapLeg =
+      pid && profileToLegacyEmployeeId[pid] ? String(profileToLegacyEmployeeId[pid]) : "";
+    return (
+      (!!pid && e.employeeId === pid) ||
+      (!!leg && e.employeeId === leg) ||
+      (!!mapLeg && e.employeeId === mapLeg)
+    );
+  });
+  const showClockTab = canClockIn || canManageEmployees;
   const [scheduleSubTab, setScheduleSubTab] = useState<
-    "calendar" | "timesheets" | "vacations"
+    "calendar" | "clock" | "timesheets" | "vacations"
   >("calendar");
   const showVacationsTab = canRequestVacation || canApproveVacations;
   const [viewMonth, setViewMonth] = useState(() => today.getMonth());
@@ -926,6 +960,13 @@ export default function ScheduleModule({
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deleteConfirmEntryId, setDeleteConfirmEntryId] = useState<string | null>(null);
   const [clockInManualNeeded, setClockInManualNeeded] = useState(true);
+  const [schedManualModal, setSchedManualModal] = useState<
+    null | { mode: "in" | "out"; targetUserId: string; timeEntryId?: string }
+  >(null);
+  const [schedManualProjectId, setSchedManualProjectId] = useState("");
+  const [schedManualTime, setSchedManualTime] = useState("");
+  const [schedManualNotes, setSchedManualNotes] = useState("");
+  const [schedManualSaving, setSchedManualSaving] = useState(false);
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -1382,6 +1423,21 @@ export default function ScheduleModule({
           >
             {labels.schedule_tab_calendar ?? ALL_TRANSLATIONS.en.schedule_tab_calendar}
           </button>
+          {showClockTab ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={scheduleSubTab === "clock"}
+              onClick={() => setScheduleSubTab("clock")}
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                scheduleSubTab === "clock"
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {lx.clock_tab ?? lx.clockInTitle ?? "Fichaje"}
+            </button>
+          ) : null}
           <button
             type="button"
             role="tab"
@@ -1412,6 +1468,274 @@ export default function ScheduleModule({
           ) : null}
         </div>
       </HorizontalScrollFade>
+
+      {scheduleSubTab === "clock" && showClockTab ? (
+        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-6">
+          {canClockIn ? (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {labels.clockInTitle ?? "Fichaje de hoy"}
+              </h3>
+              {todayEntry && (
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
+                  </span>
+                  {todayEntry.clockOut && (
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
+                    </span>
+                  )}
+                </div>
+              )}
+              {!todayEntry && setClockInProjectCode && (
+                <>
+                  <ClockInProjectPicker
+                    lx={lx}
+                    assignedProjects={assignedClockInProjects}
+                    clockInProjectCode={clockInProjectCode}
+                    setClockInProjectCode={setClockInProjectCode}
+                    onSelectProjectClockIn={(p) =>
+                      onClockIn?.({
+                        projectId: p.id,
+                        projectCode: p.projectCode,
+                      })
+                    }
+                    onManualClockInNeededChange={setClockInManualNeeded}
+                  />
+                </>
+              )}
+              <div className="grid grid-cols-1 gap-3 place-items-center max-md:w-full">
+                {!todayEntry ? (
+                  clockInManualNeeded ? (
+                    <button
+                      type="button"
+                      onClick={() => onClockIn?.()}
+                      disabled={gpsStatus === "locating"}
+                      className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base min-h-[44px] min-w-[44px]"
+                    >
+                      {gpsStatus === "locating"
+                        ? (labels.gpsLocating ?? "…")
+                        : (labels.clockIn ?? "Fichar Entrada")}
+                    </button>
+                  ) : null
+                ) : !todayEntry.clockOut ? (
+                  <button
+                    type="button"
+                    onClick={onClockOut}
+                    disabled={gpsStatus === "locating"}
+                    className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base min-h-[44px] min-w-[44px]"
+                  >
+                    {gpsStatus === "locating"
+                      ? (labels.gpsLocating ?? "…")
+                      : (labels.clockOut ?? "Fichar Salida")}
+                  </button>
+                ) : (
+                  <div className="flex min-h-[3.5rem] w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-zinc-100 px-3 text-center font-semibold text-emerald-600 dark:bg-zinc-800 dark:text-emerald-400">
+                    ✓ {labels.clockInDone ?? "Jornada completada"}
+                  </div>
+                )}
+              </div>
+              {clockInAlertMessage && onDismissClockInAlert ? (
+                <div className="rounded-xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 flex items-start justify-between gap-2">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">{clockInAlertMessage}</p>
+                  <button
+                    type="button"
+                    onClick={onDismissClockInAlert}
+                    className="shrink-0 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-lg leading-none hover:bg-amber-200/50 dark:hover:bg-amber-800/30"
+                    aria-label={lx.common_close ?? "Close"}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {canManageEmployees && onManualClockIn && onManualClockOut ? (
+            <div className="space-y-3 border-t border-zinc-200 dark:border-slate-700 pt-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">{lx.personnel ?? "Equipo"}</h3>
+              <ul className="space-y-2">
+                {employees.map((emp) => {
+                  const leg = profileToLegacyEmployeeId[emp.id]
+                    ? String(profileToLegacyEmployeeId[emp.id])
+                    : "";
+                  const row = clockEntries.find(
+                    (e) =>
+                      e.date === todayYmd &&
+                      (e.employeeId === emp.id || (!!leg && e.employeeId === leg))
+                  );
+                  return (
+                    <li
+                      key={emp.id}
+                      className="flex flex-col gap-2 rounded-xl border border-zinc-200 dark:border-slate-700 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-zinc-900 dark:text-white truncate">{emp.name}</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {!row
+                            ? lx.clock_not_clocked_in ?? "—"
+                            : row.clockOut
+                              ? `${wallClockLabel(row.clockIn)} – ${wallClockLabel(row.clockOut)}`
+                              : `${lx.clock_active_since ?? ""} ${wallClockLabel(row.clockIn)}`}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                        {!row ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const pad2 = (n: number) => String(n).padStart(2, "0");
+                              const d = new Date();
+                              setSchedManualTime(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`);
+                              setSchedManualProjectId("");
+                              setSchedManualNotes("");
+                              setSchedManualModal({ mode: "in", targetUserId: emp.id });
+                            }}
+                            className="min-h-[44px] rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                          >
+                            {lx.clock_manual_in ?? ""}
+                          </button>
+                        ) : !row.clockOut ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const pad2 = (n: number) => String(n).padStart(2, "0");
+                              const d = new Date();
+                              setSchedManualTime(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`);
+                              setSchedManualNotes("");
+                              setSchedManualModal({
+                                mode: "out",
+                                targetUserId: emp.id,
+                                timeEntryId: row.id,
+                              });
+                            }}
+                            className="min-h-[44px] rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500"
+                          >
+                            {lx.clock_manual_out ?? ""}
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {schedManualModal && onManualClockIn && onManualClockOut ? (
+        <>
+          <div
+            className="fixed inset-0 z-[55] bg-black/50"
+            aria-hidden
+            onClick={() => !schedManualSaving && setSchedManualModal(null)}
+          />
+          <div className="fixed z-[56] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                {schedManualModal.mode === "in" ? lx.clock_manual_in ?? "" : lx.clock_manual_out ?? ""}
+              </p>
+              <button
+                type="button"
+                disabled={schedManualSaving}
+                onClick={() => setSchedManualModal(null)}
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                aria-label={lx.cancel ?? ""}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {schedManualModal.mode === "in" ? (
+              <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+                {lx.project ?? ""}
+                <select
+                  value={schedManualProjectId}
+                  onChange={(e) => setSchedManualProjectId(e.target.value)}
+                  className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                >
+                  <option value="">{lx.schedule_no_project ?? "—"}</option>
+                  {projects
+                    .filter((p) => !p.archived)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ) : null}
+            <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+              {schedManualModal.mode === "in" ? lx.clockInEntry ?? "" : lx.clockOutEntry ?? ""}
+              <input
+                type="time"
+                value={schedManualTime}
+                onChange={(e) => setSchedManualTime(e.target.value)}
+                className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+              {lx.notes ?? ""}
+              <textarea
+                value={schedManualNotes}
+                onChange={(e) => setSchedManualNotes(e.target.value)}
+                rows={2}
+                className="mt-1 w-full max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={schedManualSaving || !schedManualTime}
+              onClick={() => {
+                if (!schedManualModal) return;
+                setSchedManualSaving(true);
+                const done = (ok: boolean) => {
+                  setSchedManualSaving(false);
+                  if (ok) {
+                    setSchedManualModal(null);
+                    showToast("success", schedManualModal.mode === "in" ? lx.clock_manual_in ?? "" : lx.clock_manual_out ?? "");
+                  }
+                };
+                if (schedManualModal.mode === "in") {
+                  void onManualClockIn({
+                    targetUserId: schedManualModal.targetUserId,
+                    date: todayYmd,
+                    time: schedManualTime,
+                    projectId: schedManualProjectId.trim() ? schedManualProjectId : null,
+                    notes: schedManualNotes.trim() || undefined,
+                  }).then((r) => {
+                    if (r.ok) done(true);
+                    else {
+                      setSchedManualSaving(false);
+                      showToast("error", r.error ?? lx.export_error ?? "Error");
+                    }
+                  });
+                } else if (schedManualModal.timeEntryId) {
+                  void onManualClockOut({
+                    targetUserId: schedManualModal.targetUserId,
+                    timeEntryId: schedManualModal.timeEntryId,
+                    date: todayYmd,
+                    time: schedManualTime,
+                    notes: schedManualNotes.trim() || undefined,
+                  }).then((r) => {
+                    if (r.ok) done(true);
+                    else {
+                      setSchedManualSaving(false);
+                      showToast("error", r.error ?? lx.export_error ?? "Error");
+                    }
+                  });
+                } else {
+                  setSchedManualSaving(false);
+                }
+              }}
+              className="w-full min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50"
+            >
+              {schedManualSaving ? "…" : schedManualModal.mode === "in" ? lx.clock_manual_in ?? "" : lx.clock_manual_out ?? ""}
+            </button>
+          </div>
+        </>
+      ) : null}
 
       {scheduleSubTab === "vacations" && showVacationsTab && (
         <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">

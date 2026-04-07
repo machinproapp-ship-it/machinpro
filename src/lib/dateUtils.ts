@@ -429,3 +429,71 @@ export function weekYmdsMondayFirstInTimeZone(timeZone: string, weekOffset = 0):
   }
   return out;
 }
+
+function wallYmdHmInTz(ms: number, timeZone: string): { y: number; mo: number; d: number; h: number; mi: number } {
+  const date = new Date(ms);
+  const dFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const tFmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const dp = dFmt.formatToParts(date);
+  const tp = tFmt.formatToParts(date);
+  const y = +(dp.find((x) => x.type === "year")?.value ?? "0");
+  const mo = +(dp.find((x) => x.type === "month")?.value ?? "0");
+  const d = +(dp.find((x) => x.type === "day")?.value ?? "0");
+  const h = +(tp.find((x) => x.type === "hour")?.value ?? "0");
+  const mi = +(tp.find((x) => x.type === "minute")?.value ?? "0");
+  return { y, mo, d, h, mi };
+}
+
+/**
+ * UTC instant for a wall-clock date + time in an IANA timezone (e.g. manual clock-in).
+ */
+export function zonedYmdHmToUtcIso(dateYmd: string, hm: string, timeZone: string): string {
+  const segs = dateYmd.trim().split("-").map((x) => parseInt(x, 10));
+  const y = segs[0]!;
+  const mo = segs[1]!;
+  const d = segs[2]!;
+  const [hs, mss = "0"] = (hm && hm.includes(":") ? hm : "12:00").trim().split(":");
+  const h = parseInt(hs.trim(), 10);
+  const mi = parseInt(String(mss).trim(), 10);
+  if (![y, mo, d, h, mi].every((n) => Number.isFinite(n))) {
+    throw new Error("Invalid date or time");
+  }
+  const tz = isValidIanaTimeZone(timeZone) ? timeZone : DEFAULT_IANA_TIMEZONE;
+  let lo = Date.UTC(y, mo - 1, d, 0, 0, 0) - 86400000 * 2;
+  let hi = Date.UTC(y, mo - 1, d, 0, 0, 0) + 86400000 * 2;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    const w = wallYmdHmInTz(mid, tz);
+    const cmp =
+      w.y !== y ? w.y - y : w.mo !== mo ? w.mo - mo : w.d !== d ? w.d - d : w.h !== h ? w.h - h : w.mi - mi;
+    if (cmp === 0) return new Date(mid).toISOString();
+    if (cmp < 0) lo = mid;
+    else hi = mid;
+  }
+  return new Date((lo + hi) / 2).toISOString();
+}
+
+/** Today's calendar date (YYYY-MM-DD) in the given IANA timezone. */
+export function formatTodayYmdInTimeZone(timeZone: string): string {
+  const tz = isValidIanaTimeZone(timeZone) ? timeZone : DEFAULT_IANA_TIMEZONE;
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = p.find((x) => x.type === "year")?.value ?? "1970";
+  const m = p.find((x) => x.type === "month")?.value ?? "01";
+  const d = p.find((x) => x.type === "day")?.value ?? "01";
+  return `${y}-${m}-${d}`;
+}

@@ -277,6 +277,16 @@ interface CentralModuleProps {
     workedSummary?: string | null;
     clockedInNotOut?: boolean;
   };
+  /** Opciones para modal “Registrar fichaje” (widget equipo). */
+  manualClockEmployeeOptions?: { id: string; name: string }[];
+  manualClockProjectOptions?: { id: string; name: string }[];
+  registerManualClockIn?: (p: {
+    targetUserId: string;
+    date: string;
+    time: string;
+    projectId?: string | null;
+    notes?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
 }
 
 function computeComplianceRecordStatus(
@@ -407,6 +417,9 @@ export function CentralModule({
   onOpenMyShiftView,
   onProjectsManagementCardClick,
   myShiftCentralCard,
+  manualClockEmployeeOptions = [],
+  manualClockProjectOptions = [],
+  registerManualClockIn,
 }: CentralModuleProps) {
   const canViewProjects = canViewProjectsProp ?? canEdit;
   const canCreateProjects = canCreateProjectsProp ?? canEdit;
@@ -871,6 +884,9 @@ export function CentralModule({
                 onOpenMyShiftView={onOpenMyShiftView}
                 onProjectsManagementCardClick={onProjectsManagementCardClick ?? (() => setCentralView("projects"))}
                 myShiftCentralCard={myShiftCentralCard}
+                manualClockEmployeeOptions={manualClockEmployeeOptions}
+                manualClockProjectOptions={manualClockProjectOptions}
+                registerManualClockIn={registerManualClockIn}
               />
             </div>
           ) : (
