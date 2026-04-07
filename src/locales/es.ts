@@ -267,6 +267,7 @@ export default {
   wh_maintenance_column: "Mantenimiento",
   wh_maintenance_days_short: "{n} días",
   logistics_filter_project_hint: "Selecciona un proyecto para ver sus recursos.",
+  logistics_filters_toggle: "Filtros",
   noResourcesForProject: "Sin recursos asignados a este proyecto.",
   noOrders: "No hay pedidos de recursos.",
   resource_order_line_ready: "Listo",

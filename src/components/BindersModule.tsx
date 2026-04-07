@@ -120,7 +120,7 @@ export function BindersModule({
                 "No document folders yet."}
             </p>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full min-w-0">
             {binders.map((binder) => {
               const IconComp = BINDER_ICONS[binder.icon] ?? FolderOpen;
               const count = docCount(binder);
@@ -250,7 +250,7 @@ export function BindersModule({
                           href={doc.fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
                           aria-label={labels.addDocument ?? "Abrir"}
                         >
                           <ExternalLink className="h-4 w-4" />
@@ -265,7 +265,7 @@ export function BindersModule({
                         <button
                           type="button"
                           onClick={(e) => deleteDoc(e, doc.id)}
-                          className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                           aria-label={labels.delete ?? "Delete"}
                         >
                           <Trash2 className="h-4 w-4" />

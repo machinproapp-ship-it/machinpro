@@ -5,7 +5,6 @@ import {
   Sliders,
   LogOut,
   Bell,
-  ChevronLeft,
   HelpCircle,
   Settings,
   User,
@@ -17,6 +16,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
 import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotifications";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { LANGUAGES, CURRENCY_META, ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
 import {
@@ -225,8 +225,35 @@ export function SettingsModule({
   };
 
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("general");
-  const [settingsMobileMenu, setSettingsMobileMenu] = useState(true);
   const [regionalTimezone, setRegionalTimezone] = useState(DEFAULT_IANA_TIMEZONE);
+
+  const settingsNavEntries = useMemo(() => {
+    const raw = [
+      ["general", tl.settings_general_title ?? tl.settingsGeneral ?? t.tabGeneral ?? ""] as const,
+      ["profile", tl.settingsProfile ?? ""] as const,
+      ["company", tl.settingsCompany ?? ""] as const,
+      ["notifications", tl.settingsNotifications ?? ""] as const,
+      ["regional", tl.settings_regional_title ?? tl.settingsRegional ?? ""] as const,
+      ["billing", tl.settingsBilling ?? ""] as const,
+      ["help", tl.helpAndTutorials ?? ""] as const,
+    ] as const;
+    return raw.filter(([id]) => {
+      if (id === "company") return canEditCompanyProfile;
+      if (id === "notifications") return !!(session?.access_token && companyId);
+      if (id === "regional") return canManageRegionalConfig || canEditCompanyProfile;
+      if (id === "billing") return showBillingSection && !!billingSection;
+      return true;
+    });
+  }, [
+    tl,
+    t,
+    canEditCompanyProfile,
+    session?.access_token,
+    companyId,
+    canManageRegionalConfig,
+    showBillingSection,
+    billingSection,
+  ]);
 
   const persistPushPref = useCallback((key: "hazard" | "action" | "visitor", on: boolean) => {
     const map = { hazard: "machinpro_push_hazard", action: "machinpro_push_action", visitor: "machinpro_push_visitor" };
@@ -284,7 +311,6 @@ export function SettingsModule({
   useEffect(() => {
     if (!focusHelpSectionSignal) return;
     setActiveSettingsSection("help");
-    setSettingsMobileMenu(false);
   }, [focusHelpSectionSignal]);
 
   useEffect(() => {
@@ -325,80 +351,77 @@ export function SettingsModule({
   };
 
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-8">
+    <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 md:p-8 shadow-sm space-y-6 md:space-y-8">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
         <Sliders className="h-5 w-5" />
         {t.settings}
       </h2>
 
-      <div className="flex min-h-0 flex-col overflow-x-hidden md:flex-row md:items-start md:gap-0">
-        <nav
-          className={`flex w-full shrink-0 flex-col gap-2 md:w-[200px] md:min-w-[200px] md:max-w-[200px] md:flex-shrink-0 md:gap-1 md:border-r md:border-zinc-200 md:pr-3 dark:md:border-slate-700 ${
-            settingsMobileMenu ? "flex" : "max-md:hidden"
-          } md:flex`}
-          aria-label={t.settings || ALL_TRANSLATIONS.en.settings}
-        >
-          {(
-            [
-              ["general", tl.settings_general_title ?? tl.settingsGeneral ?? t.tabGeneral ?? ""] as const,
-              ["profile", tl.settingsProfile ?? ""] as const,
-              ["company", tl.settingsCompany ?? ""] as const,
-              ["notifications", tl.settingsNotifications ?? ""] as const,
-              ["regional", tl.settings_regional_title ?? tl.settingsRegional ?? ""] as const,
-              ["billing", tl.settingsBilling ?? ""] as const,
-              ["help", tl.helpAndTutorials ?? ""] as const,
-            ] as const
-          )
-            .filter(([id]) => {
-              if (id === "company") return canEditCompanyProfile;
-              if (id === "notifications") return !!(session?.access_token && companyId);
-              if (id === "regional") return canManageRegionalConfig || canEditCompanyProfile;
-              if (id === "billing") return showBillingSection && !!billingSection;
-              return true;
-            })
-            .map(([id, label]) => {
+      <div className="md:hidden min-w-0 -mx-1">
+        <HorizontalScrollFade variant="inherit">
+          <div
+            className="flex w-full min-w-0 max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+            role="tablist"
+            aria-label={t.settings || ALL_TRANSLATIONS.en.settings}
+          >
+            {settingsNavEntries.map(([id, label]) => {
               const NavIcon = sectionNavIcons[id];
               const active = activeSettingsSection === id;
               return (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => {
-                    setActiveSettingsSection(id);
-                    setSettingsMobileMenu(false);
-                  }}
-                  className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors md:px-3 md:py-2.5 max-md:border max-md:border-zinc-200 max-md:bg-zinc-50/90 max-md:shadow-sm dark:max-md:border-slate-600 dark:max-md:bg-slate-800/50 ${
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveSettingsSection(id)}
+                  className={`inline-flex shrink-0 items-center gap-2 min-h-[44px] rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                     active
-                      ? "border-amber-300 bg-amber-100 text-amber-950 ring-1 ring-amber-400/50 dark:border-amber-700/50 dark:bg-amber-900/35 dark:text-amber-100 dark:ring-amber-500/30 md:border-transparent md:ring-0"
-                      : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-slate-800 md:hover:bg-zinc-100 dark:md:hover:bg-slate-800"
+                      ? "border-amber-400 bg-amber-100 text-amber-950 ring-2 ring-amber-400/60 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:ring-amber-500/40"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-slate-600 dark:bg-slate-800/80 dark:text-zinc-200"
                   }`}
                 >
                   <NavIcon
-                    className={`h-5 w-5 shrink-0 ${active ? "text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400"}`}
+                    className={`h-4 w-4 shrink-0 ${active ? "text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400"}`}
                     aria-hidden
                   />
-                  <span className="min-w-0 flex-1 break-words leading-snug">{label}</span>
+                  <span className="max-w-[140px] truncate sm:max-w-none">{label}</span>
                 </button>
               );
             })}
+          </div>
+        </HorizontalScrollFade>
+      </div>
+
+      <div className="flex min-h-0 flex-col overflow-x-hidden md:flex-row md:items-start md:gap-0">
+        <nav
+          className="hidden md:flex w-full shrink-0 flex-col gap-1 md:w-[200px] md:min-w-[200px] md:max-w-[200px] md:flex-shrink-0 md:border-r md:border-zinc-200 md:pr-3 dark:md:border-slate-700"
+          aria-label={t.settings || ALL_TRANSLATIONS.en.settings}
+        >
+          {settingsNavEntries.map(([id, label]) => {
+            const NavIcon = sectionNavIcons[id];
+            const active = activeSettingsSection === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveSettingsSection(id)}
+                className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-amber-100 text-amber-950 dark:bg-amber-900/35 dark:text-amber-100"
+                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-slate-800"
+                }`}
+              >
+                <NavIcon
+                  className={`h-5 w-5 shrink-0 ${active ? "text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400"}`}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 break-words leading-snug">{label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        <div
-          className={`min-w-0 flex-1 space-y-6 md:min-w-0 md:flex-1 md:pl-6 ${
-            settingsMobileMenu ? "max-md:hidden" : ""
-          } max-md:fixed max-md:inset-0 max-md:z-40 max-md:overflow-y-auto max-md:bg-white max-md:p-4 dark:max-md:bg-slate-900 md:static md:z-auto md:overflow-visible md:bg-transparent md:p-0`}
-        >
-          <div className="max-md:sticky max-md:top-0 max-md:z-10 max-md:-mx-4 max-md:mb-4 max-md:border-b max-md:border-zinc-200 max-md:bg-white max-md:px-4 max-md:py-3 dark:max-md:border-slate-700 dark:max-md:bg-slate-900 md:hidden">
-            <button
-              type="button"
-              onClick={() => setSettingsMobileMenu(true)}
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-start gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
-              {t.nav_back ?? "Back"}
-            </button>
-          </div>
-
+        <div className="min-w-0 w-full flex-1 space-y-6 md:min-w-0 md:flex-1 md:pl-6">
           {activeSettingsSection === "general" && (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">

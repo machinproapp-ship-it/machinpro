@@ -1566,7 +1566,7 @@ export function EmployeesModule({
               aria-hidden
               onClick={() => setComplianceEdit(null)}
             />
-            <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-auto sm:top-24 sm:right-4 sm:bottom-auto max-w-md rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-auto sm:right-4 sm:top-24 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:rounded-xl">
               <div className="flex justify-between items-center">
                 <h4 className="font-semibold text-sm">{complianceFieldLabel(complianceEdit.field)}</h4>
                 <button
@@ -1645,7 +1645,7 @@ export function EmployeesModule({
               onClick={() => !hardDeleteBusy && setEmployeeDeleteModalOpen(false)}
             />
             <div
-              className="fixed z-[63] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4"
+              className="fixed z-[63] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
               role="dialog"
               aria-modal="true"
               aria-labelledby="employee-delete-dialog-title"
@@ -1711,7 +1711,7 @@ export function EmployeesModule({
         {inviteOpen && (
           <>
             <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => setInviteOpen(false)} />
-            <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md rounded-xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
               <p className="text-sm font-medium">{t.employees_invite ?? ""}</p>
               <input
                 type="email"
@@ -1760,7 +1760,7 @@ export function EmployeesModule({
           </button>
         </div>
       ) : null}
-      <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
+      <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Users className="h-5 w-5" />
@@ -1851,8 +1851,8 @@ export function EmployeesModule({
         </HorizontalScrollFade>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="col-span-2 relative">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="col-span-1 sm:col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
             value={search}
@@ -1880,7 +1880,7 @@ export function EmployeesModule({
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2.5 text-sm min-h-[44px]"
+          className="w-full min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2.5 text-sm min-h-[44px]"
         >
           <option value="all">{t.whFilterAll ?? ""}</option>
           <option value="active">{tl.employees_status_active ?? ""}</option>
@@ -1893,7 +1893,55 @@ export function EmployeesModule({
       {loading ? (
         <p className="text-sm text-zinc-500">{t.loading ?? ""}</p>
       ) : employeesBrowseTab === "compliance" && employeeTargetComplianceFields.length > 0 ? (
-        <HorizontalScrollFade>
+        <>
+          <div className="md:hidden space-y-3">
+            {filtered.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setSelectedId(r.id)}
+                className="w-full min-w-0 text-left rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-2 min-h-[44px]"
+              >
+                <p className="font-medium text-zinc-900 dark:text-white truncate">
+                  {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{roleLabel(r)}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {r.profile_status === "inactive"
+                    ? tl.common_inactive ?? ""
+                    : r.profile_status === "invited"
+                      ? tl.employees_status_invited ?? ""
+                      : r.profile_status === "deleted"
+                        ? tl.employees_status_deleted ?? ""
+                        : tl.common_active ?? ""}
+                </p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {employeeTargetComplianceFields.slice(0, 5).map((field) => {
+                    const tid = complianceTargetId(r.id);
+                    const rec = complianceRecords.find(
+                      (x) => x.fieldId === field.id && x.targetType === "employee" && x.targetId === tid
+                    );
+                    const tone = complianceTone(rec?.status ?? "missing", tl);
+                    return (
+                      <span
+                        key={field.id}
+                        className={`inline-flex max-w-full truncate text-xs rounded-full px-2 py-0.5 font-medium ${tone.cls}`}
+                        title={`${employeeComplianceFieldLabel(field, tl)} — ${tone.label}`}
+                      >
+                        {tone.label}
+                      </span>
+                    );
+                  })}
+                  {employeeTargetComplianceFields.length > 5 ? (
+                    <span className="text-xs text-zinc-400 self-center">
+                      +{employeeTargetComplianceFields.length - 5}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            ))}
+          </div>
+        <HorizontalScrollFade className="hidden md:block">
           <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
             <table className="min-w-max w-full text-sm">
               <thead>
@@ -1943,6 +1991,7 @@ export function EmployeesModule({
             </table>
           </div>
         </HorizontalScrollFade>
+        </>
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-slate-700 rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
           {filtered.map((r) => (
@@ -1998,7 +2047,7 @@ export function EmployeesModule({
             onClick={() => !createSaving && setCreateOpen(false)}
           />
           <div
-            className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3"
+            className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -2258,7 +2307,7 @@ export function EmployeesModule({
       {inviteOpen && (
         <>
           <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => setInviteOpen(false)} />
-          <div className="fixed z-[61] left-4 right-4 bottom-4 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 max-w-md rounded-xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3">
+          <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
             <p className="text-sm font-medium">{t.employees_invite ?? ""}</p>
             <input
               type="email"

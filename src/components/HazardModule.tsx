@@ -816,7 +816,7 @@ export function HazardModule({
         </label>
       </FilterGrid>
 
-      <div className="lg:hidden space-y-3">
+      <div className="md:hidden space-y-3">
         {loading ? (
           <div className="space-y-3 py-2">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -882,7 +882,7 @@ export function HazardModule({
         )}
       </div>
 
-      <div className="hidden lg:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
+      <div className="hidden md:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
           <div className="p-4 space-y-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -975,7 +975,7 @@ export function HazardModule({
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50">
-          <div className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
+          <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t.hazards_new ?? "New"}

@@ -266,6 +266,7 @@ export default {
   /** Short label for fleet table cell, e.g. "5 days" */
   wh_maintenance_days_short: "{n} days",
   logistics_filter_project_hint: "Select a project to view its resources.",
+  logistics_filters_toggle: "Filters",
   noResourcesForProject: "No resources assigned to this project.",
   noOrders: "No resource orders yet.",
   resource_order_line_ready: "Ready",

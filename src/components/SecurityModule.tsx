@@ -201,7 +201,7 @@ export function SecurityModule({
 
       <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 pb-2" variant="inherit">
         <div
-          className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+          className="flex w-full min-w-0 max-w-full flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
           role="tablist"
           aria-label={L("nav_security", "Security")}
         >
@@ -214,9 +214,9 @@ export function SecurityModule({
                 role="tab"
                 aria-selected={active}
                 onClick={() => selectSecurityTab(id)}
-                className={`inline-flex shrink-0 items-center gap-2 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-2 min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
-                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100"
+                    ? "bg-amber-100 dark:bg-amber-900/40 text-amber-950 ring-2 ring-amber-400/70 dark:text-amber-100 dark:ring-amber-500/50"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-slate-800"
                 }`}
               >

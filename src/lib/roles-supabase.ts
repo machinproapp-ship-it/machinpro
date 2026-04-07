@@ -3,7 +3,10 @@ import { ROLE_PERMISSION_KEYS } from "@/types/roles";
 
 export const MACHINPRO_CUSTOM_ROLES_LS_KEY = "machinpro_custom_roles";
 
-/** Todos los permisos en true — rol Administrador / seed de empresa. */
+/**
+ * Todos los permisos en true — rol Administrador / seed de empresa.
+ * Incluye canViewTeamAvailability y canManageTeamAvailability (ROLE_PERMISSION_KEYS).
+ */
 export function fullAdministratorPermissions(): RolePermissions {
   const o = {} as Record<keyof RolePermissions, boolean>;
   for (const k of ROLE_PERMISSION_KEYS) o[k] = true;

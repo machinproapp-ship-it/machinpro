@@ -1064,7 +1064,7 @@ export function ProjectsModule({
   // ── Vista: lista de proyectos ───────────────────────────────────────────────
   if (!selectedProject) {
     return (
-      <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+      <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
         <div className="border-b border-zinc-200 dark:border-slate-700 px-4 py-4 sm:px-6 sm:py-5 min-w-0">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
             <Building2 className="h-5 w-5 text-amber-500" />
@@ -1154,10 +1154,10 @@ export function ProjectsModule({
 
   // ── Vista: detalle del proyecto ─────────────────────────────────────────────
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+    <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
 
       {/* Header */}
-      <div className="border-b border-zinc-200 dark:border-slate-700 px-6 py-5 bg-zinc-50 dark:bg-slate-800/60">
+      <div className="border-b border-zinc-200 dark:border-slate-700 px-4 py-4 sm:px-6 sm:py-5 bg-zinc-50 dark:bg-slate-800/60 min-w-0">
         <div className="flex items-center gap-2 mb-3">
           <button
             type="button"
@@ -1245,8 +1245,8 @@ export function ProjectsModule({
             0
           );
         return (
-          <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700">
-            <div className="px-6 flex flex-nowrap gap-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
+          <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 min-w-0">
+            <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto px-4 sm:px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
             {TABS.filter(
               (tab) =>
                 (showProjectVisitorsTab || tab.id !== "visitantes") &&
@@ -1282,9 +1282,9 @@ export function ProjectsModule({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap min-h-[44px] ${
+                  className={`flex shrink-0 items-center gap-1.5 px-3 py-3.5 text-sm font-medium border-b-[3px] transition-colors whitespace-nowrap min-h-[44px] ${
                     activeTab === tab.id
-                      ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                      ? "border-amber-500 text-amber-700 dark:border-amber-400 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/25"
                       : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
                   }`}
                 >
@@ -1313,7 +1313,7 @@ export function ProjectsModule({
       })()}
 
       {/* Contenido */}
-      <div className="p-6">
+      <div className="w-full min-w-0 max-w-full overflow-x-hidden p-4 sm:p-6">
 
         {dispatchedRequestsForProject.length > 0 && (
           <div className="space-y-2 mb-3">

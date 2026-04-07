@@ -433,6 +433,8 @@ export function LogisticsModule({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [assetDrawerTab, setAssetDrawerTab] = useState<"info" | "history" | "gallery">("info");
   useEffect(() => { setAssetDrawerTab("info"); }, [selectedAsset]);
+  const [logisticsInvFiltersOpen, setLogisticsInvFiltersOpen] = useState(false);
+  const [logisticsFleetFiltersOpen, setLogisticsFleetFiltersOpen] = useState(false);
 
   const openReturnPhotoCapture = () => {
     returnFileInputRef.current?.click();
@@ -649,13 +651,13 @@ export function LogisticsModule({
   if (warehouseSectionsEnabled.inventory) tabs.push({ id: "incidents", label: tlLabels.incidents ?? "Incidents", icon: <AlertTriangle className="h-4 w-4" />, badge: unreviewedIncidents });
 
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-6">
+    <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 md:p-8 shadow-sm space-y-6">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{t.warehouse}</h2>
 
-      <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0 max-md:-mx-2 max-md:px-2 md:mx-0 md:px-0">
+      <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0 -mx-1 min-w-0 px-1 sm:mx-0 sm:px-0">
         <HorizontalScrollFade variant="card">
           <div
-            className="flex overflow-x-auto scrollbar-hide gap-1 pe-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
+            className="flex max-w-full overflow-x-auto scrollbar-hide gap-1.5 pe-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
             role="tablist"
           >
             {tabs.map((tab) => (
@@ -664,7 +666,7 @@ export function LogisticsModule({
                 type="button"
                 role="tab"
                 onClick={() => setWarehouseSubTab(tab.id)}
-                className={`shrink-0 min-h-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow text-orange-600 dark:text-orange-400 ring-1 ring-orange-200/70 dark:ring-orange-900/40" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
+                className={`shrink-0 min-h-[44px] min-w-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow-md text-orange-600 dark:text-orange-400 ring-2 ring-orange-400/80 dark:ring-orange-500/50" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
               >
                 {tab.icon}
                 {tab.label}
@@ -680,7 +682,19 @@ export function LogisticsModule({
       {warehouseSubTab === "inventory" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <button
+                type="button"
+                className="md:hidden inline-flex min-h-[44px] w-full max-w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100"
+                onClick={() => setLogisticsInvFiltersOpen((o) => !o)}
+                aria-expanded={logisticsInvFiltersOpen}
+              >
+                <Filter className="h-4 w-4 shrink-0" aria-hidden />
+                {tlLabels.logistics_filters_toggle ?? tlLabels.dashboard_activity_filter ?? "Filters"}
+              </button>
+              <div
+                className={`flex flex-col gap-2 ${logisticsInvFiltersOpen ? "" : "max-md:hidden"} md:flex`}
+              >
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-xs text-zinc-400 mr-1">
                   {tlLabels.type ?? "Type"}:
@@ -732,6 +746,7 @@ export function LogisticsModule({
                   ))}
                 </div>
               )}
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 justify-end">
               {flatOrderedInventory.length > 0 ? (
@@ -773,8 +788,8 @@ export function LogisticsModule({
                 />
               </label>
             </div>
-            {/* Vista móvil: cards apiladas */}
-            <div className="block lg:hidden space-y-3 p-4">
+            {/* Cards below md (mobile / narrow tablet) */}
+            <div className="block md:hidden space-y-3 p-4">
               {invSections.map((section) => {
                 const secItems = visibleInventoryItems.filter(section.match);
                 if (secItems.length === 0) return null;
@@ -907,8 +922,8 @@ export function LogisticsModule({
                 </div>
               )}
             </div>
-            {/* Tabla solo en desktop */}
-            <div className="hidden lg:block overflow-x-auto">
+            {/* Tabla desde md (768px+) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm text-left">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
                 <tr>
@@ -1114,7 +1129,7 @@ export function LogisticsModule({
           {adjustModal && (
             <>
               <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={onCloseAdjustModal} />
-              <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
+              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {adjustModal.type === "add" ? (t.addUnits ?? "Add units") : (t.removeUnits ?? "Remove units")}
@@ -1171,7 +1186,7 @@ export function LogisticsModule({
                 onChange={handleReturnPhotoChange}
               />
               <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeReturnModal} />
-              <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-4">
+              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-4 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
                     {tlLabels.returnToWarehouse ?? "Return to warehouse"}
@@ -1433,7 +1448,17 @@ export function LogisticsModule({
       {warehouseSubTab === "fleet" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <button
+                type="button"
+                className="md:hidden inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100"
+                onClick={() => setLogisticsFleetFiltersOpen((o) => !o)}
+                aria-expanded={logisticsFleetFiltersOpen}
+              >
+                <Filter className="h-4 w-4 shrink-0" aria-hidden />
+                {tlLabels.logistics_filters_toggle ?? tlLabels.dashboard_activity_filter ?? (t as Record<string, string>).dashboard_activity_filter ?? "Filters"}
+              </button>
+              <div className={`flex flex-wrap gap-2 ${logisticsFleetFiltersOpen ? "" : "max-md:hidden"} md:flex`}>
               {(["all", "available", "in_use", "maintenance", "out_of_service"] as const).map((s) => (
                 <button
                   key={s}
@@ -1445,6 +1470,7 @@ export function LogisticsModule({
                   {s !== "all" && ` (${vehicleStatusCounts[s] ?? 0})`}
                 </button>
               ))}
+              </div>
             </div>
             {canEdit && (
               <button type="button" onClick={onAddFleet} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
@@ -1453,8 +1479,8 @@ export function LogisticsModule({
               </button>
             )}
           </div>
-          {/* Vista móvil Flota: cards apiladas */}
-          <div className="block lg:hidden space-y-3">
+          {/* Fleet cards below md */}
+          <div className="block md:hidden space-y-3">
             {filteredVehicles.map((v) => {
               const driver = (employees ?? []).find((e) => e.id === v.usualDriverId);
               const today = new Date().toISOString().slice(0, 10);
@@ -1553,8 +1579,8 @@ export function LogisticsModule({
               </p>
             )}
           </div>
-          {/* Tabla Flota solo en desktop */}
-          <div className="hidden lg:block rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+          {/* Tabla Flota desde md */}
+          <div className="hidden md:block rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
             <table className="w-full text-sm text-left">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
                 <tr>
