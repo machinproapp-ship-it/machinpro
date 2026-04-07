@@ -5226,7 +5226,7 @@ export default function Home() {
                                   [item.id]: Number.parseInt(e.target.value, 10) || 0,
                                 }))
                               }
-                              className="w-16 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-slate-900 text-center text-sm py-1 min-h-[36px]"
+                              className="w-16 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-slate-900 text-center text-sm py-1 min-h-[44px]"
                             />
                           </div>
                         ))}
@@ -5260,7 +5260,7 @@ export default function Home() {
                                   [item.id]: Number.parseInt(e.target.value, 10) || 0,
                                 }))
                               }
-                              className="w-16 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-slate-900 text-center text-sm py-1 min-h-[36px]"
+                              className="w-16 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-slate-900 text-center text-sm py-1 min-h-[44px]"
                             />
                           </div>
                         ))}
@@ -5722,16 +5722,16 @@ export default function Home() {
                 <ul className="space-y-2 mb-2">
                   {(editSupplierDraft.contacts ?? []).map((c, idx) => (
                     <li key={c.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 dark:border-slate-700 p-2">
-                      <input type="text" placeholder={(t as Record<string, string>).name ?? "Nombre"} value={c.name} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts!.map((cc, i) => i === idx ? { ...cc, name: e.target.value } : cc) } : d)} className="flex-1 min-w-0 rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm" />
-                      <select value={c.role} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts.map((cc, i) => i === idx ? { ...cc, role: e.target.value as SupplierContact["role"] } : cc) } : d)} className="rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm">
+                      <input type="text" placeholder={(t as Record<string, string>).name ?? "Nombre"} value={c.name} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts!.map((cc, i) => i === idx ? { ...cc, name: e.target.value } : cc) } : d)} className="w-full sm:flex-1 sm:min-w-0 rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm min-h-[44px]" />
+                      <select value={c.role} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts.map((cc, i) => i === idx ? { ...cc, role: e.target.value as SupplierContact["role"] } : cc) } : d)} className="w-full sm:w-auto rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm min-h-[44px]">
                         <option value="sales">{(t as Record<string, string>).roleSales ?? "Ventas"}</option>
                         <option value="accounting">{(t as Record<string, string>).roleAccounting ?? "Contabilidad"}</option>
                         <option value="technical">{(t as Record<string, string>).roleTechnical ?? "Técnico"}</option>
                         <option value="other">{(t as Record<string, string>).other ?? "Otro"}</option>
                       </select>
-                      <input type="text" placeholder={(t as Record<string, string>).phone ?? "Tel."} value={c.phone ?? ""} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts.map((cc, i) => i === idx ? { ...cc, phone: e.target.value || undefined } : cc) } : d)} className="w-28 rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm" />
-                      <input type="text" placeholder="Email" value={c.email ?? ""} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts.map((cc, i) => i === idx ? { ...cc, email: e.target.value || undefined } : cc) } : d)} className="w-32 rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm" />
-                      <button type="button" onClick={() => setSupplierDraft((d) => d ? { ...d, contacts: (d.contacts ?? []).filter((_, i) => i !== idx) } : d)} className="p-1.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30">{(t as Record<string, string>)["delete"] ?? "Eliminar"}</button>
+                      <input type="text" placeholder={(t as Record<string, string>).phone ?? "Tel."} value={c.phone ?? ""} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts.map((cc, i) => i === idx ? { ...cc, phone: e.target.value || undefined } : cc) } : d)} className="w-full sm:w-28 rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm min-h-[44px]" />
+                      <input type="text" placeholder="Email" value={c.email ?? ""} onChange={(e) => setSupplierDraft((d) => d?.contacts ? { ...d, contacts: d.contacts.map((cc, i) => i === idx ? { ...cc, email: e.target.value || undefined } : cc) } : d)} className="w-full sm:w-32 rounded border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-sm min-h-[44px]" />
+                      <button type="button" onClick={() => setSupplierDraft((d) => d ? { ...d, contacts: (d.contacts ?? []).filter((_, i) => i !== idx) } : d)} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30">{(t as Record<string, string>)["delete"] ?? "Eliminar"}</button>
                     </li>
                   ))}
                 </ul>

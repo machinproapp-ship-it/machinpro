@@ -1764,7 +1764,7 @@ export default function ScheduleModule({
                   value={vacReqNote}
                   onChange={(e) => setVacReqNote(e.target.value)}
                   placeholder={(labels as Record<string, string>).schedule_vacation_comment ?? "Nota (opcional)"}
-                  className="flex-1 min-w-[200px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                  className="w-full min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] sm:flex-1 sm:min-w-[200px]"
                 />
                 <button
                   type="button"

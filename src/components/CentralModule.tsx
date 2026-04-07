@@ -2214,7 +2214,7 @@ export function CentralModule({
             <div className="fixed z-50 bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-700 shadow-xl overflow-y-auto inset-x-0 bottom-0 rounded-t-2xl max-h-[90vh] sm:inset-y-0 sm:right-0 sm:left-auto sm:bottom-auto sm:w-full sm:max-w-lg sm:rounded-none sm:rounded-l-2xl sm:max-h-full">
               <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-slate-700">
                 <h4 className="text-base font-semibold text-zinc-900 dark:text-white">{sub.name}</h4>
-                <button type="button" onClick={() => setSubcontractorDetailId(null)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                <button type="button" onClick={() => setSubcontractorDetailId(null)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -2341,7 +2341,7 @@ export function CentralModule({
                   <div className="space-y-2">
                     <div className="flex items-center gap-1">
                       {[1,2,3,4,5].map((i) => (
-                        <button key={i} type="button" onClick={() => setSubcontractorDraft((d) => ({ ...d, rating: i }))} className="p-1"><Star className={`h-6 w-6 ${i <= (subcontractorDraft.rating ?? 0) ? "text-amber-500 fill-amber-500" : "text-zinc-300 dark:text-zinc-600"}`} /></button>
+                        <button key={i} type="button" onClick={() => setSubcontractorDraft((d) => ({ ...d, rating: i }))} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg"><Star className={`h-6 w-6 ${i <= (subcontractorDraft.rating ?? 0) ? "text-amber-500 fill-amber-500" : "text-zinc-300 dark:text-zinc-600"}`} /></button>
                       ))}
                     </div>
                     <div><label className="block text-xs text-zinc-500 mb-0.5">{t.status ?? "Estado"}</label><select value={subcontractorDraft.status ?? "active"} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, status: e.target.value as "active" | "inactive" | "review" }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><option value="active">{t.active ?? "Activo"}</option><option value="inactive">{t.inactive ?? "Inactivo"}</option><option value="review">{t.underReview ?? "En revisi?n"}</option></select></div>
@@ -2360,14 +2360,14 @@ export function CentralModule({
       {roleModalOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setRoleModalOpen(false)} />
-          <div className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl border border-zinc-200 dark:border-slate-700 shadow-xl p-6">
+          <div className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-1rem)] max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl border border-zinc-200 dark:border-slate-700 shadow-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {editingRoleId
                   ? (labels.editRole ?? "Editar rol")
                   : ((labels as Record<string, string>).create_role ?? labels.createRole ?? "Crear rol")}
               </h3>
-              <button type="button" onClick={() => setRoleModalOpen(false)} className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+              <button type="button" onClick={() => setRoleModalOpen(false)} className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center">
                 <X className="h-5 w-5" />
               </button>
             </div>
