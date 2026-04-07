@@ -1340,7 +1340,7 @@ export default {
   pricing_slash_yr: "/Jahr",
   pricing_ppp_note: "PPP: Stufe 2 (80 %) · Stufe 3 (60 %) in den angezeigten Preisen.",
   pricing_ppp_applied: "Sonderpreis für Ihre Region wird beim Bezahlen angewendet",
-  ppp_badge: "Sonderpreis für deine Region",
+  ppp_badge: "Sonderpreis für Ihre Region",
   ppp_discount: "{{percent}}% Rabatt angewendet",
   pricing_ppp_notice: "Preis für Ihre Region angepasst",
   pricing_plan_trial: "Testphase",

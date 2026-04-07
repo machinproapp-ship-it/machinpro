@@ -27,7 +27,7 @@ export const TIER1_COUNTRIES = new Set([
 ]);
 
 /**
- * Tier 2 — cupón `ppp_tier2` (20% forever).
+ * Tier 2 — cupón `PPP_TIER2` (20% forever).
  * Lista explícita (ES, IT, LATAM sur parcial, etc.); el resto del mundo → tier 3 salvo tier 1.
  */
 export const TIER2_COUNTRIES = new Set([

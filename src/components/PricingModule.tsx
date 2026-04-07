@@ -221,7 +221,7 @@ export function PricingModule({
       {!loadingTier && geoTier > 1 ? (
         <div
           role="status"
-          className="mb-6 flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100 max-w-2xl mx-auto"
+          className="mb-6 flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-center text-sm font-medium text-sky-900 dark:border-sky-800/60 dark:bg-sky-950/20 dark:text-sky-100 max-w-2xl mx-auto"
         >
           <span>{lx.ppp_badge ?? lx.pricing_ppp_applied ?? ""}</span>
           <span className="text-xs font-medium opacity-90">

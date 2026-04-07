@@ -274,9 +274,10 @@ export function getStripePriceId(plan: PaidPlanKey, period: BillingPeriod): stri
 
 /**
  * PPP Stripe Coupons — precios del checkout (Tier 1 list) se alinean con la UI vía descuento.
+ * IDs solicitados para producción/live mode.
  */
-export const PPP_STRIPE_COUPON_TIER2_ID = "ppp_tier2";
-export const PPP_STRIPE_COUPON_TIER3_ID = "ppp_tier3";
+export const PPP_STRIPE_COUPON_TIER2_ID = "PPP_TIER2";
+export const PPP_STRIPE_COUPON_TIER3_ID = "PPP_TIER3";
 
 let pppCouponsEnsurePromise: Promise<void> | null = null;
 
