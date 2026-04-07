@@ -12,7 +12,7 @@ import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 export default function VisitorCheckoutPage() {
   const params = useParams();
-  const routeId = typeof params.projectId === "string" ? params.projectId : "";
+  const routeId = typeof params.token === "string" ? params.token : "";
   const visitorId = typeof params.visitorId === "string" ? params.visitorId : "";
   const t = useVisitorPublicT();
   const lx = t as Record<string, string>;

@@ -38,7 +38,8 @@ async function fetchClientIp(): Promise<string | null> {
 export default function VisitorCheckInPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const routeId = typeof params.projectId === "string" ? params.projectId : "";
+  /** QR path segment: company UUID or project id (resolved via API). */
+  const routeId = typeof params.token === "string" ? params.token : "";
   const t = useVisitorPublicT();
   const lx = t as Record<string, string>;
 

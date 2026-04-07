@@ -31,7 +31,7 @@ export function buildVisitorCheckInUrl(companyId: string, projectId?: string | n
   return path;
 }
 
-/** QR único por proyecto: /visit/[projectId] (misma ruta resuelve empresa u obra). */
+/** QR por proyecto: /visit/[token] (API distingue proyecto vs empresa). */
 export function buildVisitorProjectCheckInUrl(projectId: string): string {
   const enc = encodeURIComponent(projectId);
   if (typeof window !== "undefined") {

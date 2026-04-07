@@ -12,7 +12,7 @@ function normalizeBrowserLang(raw: string | undefined): Language {
   return "es";
 }
 
-/** Traducciones para páginas /visit/* según idioma del navegador (6 estáticos + lazy). */
+/** Traducciones para páginas /visit/[token] según idioma del navegador (6 estáticos + lazy). */
 export function useVisitorPublicT(): Record<string, string> {
   const [lang, setLang] = useState<Language>("es");
   const [lazyT, setLazyT] = useState<Record<string, string> | null>(null);
