@@ -13,6 +13,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "my_tasks",
   "daily_report",
   "critical_inventory",
+  "labor_costing",
   "quick_access",
 ] as const;
 

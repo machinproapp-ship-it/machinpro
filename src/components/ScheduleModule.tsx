@@ -24,10 +24,12 @@ import {
   formatTimeHm,
   formatTodayYmdInTimeZone,
   weekYmdsMondayFirstInTimeZone,
+  formatCurrency,
 } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
+import { hoursWorkedFromClockFields, laborCostForHours } from "@/lib/laborCosting";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 export interface SchedEmployee {
@@ -68,6 +70,8 @@ export interface ClockEntryForSchedule {
   date: string;
   clockIn: string;
   clockOut?: string;
+  clockInAtIso?: string;
+  clockOutAtIso?: string | null;
   locationLat?: number;
   locationLng?: number;
   locationAlert?: boolean;
@@ -252,6 +256,9 @@ export interface ScheduleModuleProps {
     timesheet_date_from?: string;
     timesheet_date_to?: string;
     timesheet_by_project?: string;
+    labor_cost_column?: string;
+    labor_cost_total?: string;
+    labor_hours_worked?: string;
     admin?: string;
     supervisor?: string;
     worker?: string;
@@ -318,6 +325,10 @@ export interface ScheduleModuleProps {
   companyId?: string;
   /** Usuario autenticado (Supabase auth id) — vacaciones y filtros “solo mis solicitudes”. */
   currentUserId?: string;
+  /** AH-17 */
+  canViewTimesheetCosts?: boolean;
+  timesheetCostCurrency?: string;
+  employeeLaborRatesByEmployeeId?: Record<string, number>;
 }
 
 function startOfWeek(date: Date): Date {
@@ -534,6 +545,10 @@ function hoursBetween(clockIn: string, clockOut: string): number {
   return Math.max(0, timeToHours(clockOut) - timeToHours(clockIn));
 }
 
+function hoursWorkedForScheduleEntry(e: ClockEntryForSchedule): number {
+  return hoursWorkedFromClockFields(e);
+}
+
 // Monday of week containing date (YYYY-MM-DD)
 function getWeekStart(ymd: string): string {
   const d = new Date(ymd + "T12:00:00");
@@ -588,7 +603,7 @@ function generateTimeSheetsFromClock(
     const [employeeId, weekStart] = key.split("|");
     const weekEnd = getWeekEnd(weekStart);
     const timeEntries: TimeEntryForSchedule[] = entries.map((e) => {
-      const hoursWorked = hoursBetween(e.clockIn, e.clockOut!);
+      const hoursWorked = hoursWorkedForScheduleEntry(e);
       const proj = projects.find((p) => p.id === e.projectId);
       return {
         id: e.id,
@@ -643,6 +658,9 @@ function TimesheetsView({
   companyIdFallback = "",
   dateLocale = "es-ES",
   timeZone: sheetTz,
+  showTimesheetCosts = false,
+  timesheetCostCurrency = "CAD",
+  employeeLaborRatesByEmployeeId = {},
 }: {
   clockEntries: ClockEntryForSchedule[];
   employees: SchedEmployee[];
@@ -655,10 +673,14 @@ function TimesheetsView({
   companyIdFallback?: string;
   dateLocale?: string;
   timeZone?: string;
+  showTimesheetCosts?: boolean;
+  timesheetCostCurrency?: string;
+  employeeLaborRatesByEmployeeId?: Record<string, number>;
 }) {
   const { showToast } = useToast();
   const tz = sheetTz ?? resolveUserTimezone(null);
   const lx = labels as Record<string, string>;
+  const rateFor = (employeeId: string) => employeeLaborRatesByEmployeeId[employeeId] ?? null;
   const [exportFrom, setExportFrom] = useState(() => firstAndLastDayOfCurrentMonthYmd()[0]);
   const [exportTo, setExportTo] = useState(() => firstAndLastDayOfCurrentMonthYmd()[1]);
   const [periodType, setPeriodType] = useState<"weekly" | "biweekly" | "monthly">("weekly");
@@ -689,11 +711,24 @@ function TimesheetsView({
     let sum = 0;
     for (const e of filteredClockForTs) {
       if (e.date >= mStart && e.date <= mEnd) {
-        sum += hoursBetween(e.clockIn, e.clockOut!);
+        sum += hoursWorkedForScheduleEntry(e);
       }
     }
     return sum;
   }, [filteredClockForTs]);
+
+  const monthTotalCost = useMemo(() => {
+    if (!showTimesheetCosts) return 0;
+    const [mStart, mEnd] = firstAndLastDayOfCurrentMonthYmd();
+    let sum = 0;
+    for (const e of filteredClockForTs) {
+      if (e.date < mStart || e.date > mEnd) continue;
+      const h = hoursWorkedForScheduleEntry(e);
+      const cost = laborCostForHours(h, rateFor(e.employeeId));
+      sum += cost;
+    }
+    return Math.round(sum * 100) / 100;
+  }, [filteredClockForTs, showTimesheetCosts, employeeLaborRatesByEmployeeId]);
 
   const sheets = useMemo(() => {
     let list = generateTimeSheetsFromClock(filteredClockForTs, projects);
@@ -707,18 +742,24 @@ function TimesheetsView({
       weekStart: string;
       weekEnd: string;
       totalHours: number;
+      totalCost: number;
       byProject: { name: string; hours: number }[];
     };
-    const map = new Map<string, { employeeId: string; weekStart: string; weekEnd: string; byProject: Map<string, number> }>();
+    const map = new Map<
+      string,
+      { employeeId: string; weekStart: string; weekEnd: string; byProject: Map<string, number>; totalCost: number }
+    >();
     for (const e of filteredClockForTs) {
       const weekStart = getWeekStart(e.date);
       const weekEnd = getWeekEnd(weekStart);
       const key = `${e.employeeId}|${weekStart}`;
       if (!map.has(key)) {
-        map.set(key, { employeeId: e.employeeId, weekStart, weekEnd, byProject: new Map() });
+        map.set(key, { employeeId: e.employeeId, weekStart, weekEnd, byProject: new Map(), totalCost: 0 });
       }
       const row = map.get(key)!;
-      const h = hoursBetween(e.clockIn, e.clockOut!);
+      const h = hoursWorkedForScheduleEntry(e);
+      const c = showTimesheetCosts ? laborCostForHours(h, rateFor(e.employeeId)) : 0;
+      row.totalCost += c;
       const pname = projectNameForClockEntry(e, projects);
       const label = pname.trim() && pname !== "—" ? pname : lx.schedule_no_project ?? "—";
       row.byProject.set(label, (row.byProject.get(label) ?? 0) + h);
@@ -737,13 +778,24 @@ function TimesheetsView({
         weekStart: v.weekStart,
         weekEnd: v.weekEnd,
         totalHours: total,
+        totalCost: Math.round(v.totalCost * 100) / 100,
         byProject,
       });
     });
     return out.sort((a, b) => b.weekStart.localeCompare(a.weekStart) || a.employeeId.localeCompare(b.employeeId));
-  }, [filteredClockForTs, projects, lx.schedule_no_project]);
+  }, [filteredClockForTs, projects, lx.schedule_no_project, showTimesheetCosts, employeeLaborRatesByEmployeeId]);
 
   const selectedSheet = selectedSheetId ? sheets.find((s) => s.id === selectedSheetId) : null;
+  const selectedSheetEmployeeRate = selectedSheet ? rateFor(selectedSheet.employeeId) : null;
+  const selectedSheetTotalCost =
+    selectedSheet && showTimesheetCosts
+      ? Math.round(
+          selectedSheet.entries.reduce(
+            (s, ent) => s + laborCostForHours(ent.hoursWorked, selectedSheetEmployeeRate),
+            0
+          ) * 100
+        ) / 100
+      : 0;
   const effectiveStatus = (sheet: TimeSheetForSchedule) =>
     sheetStatus[sheet.id]?.status ?? sheet.status;
 
@@ -761,6 +813,7 @@ function TimesheetsView({
         lx.personnel ?? "Employee",
         lx.date ?? "Date",
         lx.hours ?? "Hours",
+        ...(showTimesheetCosts ? [lx.labor_cost_column ?? "Cost"] : []),
         lx.project ?? "Project",
         labels.pending ?? "Status",
       ];
@@ -774,13 +827,18 @@ function TimesheetsView({
             : status === "rejected"
               ? (labels.rejected ?? status)
               : (labels.pending ?? status);
+        const rowRate = rateFor(sheet.employeeId);
         for (const ent of sheet.entries) {
           if (ent.date < from || ent.date > to) continue;
+          const rowCost = showTimesheetCosts ? laborCostForHours(ent.hoursWorked, rowRate) : 0;
           lines.push(
             [
               csvCell(getEmployeeName(sheet.employeeId)),
               csvCell(formatCalendarYmd(ent.date, dateLocale, tz)),
               csvCell(String(ent.hoursWorked)),
+              ...(showTimesheetCosts
+                ? [csvCell(rowCost > 0 ? String(rowCost) : rowRate != null && rowRate > 0 ? "0" : "—")]
+                : []),
               csvCell(ent.projectName ?? "—"),
               csvCell(statusLabel),
             ].join(",")
@@ -801,6 +859,14 @@ function TimesheetsView({
         <p className="text-sm font-semibold text-zinc-900 dark:text-white">
           {lx.timesheet_total_month ?? "Total this month"}:{" "}
           <span className="tabular-nums text-amber-700 dark:text-amber-400">{monthTotalHours.toFixed(1)}h</span>
+          {showTimesheetCosts ? (
+            <>
+              {" · "}
+              <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                {lx.labor_cost_total ?? "Cost"}: {formatCurrency(monthTotalCost, timesheetCostCurrency, dateLocale)}
+              </span>
+            </>
+          ) : null}
         </p>
       </div>
 
@@ -908,6 +974,11 @@ function TimesheetsView({
                   </span>
                 </div>
                 <p className="mt-1 tabular-nums font-semibold text-amber-700 dark:text-amber-400">{row.totalHours.toFixed(1)}h</p>
+                {showTimesheetCosts ? (
+                  <p className="mt-0.5 text-xs tabular-nums font-medium text-emerald-700 dark:text-emerald-400">
+                    {lx.labor_cost_total ?? "Cost"}: {formatCurrency(row.totalCost, timesheetCostCurrency, dateLocale)}
+                  </p>
+                ) : null}
                 <p className="mt-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">{lx.timesheet_by_project ?? "Por proyecto"}</p>
                 <ul className="mt-1 space-y-0.5 text-xs text-zinc-700 dark:text-zinc-300">
                   {row.byProject.map((bp) => (
@@ -934,6 +1005,9 @@ function TimesheetsView({
             const progress = Math.min(sheet.totalHours / 40, 1);
             const dashOffset = CIRCLE_C * (1 - progress);
             const strokeColor = sheet.totalHours > 40 ? "#ef4444" : "#f59e0b";
+            const sheetLaborCost = showTimesheetCosts
+              ? laborCostForHours(sheet.totalHours, rateFor(sheet.employeeId))
+              : 0;
             return (
               <div
                 key={sheet.id}
@@ -989,6 +1063,12 @@ function TimesheetsView({
                     <p className="text-xs text-zinc-600 dark:text-zinc-400">
                       {labels.overtimeHours ?? "Horas extra"}: {sheet.overtimeHours}h
                     </p>
+                    {showTimesheetCosts ? (
+                      <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 tabular-nums">
+                        {lx.labor_cost_total ?? "Cost"}:{" "}
+                        {formatCurrency(sheetLaborCost, timesheetCostCurrency, dateLocale)}
+                      </p>
+                    ) : null}
                     <span
                       className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         status === "approved"
@@ -1041,6 +1121,18 @@ function TimesheetsView({
                     {ent.clockOut ? formatTimeHm(ent.clockOut, dateLocale, tz) : "—"}
                   </p>
                   <p className="mt-1 font-semibold tabular-nums">{ent.hoursWorked.toFixed(1)}h</p>
+                  {showTimesheetCosts ? (
+                    <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 tabular-nums">
+                      {lx.labor_cost_column ?? "Cost"}:{" "}
+                      {selectedSheetEmployeeRate != null && selectedSheetEmployeeRate > 0
+                        ? formatCurrency(
+                            laborCostForHours(ent.hoursWorked, selectedSheetEmployeeRate),
+                            timesheetCostCurrency,
+                            dateLocale
+                          )
+                        : "—"}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -1061,6 +1153,11 @@ function TimesheetsView({
                       {labels.clockOutEntry ?? "Salida"}
                     </th>
                     <th className="py-2 text-right font-medium text-zinc-700 dark:text-zinc-300">{lx.hours ?? "Horas"}</th>
+                    {showTimesheetCosts ? (
+                      <th className="py-2 text-right font-medium text-zinc-700 dark:text-zinc-300">
+                        {lx.labor_cost_column ?? "Cost"}
+                      </th>
+                    ) : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -1088,6 +1185,17 @@ function TimesheetsView({
                       <td className="py-2">{formatTimeHm(ent.clockIn, dateLocale, tz)}</td>
                       <td className="py-2">{ent.clockOut ? formatTimeHm(ent.clockOut, dateLocale, tz) : "—"}</td>
                       <td className="py-2 text-right font-medium">{ent.hoursWorked.toFixed(1)}h</td>
+                      {showTimesheetCosts ? (
+                        <td className="py-2 text-right font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+                          {selectedSheetEmployeeRate != null && selectedSheetEmployeeRate > 0
+                            ? formatCurrency(
+                                laborCostForHours(ent.hoursWorked, selectedSheetEmployeeRate),
+                                timesheetCostCurrency,
+                                dateLocale
+                              )
+                            : "—"}
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -1097,6 +1205,15 @@ function TimesheetsView({
               Total: {selectedSheet.totalHours.toFixed(1)}h ({labels.regularHours ?? "Reg."}:{" "}
               {selectedSheet.regularHours.toFixed(1)}h, {labels.overtimeHours ?? "Extra"}:{" "}
               {selectedSheet.overtimeHours.toFixed(1)}h)
+              {showTimesheetCosts ? (
+                <>
+                  {" · "}
+                  <span className="text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    {lx.labor_cost_total ?? "Cost"}:{" "}
+                    {formatCurrency(selectedSheetTotalCost, timesheetCostCurrency, dateLocale)}
+                  </span>
+                </>
+              ) : null}
             </p>
             {viewAll && (
               <div className="mt-4 space-y-3">
@@ -1182,6 +1299,9 @@ export default function ScheduleModule({
   companyName = "",
   companyId = "",
   currentUserId = "",
+  canViewTimesheetCosts = false,
+  timesheetCostCurrency = "CAD",
+  employeeLaborRatesByEmployeeId = {},
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
@@ -2610,6 +2730,9 @@ export default function ScheduleModule({
           companyIdFallback={companyId}
           dateLocale={dateLocale}
           timeZone={scheduleTz}
+          showTimesheetCosts={canViewTimesheetCosts}
+          timesheetCostCurrency={timesheetCostCurrency}
+          employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
         />
       )}
 

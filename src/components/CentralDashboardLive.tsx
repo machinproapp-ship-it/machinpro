@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { GettingStartedWidget } from "@/components/GettingStartedWidget";
+import { LaborCostingDashboardWidget } from "@/components/LaborCostingDashboardWidget";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
 import type { Hazard } from "@/types/hazard";
 import type { MainSection } from "@/types/shared";
@@ -274,6 +275,7 @@ const WIDGET_LABEL_KEYS: Record<DashboardWidgetId, string> = {
   my_tasks: "myTasksToday",
   daily_report: "dailyReportToSign",
   critical_inventory: "criticalInventory",
+  labor_costing: "labor_costing",
   quick_access: "quickAccess",
 };
 
@@ -342,6 +344,12 @@ export interface CentralDashboardLiveProps {
     projectId?: string | null;
     notes?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  /** AH-17: optional labor costing widget (requires at least one configured rate). */
+  laborCostingEnabled?: boolean;
+  canViewLaborCosting?: boolean;
+  laborCostingCurrency?: string;
+  laborCostingRateByUserId?: Record<string, number>;
+  laborCostingEmployeeLabels?: Record<string, string>;
 }
 
 type TimeRow = {
@@ -410,6 +418,11 @@ function CentralDashboardBody(
     manualClockEmployeeOptions = [],
     manualClockProjectOptions = [],
     registerManualClockIn,
+    laborCostingEnabled = false,
+    canViewLaborCosting = false,
+    laborCostingCurrency = "CAD",
+    laborCostingRateByUserId = {},
+    laborCostingEmployeeLabels = {},
   } = props;
 
   const labels = labelsProp;
@@ -540,6 +553,8 @@ function CentralDashboardBody(
           return canViewLogistics;
         case "quick_access":
           return true;
+        case "labor_costing":
+          return laborCostingEnabled && canViewLaborCosting;
         default:
           return false;
       }
@@ -552,6 +567,8 @@ function CentralDashboardBody(
       canAccessHazards,
       canAccessVisitors,
       canViewLogistics,
+      laborCostingEnabled,
+      canViewLaborCosting,
     ]
   );
 
@@ -1543,6 +1560,22 @@ function CentralDashboardBody(
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{title}</h3>
             {renderQuickButtons(resolvedConfig.quickAccess)}
           </>
+        );
+      case "labor_costing":
+        if (!laborCostingEnabled || !canViewLaborCosting) return null;
+        return widgetChrome(
+          id,
+          <LaborCostingDashboardWidget
+            companyId={companyId}
+            labels={labels}
+            timeZone={timeZone}
+            dateLocaleBcp47={dateLoc}
+            currency={laborCostingCurrency}
+            rateByUserId={laborCostingRateByUserId}
+            employeeLabelsByUserId={laborCostingEmployeeLabels}
+            projectNameById={projectNameById}
+            dashboardRefreshTk={dashboardRefreshTk}
+          />
         );
       default:
         return null;

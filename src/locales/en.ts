@@ -2392,4 +2392,18 @@ export default {
   landing_seo_extra_other: "Construction operations, teams, and safety documentation.",
   landing_lang_select: "Language",
   landing_brl_usd_approx: "≈ {usd} USD / mo",
+
+  labor_costing: "Labor costing",
+  hourly_rate: "Hourly rate",
+  labor_cost_total: "Total cost",
+  labor_cost_month: "Cost this month",
+  labor_hours_worked: "Hours worked",
+  labor_cost_vs_budget: "Cost vs budget",
+  labor_cost_by_project: "By project (top 5)",
+  labor_cost_by_employee: "By employee (top 5)",
+  labor_cost_filter_week: "Week",
+  labor_cost_filter_month: "Month",
+  labor_cost_filter_custom: "Custom range",
+  labor_cost_column: "Cost",
+  employees_labor_rate_hint: "Optional. Currency follows company settings.",
 } as const;

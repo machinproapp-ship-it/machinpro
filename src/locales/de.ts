@@ -2218,4 +2218,18 @@ export default {
   landing_seo_extra_other: "Bauabläufe, Teams und Sicherheitsdokumentation.",
   landing_lang_select: "Sprache",
   landing_brl_usd_approx: "≈ {usd} USD / Monat",
+
+  labor_costing: "Personalkosten",
+  hourly_rate: "Stundensatz",
+  labor_cost_total: "Gesamtkosten",
+  labor_cost_month: "Kosten diesen Monat",
+  labor_hours_worked: "Gearbeitete Stunden",
+  labor_cost_vs_budget: "Kosten vs Budget",
+  labor_cost_by_project: "Nach Projekt (Top 5)",
+  labor_cost_by_employee: "Nach Mitarbeiter (Top 5)",
+  labor_cost_filter_week: "Woche",
+  labor_cost_filter_month: "Monat",
+  labor_cost_filter_custom: "Zeitraum",
+  labor_cost_column: "Kosten",
+  employees_labor_rate_hint: "Optional. Währung gemäß Unternehmenseinstellungen.",
 } as const;

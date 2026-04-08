@@ -2243,4 +2243,18 @@ export default {
   landing_seo_extra_other: "Operações de construção, equipas e documentação de segurança.",
   landing_lang_select: "Idioma",
   landing_brl_usd_approx: "≈ {usd} USD / mês",
+
+  labor_costing: "Custos de pessoal",
+  hourly_rate: "Taxa horária",
+  labor_cost_total: "Custo total",
+  labor_cost_month: "Custo este mês",
+  labor_hours_worked: "Horas trabalhadas",
+  labor_cost_vs_budget: "Custo vs orçamento",
+  labor_cost_by_project: "Por projeto (top 5)",
+  labor_cost_by_employee: "Por colaborador (top 5)",
+  labor_cost_filter_week: "Semana",
+  labor_cost_filter_month: "Mês",
+  labor_cost_filter_custom: "Intervalo",
+  labor_cost_column: "Custo",
+  employees_labor_rate_hint: "Opcional. Moeda conforme as definições da empresa.",
 } as const;

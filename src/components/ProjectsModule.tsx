@@ -73,6 +73,7 @@ import { getTemplatesForCountry } from "@/lib/safetyChecklistTemplates";
 import { generateSafetyChecklistPdf } from "@/lib/generateSafetyChecklistReport";
 import { DailyFieldReportView } from "@/components/DailyFieldReportView";
 import { formatReportDate } from "@/lib/dailyReportFormat";
+import type { ProjectLaborSummary } from "@/lib/laborCosting";
 import { VisitorModule } from "@/components/VisitorModule";
 import {
   downloadImageUrlAsFile,
@@ -231,6 +232,9 @@ export interface ProjectsModuleProps {
   /** IANA; fechas de galería, parte diario y proyecto */
   timeZone?: string;
   companyCurrency?: Currency;
+  /** AH-17: labor hours/cost per project (from time entries). */
+  projectLaborSummaries?: Record<string, ProjectLaborSummary>;
+  canViewProjectLaborCosts?: boolean;
   teamProfiles?: { id: string; employeeId: string | null; name: string }[];
   /** Admin/supervisor o permiso canManageDailyReports */
   canManageDailyReports?: boolean;
@@ -484,6 +488,8 @@ export function ProjectsModule({
   onDailyReportPublished,
   timeZone: timeZoneProp,
   companyCurrency = "CAD",
+  projectLaborSummaries = {},
+  canViewProjectLaborCosts = false,
   teamProfiles = [],
   canManageDailyReports = false,
   companyId = "",
@@ -1398,6 +1404,105 @@ export function ProjectsModule({
                   timeZone={userTz}
                 />
               )}
+
+            {canViewProjectLaborCosts ? (
+              <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  {tl.labor_costing ?? "Labor costing"}
+                </h3>
+                {(() => {
+                  const laborSum: ProjectLaborSummary =
+                    projectLaborSummaries[selectedProject.id] ?? {
+                      totalHours: 0,
+                      totalCost: 0,
+                      byEmployee: [],
+                    };
+                  const budget = selectedProject.budgetCAD ?? 0;
+                  const laborVsBudgetPct =
+                    budget > 0 ? Math.min(100, Math.round((laborSum.totalCost / budget) * 100)) : null;
+                  return (
+                    <>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {tl.labor_hours_worked ?? "Hours worked"}
+                          </p>
+                          <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-white">
+                            {laborSum.totalHours.toFixed(1)}h
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {tl.labor_cost_total ?? "Total cost"}
+                          </p>
+                          <p className="text-lg font-semibold tabular-nums text-amber-700 dark:text-amber-400">
+                            {formatCurrency(laborSum.totalCost, companyCurrency, dateLoc)}
+                          </p>
+                        </div>
+                      </div>
+                      {budget > 0 && laborVsBudgetPct != null ? (
+                        <div>
+                          <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+                            <span>{tl.labor_cost_vs_budget ?? "Cost vs budget"}</span>
+                            <span className="font-medium tabular-nums">
+                              {formatCurrency(laborSum.totalCost, companyCurrency, dateLoc)} /{" "}
+                              {formatCurrency(budget, companyCurrency, dateLoc)} ({laborVsBudgetPct}%)
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                laborVsBudgetPct > 100
+                                  ? "bg-red-500"
+                                  : laborVsBudgetPct > 80
+                                    ? "bg-amber-500"
+                                    : "bg-emerald-500"
+                              }`}
+                              style={{ width: `${Math.min(100, laborVsBudgetPct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                      {laborSum.byEmployee.length === 0 ? (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {tl.dashboard_trend_neutral ?? PM_EN.common_dash}
+                        </p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[280px] text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-zinc-200 dark:border-slate-600 text-left text-zinc-500 dark:text-zinc-400">
+                                <th className="py-2 pe-2 font-medium">{tl.personnel ?? PM_EN.personnel}</th>
+                                <th className="py-2 pe-2 font-medium text-right">
+                                  {tl.labor_hours_worked ?? "Hours"}
+                                </th>
+                                <th className="py-2 font-medium text-right">
+                                  {tl.labor_cost_column ?? "Cost"}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {laborSum.byEmployee.map((row) => (
+                                <tr
+                                  key={row.employeeId}
+                                  className="border-b border-zinc-100 dark:border-slate-800 text-zinc-800 dark:text-zinc-200"
+                                >
+                                  <td className="py-2 pe-2 min-w-0 truncate">{row.name}</td>
+                                  <td className="py-2 pe-2 text-right tabular-nums">{row.hours.toFixed(1)}h</td>
+                                  <td className="py-2 text-right tabular-nums">
+                                    {formatCurrency(row.cost, companyCurrency, dateLoc)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </section>
+            ) : null}
 
             {selectedProject.budgetCAD != null && (
               <div>

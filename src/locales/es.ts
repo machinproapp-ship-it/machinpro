@@ -2299,4 +2299,18 @@ export default {
   landing_seo_extra_other: "Operaciones de construcción, equipos y documentación de seguridad.",
   landing_lang_select: "Idioma",
   landing_brl_usd_approx: "≈ {usd} USD / mes",
+
+  labor_costing: "Costes de personal",
+  hourly_rate: "Tarifa por hora",
+  labor_cost_total: "Coste total",
+  labor_cost_month: "Coste este mes",
+  labor_hours_worked: "Horas trabajadas",
+  labor_cost_vs_budget: "Coste vs presupuesto",
+  labor_cost_by_project: "Por proyecto (top 5)",
+  labor_cost_by_employee: "Por empleado (top 5)",
+  labor_cost_filter_week: "Semana",
+  labor_cost_filter_month: "Mes",
+  labor_cost_filter_custom: "Rango",
+  labor_cost_column: "Coste",
+  employees_labor_rate_hint: "Opcional. Moneda según ajustes de la empresa.",
 } as const;

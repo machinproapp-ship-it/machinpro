@@ -262,6 +262,12 @@ interface CentralModuleProps {
   /** Tarjeta Proyectos en Zona de gestión (Central). */
   dashboardCanViewProjectsManagement?: boolean;
   dashboardCriticalInventoryCount?: number;
+  /** AH-17 labor costing widget (Central dashboard). */
+  laborCostingEnabled?: boolean;
+  canViewLaborCosting?: boolean;
+  laborCostingCurrency?: string;
+  laborCostingRateByUserId?: Record<string, number>;
+  laborCostingEmployeeLabels?: Record<string, string>;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
   /** Abrir Operaciones → Subcontratistas (fuera de Central). */
@@ -411,6 +417,11 @@ export function CentralModule({
   dashboardCanViewDashboardWidgets = false,
   dashboardCanViewProjectsManagement = false,
   dashboardCriticalInventoryCount = 0,
+  laborCostingEnabled = false,
+  canViewLaborCosting = false,
+  laborCostingCurrency = "CAD",
+  laborCostingRateByUserId = {},
+  laborCostingEmployeeLabels = {},
   onQuickNewRfi,
   onQuickNewSubcontractor,
   onOpenSubcontractorsInOperations,
@@ -853,6 +864,11 @@ export function CentralModule({
                 canViewLogistics={dashboardCanViewLogistics}
                 canViewDashboardWidgets={dashboardCanViewDashboardWidgets}
                 criticalInventoryCount={dashboardCriticalInventoryCount}
+                laborCostingEnabled={laborCostingEnabled}
+                canViewLaborCosting={canViewLaborCosting}
+                laborCostingCurrency={laborCostingCurrency}
+                laborCostingRateByUserId={laborCostingRateByUserId}
+                laborCostingEmployeeLabels={laborCostingEmployeeLabels}
                 canAccessVisitors={canAccessVisitors}
                 canAccessHazards={canAccessHazards}
                 canAccessCorrective={canAccessCorrective}

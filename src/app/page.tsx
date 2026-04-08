@@ -86,6 +86,13 @@ import {
   persistUserTimezone,
 } from "@/lib/localePreference";
 import { dateLocaleForUser, resolveUserTimezone, formatTime } from "@/lib/dateUtils";
+import {
+  aggregateProjectLabor,
+  buildLaborRateByUserId,
+  buildLaborRateLookupForClock,
+  companyHasConfiguredLaborRates,
+  type ProjectLaborSummary,
+} from "@/lib/laborCosting";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import {
   type CustomRole,
@@ -245,6 +252,8 @@ export interface Employee {
   customRoleId?: string;
   customPermissions?: Partial<RolePermissions>;
   useRolePermissions?: boolean;
+  /** AH-17: optional `user_profiles.hourly_rate` for labor costing (admin). */
+  laborHourlyRate?: number | null;
 }
 
 function isActiveProfileEmployee(e: Pick<Employee, "profileStatus">): boolean {
@@ -369,6 +378,8 @@ export interface ClockEntry {
   locationAlert?: boolean;
   locationAlertMeters?: number;
   hadPendingCerts?: boolean;
+  clockInAtIso?: string;
+  clockOutAtIso?: string | null;
 }
 
 // Hoja de horas (Sprint J)
@@ -1236,6 +1247,34 @@ export default function Home() {
     return Array.from(map.values());
   }, [dbClockEntries, clockEntries]);
 
+  const laborCostingRateByUserId = useMemo(() => buildLaborRateByUserId(employees), [employees]);
+  const laborCostingEnabled = useMemo(() => companyHasConfiguredLaborRates(employees), [employees]);
+  const laborCostingEmployeeLabels = useMemo(() => {
+    const o: Record<string, string> = {};
+    for (const e of employees) o[e.id] = e.name;
+    return o;
+  }, [employees]);
+  const employeeLaborRateLookup = useMemo(
+    () => buildLaborRateLookupForClock(employees, userToEmployeeMap),
+    [employees, userToEmployeeMap]
+  );
+  const projectLaborSummaries = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const e of employees) names[e.id] = e.name;
+    const out: Record<string, ProjectLaborSummary> = {};
+    for (const p of projects) {
+      out[p.id] = aggregateProjectLabor(
+        p.id,
+        p.assignedEmployeeIds ?? [],
+        displayClockEntries,
+        employees,
+        names,
+        userToEmployeeMap
+      );
+    }
+    return out;
+  }, [projects, displayClockEntries, employees, userToEmployeeMap]);
+
   const [isOnline, setIsOnline] = useState(true);
 
   const [pendingSync, setPendingSync] = useState<PendingSync[]>(() => {
@@ -1615,7 +1654,7 @@ export default function Home() {
         supabase
           .from("user_profiles")
           .select(
-            "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
+            "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
           )
           .eq("company_id", cid)
           .order("created_at", { ascending: false }),
@@ -1672,6 +1711,13 @@ export default function Home() {
             const payAmt = row.pay_amount != null ? Number(row.pay_amount) : undefined;
             if (payType === "hourly" && payAmt != null && Number.isFinite(payAmt)) hourlyRate = payAmt;
             if (payType === "salary" && payAmt != null && Number.isFinite(payAmt)) monthlySalary = payAmt;
+            let laborHourlyRate: number | null | undefined;
+            const hrRaw = row.hourly_rate;
+            if (hrRaw != null && hrRaw !== "") {
+              const hn = typeof hrRaw === "number" ? hrRaw : Number(hrRaw);
+              if (Number.isFinite(hn) && hn > 0) laborHourlyRate = hn;
+              else laborHourlyRate = null;
+            }
             return {
               id,
               name,
@@ -1680,6 +1726,7 @@ export default function Home() {
               hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
               payType,
               hourlyRate,
+              laborHourlyRate,
               monthlySalary,
               phone: row.phone != null ? String(row.phone) : undefined,
               email: em || undefined,
@@ -1871,6 +1918,8 @@ export default function Home() {
                 date: dateStr,
                 clockIn,
                 clockOut,
+                clockInAtIso: String(row.clock_in_at),
+                clockOutAtIso: row.clock_out_at != null ? String(row.clock_out_at) : undefined,
               };
             });
             setDbClockEntries(mappedClockEntries);
@@ -3932,6 +3981,7 @@ export default function Home() {
                     certificates: e.certificates ?? [],
                     payType: e.payType,
                     hourlyRate: e.hourlyRate,
+                    laborHourlyRate: e.laborHourlyRate,
                     monthlySalary: e.monthlySalary,
                     customRoleId: e.customRoleId,
                     customPermissions: e.customPermissions,
@@ -4159,6 +4209,11 @@ export default function Home() {
                   !!(rolePerms.canViewProjects || rolePerms.canCreateProjects)
                 }
                 dashboardCriticalInventoryCount={criticalInventoryCount}
+                laborCostingEnabled={laborCostingEnabled}
+                canViewLaborCosting={!!rolePerms.canViewTimesheets}
+                laborCostingCurrency={currency}
+                laborCostingRateByUserId={laborCostingRateByUserId}
+                laborCostingEmployeeLabels={laborCostingEmployeeLabels}
                 onQuickNewRfi={() => {
                   if (!perms.site) return;
                   const vp = visibleProjects ?? [];
@@ -4631,6 +4686,8 @@ export default function Home() {
                 countryCode={companyCountry ?? "CA"}
                 timeZone={userTimeZone}
                 companyCurrency={currency}
+                projectLaborSummaries={projectLaborSummaries}
+                canViewProjectLaborCosts={!!rolePerms.canViewTimesheets}
                 dailyReports={dailyReports}
                 onRefreshDailyReports={reloadDailyReports}
                 onDailyReportPublished={handleDailyReportPublished}
@@ -4922,6 +4979,9 @@ export default function Home() {
                   whFilterAll: (t as Record<string, string>).whFilterAll,
                   openInMaps: (t as Record<string, string>).openInMaps,
                   viewMyShift: (t as Record<string, string>).viewMyShift,
+                  labor_cost_column: (t as Record<string, string>).labor_cost_column,
+                  labor_cost_total: (t as Record<string, string>).labor_cost_total,
+                  labor_hours_worked: (t as Record<string, string>).labor_hours_worked,
                 }}
                 onAddEntry={handleAddScheduleEntry}
                 onUpdateEntry={handleUpdateScheduleEntry}
@@ -4941,6 +5001,9 @@ export default function Home() {
                 timeZone={userTimeZone}
                 companyName={profile?.companyName ?? companyName ?? ""}
                 companyId={companyId ?? ""}
+                canViewTimesheetCosts={!!rolePerms.canViewTimesheets}
+                timesheetCostCurrency={currency}
+                employeeLaborRatesByEmployeeId={employeeLaborRateLookup}
               />
               <ModuleHelpFab
                 moduleKey="schedule"

@@ -2243,4 +2243,18 @@ export default {
   landing_seo_extra_other: "Operazioni edili, team e documentazione sicurezza.",
   landing_lang_select: "Lingua",
   landing_brl_usd_approx: "≈ {usd} USD / mese",
+
+  labor_costing: "Costi del personale",
+  hourly_rate: "Tariffa oraria",
+  labor_cost_total: "Costo totale",
+  labor_cost_month: "Costo questo mese",
+  labor_hours_worked: "Ore lavorate",
+  labor_cost_vs_budget: "Costo vs budget",
+  labor_cost_by_project: "Per progetto (top 5)",
+  labor_cost_by_employee: "Per dipendente (top 5)",
+  labor_cost_filter_week: "Settimana",
+  labor_cost_filter_month: "Mese",
+  labor_cost_filter_custom: "Intervallo",
+  labor_cost_column: "Costo",
+  employees_labor_rate_hint: "Facoltativo. Valuta secondo le impostazioni aziendali.",
 } as const;

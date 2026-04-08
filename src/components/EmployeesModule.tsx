@@ -136,6 +136,8 @@ type ProfileRow = {
   pay_amount?: number | null;
   pay_currency?: string | null;
   pay_period?: string | null;
+  /** AH-17 labor costing (optional). */
+  hourly_rate?: number | null;
   vacation_policy_enabled?: boolean | null;
 };
 
@@ -461,6 +463,7 @@ export function EmployeesModule({
       if (pt === "salary") pt = "fixed";
       if (pt !== "fixed" && pt !== "hourly") pt = "";
       const payAmt = coercePayAmount(selected.pay_amount);
+      const laborHr = coercePayAmount(selected.hourly_rate);
       const rawVac = selected.vacation_days_allowed;
       let vacationDaysAllowed: number | null = null;
       if (rawVac != null && String(rawVac).trim() !== "") {
@@ -473,6 +476,7 @@ export function EmployeesModule({
         pay_amount: payAmt,
         pay_currency: (selected.pay_currency ?? "CAD").trim() || "CAD",
         pay_period: (selected.pay_period ?? "monthly").trim() || "monthly",
+        hourly_rate: laborHr,
         vacation_policy_enabled:
           selected.vacation_policy_enabled === true ||
           (selected.vacation_policy_enabled == null && Boolean(selected.vacation_days_allowed)),
@@ -698,6 +702,7 @@ export function EmployeesModule({
         payType === "unspecified" ? null : (draft.pay_currency ?? selected.pay_currency ?? "CAD") || null,
       pay_period:
         payType === "unspecified" ? null : (draft.pay_period ?? selected.pay_period ?? "monthly") || null,
+      hourly_rate: coercePayAmount(draft.hourly_rate),
     };
     const { error } = await supabase.from("user_profiles").update(payload).eq("id", selected.id);
     setSaving(false);
@@ -1557,6 +1562,31 @@ export function EmployeesModule({
             </div>
           ) : null}
         </section>
+
+        {canManageEmployees && !workerSelf ? (
+          <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{tl.labor_costing ?? ""}</h3>
+            <label className="block text-sm max-w-md">
+              <span className="text-zinc-500">
+                {tl.hourly_rate ?? ""} ({defaultPayCurrency})
+              </span>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={draft.hourly_rate ?? ""}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    hourly_rate: e.target.value === "" ? null : parseFloat(e.target.value),
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              />
+            </label>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{tl.employees_labor_rate_hint ?? ""}</p>
+          </section>
+        ) : null}
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
