@@ -16,7 +16,7 @@ import type { Subcontractor } from '@/types/subcontractor';
 import { getTaxIdLabel, getComplianceCertLabel, SUBCONTRACTOR_SPECIALTIES } from '@/types/subcontractor';
 import type { ComplianceField, ComplianceRecord, EmployeeDocument } from '@/app/page';
 import type { AuditLogEntry } from '@/lib/useAuditLog';
-import type { ComplianceAlert } from '@/lib/complianceWatchdog';
+import { watchdogSubjectLabel, type ComplianceAlert } from '@/lib/complianceWatchdog';
 import type { UserRole } from '@/types/shared';
 import type { MainSection } from '@/types/shared';
 import { CentralDashboardLive } from '@/components/CentralDashboardLive';
@@ -296,6 +296,14 @@ interface CentralModuleProps {
     projectId?: string | null;
     notes?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  /** AH-21: panel Documentos de empresa (ex módulo Seguridad). */
+  companyBindersPanel?: React.ReactNode;
+  companyTrainingPanel?: React.ReactNode;
+  canOpenCompanyBinders?: boolean;
+  canOpenCompanyTraining?: boolean;
+  complianceExpiredCertCount?: number;
+  canViewSecurityDashboard?: boolean;
+  onOpenOperationsSecurity?: () => void;
 }
 
 function computeComplianceRecordStatus(
@@ -436,6 +444,13 @@ export function CentralModule({
   manualClockEmployeeOptions = [],
   manualClockProjectOptions = [],
   registerManualClockIn,
+  companyBindersPanel,
+  companyTrainingPanel,
+  canOpenCompanyBinders = false,
+  canOpenCompanyTraining = false,
+  complianceExpiredCertCount = 0,
+  canViewSecurityDashboard = false,
+  onOpenOperationsSecurity,
 }: CentralModuleProps) {
   const canViewProjects = canViewProjectsProp ?? canEdit;
   const canCreateProjects = canCreateProjectsProp ?? canEdit;
@@ -452,7 +467,14 @@ export function CentralModule({
   void useMachinProDisplayPrefs();
   const [employeePanelId, setEmployeePanelId] = useState<string | null>(null);
   const [centralView, setCentralView] = useState<
-    "dashboard" | "projects" | "personnel" | "roles" | "auditlog" | "compliance"
+    | "dashboard"
+    | "projects"
+    | "personnel"
+    | "roles"
+    | "auditlog"
+    | "compliance"
+    | "binders"
+    | "training"
   >("dashboard");
   const [subcontractorModalOpen, setSubcontractorModalOpen] = useState(false);
   const [editingSubcontractorId, setEditingSubcontractorId] = useState<string | null>(null);
@@ -910,7 +932,32 @@ export function CentralModule({
                 manualClockEmployeeOptions={manualClockEmployeeOptions}
                 manualClockProjectOptions={manualClockProjectOptions}
                 registerManualClockIn={registerManualClockIn}
+                complianceExpiredCertCount={complianceExpiredCertCount}
+                canViewSecurityDashboard={canViewSecurityDashboard}
+                onOpenOperationsSecurity={onOpenOperationsSecurity}
               />
+              {((canOpenCompanyBinders && companyBindersPanel) || (canOpenCompanyTraining && companyTrainingPanel)) && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {canOpenCompanyBinders && companyBindersPanel ? (
+                    <button
+                      type="button"
+                      onClick={() => setCentralView("binders")}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    >
+                      {(labels as Record<string, string>).security_tab_documents ?? "Company documents"}
+                    </button>
+                  ) : null}
+                  {canOpenCompanyTraining && companyTrainingPanel ? (
+                    <button
+                      type="button"
+                      onClick={() => setCentralView("training")}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    >
+                      {(labels as Record<string, string>).training_hub ?? "Training"}
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
           ) : (
             <section className="space-y-2 mb-2">
@@ -1062,6 +1109,13 @@ export function CentralModule({
         </div>
       )}
 
+      {centralView === "binders" && canOpenCompanyBinders && companyBindersPanel ? (
+        <div className="min-w-0">{companyBindersPanel}</div>
+      ) : null}
+      {centralView === "training" && canOpenCompanyTraining && companyTrainingPanel ? (
+        <div className="min-w-0">{companyTrainingPanel}</div>
+      ) : null}
+
       {centralView === "compliance" && (
         <div className="space-y-6">
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
@@ -1091,9 +1145,10 @@ export function CentralModule({
                         const tl = labels as Record<string, string>;
                         const expStr = formatDateMedium(new Date(a.expiryDate), dateLoc, timeZone);
                         const overdue = Math.abs(a.daysLeft);
+                        const subject = watchdogSubjectLabel(a);
                         return (
                           <li
-                            key={`exp-${a.employeeId}-${a.certName}-${a.expiryDate}`}
+                            key={`exp-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
                             className="flex flex-col gap-3 rounded-xl border border-red-200/80 bg-red-50/50 p-4 dark:border-red-900/40 dark:bg-red-950/20 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 flex-1 gap-3">
@@ -1101,10 +1156,10 @@ export function CentralModule({
                                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-200/80 text-sm font-bold text-red-900 dark:bg-red-900/50 dark:text-red-100"
                                 aria-hidden
                               >
-                                {initialsFromName(a.employeeName)}
+                                {initialsFromName(subject)}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-medium text-zinc-900 dark:text-white">{a.employeeName}</p>
+                                <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
                                 <p className="text-sm text-zinc-600 dark:text-zinc-300">{a.certName}</p>
                                 <p className="text-xs text-red-700 dark:text-red-300">
                                   {overdue} {tl.certDaysOverdue ?? ""} · {tl.expiresOn ?? ""} {expStr}
@@ -1114,12 +1169,18 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                setCentralView("personnel");
-                                setEmployeePanelId(a.employeeId);
+                                if (a.source === "vehicle") {
+                                  onNavigateAppSection?.("warehouse");
+                                } else if (a.employeeId) {
+                                  setCentralView("personnel");
+                                  setEmployeePanelId(a.employeeId);
+                                }
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-red-300/80 bg-white px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/40"
                             >
-                              {tl.viewEmployee ?? ""}
+                              {a.source === "vehicle"
+                                ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
+                                : tl.viewEmployee ?? ""}
                             </button>
                           </li>
                         );
@@ -1139,9 +1200,10 @@ export function CentralModule({
                       .map((a) => {
                         const tl = labels as Record<string, string>;
                         const expStr = formatDateMedium(new Date(a.expiryDate), dateLoc, timeZone);
+                        const subject = watchdogSubjectLabel(a);
                         return (
                           <li
-                            key={`crit-${a.employeeId}-${a.certName}-${a.expiryDate}`}
+                            key={`crit-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
                             className="flex flex-col gap-3 rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 flex-1 gap-3">
@@ -1149,10 +1211,10 @@ export function CentralModule({
                                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-200/80 text-sm font-bold text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
                                 aria-hidden
                               >
-                                {initialsFromName(a.employeeName)}
+                                {initialsFromName(subject)}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-medium text-zinc-900 dark:text-white">{a.employeeName}</p>
+                                <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
                                 <p className="text-sm text-zinc-600 dark:text-zinc-300">{a.certName}</p>
                                 <p className="text-xs text-amber-800 dark:text-amber-200">
                                   {a.daysLeft} {tl.certDaysLeft ?? ""} · {tl.expiresOn ?? ""} {expStr}
@@ -1162,12 +1224,18 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                setCentralView("personnel");
-                                setEmployeePanelId(a.employeeId);
+                                if (a.source === "vehicle") {
+                                  onNavigateAppSection?.("warehouse");
+                                } else if (a.employeeId) {
+                                  setCentralView("personnel");
+                                  setEmployeePanelId(a.employeeId);
+                                }
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-amber-300/80 bg-white px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-50 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-100 dark:hover:bg-amber-950/40"
                             >
-                              {tl.viewEmployee ?? ""}
+                              {a.source === "vehicle"
+                                ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
+                                : tl.viewEmployee ?? ""}
                             </button>
                           </li>
                         );
@@ -1187,9 +1255,10 @@ export function CentralModule({
                       .map((a) => {
                         const tl = labels as Record<string, string>;
                         const expStr = formatDateMedium(new Date(a.expiryDate), dateLoc, timeZone);
+                        const subject = watchdogSubjectLabel(a);
                         return (
                           <li
-                            key={`warn-${a.employeeId}-${a.certName}-${a.expiryDate}`}
+                            key={`warn-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
                             className="flex flex-col gap-3 rounded-xl border border-yellow-200/80 bg-yellow-50/40 p-4 dark:border-yellow-900/30 dark:bg-yellow-950/10 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 flex-1 gap-3">
@@ -1197,10 +1266,10 @@ export function CentralModule({
                                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-yellow-200/80 text-sm font-bold text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-100"
                                 aria-hidden
                               >
-                                {initialsFromName(a.employeeName)}
+                                {initialsFromName(subject)}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-medium text-zinc-900 dark:text-white">{a.employeeName}</p>
+                                <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
                                 <p className="text-sm text-zinc-600 dark:text-zinc-300">{a.certName}</p>
                                 <p className="text-xs text-yellow-900/90 dark:text-yellow-200/90">
                                   {a.daysLeft} {tl.certDaysLeft ?? ""} · {tl.expiresOn ?? ""} {expStr}
@@ -1210,12 +1279,18 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                setCentralView("personnel");
-                                setEmployeePanelId(a.employeeId);
+                                if (a.source === "vehicle") {
+                                  onNavigateAppSection?.("warehouse");
+                                } else if (a.employeeId) {
+                                  setCentralView("personnel");
+                                  setEmployeePanelId(a.employeeId);
+                                }
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-yellow-300/80 bg-white px-4 py-2 text-sm font-medium text-yellow-900 hover:bg-yellow-50 dark:border-yellow-800 dark:bg-zinc-900 dark:text-yellow-100 dark:hover:bg-yellow-950/30"
                             >
-                              {tl.viewEmployee ?? ""}
+                              {a.source === "vehicle"
+                                ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
+                                : tl.viewEmployee ?? ""}
                             </button>
                           </li>
                         );

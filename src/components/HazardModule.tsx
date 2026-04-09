@@ -65,6 +65,8 @@ export interface HazardModuleProps {
   onFocusHazardConsumed?: () => void;
   /** Increment from parent (p. ej. dashboard) para abrir el formulario de alta. */
   openCreateSignal?: number;
+  /** Si se define, la lista y filtros quedan acotados a ese proyecto (p. ej. pestaña Seguridad en Operaciones). */
+  lockedProjectId?: string | null;
   dateLocale: string;
   timeZone: string;
 }
@@ -132,6 +134,7 @@ export function HazardModule({
   focusHazardId,
   onFocusHazardConsumed,
   openCreateSignal = 0,
+  lockedProjectId = null,
   dateLocale,
   timeZone,
 }: HazardModuleProps) {
@@ -145,7 +148,9 @@ export function HazardModule({
   >({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterProject, setFilterProject] = useState<string>("all");
+  const [filterProject, setFilterProject] = useState<string>(() =>
+    lockedProjectId ? lockedProjectId : "all"
+  );
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -154,11 +159,25 @@ export function HazardModule({
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
+    if (lockedProjectId) setFilterProject(lockedProjectId);
+  }, [lockedProjectId]);
+
+  useEffect(() => {
     if (openCreateSignal > lastCreateSig.current && !readOnly) {
       setCreateOpen(true);
     }
     lastCreateSig.current = openCreateSignal;
   }, [openCreateSignal, readOnly]);
+
+  useEffect(() => {
+    if (!lockedProjectId || !createOpen) return;
+    const name = projects.find((p) => p.id === lockedProjectId)?.name ?? "";
+    setForm((f) =>
+      f.project_id === lockedProjectId && f.project_name === name
+        ? f
+        : { ...f, project_id: lockedProjectId, project_name: name }
+    );
+  }, [lockedProjectId, createOpen, projects]);
   const [detail, setDetail] = useState<Hazard | null>(null);
   const [form, setForm] = useState<HazardFormData>(() => emptyForm());
   const [formLat, setFormLat] = useState("");
@@ -272,9 +291,14 @@ export function HazardModule({
     }
   }, [detail]);
 
+  const rowsScoped = useMemo(() => {
+    if (!lockedProjectId) return rows;
+    return rows.filter((r) => r.project_id === lockedProjectId);
+  }, [rows, lockedProjectId]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    return rowsScoped.filter((r) => {
       if (filterProject !== "all" && r.project_id !== filterProject) return false;
       if (filterCategory !== "all" && r.category !== filterCategory) return false;
       if (filterSeverity !== "all" && r.severity !== filterSeverity) return false;
@@ -292,7 +316,7 @@ export function HazardModule({
       return true;
     });
   }, [
-    rows,
+    rowsScoped,
     search,
     filterProject,
     filterCategory,
@@ -314,8 +338,8 @@ export function HazardModule({
   }, [filtered, sortKey]);
 
   const activeHazards = useMemo(
-    () => rows.filter((r) => r.status === "open" || r.status === "in_progress"),
-    [rows]
+    () => rowsScoped.filter((r) => r.status === "open" || r.status === "in_progress"),
+    [rowsScoped]
   );
 
   const matrixCounts = useMemo(() => {
@@ -339,9 +363,9 @@ export function HazardModule({
   }, []);
 
   const stats = useMemo(() => {
-    const open = rows.filter((r) => r.status === "open").length;
-    const inProg = rows.filter((r) => r.status === "in_progress").length;
-    const resolvedWeek = rows.filter(
+    const open = rowsScoped.filter((r) => r.status === "open").length;
+    const inProg = rowsScoped.filter((r) => r.status === "in_progress").length;
+    const resolvedWeek = rowsScoped.filter(
       (r) =>
         (r.status === "resolved" || r.status === "closed") &&
         r.resolved_at &&
@@ -356,7 +380,7 @@ export function HazardModule({
       (h) => h.severity === "critical" && !h.assigned_to
     ).length;
     return { open, inProg, resolvedWeek, catCounts, criticalUnassigned };
-  }, [rows, activeHazards, weekAgo]);
+  }, [rowsScoped, activeHazards, weekAgo]);
 
   const catLabel = (c: HazardCategory) =>
     (t as Record<string, string>)[`hazards_cat_${c}`] ?? c;
@@ -641,7 +665,7 @@ export function HazardModule({
             {t.hazards_closed ?? "Closed total"}
           </p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
-            {rows.filter((r) => r.status === "closed").length}
+            {rowsScoped.filter((r) => r.status === "closed").length}
           </p>
         </div>
       </div>
@@ -708,23 +732,34 @@ export function HazardModule({
       </div>
 
       <FilterGrid>
-        <label className="flex flex-col gap-1 text-sm min-w-0">
-          <span className="text-gray-600 dark:text-gray-400">
-            {t.hazards_filter_project ?? "Project"}
-          </span>
-          <select
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
-            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
-          >
-            <option value="all">{t.hazards_filter_all ?? "All"}</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!lockedProjectId ? (
+          <label className="flex flex-col gap-1 text-sm min-w-0">
+            <span className="text-gray-600 dark:text-gray-400">
+              {t.hazards_filter_project ?? "Project"}
+            </span>
+            <select
+              value={filterProject}
+              onChange={(e) => setFilterProject(e.target.value)}
+              className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
+            >
+              <option value="all">{t.hazards_filter_all ?? "All"}</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <div className="flex flex-col gap-1 text-sm min-w-0">
+            <span className="text-gray-600 dark:text-gray-400">
+              {t.hazards_filter_project ?? "Project"}
+            </span>
+            <span className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 px-3 py-2.5 min-h-[44px] text-sm flex items-center text-gray-800 dark:text-gray-200">
+              {projects.find((p) => p.id === lockedProjectId)?.name ?? lockedProjectId}
+            </span>
+          </div>
+        )}
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
           <span className="text-gray-600 dark:text-gray-400">
             {t.hazards_filter_category ?? "Category"}
@@ -1073,22 +1108,28 @@ export function HazardModule({
             </div>
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">{t.hazards_filter_project ?? "Project"}</span>
-              <select
-                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
-                value={form.project_id}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  const name = projects.find((p) => p.id === id)?.name ?? "";
-                  setForm((f) => ({ ...f, project_id: id, project_name: name }));
-                }}
-              >
-                <option value="">{t.hazards_filter_all ?? "—"}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              {lockedProjectId ? (
+                <div className="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 px-3 py-2.5 min-h-[44px] text-sm flex items-center text-gray-800 dark:text-gray-200">
+                  {projects.find((p) => p.id === lockedProjectId)?.name ?? lockedProjectId}
+                </div>
+              ) : (
+                <select
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
+                  value={form.project_id}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const name = projects.find((p) => p.id === id)?.name ?? "";
+                    setForm((f) => ({ ...f, project_id: id, project_name: name }));
+                  }}
+                >
+                  <option value="">{t.hazards_filter_all ?? "—"}</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">{t.hazards_location ?? "Location"}</span>

@@ -37,7 +37,8 @@ import { FormsModule } from "@/components/FormsModule";
 import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
-import { SecurityModule, type SecurityTabId } from "@/components/SecurityModule";
+import { BindersModule } from "@/components/BindersModule";
+import { TrainingHubModule } from "@/components/TrainingHubModule";
 import { EmployeesModule } from "@/components/EmployeesModule";
 import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
@@ -72,11 +73,21 @@ import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
 import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
 import {
+  mergeComplianceAlerts,
   runComplianceWatchdog,
+  runVehicleDocumentsWatchdog,
   shouldRunWatchdog,
   setLastWatchdogRun,
+  watchdogSubjectLabel,
   type ComplianceAlert,
 } from "@/lib/complianceWatchdog";
+import {
+  ensureVehicleDocuments,
+  newVehicleDocumentId,
+  seedVehicleDocumentsFromCountry,
+  computeVehicleDocStatus,
+  type VehicleDocument,
+} from "@/lib/vehicleDocumentUtils";
 import type { Language, Currency } from "@/lib/i18n";
 import { LANGUAGES, ALL_TRANSLATIONS, loadLocale, isLazyLocale } from "@/lib/i18n";
 import {
@@ -1180,7 +1191,7 @@ export default function Home() {
   const [focusHazardId, setFocusHazardId] = useState<string | null>(null);
   const [dashHazardCreateSig, setDashHazardCreateSig] = useState(0);
   const [dashActionCreateSig, setDashActionCreateSig] = useState(0);
-  const [securityInitialTab, setSecurityInitialTab] = useState<SecurityTabId | null>(null);
+  const [projectsSecurityTabSig, setProjectsSecurityTabSig] = useState(0);
   const [dashVisitorQrSig, setDashVisitorQrSig] = useState(0);
   const [dashVisitorTabSig, setDashVisitorTabSig] = useState(0);
   const [projectsOpenRfiSig, setProjectsOpenRfiSig] = useState(0);
@@ -1190,17 +1201,11 @@ export default function Home() {
     setSettingsHelpFocusSignal((n) => n + 1);
   }, []);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
-  const resetSecurityDashSignals = useCallback(() => {
+  const clearProjectSecurityDashSignals = useCallback(() => {
     setDashHazardCreateSig(0);
     setDashActionCreateSig(0);
   }, []);
 
-  useEffect(() => {
-    if (activeSection !== "security") {
-      resetSecurityDashSignals();
-      setSecurityInitialTab(null);
-    }
-  }, [activeSection, resetSecurityDashSignals]);
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
@@ -1413,14 +1418,21 @@ export default function Home() {
   });
   const [inventoryMovements] = useState<InventoryMovement[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
-    if (typeof window === "undefined") return INITIAL_VEHICLES;
+    const normalize = (list: Vehicle[]) =>
+      list.map((v) => ({
+        ...v,
+        documents: ensureVehicleDocuments(v, undefined),
+      }));
+    if (typeof window === "undefined") return normalize(INITIAL_VEHICLES);
     try {
       const raw = localStorage.getItem("machinpro_vehicles");
-      if (!raw) return INITIAL_VEHICLES;
+      if (!raw) return normalize(INITIAL_VEHICLES);
       const parsed = JSON.parse(raw) as Vehicle[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_VEHICLES;
-      return parsed;
-    } catch { return INITIAL_VEHICLES; }
+      if (!Array.isArray(parsed) || parsed.length === 0) return normalize(INITIAL_VEHICLES);
+      return normalize(parsed);
+    } catch {
+      return normalize(INITIAL_VEHICLES);
+    }
   });
   const [rentals, setRentals] = useState<Rental[]>(() => {
     if (typeof window === "undefined") return INITIAL_RENTALS;
@@ -2236,20 +2248,23 @@ export default function Home() {
     [complianceAlerts]
   );
 
+  const complianceExpiredCertCount = useMemo(
+    () => complianceAlerts.filter((a) => a.severity === "expired").length,
+    [complianceAlerts]
+  );
+
   useEffect(() => {
-    if (!employees || employees.length === 0) {
-      setComplianceAlerts([]);
-      return;
-    }
-    const alerts = runComplianceWatchdog(employees as CentralEmployee[]);
-    setComplianceAlerts(alerts);
+    const empAlerts = runComplianceWatchdog((employees ?? []) as CentralEmployee[]);
+    const vehicleAlerts = runVehicleDocumentsWatchdog(vehicles ?? []);
+    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts);
+    setComplianceAlerts(merged);
     if (shouldRunWatchdog()) {
       setLastWatchdogRun();
-      if (alerts.length > 0) {
-        console.log(`[ComplianceWatchdog] ${alerts.length} alertas encontradas`);
+      if (merged.length > 0) {
+        console.log(`[ComplianceWatchdog] ${merged.length} alertas encontradas`);
       }
     }
-  }, [employees]);
+  }, [employees, vehicles]);
 
   useEffect(() => {
     if (!complianceNotifOpen) return;
@@ -2525,7 +2540,7 @@ export default function Home() {
       setActiveSection("office");
       return;
     }
-    if (activeSection === "security" && !(perms.canAccessSecurity ?? false)) {
+    if (activeSection === "security") {
       setActiveSection("office");
       return;
     }
@@ -2536,7 +2551,6 @@ export default function Home() {
     activeSection,
     perms.site,
     perms.warehouse,
-    perms.canAccessSecurity,
     perms.canAccessSchedule,
   ]);
 
@@ -2557,6 +2571,15 @@ export default function Home() {
     },
     [perms.site, visibleProjects]
   );
+
+  const navigateToOperationsProjectSecurity = useCallback(() => {
+    if (!perms.site) return;
+    const vp = visibleProjects ?? [];
+    const first = vp.find((p) => !p.archived)?.id ?? vp[0]?.id ?? null;
+    if (first) setSiteSelectedProjectId(first);
+    setActiveSection("site");
+    setProjectsSecurityTabSig((n) => n + 1);
+  }, [perms.site, visibleProjects]);
 
   const scheduleSelfIds = useMemo(
     () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),
@@ -3568,9 +3591,21 @@ export default function Home() {
     setVehicleDraft({});
   }
   function saveVehicle() {
+    const docList =
+      vehicleDraft.documents && vehicleDraft.documents.length > 0
+        ? vehicleDraft.documents
+        : seedVehicleDocumentsFromCountry(companyCountry);
     if (editingVehicleId) {
       setVehicles((prev) => {
-        const next = prev.map((v) => v.id === editingVehicleId ? { ...v, ...vehicleDraft } as Vehicle : v);
+        const next = prev.map((v) =>
+          v.id === editingVehicleId
+            ? ({
+                ...v,
+                ...vehicleDraft,
+                documents: vehicleDraft.documents?.length ? vehicleDraft.documents : v.documents ?? docList,
+              } as Vehicle)
+            : v
+        );
         try { localStorage.setItem("machinpro_vehicles", JSON.stringify(next)); } catch {}
         return next;
       });
@@ -3581,16 +3616,12 @@ export default function Home() {
         plate: vehicleDraft.plate ?? "",
         usualDriverId: vehicleDraft.usualDriverId ?? "",
         currentProjectId: vehicleDraft.currentProjectId ?? null,
-        insuranceExpiry: vehicleDraft.insuranceExpiry ?? "",
-        inspectionExpiry: vehicleDraft.inspectionExpiry ?? "",
-        vehicleStatus: vehicleDraft.vehicleStatus,
+        documents: docList,
+        vehicleStatus: vehicleDraft.vehicleStatus ?? "available",
         lastMaintenanceDate: vehicleDraft.lastMaintenanceDate,
         nextMaintenanceDate: vehicleDraft.nextMaintenanceDate,
         mileage: vehicleDraft.mileage,
         notes: vehicleDraft.notes,
-        insuranceDocUrl: vehicleDraft.insuranceDocUrl,
-        inspectionDocUrl: vehicleDraft.inspectionDocUrl,
-        registrationDocUrl: vehicleDraft.registrationDocUrl,
         serialNumber: vehicleDraft.serialNumber,
         internalId: vehicleDraft.internalId,
         qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(id)}`,
@@ -3873,7 +3904,6 @@ export default function Home() {
           canAccessWarehouse={perms.warehouse}
           canAccessSite={perms.site}
           canAccessSchedule={perms.canAccessSchedule ?? true}
-          canAccessSecurity={perms.canAccessSecurity ?? false}
           canAccessSettings={perms.canViewSettings ?? false}
           labels={labels}
           collapsed={sidebarCollapsed}
@@ -3970,17 +4000,25 @@ export default function Home() {
                             .filter((a) => a.severity !== "warning")
                             .slice(0, 30)
                             .map((a) => (
-                              <li key={`${a.employeeId}-${a.certName}-${a.expiryDate}`}>
+                              <li
+                                key={`${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
+                              >
                                 <button
                                   type="button"
                                   className="flex min-h-[44px] w-full flex-col gap-0.5 px-3 py-2.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800"
                                   onClick={() => {
                                     setComplianceNotifOpen(false);
-                                    setActiveSection("office");
-                                    setPendingOpenEmployeeId(a.employeeId);
+                                    if (a.source === "vehicle") {
+                                      setActiveSection("warehouse");
+                                    } else {
+                                      setActiveSection("office");
+                                      setPendingOpenEmployeeId(a.employeeId ?? null);
+                                    }
                                   }}
                                 >
-                                  <span className="font-medium text-zinc-900 dark:text-white">{a.employeeName}</span>
+                                  <span className="font-medium text-zinc-900 dark:text-white">
+                                    {watchdogSubjectLabel(a)}
+                                  </span>
                                   <span className="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">{a.certName}</span>
                                 </button>
                               </li>
@@ -4246,13 +4284,11 @@ export default function Home() {
                 companyName={(profile?.companyName ?? companyName) || null}
                 onNavigateAppSection={(s) => setActiveSection(s)}
                 onQuickNewHazard={() => {
-                  setSecurityInitialTab("hazards");
-                  setActiveSection("security");
+                  navigateToOperationsProjectSecurity();
                   setDashHazardCreateSig((n) => n + 1);
                 }}
                 onQuickNewAction={() => {
-                  setSecurityInitialTab("actions");
-                  setActiveSection("security");
+                  navigateToOperationsProjectSecurity();
                   setDashActionCreateSig((n) => n + 1);
                 }}
                 onQuickVisitorQr={() => {
@@ -4335,6 +4371,65 @@ export default function Home() {
                 canCreateProjects={!!rolePerms.canCreateProjects}
                 canEditProjects={!!rolePerms.canEditProjects}
                 canDeleteProjects={!!rolePerms.canDeleteProjects}
+                complianceExpiredCertCount={complianceExpiredCertCount}
+                canViewSecurityDashboard={!!perms.canAccessSecurity}
+                onOpenOperationsSecurity={navigateToOperationsProjectSecurity}
+                companyBindersPanel={
+                  <BindersModule
+                    binders={binders}
+                    documents={binderDocuments}
+                    canManage={!!perms.canManageBinders}
+                    currentUserRole={effectiveRole}
+                    employees={activeEmployees.map((e) => ({
+                      id: e.id,
+                      name: e.name,
+                      role: e.role,
+                      customRoleId: e.customRoleId,
+                    }))}
+                    roleOptions={customRoles.map((r) => ({ id: r.id, name: r.name }))}
+                    labels={t as Record<string, string>}
+                    onAddBinder={(b) => setBinders((prev) => [...prev, b])}
+                    onDeleteBinder={(id) =>
+                      setBinders((prev) => prev.filter((b) => b.id !== id || b.isDefault))
+                    }
+                    onAddDocument={(d) => setBinderDocuments((prev) => [...prev, d])}
+                    onDeleteDocument={(id) =>
+                      setBinderDocuments((prev) => prev.filter((doc) => doc.id !== id))
+                    }
+                  />
+                }
+                companyTrainingPanel={
+                  <TrainingHubModule
+                    t={t as Record<string, string>}
+                    companyId={companyId}
+                    userProfileId={profile?.id ?? null}
+                    userName={profile?.fullName ?? profile?.email ?? user?.email ?? "User"}
+                    canManageTraining={effectiveRole === "admin"}
+                    employees={activeEmployees.map((e) => ({
+                      id: e.id,
+                      name: e.name,
+                      role: e.role,
+                      customRoleId: e.customRoleId,
+                    }))}
+                    customRoles={customRoles}
+                    dateLocale={dateLocaleBcp47}
+                    cloudinaryCloudName={
+                      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
+                    }
+                    cloudinaryUploadPreset={
+                      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET?.trim() || "i5dmd07o"
+                    }
+                  />
+                }
+                canOpenCompanyBinders={
+                  !!(
+                    rolePerms.canViewSecurityDocs ||
+                    rolePerms.canManageSecurityDocs ||
+                    rolePerms.canViewBinders ||
+                    rolePerms.canManageBinders
+                  )
+                }
+                canOpenCompanyTraining={!!companyId}
               />
               <ModuleHelpFab
                 moduleKey="office"
@@ -4384,8 +4479,19 @@ export default function Home() {
                     });
                   }
                 }}
-                onAddFleet={() => { setVehicleFormOpen(true); setEditingVehicleId(null); setVehicleDraft({}); }}
-                onEditFleet={(v) => { setEditingVehicleId(v.id); setVehicleDraft({ ...v }); setVehicleFormOpen(true); }}
+                onAddFleet={() => {
+                  setVehicleFormOpen(true);
+                  setEditingVehicleId(null);
+                  setVehicleDraft({ documents: seedVehicleDocumentsFromCountry(companyCountry) });
+                }}
+                onEditFleet={(v) => {
+                  setEditingVehicleId(v.id);
+                  setVehicleDraft({
+                    ...v,
+                    documents: ensureVehicleDocuments(v, companyCountry),
+                  });
+                  setVehicleFormOpen(true);
+                }}
                 onDeleteFleet={(id) => {
                   const msg = (t as Record<string, string>).common_confirm_delete ?? "";
                   if (typeof window !== "undefined" && window.confirm(msg))
@@ -4789,10 +4895,13 @@ export default function Home() {
                 currentUserProfileId={profile?.id ?? null}
                 onOpenHazardFromBlueprint={(id) => {
                   setFocusHazardId(id);
-                  setActiveSection("security");
+                  setActiveSection("site");
+                  setProjectsSecurityTabSig((n) => n + 1);
                 }}
                 onOpenCorrectiveFromBlueprint={() => {
-                  setActiveSection("security");
+                  setActiveSection("site");
+                  setProjectsSecurityTabSig((n) => n + 1);
+                  setDashActionCreateSig((n) => n + 1);
                 }}
                 projectTasks={projectTasks}
                 onCreateTask={(task) => {
@@ -4821,6 +4930,32 @@ export default function Home() {
                 openRfiTabSignal={projectsOpenRfiSig}
                 showProjectRfiTab={!!rolePerms.canViewProjectRFI}
                 showProjectVisitorsTab={!!rolePerms.canViewProjectVisitors}
+                showProjectSecurityTab={!!(rolePerms.canViewHazards || rolePerms.canManageHazards)}
+                projectsSecurityTabSignal={projectsSecurityTabSig}
+                projectSecurityCompanyId={companyId}
+                projectSecurityCompanyName={profile?.companyName ?? companyName}
+                projectSecurityUserRole={effectiveRole}
+                projectSecurityUserName={
+                  profile?.fullName ?? profile?.email ?? user?.email ?? "User"
+                }
+                projectSecurityUserProfileId={profile?.id ?? null}
+                projectSecurityFocusHazardId={focusHazardId}
+                onProjectSecurityFocusHazardConsumed={() => setFocusHazardId(null)}
+                projectSecurityCorrectivePrefill={correctivePrefill}
+                onProjectSecurityConsumeCorrectivePrefill={consumeCorrectivePrefill}
+                projectSecurityOpenHazardSignal={dashHazardCreateSig}
+                projectSecurityOpenActionSignal={dashActionCreateSig}
+                onProjectSecuritySetCorrectivePrefill={setCorrectivePrefill}
+                onProjectSecurityRequestFocusHazard={(id) => setFocusHazardId(id)}
+                onProjectSecurityInteraction={clearProjectSecurityDashSignals}
+                projectSecurityCanShowHazards={
+                  !!(rolePerms.canViewHazards || rolePerms.canManageHazards)
+                }
+                projectSecurityCanShowActions={
+                  !!(rolePerms.canViewCorrectiveActions || rolePerms.canManageCorrectiveActions)
+                }
+                projectSecurityDateLocale={dateLocaleBcp47}
+                projectSecurityTimeZone={userTimeZone}
                 canManageProjectGallery={!!rolePerms.canManageProjectGallery}
                 onInspectionReportGenerated={(payload) => {
                   void logAuditEvent({
@@ -5145,86 +5280,6 @@ export default function Home() {
               />
               <ModuleHelpFab
                 moduleKey="forms"
-                labels={t as Record<string, string>}
-                onOpenSettingsHelp={openSettingsHelpFromFab}
-              />
-            </>
-            )}
-
-            {activeSection === "security" && (perms.canAccessSecurity ?? false) && (
-              <>
-              <SecurityModule
-                t={t as Record<string, string>}
-                companyId={companyId}
-                companyName={profile?.companyName ?? companyName}
-                userRole={effectiveRole}
-                userName={profile?.fullName ?? profile?.email ?? user?.email ?? "User"}
-                userProfileId={profile?.id ?? null}
-                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
-                employees={activeEmployees.map((e) => ({
-                  id: e.id,
-                  name: e.name,
-                  role: e.role,
-                  customRoleId: e.customRoleId,
-                }))}
-                focusHazardId={focusHazardId}
-                onFocusHazardConsumed={() => setFocusHazardId(null)}
-                correctivePrefill={correctivePrefill}
-                onConsumeCorrectivePrefill={consumeCorrectivePrefill}
-                initialTab={securityInitialTab}
-                onInitialTabConsumed={() => setSecurityInitialTab(null)}
-                onSecurityTabInteraction={resetSecurityDashSignals}
-                openHazardSignal={dashHazardCreateSig}
-                openActionSignal={dashActionCreateSig}
-                binders={binders}
-                binderDocuments={binderDocuments}
-                canManageBinders={perms.canManageBinders ?? false}
-                roleOptions={customRoles.map((r) => ({ id: r.id, name: r.name }))}
-                onAddBinder={(b) => setBinders((prev) => [...prev, b])}
-                onDeleteBinder={(id) =>
-                  setBinders((prev) => prev.filter((b) => b.id !== id || b.isDefault))
-                }
-                onAddDocument={(d) => setBinderDocuments((prev) => [...prev, d])}
-                onDeleteDocument={(id) =>
-                  setBinderDocuments((prev) => prev.filter((d) => d.id !== id))
-                }
-                auditLogs={auditLogs}
-                canManageRoles={rolePerms.canManageRoles}
-                canShowHazards={!!(rolePerms.canViewHazards || rolePerms.canManageHazards)}
-                canShowActions={
-                  !!(rolePerms.canViewCorrectiveActions || rolePerms.canManageCorrectiveActions)
-                }
-                canShowDocuments={
-                  !!(
-                    rolePerms.canViewSecurityDocs ||
-                    rolePerms.canManageSecurityDocs ||
-                    rolePerms.canViewBinders ||
-                    rolePerms.canManageBinders
-                  )
-                }
-                canShowAudit={!!(rolePerms.canViewSecurityAudit || rolePerms.canViewAuditLog)}
-                canShowTraining
-                canManageTraining={effectiveRole === "admin"}
-                cloudinaryCloudName={
-                  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
-                }
-                cloudinaryUploadPreset={
-                  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET?.trim() || "i5dmd07o"
-                }
-                customRoles={customRoles}
-                onOpenCorrectiveFromHazard={({ hazardId, projectId, projectName }) => {
-                  setCorrectivePrefill({
-                    hazardId,
-                    projectId,
-                    projectName,
-                  });
-                }}
-                onRequestFocusHazard={(id) => setFocusHazardId(id)}
-                dateLocale={dateLocaleBcp47}
-                timeZone={userTimeZone}
-              />
-              <ModuleHelpFab
-                moduleKey="security"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
               />
@@ -5860,16 +5915,150 @@ export default function Home() {
           <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{editingVehicleId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")} vehículo</h3>
             <div className="space-y-3">
+              {(() => {
+                const tl = t as Record<string, string>;
+                const docStatusBadge = (doc: VehicleDocument) => {
+                  const st = computeVehicleDocStatus(doc.expiryDate, doc.alertDays ?? 30);
+                  const label =
+                    st === "ok"
+                      ? (tl.valid ?? "Al día")
+                      : st === "soon"
+                        ? (tl.expiring ?? "Vence pronto")
+                        : st === "expired"
+                          ? (tl.expired ?? "Vencido")
+                          : (tl.missing ?? "Sin fecha");
+                  const cls =
+                    st === "ok"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : st === "soon"
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                        : st === "expired"
+                          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                          : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
+                  return (
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>
+                  );
+                };
+                return (
+                  <>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Matrícula</label><input type="text" value={vehicleDraft.plate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, plate: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Conductor habitual</label><select value={vehicleDraft.usualDriverId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, usualDriverId: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(employees ?? []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Proyecto actual</label><select value={vehicleDraft.currentProjectId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, currentProjectId: e.target.value || null }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-              <div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Venc. seguro</label><input type="date" value={vehicleDraft.insuranceExpiry ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, insuranceExpiry: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Venc. inspección</label><input type="date" value={vehicleDraft.inspectionExpiry ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, inspectionExpiry: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div></div>
-              <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-slate-700">
-                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Documentación</p>
-                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">Seguro (URL)</label><input type="url" value={vehicleDraft.insuranceDocUrl ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, insuranceDocUrl: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="https://" /></div>
-                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">Inspección (URL)</label><input type="url" value={vehicleDraft.inspectionDocUrl ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, inspectionDocUrl: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="https://" /></div>
-                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">Matriculación (URL)</label><input type="url" value={vehicleDraft.registrationDocUrl ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, registrationDocUrl: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="https://" /></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Proyecto asignado</label><select value={vehicleDraft.currentProjectId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, currentProjectId: e.target.value || null }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{tl.status ?? "Estado"}</label><select value={vehicleDraft.vehicleStatus ?? "available"} onChange={(e) => setVehicleDraft((d) => ({ ...d, vehicleStatus: e.target.value as VehicleStatus }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="available">{tl.available ?? "Disponible"}</option><option value="in_use">{tl.inUse ?? "En uso"}</option><option value="maintenance">{tl.maintenance ?? "Mantenimiento"}</option><option value="out_of_service">{tl.outOfService ?? "Fuera de servicio"}</option></select></div>
+              <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-slate-700">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{tl.vehicle_documents ?? "Documentación del vehículo"}</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVehicleDraft((d) => ({
+                        ...d,
+                        documents: [
+                          ...(d.documents ?? []),
+                          { id: newVehicleDocumentId(), name: "", alertDays: 30 },
+                        ],
+                      }))
+                    }
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-amber-500/60 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+                  >
+                    {tl.vehicle_add_document ?? "Añadir documento"}
+                  </button>
+                </div>
+                {(vehicleDraft.documents ?? []).map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="rounded-xl border border-zinc-200 dark:border-slate-600 bg-zinc-50/50 dark:bg-slate-800/40 p-3 space-y-2"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <input
+                        type="text"
+                        value={doc.name}
+                        onChange={(e) =>
+                          setVehicleDraft((d) => ({
+                            ...d,
+                            documents: (d.documents ?? []).map((x) =>
+                              x.id === doc.id ? { ...x, name: e.target.value } : x
+                            ),
+                          }))
+                        }
+                        placeholder={tl.name ?? "Nombre del documento"}
+                        className="w-full sm:flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                      />
+                      <div className="flex items-center gap-2 shrink-0">
+                        {docStatusBadge(doc)}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVehicleDraft((d) => ({
+                              ...d,
+                              documents: (d.documents ?? []).filter((x) => x.id !== doc.id),
+                            }))
+                          }
+                          className="min-h-[44px] min-w-[44px] rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30 text-sm font-medium"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-0.5">{tl.vehicle_doc_expiry ?? "Fecha de vencimiento"}</label>
+                      <input
+                        type="date"
+                        value={doc.expiryDate ?? ""}
+                        onChange={(e) =>
+                          setVehicleDraft((d) => ({
+                            ...d,
+                            documents: (d.documents ?? []).map((x) =>
+                              x.id === doc.id ? { ...x, expiryDate: e.target.value || undefined } : x
+                            ),
+                          }))
+                        }
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-0.5">URL</label>
+                      <input
+                        type="url"
+                        value={doc.documentUrl ?? ""}
+                        onChange={(e) =>
+                          setVehicleDraft((d) => ({
+                            ...d,
+                            documents: (d.documents ?? []).map((x) =>
+                              x.id === doc.id ? { ...x, documentUrl: e.target.value || undefined } : x
+                            ),
+                          }))
+                        }
+                        placeholder="https://"
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-0.5">{tl.vehicle_doc_alert_days ?? "Alertar X días antes"}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={365}
+                        value={doc.alertDays ?? 30}
+                        onChange={(e) =>
+                          setVehicleDraft((d) => ({
+                            ...d,
+                            documents: (d.documents ?? []).map((x) =>
+                              x.id === doc.id
+                                ? { ...x, alertDays: Math.max(0, parseInt(e.target.value, 10) || 0) }
+                                : x
+                            ),
+                          }))
+                        }
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
+                  </>
+                );
+              })()}
               <div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).lastMaintenance ?? "Último mantenimiento"}</label><input type="date" value={vehicleDraft.lastMaintenanceDate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, lastMaintenanceDate: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).nextMaintenance ?? "Próximo mantenimiento"}</label><input type="date" value={vehicleDraft.nextMaintenanceDate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, nextMaintenanceDate: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).mileage ?? "Kilometraje"}</label><input type="number" min={0} value={vehicleDraft.mileage ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, mileage: e.target.value ? parseInt(e.target.value, 10) : undefined }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Notas</label><textarea rows={2} value={vehicleDraft.notes ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, notes: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>

@@ -51,6 +51,7 @@ export interface CorrectiveActionsModuleProps {
   onNavigateToHazard?: (hazardId: string) => void;
   /** Increment desde el dashboard para abrir el alta de acción. */
   openCreateSignal?: number;
+  lockedProjectId?: string | null;
   dateLocale: string;
   timeZone: string;
 }
@@ -121,6 +122,7 @@ export function CorrectiveActionsModule({
   onConsumePrefill,
   onNavigateToHazard,
   openCreateSignal = 0,
+  lockedProjectId = null,
   dateLocale,
   timeZone,
 }: CorrectiveActionsModuleProps) {
@@ -132,7 +134,9 @@ export function CorrectiveActionsModule({
   const [hazardTitles, setHazardTitles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterProject, setFilterProject] = useState("all");
+  const [filterProject, setFilterProject] = useState(() =>
+    lockedProjectId ? lockedProjectId : "all"
+  );
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -140,11 +144,25 @@ export function CorrectiveActionsModule({
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
+    if (lockedProjectId) setFilterProject(lockedProjectId);
+  }, [lockedProjectId]);
+
+  useEffect(() => {
     if (openCreateSignal > lastCreateSig.current && !readOnly) {
       setCreateOpen(true);
     }
     lastCreateSig.current = openCreateSignal;
   }, [openCreateSignal, readOnly]);
+
+  useEffect(() => {
+    if (!lockedProjectId || !createOpen) return;
+    const name = projects.find((p) => p.id === lockedProjectId)?.name ?? "";
+    setForm((f) =>
+      f.project_id === lockedProjectId && f.project_name === name
+        ? f
+        : { ...f, project_id: lockedProjectId, project_name: name }
+    );
+  }, [lockedProjectId, createOpen, projects]);
 
   const [detail, setDetail] = useState<CorrectiveAction | null>(null);
   const [form, setForm] = useState<CorrectiveActionFormData>(() => emptyForm());
@@ -259,9 +277,14 @@ export function CorrectiveActionsModule({
     }
   }, [detail]);
 
+  const rowsScoped = useMemo(() => {
+    if (!lockedProjectId) return rows;
+    return rows.filter((r) => r.project_id === lockedProjectId);
+  }, [rows, lockedProjectId]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    return rowsScoped.filter((r) => {
       if (filterProject !== "all" && r.project_id !== filterProject) return false;
       if (filterType !== "all" && r.action_type !== filterType) return false;
       if (filterPriority !== "all" && r.priority !== filterPriority) return false;
@@ -279,7 +302,7 @@ export function CorrectiveActionsModule({
       return true;
     });
   }, [
-    rows,
+    rowsScoped,
     search,
     filterProject,
     filterType,
@@ -295,10 +318,10 @@ export function CorrectiveActionsModule({
   }, []);
 
   const stats = useMemo(() => {
-    const open = rows.filter((r) => r.status === "open").length;
-    const inProg = rows.filter((r) => r.status === "in_progress").length;
-    const overdue = rows.filter(isOverdue).length;
-    const closedWeek = rows.filter(
+    const open = rowsScoped.filter((r) => r.status === "open").length;
+    const inProg = rowsScoped.filter((r) => r.status === "in_progress").length;
+    const overdue = rowsScoped.filter(isOverdue).length;
+    const closedWeek = rowsScoped.filter(
       (r) =>
         r.status === "closed" &&
         r.updated_at &&
@@ -309,11 +332,11 @@ export function CorrectiveActionsModule({
       corrective: 0,
       preventive: 0,
     };
-    for (const r of rows) {
+    for (const r of rowsScoped) {
       if (!isTerminal(r.status)) typeDist[r.action_type] = (typeDist[r.action_type] ?? 0) + 1;
     }
     return { open, inProg, overdue, closedWeek, typeDist };
-  }, [rows, weekAgo]);
+  }, [rowsScoped, weekAgo]);
 
   const maxType = Math.max(1, ...Object.values(stats.typeDist));
 
@@ -595,23 +618,34 @@ export function CorrectiveActionsModule({
       </div>
 
       <FilterGrid>
-        <label className="flex flex-col gap-1 text-sm min-w-0">
-          <span className="text-gray-600 dark:text-gray-400">
-            {t.hazards_filter_project ?? "Project"}
-          </span>
-          <select
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
-            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
-          >
-            <option value="all">{t.hazards_filter_all ?? "All"}</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!lockedProjectId ? (
+          <label className="flex flex-col gap-1 text-sm min-w-0">
+            <span className="text-gray-600 dark:text-gray-400">
+              {t.hazards_filter_project ?? "Project"}
+            </span>
+            <select
+              value={filterProject}
+              onChange={(e) => setFilterProject(e.target.value)}
+              className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
+            >
+              <option value="all">{t.hazards_filter_all ?? "All"}</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <div className="flex flex-col gap-1 text-sm min-w-0">
+            <span className="text-gray-600 dark:text-gray-400">
+              {t.hazards_filter_project ?? "Project"}
+            </span>
+            <span className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 px-3 py-2.5 min-h-[44px] text-sm flex items-center text-gray-800 dark:text-gray-200">
+              {projects.find((p) => p.id === lockedProjectId)?.name ?? lockedProjectId}
+            </span>
+          </div>
+        )}
         <label className="flex flex-col gap-1 text-sm min-w-[140px]">
           <span className="text-gray-600 dark:text-gray-400">{t.actions_type ?? "Type"}</span>
           <select
@@ -924,25 +958,31 @@ export function CorrectiveActionsModule({
             </div>
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">{t.hazards_filter_project ?? "Project"}</span>
-              <select
-                className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
-                value={form.project_id}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setForm((f) => ({
-                    ...f,
-                    project_id: id,
-                    project_name: projects.find((p) => p.id === id)?.name ?? "",
-                  }));
-                }}
-              >
-                <option value="">{t.hazards_filter_all ?? "—"}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              {lockedProjectId ? (
+                <div className="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 px-3 py-2.5 min-h-[44px] text-sm flex items-center text-gray-800 dark:text-gray-200">
+                  {projects.find((p) => p.id === lockedProjectId)?.name ?? lockedProjectId}
+                </div>
+              ) : (
+                <select
+                  className="mt-1 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 min-h-[44px] text-sm"
+                  value={form.project_id}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      project_id: id,
+                      project_name: projects.find((p) => p.id === id)?.name ?? "",
+                    }));
+                  }}
+                >
+                  <option value="">{t.hazards_filter_all ?? "—"}</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
             <label className="block text-sm">
               <span className="text-gray-600 dark:text-gray-400">

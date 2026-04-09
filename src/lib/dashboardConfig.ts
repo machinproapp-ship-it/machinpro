@@ -10,6 +10,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "activity",
   "compliance_alerts",
   "hazards",
+  "security_summary",
   "visitors",
   "my_tasks",
   "daily_report",

@@ -40,6 +40,7 @@ import {
   ChevronUp,
   ChevronDown,
   Download,
+  Shield,
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
@@ -57,6 +58,7 @@ import { ProjectTimeclockSection } from "@/components/ProjectTimeclockSection";
 import type { ToolStatus, ResourceRequest } from "@/components/LogisticsModule";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import type { UserRole } from "@/types/shared";
+import { ProjectSecurityTab } from "@/components/ProjectSecurityTab";
 import type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask, TaskPriority } from "@/types/projectTask";
@@ -260,6 +262,29 @@ export interface ProjectsModuleProps {
   /** Desde Central: abrir pestaña RFI del proyecto seleccionado */
   openRfiTabSignal?: number;
   showProjectRfiTab?: boolean;
+  /** AH-21: pestaña Seguridad (riesgos + acciones en el proyecto). */
+  showProjectSecurityTab?: boolean;
+  projectsSecurityTabSignal?: number;
+  projectSecurityCompanyId?: string | null;
+  projectSecurityCompanyName?: string;
+  projectSecurityUserRole?: UserRole;
+  projectSecurityUserName?: string;
+  projectSecurityUserProfileId?: string | null;
+  projectSecurityFocusHazardId?: string | null;
+  onProjectSecurityFocusHazardConsumed?: () => void;
+  projectSecurityCorrectivePrefill?: import("@/components/CorrectiveActionsModule").CorrectiveActionsPrefill | null;
+  onProjectSecurityConsumeCorrectivePrefill?: () => void;
+  projectSecurityOpenHazardSignal?: number;
+  projectSecurityOpenActionSignal?: number;
+  onProjectSecuritySetCorrectivePrefill?: (
+    p: import("@/components/CorrectiveActionsModule").CorrectiveActionsPrefill | null
+  ) => void;
+  onProjectSecurityRequestFocusHazard?: (id: string) => void;
+  onProjectSecurityInteraction?: () => void;
+  projectSecurityCanShowHazards?: boolean;
+  projectSecurityCanShowActions?: boolean;
+  projectSecurityDateLocale?: string;
+  projectSecurityTimeZone?: string;
   /** Informe PDF de inspección (galería → Inspección). */
   canManageProjectGallery?: boolean;
   onInspectionReportGenerated?: (payload: {
@@ -423,7 +448,8 @@ type TabId =
   | "blueprints"
   | "formularios"
   | "visitantes"
-  | "rfi";
+  | "rfi"
+  | "seguridad";
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "general", icon: <Info className="h-4 w-4" /> },
@@ -434,6 +460,7 @@ const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "formularios", icon: <ClipboardList className="h-4 w-4" /> },
   { id: "visitantes", icon: <UserCheck className="h-4 w-4" /> },
   { id: "rfi", icon: <FileQuestion className="h-4 w-4" /> },
+  { id: "seguridad", icon: <Shield className="h-4 w-4" /> },
 ];
 
 // ─── Componente principal ──────────────────────────────────────────────────────
@@ -510,6 +537,26 @@ export function ProjectsModule({
   showProjectVisitorsTab = true,
   openRfiTabSignal = 0,
   showProjectRfiTab = false,
+  showProjectSecurityTab = false,
+  projectsSecurityTabSignal = 0,
+  projectSecurityCompanyId = null,
+  projectSecurityCompanyName = "",
+  projectSecurityUserRole = "admin",
+  projectSecurityUserName = "",
+  projectSecurityUserProfileId = null,
+  projectSecurityFocusHazardId = null,
+  onProjectSecurityFocusHazardConsumed,
+  projectSecurityCorrectivePrefill = null,
+  onProjectSecurityConsumeCorrectivePrefill,
+  projectSecurityOpenHazardSignal = 0,
+  projectSecurityOpenActionSignal = 0,
+  onProjectSecuritySetCorrectivePrefill,
+  onProjectSecurityRequestFocusHazard,
+  onProjectSecurityInteraction,
+  projectSecurityCanShowHazards = false,
+  projectSecurityCanShowActions = false,
+  projectSecurityDateLocale = "es",
+  projectSecurityTimeZone = "UTC",
   canManageProjectGallery = false,
   onInspectionReportGenerated,
   canUploadPhotos = false,
@@ -520,6 +567,7 @@ export function ProjectsModule({
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const lastVisitorNavSig = useRef(0);
   const lastRfiNavSig = useRef(0);
+  const lastSecurityNavSig = useRef(0);
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -646,6 +694,12 @@ export function ProjectsModule({
   }, [showProjectRfiTab, activeTab]);
 
   useEffect(() => {
+    if (!showProjectSecurityTab && activeTab === "seguridad") {
+      setActiveTab("general");
+    }
+  }, [showProjectSecurityTab, activeTab]);
+
+  useEffect(() => {
     const tab = visitorTabSignal ?? 0;
     const qr = visitorOpenQrSignal ?? 0;
     const mx = Math.max(tab, qr);
@@ -660,6 +714,13 @@ export function ProjectsModule({
     lastRfiNavSig.current = s;
     setActiveTab("rfi");
   }, [openRfiTabSignal, selectedProjectId]);
+
+  useEffect(() => {
+    const s = projectsSecurityTabSignal ?? 0;
+    if (!s || s <= lastSecurityNavSig.current || !selectedProjectId || !showProjectSecurityTab) return;
+    lastSecurityNavSig.current = s;
+    setActiveTab("seguridad");
+  }, [projectsSecurityTabSignal, selectedProjectId, showProjectSecurityTab]);
 
   useEffect(() => {
     if (!openSafetyChecklistId) {
@@ -1259,7 +1320,8 @@ export function ProjectsModule({
             {TABS.filter(
               (tab) =>
                 (showProjectVisitorsTab || tab.id !== "visitantes") &&
-                (showProjectRfiTab || tab.id !== "rfi")
+                (showProjectRfiTab || tab.id !== "rfi") &&
+                (showProjectSecurityTab || tab.id !== "seguridad")
             ).map((tab) => {
               const label =
                 tab.id === "general"
@@ -1281,6 +1343,8 @@ export function ProjectsModule({
                     ""
                   : tab.id === "rfi"
                   ? (t as Record<string, string>).site_tab_rfi ?? (t as Record<string, string>).rfi_menu ?? PM_EN.rfi_menu
+                  : tab.id === "seguridad"
+                    ? (t as Record<string, string>).security_tab ?? PM_EN.security_tab
                   : "";
               const badge =
                 tab.id === "galeria" && pendingObraPhotos.length > 0 && canApprove
@@ -3395,6 +3459,34 @@ export function ProjectsModule({
             />
           </div>
         )}
+
+        {activeTab === "seguridad" && selectedProject && showProjectSecurityTab && onProjectSecuritySetCorrectivePrefill && onProjectSecurityRequestFocusHazard ? (
+          <ProjectSecurityTab
+            t={t as Record<string, string>}
+            projectId={selectedProject.id}
+            projectName={selectedProject.name}
+            companyId={projectSecurityCompanyId}
+            companyName={projectSecurityCompanyName}
+            userRole={projectSecurityUserRole}
+            userName={projectSecurityUserName}
+            userProfileId={projectSecurityUserProfileId}
+            projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
+            employees={(allEmployees ?? []).map((e) => ({ id: e.id, name: e.name, role: e.role }))}
+            focusHazardId={projectSecurityFocusHazardId ?? null}
+            onFocusHazardConsumed={onProjectSecurityFocusHazardConsumed ?? (() => undefined)}
+            correctivePrefill={projectSecurityCorrectivePrefill ?? null}
+            onConsumeCorrectivePrefill={onProjectSecurityConsumeCorrectivePrefill ?? (() => undefined)}
+            openHazardSignal={projectSecurityOpenHazardSignal}
+            openActionSignal={projectSecurityOpenActionSignal}
+            onSetCorrectivePrefill={onProjectSecuritySetCorrectivePrefill}
+            onRequestFocusHazard={onProjectSecurityRequestFocusHazard}
+            onSecurityInteraction={onProjectSecurityInteraction}
+            canShowHazards={projectSecurityCanShowHazards}
+            canShowActions={projectSecurityCanShowActions}
+            dateLocale={projectSecurityDateLocale}
+            timeZone={projectSecurityTimeZone}
+          />
+        ) : null}
       </div>
 
       {/* Modal: elegir categoría antes de subir foto (galería) */}

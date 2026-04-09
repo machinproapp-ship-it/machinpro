@@ -30,6 +30,8 @@ import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
+import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
@@ -63,8 +65,12 @@ export interface Vehicle {
   plate: string;
   usualDriverId: string;
   currentProjectId: string | null;
-  insuranceExpiry: string;
-  inspectionExpiry: string;
+  /** @deprecated Prefer `documents`; kept for datos locales antiguos. */
+  insuranceExpiry?: string;
+  /** @deprecated Prefer `documents`. */
+  inspectionExpiry?: string;
+  /** Documentación personalizable (vencimientos, URLs). */
+  documents?: VehicleDocument[];
   imageUrl?: string;
   vehicleStatus?: VehicleStatus;
   lastMaintenanceDate?: string;
@@ -251,6 +257,34 @@ function vehicleComplianceFieldLabel(field: ComplianceField, tl: Record<string, 
   };
   const key = m[field.id];
   return key ? (tl[key] ?? field.name) : field.name;
+}
+
+function vehicleDocFleetBadge(docs: VehicleDocument[] | undefined, labels: Record<string, string>): React.ReactNode | null {
+  if (!docs?.length) return null;
+  const w = worstVehicleDocStatus(docs);
+  if (w === "ok")
+    return (
+      <span className="inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        {labels.valid ?? "Al día"}
+      </span>
+    );
+  if (w === "soon")
+    return (
+      <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+        {labels.expiring ?? "Vence pronto"}
+      </span>
+    );
+  if (w === "expired")
+    return (
+      <span className="inline-flex rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+        {labels.expired ?? "Vencido"}
+      </span>
+    );
+  return (
+    <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+      {labels.missing ?? "Sin fecha"}
+    </span>
+  );
 }
 
 function getVehicleComplianceStatusBadge(record: ComplianceRecord | undefined, labels: Record<string, string>): React.ReactNode {
@@ -1507,16 +1541,26 @@ export function LogisticsModule({
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                     <span>{t.whUsualDriver}: {driver?.name ?? "—"}</span>
-                    <span>{t.whInsuranceExpiry}: {v.insuranceExpiry}</span>
-                    {(v.insuranceExpiry && v.insuranceExpiry < today) && (
-                      <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        {tlLabels.insuranceExpiredBadge ?? "Insurance expired"}
-                      </span>
-                    )}
-                    {(v.inspectionExpiry && v.inspectionExpiry < today) && (
-                      <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        {tlLabels.inspectionExpiredBadge ?? "Inspection expired"}
-                      </span>
+                    {v.documents?.length ? (
+                      <div className="col-span-2 flex flex-wrap items-center gap-2">
+                        <span>{(tlLabels as Record<string, string>).vehicle_documents ?? "Vehicle documents"}:</span>
+                        {vehicleDocFleetBadge(v.documents, tlLabels as Record<string, string>)}
+                        <span className="text-zinc-400">({v.documents.length})</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span>{t.whInsuranceExpiry}: {v.insuranceExpiry ?? "—"}</span>
+                        {(v.insuranceExpiry && v.insuranceExpiry < today) && (
+                          <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                            {tlLabels.insuranceExpiredBadge ?? "Insurance expired"}
+                          </span>
+                        )}
+                        {(v.inspectionExpiry && v.inspectionExpiry < today) && (
+                          <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                            {tlLabels.inspectionExpiredBadge ?? "Inspection expired"}
+                          </span>
+                        )}
+                      </>
                     )}
                     <span className="col-span-2">
                       <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!v.currentProjectId)}`}>
@@ -1586,8 +1630,9 @@ export function LogisticsModule({
                 <tr>
                   <th className="px-4 py-3 font-medium">{tlLabels.wh_vehicle_plate ?? "License plate"}</th>
                   <th className="px-4 py-3 font-medium">{t.whUsualDriver ?? "Usual driver"}</th>
-                  <th className="px-4 py-3 font-medium">{t.whInsuranceExpiry ?? "Insurance expiry"}</th>
-                  <th className="px-4 py-3 font-medium">{vehicleInspectionLabel}</th>
+                  <th className="px-4 py-3 font-medium">
+                    {(tlLabels as Record<string, string>).vehicle_documents ?? t.whInsuranceExpiry ?? "Documents"}
+                  </th>
                   <th className="px-4 py-3 font-medium">{t.assignedProject ?? "Project"}</th>
                   <th className="px-4 py-3 font-medium">{tlLabels.status ?? "Status"}</th>
                   <th className="px-4 py-3 font-medium">{tlLabels.wh_maintenance_column ?? "Maintenance"}</th>
@@ -1615,20 +1660,31 @@ export function LogisticsModule({
                       </td>
                       <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{driver?.name ?? "—"}</td>
                       <td className="px-4 py-3">
-                        <span className="flex flex-col gap-1">
-                          <span>{v.insuranceExpiry}</span>
-                          {v.insuranceExpiry && v.insuranceExpiry < today && (
-                            <span className="inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{tlLabels.insuranceExpiredBadge ?? "Insurance expired"}</span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="flex flex-col gap-1">
-                          <span>{v.inspectionExpiry}</span>
-                          {v.inspectionExpiry && v.inspectionExpiry < today && (
-                            <span className="inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{tlLabels.inspectionExpiredBadge ?? "Inspection expired"}</span>
-                          )}
-                        </span>
+                        {v.documents?.length ? (
+                          <div className="flex flex-col gap-1 items-start">
+                            {vehicleDocFleetBadge(v.documents, tlLabels as Record<string, string>)}
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">{v.documents.length}</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-300">
+                            <span>
+                              {t.whInsuranceExpiry ?? "Ins"}: {v.insuranceExpiry ?? "—"}
+                              {v.insuranceExpiry && v.insuranceExpiry < today ? (
+                                <span className="ml-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                  {tlLabels.insuranceExpiredBadge ?? "!"}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span>
+                              {vehicleInspectionLabel}: {v.inspectionExpiry ?? "—"}
+                              {v.inspectionExpiry && v.inspectionExpiry < today ? (
+                                <span className="ml-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                  {tlLabels.inspectionExpiredBadge ?? "!"}
+                                </span>
+                              ) : null}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!v.currentProjectId)}`}>

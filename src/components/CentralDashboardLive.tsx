@@ -19,6 +19,7 @@ import {
   Briefcase,
   KeyRound,
   ShieldAlert,
+  Shield,
   GripVertical,
   X,
   Settings2,
@@ -284,6 +285,7 @@ const WIDGET_LABEL_KEYS: Record<DashboardWidgetId, string> = {
   activity: "dashboard_widget_activity",
   compliance_alerts: "complianceWatchdog",
   hazards: "hazards_title",
+  security_summary: "dashboard_widget_security_summary",
   visitors: "dashboard_widget_visitors",
   my_tasks: "myTasksToday",
   daily_report: "dailyReportToSign",
@@ -366,6 +368,11 @@ export interface CentralDashboardLiveProps {
   laborCostingRateByUserId?: Record<string, number>;
   laborCostingEmployeeLabels?: Record<string, string>;
   gettingStartedRefreshTk?: number;
+  /** AH-21: certificados / documentos con vencimiento expirado (empleados + vehículos). */
+  complianceExpiredCertCount?: number;
+  /** Solo usuarios con permiso de seguridad ven el widget opcional. */
+  canViewSecurityDashboard?: boolean;
+  onOpenOperationsSecurity?: () => void;
 }
 
 type TimeRow = {
@@ -441,6 +448,9 @@ function CentralDashboardBody(
     laborCostingRateByUserId = {},
     laborCostingEmployeeLabels = {},
     gettingStartedRefreshTk = 0,
+    complianceExpiredCertCount = 0,
+    canViewSecurityDashboard = false,
+    onOpenOperationsSecurity,
   } = props;
 
   const labels = labelsProp;
@@ -537,6 +547,7 @@ function CentralDashboardBody(
   const [activityRows, setActivityRows] = useState<AuditLogEntry[]>([]);
   const [auditProfileByUserId, setAuditProfileByUserId] = useState<Record<string, AuditProfileSnippet>>({});
   const [hazardRows, setHazardRows] = useState<Hazard[]>([]);
+  const [correctivePendingCount, setCorrectivePendingCount] = useState(0);
   const [visitorsTodayCount, setVisitorsTodayCount] = useState(0);
   const [visitorsActiveNow, setVisitorsActiveNow] = useState(0);
   const [visitorsRecent, setVisitorsRecent] = useState<VisitorWidgetRow[]>([]);
@@ -563,6 +574,12 @@ function CentralDashboardBody(
           return canManageComplianceAlerts;
         case "hazards":
           return canAccessHazards && (canManageEmployees || canManageComplianceAlerts);
+        case "security_summary":
+          return (
+            canViewSecurityDashboard &&
+            (canAccessHazards || canAccessCorrective) &&
+            (canManageEmployees || canManageComplianceAlerts)
+          );
         case "visitors":
           return canAccessVisitors && canManageEmployees;
         case "my_tasks":
@@ -586,6 +603,8 @@ function CentralDashboardBody(
       canViewAuditLog,
       canManageComplianceAlerts,
       canAccessHazards,
+      canAccessCorrective,
+      canViewSecurityDashboard,
       canAccessVisitors,
       canViewLogistics,
       laborCostingEnabled,
@@ -937,6 +956,21 @@ function CentralDashboardBody(
           } else if (!cancelled) {
             setHazardRows([]);
           }
+          if (
+            canViewSecurityDashboard &&
+            canAccessCorrective &&
+            (canManageEmployees || canManageComplianceAlerts)
+          ) {
+            const { count, error: cErr } = await supabase
+              .from("corrective_actions")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .in("status", ["open", "in_progress"]);
+            if (cErr) throw cErr;
+            if (!cancelled) setCorrectivePendingCount(count ?? 0);
+          } else if (!cancelled) {
+            setCorrectivePendingCount(0);
+          }
         } catch (e) {
           pushErr(e, L("dashboard_widget_hazards"));
         } finally {
@@ -964,6 +998,8 @@ function CentralDashboardBody(
     canViewAuditLog,
     canAccessVisitors,
     canAccessHazards,
+    canAccessCorrective,
+    canViewSecurityDashboard,
     canManageComplianceAlerts,
     loadDashboardConfig,
     dashboardRefreshTk,
@@ -1479,6 +1515,40 @@ function CentralDashboardBody(
                 ))
               )}
             </ul>
+          </>
+        );
+      case "security_summary":
+        if (hazardsLoading) return widgetSkeleton(2);
+        return widgetChrome(
+          id,
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-orange-500" aria-hidden />
+              {title}
+            </h3>
+            <ul className="text-sm space-y-2 text-gray-800 dark:text-gray-200">
+              <li className="flex justify-between gap-2">
+                <span>{L("dashboard_security_open_hazards") || L("hazards_title")}</span>
+                <span className="font-semibold tabular-nums">{hazardRows.length}</span>
+              </li>
+              <li className="flex justify-between gap-2">
+                <span>{L("dashboard_security_pending_actions") || L("security_corrective")}</span>
+                <span className="font-semibold tabular-nums">{correctivePendingCount}</span>
+              </li>
+              <li className="flex justify-between gap-2">
+                <span>{L("dashboard_security_expired_certs") || L("complianceWatchdog")}</span>
+                <span className="font-semibold tabular-nums">{complianceExpiredCertCount}</span>
+              </li>
+            </ul>
+            {onOpenOperationsSecurity ? (
+              <button
+                type="button"
+                onClick={() => onOpenOperationsSecurity()}
+                className="mt-3 min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 py-2"
+              >
+                {L("dashboard_security_open_operations") || L("nav_operations") || "Operations"}
+              </button>
+            ) : null}
           </>
         );
       case "visitors":
