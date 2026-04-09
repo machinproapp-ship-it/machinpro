@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
@@ -21,7 +22,6 @@ import {
   Clock,
   MapPin,
 } from "lucide-react";
-import { EmployeeGpsRouteTab } from "@/components/EmployeeGpsRouteTab";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
 import { useToast } from "@/components/Toast";
@@ -51,6 +51,19 @@ import type {
   ScheduleEntry,
   VacationRequestRow,
 } from "@/app/page";
+
+const EmployeeGpsRouteTab = dynamic(
+  () => import("@/components/EmployeeGpsRouteTab").then((m) => m.EmployeeGpsRouteTab),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="h-[300px] md:h-[450px] animate-pulse rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-100 dark:bg-slate-800/80"
+        aria-hidden
+      />
+    ),
+  }
+);
 
 export interface EmployeesModuleProps {
   companyId: string | null;

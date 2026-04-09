@@ -10,8 +10,17 @@ import {
   formatTodayYmdInTimeZone,
   zonedYmdHmToUtcIso,
 } from "@/lib/dateUtils";
-import { ensureLeafletDefaultIcons } from "@/lib/leafletDefaultIcons";
 import { nominatimReverseLabel } from "@/lib/nominatimReverse";
+
+function ensureLeafletDefaultIcons(): void {
+  const proto = L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown };
+  delete proto._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  });
+}
 
 const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";

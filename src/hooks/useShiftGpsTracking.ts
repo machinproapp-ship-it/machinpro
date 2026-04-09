@@ -21,12 +21,14 @@ export function useShiftGpsTracking(opts: {
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
+    if (typeof window === "undefined") return;
+
+    if (timerRef.current != null) {
+      window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
     if (!entryId || !companyId || !userId || !enabled) return;
-    if (typeof window === "undefined" || !navigator.geolocation) return;
+    if (!navigator.geolocation) return;
 
     const push = () => {
       navigator.geolocation.getCurrentPosition(
