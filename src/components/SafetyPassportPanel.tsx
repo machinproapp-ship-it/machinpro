@@ -244,14 +244,14 @@ export function SafetyPassportPanel({
 
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
           <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden />
           {L(t, "safety_passport", "Safety passport")}
         </h3>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <span
-            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-2 ${badge.cls}`}
+            className={`inline-flex w-full justify-center rounded-full px-3 py-2 text-xs font-semibold ring-2 sm:w-auto sm:py-1 ${badge.cls}`}
           >
             {badge.label}
           </span>

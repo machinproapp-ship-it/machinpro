@@ -82,6 +82,10 @@ export interface OnboardingModalProps {
 
 type Phase = "welcome" | "wizard" | "finished";
 
+function onboardingProgressKey(companyId: string) {
+  return `machinpro_onboarding_progress_${companyId}`;
+}
+
 export function OnboardingModal({
   onComplete,
   labels: t,
@@ -131,6 +135,33 @@ export function OnboardingModal({
     setStep1Tz(resolveUserTimezone(profileTimeZone));
   }, [profileTimeZone]);
 
+  useEffect(() => {
+    if (!companyId) return;
+    try {
+      const raw = localStorage.getItem(onboardingProgressKey(companyId));
+      if (!raw) return;
+      const j = JSON.parse(raw) as { phase?: Phase; wizardStep?: number };
+      if (j.phase === "wizard" && typeof j.wizardStep === "number" && j.wizardStep >= 1 && j.wizardStep <= 3) {
+        setPhase("wizard");
+        setWizardStep(j.wizardStep);
+      } else if (j.phase === "welcome") {
+        setPhase("welcome");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    if (phase === "finished") return;
+    try {
+      localStorage.setItem(onboardingProgressKey(companyId), JSON.stringify({ phase, wizardStep }));
+    } catch {
+      /* ignore */
+    }
+  }, [companyId, phase, wizardStep]);
+
   const [step2Industry, setStep2Industry] = useState("construction");
   const [step2Size, setStep2Size] = useState("");
 
@@ -172,15 +203,25 @@ export function OnboardingModal({
     setWizardStep(1);
   }, []);
 
+  const clearStoredProgress = useCallback(() => {
+    if (!companyId) return;
+    try {
+      localStorage.removeItem(onboardingProgressKey(companyId));
+    } catch {
+      /* ignore */
+    }
+  }, [companyId]);
+
   const skipEntireOnboarding = useCallback(async () => {
     setError(null);
     setBusy(true);
     try {
+      clearStoredProgress();
       await onComplete();
     } finally {
       setBusy(false);
     }
-  }, [onComplete]);
+  }, [onComplete, clearStoredProgress]);
 
   const saveStep1AndNext = useCallback(async () => {
     setError(null);
@@ -369,11 +410,12 @@ export function OnboardingModal({
   const finalizeOnboarding = useCallback(async () => {
     setBusy(true);
     try {
+      clearStoredProgress();
       await onComplete();
     } finally {
       setBusy(false);
     }
-  }, [onComplete]);
+  }, [onComplete, clearStoredProgress]);
 
   const openCloudinaryForStep1 = useCallback(() => {
     onLogoUpload();
@@ -396,7 +438,7 @@ export function OnboardingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4 sm:py-6">
       <div
-        className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:my-auto sm:max-h-[min(92dvh,720px)] sm:rounded-2xl"
+        className="flex max-h-[min(100dvh,100svh)] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:my-auto sm:max-h-[min(92dvh,720px)] sm:rounded-2xl"
         role="dialog"
         aria-modal
         aria-labelledby="onboarding-title"

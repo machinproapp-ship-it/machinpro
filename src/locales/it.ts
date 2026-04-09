@@ -2259,5 +2259,7 @@ export default {
   labor_cost_filter_month: "Mese",
   labor_cost_filter_custom: "Intervallo",
   labor_cost_column: "Costo",
+  labor_export_report: "Esporta rapporto",
+  labor_report_summary: "Riepilogo costi",
   employees_labor_rate_hint: "Facoltativo. Valuta secondo le impostazioni aziendali.",
 } as const;

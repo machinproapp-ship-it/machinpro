@@ -350,6 +350,7 @@ export interface CentralDashboardLiveProps {
   laborCostingCurrency?: string;
   laborCostingRateByUserId?: Record<string, number>;
   laborCostingEmployeeLabels?: Record<string, string>;
+  gettingStartedRefreshTk?: number;
 }
 
 type TimeRow = {
@@ -423,6 +424,7 @@ function CentralDashboardBody(
     laborCostingCurrency = "CAD",
     laborCostingRateByUserId = {},
     laborCostingEmployeeLabels = {},
+    gettingStartedRefreshTk = 0,
   } = props;
 
   const labels = labelsProp;
@@ -1567,6 +1569,7 @@ function CentralDashboardBody(
           id,
           <LaborCostingDashboardWidget
             companyId={companyId}
+            companyNameForFiles={companyName ?? ""}
             labels={labels}
             timeZone={timeZone}
             dateLocaleBcp47={dateLoc}
@@ -1630,7 +1633,12 @@ function CentralDashboardBody(
       ) : null}
 
       {currentUserRole === "admin" ? (
-        <GettingStartedWidget companyId={companyId} labels={labels} onNavigateAppSection={onNavigateAppSection} />
+        <GettingStartedWidget
+          companyId={companyId}
+          labels={labels}
+          onNavigateAppSection={onNavigateAppSection}
+          refreshToken={gettingStartedRefreshTk}
+        />
       ) : null}
 
       {showZone1 ? (

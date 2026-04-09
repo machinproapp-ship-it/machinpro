@@ -2259,5 +2259,7 @@ export default {
   labor_cost_filter_month: "Mês",
   labor_cost_filter_custom: "Intervalo",
   labor_cost_column: "Custo",
+  labor_export_report: "Exportar relatório",
+  labor_report_summary: "Resumo de custos",
   employees_labor_rate_hint: "Opcional. Moeda conforme as definições da empresa.",
 } as const;

@@ -2245,5 +2245,7 @@ export default {
   labor_cost_filter_month: "Mois",
   labor_cost_filter_custom: "Plage",
   labor_cost_column: "Coût",
+  labor_export_report: "Exporter le rapport",
+  labor_report_summary: "Résumé des coûts",
   employees_labor_rate_hint: "Facultatif. Devise selon les réglages de l’entreprise.",
 } as const;

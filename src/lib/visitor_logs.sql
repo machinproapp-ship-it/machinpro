@@ -37,30 +37,18 @@ create policy "visitor_logs_anon_insert"
     exists (select 1 from companies c where c.id = company_id)
   );
 
--- Usuarios autenticados: ver visitantes de su empresa
+-- Usuarios autenticados: ver visitantes de su empresa (get_my_company_id — ver av7_attendance_profiles_rpc.sql)
 create policy "visitor_logs_select_company"
   on visitor_logs for select
   to authenticated
-  using (
-    company_id in (
-      select company_id from user_profiles where id = auth.uid()
-    )
-  );
+  using (company_id = public.get_my_company_id());
 
 -- Usuarios autenticados: actualizar check-out manual
 create policy "visitor_logs_update_company"
   on visitor_logs for update
   to authenticated
-  using (
-    company_id in (
-      select company_id from user_profiles where id = auth.uid()
-    )
-  )
-  with check (
-    company_id in (
-      select company_id from user_profiles where id = auth.uid()
-    )
-  );
+  using (company_id = public.get_my_company_id())
+  with check (company_id = public.get_my_company_id());
 
 -- Realtime (Dashboard → Database → Replication): añadir tabla visitor_logs a la publicación supabase_realtime si aplica:
 -- alter publication supabase_realtime add table visitor_logs;

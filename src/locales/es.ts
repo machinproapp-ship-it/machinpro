@@ -2315,5 +2315,7 @@ export default {
   labor_cost_filter_month: "Mes",
   labor_cost_filter_custom: "Rango",
   labor_cost_column: "Coste",
+  labor_export_report: "Exportar reporte",
+  labor_report_summary: "Resumen de costes",
   employees_labor_rate_hint: "Opcional. Moneda según ajustes de la empresa.",
 } as const;

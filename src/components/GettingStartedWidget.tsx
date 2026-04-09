@@ -11,9 +11,16 @@ export interface GettingStartedWidgetProps {
   companyId: string;
   labels: Record<string, string>;
   onNavigateAppSection: (section: MainSection) => void;
+  /** Cuando cambia (p. ej. tras onboarding), se vuelve a cargar el checklist. */
+  refreshToken?: number;
 }
 
-export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }: GettingStartedWidgetProps) {
+export function GettingStartedWidget({
+  companyId,
+  labels,
+  onNavigateAppSection,
+  refreshToken = 0,
+}: GettingStartedWidgetProps) {
   const L = (k: string, fb: string) => labels[k] ?? fb;
   const [minimized, setMinimized] = useState(false);
   const [steps, setSteps] = useState<boolean[] | null>(null);
@@ -68,6 +75,10 @@ export function GettingStartedWidget({ companyId, labels, onNavigateAppSection }
     const id = window.setInterval(() => void fetchStatus(), 45000);
     return () => clearInterval(id);
   }, [fetchStatus]);
+
+  useEffect(() => {
+    if (refreshToken > 0) void fetchStatus();
+  }, [refreshToken, fetchStatus]);
 
   const completeOnboarding = useCallback(() => {
     if (completionMarkedRef.current) return;

@@ -419,7 +419,7 @@ export function TrainingHubModule({
       ) : null}
 
       {canManageTraining && visibleCourses.length > 0 ? (
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {visibleCourses.map((c) => (
             <li
               key={c.id}
@@ -565,7 +565,48 @@ export function TrainingHubModule({
           </label>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900">
+        <ul className="space-y-2 sm:hidden">
+          {assignmentRows.length === 0 ? (
+            <li className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 py-6 text-center text-sm text-zinc-500 italic">
+              {L(t, "training_no_rows", "No rows")}
+            </li>
+          ) : (
+            assignmentRows.map(({ a, c, disp }) => (
+              <li
+                key={a.id}
+                className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900 p-3 text-sm space-y-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{c?.title ?? L(t, "common_dash", "—")}</p>
+                    {canManageTraining ? (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{employeeName(a.user_id)}</p>
+                    ) : null}
+                  </div>
+                  {statusBadge(disp)}
+                </div>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                  {L(t, "training_col_completed", "Completed")}:{" "}
+                  {a.completed_at
+                    ? new Date(a.completed_at).toLocaleDateString(dateLocale)
+                    : L(t, "common_dash", "—")}
+                </p>
+                {disp !== "completed" && a.user_id === userProfileId ? (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void markComplete(a.id)}
+                    className="w-full min-h-[44px] rounded-lg border border-amber-500/60 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                  >
+                    {L(t, "training_mark_complete", "Mark complete")}
+                  </button>
+                ) : null}
+              </li>
+            ))
+          )}
+        </ul>
+
+        <div className="hidden sm:block overflow-x-auto rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-slate-900">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50">
@@ -654,7 +695,7 @@ export function TrainingHubModule({
           aria-modal
           aria-labelledby="assign-training-title"
         >
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:rounded-2xl">
+          <div className="max-h-[min(90dvh,100svh)] w-full min-w-0 max-w-none overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:max-w-lg sm:rounded-2xl">
             <div className="flex items-start justify-between gap-2">
               <h4 id="assign-training-title" className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {L(t, "training_assign", "Assign")}: {assignModalCourse.title}
@@ -662,7 +703,7 @@ export function TrainingHubModule({
               <button
                 type="button"
                 onClick={() => setAssignModalCourse(null)}
-                className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="min-h-[44px] min-w-[44px] rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 aria-label={L(t, "common_close", "Close")}
               >
                 <X className="h-5 w-5" />
@@ -823,7 +864,7 @@ function CourseEditModal({
       role="dialog"
       aria-modal
     >
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:rounded-2xl">
+      <div className="max-h-[min(92dvh,100svh)] w-full min-w-0 max-w-none overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:max-w-lg sm:rounded-2xl">
         <div className="flex items-start justify-between gap-2">
           <h4 className="text-lg font-semibold text-zinc-900 dark:text-white">
             {initial ? L(t, "common_edit", "Edit") : L(t, "training_new_course", "New course")}

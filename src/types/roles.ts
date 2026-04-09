@@ -49,6 +49,8 @@ export interface RolePermissions {
   canManageVacations: boolean;
   canViewTimesheets: boolean;
   canManageTimesheets: boolean;
+  /** Ver costes de personal, exportar informes laborales (CSV/PDF). */
+  canViewLaborCosting: boolean;
 
   // ─── Logística ──────────────────────────────────────────
   canViewLogistics: boolean;
@@ -134,6 +136,7 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canManageVacations",
   "canViewTimesheets",
   "canManageTimesheets",
+  "canViewLaborCosting",
   "canViewLogistics",
   "canManageInventory",
   "canViewInventory",
@@ -228,6 +231,7 @@ export const ROLE_PERMISSION_GROUPS: {
       "canManageVacations",
       "canViewTimesheets",
       "canManageTimesheets",
+      "canViewLaborCosting",
     ],
   },
   {
@@ -318,6 +322,7 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageVacations: "Gestionar vacaciones",
   canViewTimesheets: "Ver hojas de horas",
   canManageTimesheets: "Editar hojas de horas",
+  canViewLaborCosting: "Ver costes de personal e informes",
   canViewLogistics: "Ver logística",
   canManageInventory: "Gestionar inventario",
   canViewInventory: "Ver inventario",

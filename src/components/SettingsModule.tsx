@@ -924,7 +924,7 @@ export function SettingsModule({
                     <select
                       value={companyCountry}
                       onChange={(e) => handleCountryChange(e.target.value)}
-                      className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                      className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
                     >
                       {COUNTRIES.map((c) => (
                         <option key={c.code} value={c.code}>
@@ -938,7 +938,7 @@ export function SettingsModule({
                     <select
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value)}
-                      className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+                      className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
                     >
                       {Object.entries(CURRENCY_META).map(([code, meta]) => (
                         <option key={code} value={code}>
@@ -958,7 +958,7 @@ export function SettingsModule({
                         setNumberFormat(v);
                         persistLocalePref("machinpro_number_format", v);
                       }}
-                      className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                      className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                     >
                       <option value="comma_decimal">1.000,00</option>
                       <option value="comma_thousands">1,000.00</option>
@@ -975,7 +975,7 @@ export function SettingsModule({
                   <select
                     value={regionalTimezone}
                     onChange={(e) => handleRegionalTimezoneChange(e.target.value)}
-                    className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                    className="w-full min-w-0 sm:max-w-md max-h-[min(50vh,320px)] overflow-y-auto rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                   >
                     {regionalTimezone &&
                     isValidIanaTimeZone(regionalTimezone) &&

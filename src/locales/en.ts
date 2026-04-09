@@ -2408,5 +2408,7 @@ export default {
   labor_cost_filter_month: "Month",
   labor_cost_filter_custom: "Custom range",
   labor_cost_column: "Cost",
+  labor_export_report: "Export report",
+  labor_report_summary: "Cost summary",
   employees_labor_rate_hint: "Optional. Currency follows company settings.",
 } as const;

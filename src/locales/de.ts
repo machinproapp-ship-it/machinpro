@@ -2234,5 +2234,7 @@ export default {
   labor_cost_filter_month: "Monat",
   labor_cost_filter_custom: "Zeitraum",
   labor_cost_column: "Kosten",
+  labor_export_report: "Bericht exportieren",
+  labor_report_summary: "Kostenzusammenfassung",
   employees_labor_rate_hint: "Optional. Währung gemäß Unternehmenseinstellungen.",
 } as const;

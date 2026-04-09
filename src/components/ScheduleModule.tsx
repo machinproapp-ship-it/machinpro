@@ -29,6 +29,11 @@ import {
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
+import {
+  downloadLaborReportDetailCsv,
+  downloadLaborReportExecutivePdf,
+  type LaborReportDetailRow,
+} from "@/lib/laborReportExport";
 import { hoursWorkedFromClockFields, laborCostForHours } from "@/lib/laborCosting";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
@@ -259,6 +264,14 @@ export interface ScheduleModuleProps {
     labor_cost_column?: string;
     labor_cost_total?: string;
     labor_hours_worked?: string;
+    labor_export_report?: string;
+    labor_report_summary?: string;
+    labor_cost_filter_week?: string;
+    labor_cost_filter_month?: string;
+    labor_cost_filter_custom?: string;
+    labor_cost_by_employee?: string;
+    labor_cost_by_project?: string;
+    logistics_filters_toggle?: string;
     admin?: string;
     supervisor?: string;
     worker?: string;
@@ -327,6 +340,8 @@ export interface ScheduleModuleProps {
   currentUserId?: string;
   /** AH-17 */
   canViewTimesheetCosts?: boolean;
+  /** AH-19: exportar informes laborales (CSV/PDF). */
+  canViewLaborCosting?: boolean;
   timesheetCostCurrency?: string;
   employeeLaborRatesByEmployeeId?: Record<string, number>;
 }
@@ -659,6 +674,7 @@ function TimesheetsView({
   dateLocale = "es-ES",
   timeZone: sheetTz,
   showTimesheetCosts = false,
+  canViewLaborCosting = false,
   timesheetCostCurrency = "CAD",
   employeeLaborRatesByEmployeeId = {},
 }: {
@@ -674,6 +690,7 @@ function TimesheetsView({
   dateLocale?: string;
   timeZone?: string;
   showTimesheetCosts?: boolean;
+  canViewLaborCosting?: boolean;
   timesheetCostCurrency?: string;
   employeeLaborRatesByEmployeeId?: Record<string, number>;
 }) {
@@ -681,6 +698,34 @@ function TimesheetsView({
   const tz = sheetTz ?? resolveUserTimezone(null);
   const lx = labels as Record<string, string>;
   const rateFor = (employeeId: string) => employeeLaborRatesByEmployeeId[employeeId] ?? null;
+
+  const monthStartEndYmdInTzLocal = (timeZone: string): [string, string] => {
+    const ymd = formatTodayYmdInTimeZone(timeZone);
+    const [ys, ms] = ymd.split("-");
+    const y = parseInt(ys ?? "0", 10);
+    const mo = parseInt(ms ?? "1", 10);
+    if (!Number.isFinite(y) || !Number.isFinite(mo)) return [ymd, ymd];
+    const lastDay = new Date(y, mo, 0).getDate();
+    const start = `${y}-${String(mo).padStart(2, "0")}-01`;
+    const end = `${y}-${String(mo).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    return [start, end];
+  };
+
+  const applyLaborWeekRange = () => {
+    const week = weekYmdsMondayFirstInTimeZone(tz, 0);
+    const start = week[0];
+    const end = week[week.length - 1];
+    if (start && end) {
+      setExportFrom(start);
+      setExportTo(end);
+    }
+  };
+
+  const applyLaborMonthRange = () => {
+    const [start, end] = monthStartEndYmdInTzLocal(tz);
+    setExportFrom(start);
+    setExportTo(end);
+  };
   const [exportFrom, setExportFrom] = useState(() => firstAndLastDayOfCurrentMonthYmd()[0]);
   const [exportTo, setExportTo] = useState(() => firstAndLastDayOfCurrentMonthYmd()[1]);
   const [periodType, setPeriodType] = useState<"weekly" | "biweekly" | "monthly">("weekly");
@@ -804,6 +849,118 @@ function TimesheetsView({
 
   const getEmployeeName = (id: string) =>
     employeeLabels[id] || employees.find((e) => e.id === id)?.name || id;
+
+  const laborReportPeriodLabel = useMemo(() => {
+    const from = exportFrom <= exportTo ? exportFrom : exportTo;
+    const to = exportFrom <= exportTo ? exportTo : exportFrom;
+    return `${from} – ${to}`;
+  }, [exportFrom, exportTo]);
+
+  const buildLaborExportDetailRows = useCallback((): LaborReportDetailRow[] => {
+    const from = exportFrom <= exportTo ? exportFrom : exportTo;
+    const to = exportFrom <= exportTo ? exportTo : exportFrom;
+    const out: LaborReportDetailRow[] = [];
+    for (const e of filteredClockForTs) {
+      if (!e.clockOut) continue;
+      if (e.date < from || e.date > to) continue;
+      const h = hoursWorkedForScheduleEntry(e);
+      if (h <= 0) continue;
+      const cost = laborCostForHours(h, rateFor(e.employeeId));
+      out.push({
+        employee: getEmployeeName(e.employeeId),
+        project: projectNameForClockEntry(e, projects),
+        hours: Math.round(h * 100) / 100,
+        cost: Math.round(cost * 100) / 100,
+        dateYmd: e.date,
+      });
+    }
+    return out;
+  }, [filteredClockForTs, exportFrom, exportTo, projects, employeeLabels, employees, employeeLaborRatesByEmployeeId]);
+
+  const exportLaborReportCsvClick = useCallback(() => {
+    try {
+      const detail = buildLaborExportDetailRows();
+      downloadLaborReportDetailCsv({
+        rows: detail,
+        periodLabel: laborReportPeriodLabel,
+        filenameSlug: fileSlugCompany(companyName, companyIdFallback || "co"),
+        labels: {
+          employee: lx.personnel ?? "Employee",
+          project: lx.project ?? "Project",
+          hours: lx.hours ?? "Hours",
+          cost: lx.labor_cost_column ?? "Cost",
+          date: lx.date ?? "Date",
+          period: lx.labor_cost_filter_custom ?? "Period",
+        },
+      });
+      showToast("success", lx.export_success ?? "Export completed");
+    } catch {
+      showToast("error", lx.export_error ?? "Export error");
+    }
+  }, [
+    buildLaborExportDetailRows,
+    laborReportPeriodLabel,
+    companyName,
+    companyIdFallback,
+    lx,
+    showToast,
+  ]);
+
+  const exportLaborReportPdfClick = useCallback(() => {
+    try {
+      const detail = buildLaborExportDetailRows();
+      const byEmp = new Map<string, { hours: number; cost: number }>();
+      const byProj = new Map<string, { hours: number; cost: number }>();
+      let totalH = 0;
+      let totalC = 0;
+      for (const r of detail) {
+        totalH += r.hours;
+        totalC += r.cost;
+        const ea = byEmp.get(r.employee) ?? { hours: 0, cost: 0 };
+        ea.hours += r.hours;
+        ea.cost += r.cost;
+        byEmp.set(r.employee, ea);
+        const pa = byProj.get(r.project) ?? { hours: 0, cost: 0 };
+        pa.hours += r.hours;
+        pa.cost += r.cost;
+        byProj.set(r.project, pa);
+      }
+      const byEmployee = [...byEmp.entries()]
+        .map(([name, v]) => ({ name, hours: v.hours, cost: Math.round(v.cost * 100) / 100 }))
+        .sort((a, b) => b.cost - a.cost);
+      const byProject = [...byProj.entries()]
+        .map(([name, v]) => ({ name, hours: v.hours, cost: Math.round(v.cost * 100) / 100 }))
+        .sort((a, b) => b.cost - a.cost);
+      downloadLaborReportExecutivePdf({
+        title: lx.labor_report_summary ?? "Cost summary",
+        periodLabel: laborReportPeriodLabel,
+        summaryHeading: lx.labor_report_summary ?? "Cost summary",
+        totalHoursLabel: lx.labor_hours_worked ?? "Hours worked",
+        totalCostLabel: lx.labor_cost_total ?? "Total cost",
+        byEmployeeHeading: lx.labor_cost_by_employee ?? "By employee",
+        byProjectHeading: lx.labor_cost_by_project ?? lx.timesheet_by_project ?? "By project",
+        currency: timesheetCostCurrency,
+        dateLocale,
+        totalHours: Math.round(totalH * 100) / 100,
+        totalCost: Math.round(totalC * 100) / 100,
+        byEmployee,
+        byProject,
+        filenameSlug: fileSlugCompany(companyName, companyIdFallback || "co"),
+      });
+      showToast("success", lx.export_success ?? "Export completed");
+    } catch {
+      showToast("error", lx.export_error ?? "Export error");
+    }
+  }, [
+    buildLaborExportDetailRows,
+    laborReportPeriodLabel,
+    lx,
+    timesheetCostCurrency,
+    dateLocale,
+    companyName,
+    companyIdFallback,
+    showToast,
+  ]);
 
   const exportTimesheetsCsv = () => {
     try {
@@ -951,6 +1108,48 @@ function TimesheetsView({
           {lx.timesheet_export ?? lx.export_timesheets ?? lx.export_csv ?? "Export"}
         </button>
       </div>
+
+      {canViewLaborCosting ? (
+        <div className="rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 px-3 py-3 space-y-3">
+          <p className="text-sm font-semibold text-zinc-900 dark:text-white">{lx.labor_export_report ?? "Export report"}</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={applyLaborWeekRange}
+              className="min-h-[44px] rounded-lg border border-zinc-300 dark:border-slate-600 px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+            >
+              {lx.labor_cost_filter_week ?? labels.weekly ?? "Week"}
+            </button>
+            <button
+              type="button"
+              onClick={applyLaborMonthRange}
+              className="min-h-[44px] rounded-lg border border-zinc-300 dark:border-slate-600 px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+            >
+              {lx.labor_cost_filter_month ?? labels.monthly ?? "Month"}
+            </button>
+            <span className="flex min-h-[44px] w-full min-w-0 items-center text-xs text-zinc-600 dark:text-zinc-400 sm:w-auto">
+              {lx.labor_cost_filter_custom ?? "Rango"}: {laborReportPeriodLabel}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <button
+              type="button"
+              onClick={() => exportLaborReportCsvClick()}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/50 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-emerald-800 dark:text-emerald-200 sm:w-auto"
+            >
+              <Download className="h-4 w-4 shrink-0" aria-hidden />
+              {lx.export_csv ?? "CSV"}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportLaborReportPdfClick()}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/50 bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 sm:w-auto"
+            >
+              {lx.export_pdf ?? "PDF"}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 sm:p-4">
         <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
@@ -1300,6 +1499,7 @@ export default function ScheduleModule({
   companyId = "",
   currentUserId = "",
   canViewTimesheetCosts = false,
+  canViewLaborCosting = false,
   timesheetCostCurrency = "CAD",
   employeeLaborRatesByEmployeeId = {},
 }: ScheduleModuleProps) {
@@ -1387,6 +1587,7 @@ export default function ScheduleModule({
   const [vacReqNote, setVacReqNote] = useState("");
   const [vacAdminComment, setVacAdminComment] = useState<Record<string, string>>({});
   const [vacFilterUserId, setVacFilterUserId] = useState("");
+  const [vacMobileFiltersOpen, setVacMobileFiltersOpen] = useState(false);
   const [vacFilterStatus, setVacFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [teamAvailabilityOpen, setTeamAvailabilityOpen] = useState(true);
   const [availabilityWeekOffset, setAvailabilityWeekOffset] = useState(0);
@@ -2158,37 +2359,53 @@ export default function ScheduleModule({
         <div className="space-y-4">
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
             {canApproveVacations ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-                  <span>{lx.vacations_filter_employee ?? lx.personnel ?? ""}</span>
-                  <select
-                    value={vacFilterUserId}
-                    onChange={(e) => setVacFilterUserId(e.target.value)}
-                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-                  >
-                    <option value="">{lx.vacations_all ?? lx.whFilterAll ?? ""}</option>
-                    {vacationFilterUserOptions.map((uid) => (
-                      <option key={uid} value={uid}>
-                        {vacationEmployeeNames[uid] ?? uid}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-                  <span>{lx.vacations_filter_status ?? "Status"}</span>
-                  <select
-                    value={vacFilterStatus}
-                    onChange={(e) =>
-                      setVacFilterStatus(e.target.value as "all" | "pending" | "approved" | "rejected")
-                    }
-                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-                  >
-                    <option value="all">{lx.vacations_all ?? lx.whFilterAll ?? ""}</option>
-                    <option value="pending">{lx.vacations_pending ?? labels.pending ?? ""}</option>
-                    <option value="approved">{lx.vacations_approved ?? labels.approved ?? ""}</option>
-                    <option value="rejected">{lx.vacations_rejected ?? labels.rejected ?? ""}</option>
-                  </select>
-                </label>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setVacMobileFiltersOpen((o) => !o)}
+                  className="flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-800 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-100 sm:hidden"
+                  aria-expanded={vacMobileFiltersOpen}
+                >
+                  <span>{lx.logistics_filters_toggle ?? "Filtros"}</span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 transition-transform ${vacMobileFiltersOpen ? "rotate-180" : ""}`}
+                    aria-hidden
+                  />
+                </button>
+                <div
+                  className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${vacMobileFiltersOpen ? "" : "hidden"} sm:grid`}
+                >
+                  <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span>{lx.vacations_filter_employee ?? lx.personnel ?? ""}</span>
+                    <select
+                      value={vacFilterUserId}
+                      onChange={(e) => setVacFilterUserId(e.target.value)}
+                      className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                    >
+                      <option value="">{lx.vacations_all ?? lx.whFilterAll ?? ""}</option>
+                      {vacationFilterUserOptions.map((uid) => (
+                        <option key={uid} value={uid}>
+                          {vacationEmployeeNames[uid] ?? uid}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex min-w-0 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span>{lx.vacations_filter_status ?? "Status"}</span>
+                    <select
+                      value={vacFilterStatus}
+                      onChange={(e) =>
+                        setVacFilterStatus(e.target.value as "all" | "pending" | "approved" | "rejected")
+                      }
+                      className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                    >
+                      <option value="all">{lx.vacations_all ?? lx.whFilterAll ?? ""}</option>
+                      <option value="pending">{lx.vacations_pending ?? labels.pending ?? ""}</option>
+                      <option value="approved">{lx.vacations_approved ?? labels.approved ?? ""}</option>
+                      <option value="rejected">{lx.vacations_rejected ?? labels.rejected ?? ""}</option>
+                    </select>
+                  </label>
+                </div>
               </div>
             ) : null}
 
@@ -2731,6 +2948,7 @@ export default function ScheduleModule({
           dateLocale={dateLocale}
           timeZone={scheduleTz}
           showTimesheetCosts={canViewTimesheetCosts}
+          canViewLaborCosting={canViewLaborCosting}
           timesheetCostCurrency={timesheetCostCurrency}
           employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
         />

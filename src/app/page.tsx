@@ -665,6 +665,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canCreateShifts: true,
       canManageVacations: true,
       canViewTimesheets: true,
+      canViewLaborCosting: true,
       canViewProjectGeneral: true,
       canViewProjectTeam: true,
       canViewProjectInventory: true,
@@ -697,6 +698,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewOnlyAssignedProjects: true,
       canViewSchedule: true,
       canViewTimesheets: true,
+      canViewLaborCosting: true,
       canViewProjectGeneral: true,
       canViewProjectTeam: true,
       canViewProjectInventory: true,
@@ -725,6 +727,7 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canCreatePurchaseOrders: true,
       canViewSchedule: true,
       canViewTimesheets: true,
+      canViewLaborCosting: true,
       canViewSettings: true,
       canViewBinders: true,
     }),
@@ -1076,6 +1079,7 @@ export default function Home() {
   const [companyWebsite, setCompanyWebsite] = useState("");
   const [companyProfileSaveBusy, setCompanyProfileSaveBusy] = useState(false);
   const ONBOARDING_LS_KEY = "machinpro_onboarding_complete";
+  const [gettingStartedRefreshTk, setGettingStartedRefreshTk] = useState(0);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -1167,6 +1171,7 @@ export default function Home() {
         /* ignore */
       }
     }
+    setGettingStartedRefreshTk((n) => n + 1);
   }, [session?.access_token, companyId, setActiveSection]);
 
   const [operationsMainTab, setOperationsMainTab] = useState<"projects" | "subcontractors">("projects");
@@ -4260,7 +4265,8 @@ export default function Home() {
                 }
                 dashboardCriticalInventoryCount={criticalInventoryCount}
                 laborCostingEnabled={laborCostingEnabled}
-                canViewLaborCosting={!!rolePerms.canViewTimesheets}
+                canViewLaborCosting={!!rolePerms.canViewLaborCosting}
+                gettingStartedRefreshTk={gettingStartedRefreshTk}
                 laborCostingCurrency={currency}
                 laborCostingRateByUserId={laborCostingRateByUserId}
                 laborCostingEmployeeLabels={laborCostingEmployeeLabels}
@@ -4737,7 +4743,7 @@ export default function Home() {
                 timeZone={userTimeZone}
                 companyCurrency={currency}
                 projectLaborSummaries={projectLaborSummaries}
-                canViewProjectLaborCosts={!!rolePerms.canViewTimesheets}
+                canViewProjectLaborCosts={!!rolePerms.canViewLaborCosting}
                 dailyReports={dailyReports}
                 onRefreshDailyReports={reloadDailyReports}
                 onDailyReportPublished={handleDailyReportPublished}
@@ -5032,6 +5038,14 @@ export default function Home() {
                   labor_cost_column: (t as Record<string, string>).labor_cost_column,
                   labor_cost_total: (t as Record<string, string>).labor_cost_total,
                   labor_hours_worked: (t as Record<string, string>).labor_hours_worked,
+                  labor_export_report: (t as Record<string, string>).labor_export_report,
+                  labor_report_summary: (t as Record<string, string>).labor_report_summary,
+                  labor_cost_filter_week: (t as Record<string, string>).labor_cost_filter_week,
+                  labor_cost_filter_month: (t as Record<string, string>).labor_cost_filter_month,
+                  labor_cost_filter_custom: (t as Record<string, string>).labor_cost_filter_custom,
+                  labor_cost_by_employee: (t as Record<string, string>).labor_cost_by_employee,
+                  labor_cost_by_project: (t as Record<string, string>).labor_cost_by_project,
+                  logistics_filters_toggle: (t as Record<string, string>).logistics_filters_toggle,
                 }}
                 onAddEntry={handleAddScheduleEntry}
                 onUpdateEntry={handleUpdateScheduleEntry}
@@ -5051,7 +5065,8 @@ export default function Home() {
                 timeZone={userTimeZone}
                 companyName={profile?.companyName ?? companyName ?? ""}
                 companyId={companyId ?? ""}
-                canViewTimesheetCosts={!!rolePerms.canViewTimesheets}
+                canViewTimesheetCosts={!!rolePerms.canViewLaborCosting}
+                canViewLaborCosting={!!rolePerms.canViewLaborCosting}
                 timesheetCostCurrency={currency}
                 employeeLaborRatesByEmployeeId={employeeLaborRateLookup}
               />

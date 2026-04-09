@@ -107,6 +107,9 @@ export function mergeRolePermissions(raw: unknown): RolePermissions {
   ) {
     acc.canUploadPhotos = true;
   }
+  if (!Object.prototype.hasOwnProperty.call(o, "canViewLaborCosting")) {
+    acc.canViewLaborCosting = acc.canViewTimesheets === true;
+  }
   return acc as RolePermissions;
 }
 

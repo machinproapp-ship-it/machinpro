@@ -268,6 +268,8 @@ interface CentralModuleProps {
   laborCostingCurrency?: string;
   laborCostingRateByUserId?: Record<string, number>;
   laborCostingEmployeeLabels?: Record<string, string>;
+  /** Incrementar tras completar onboarding para refrescar checklist AW-3. */
+  gettingStartedRefreshTk?: number;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
   /** Abrir Operaciones → Subcontratistas (fuera de Central). */
@@ -422,6 +424,7 @@ export function CentralModule({
   laborCostingCurrency = "CAD",
   laborCostingRateByUserId = {},
   laborCostingEmployeeLabels = {},
+  gettingStartedRefreshTk = 0,
   onQuickNewRfi,
   onQuickNewSubcontractor,
   onOpenSubcontractorsInOperations,
@@ -869,6 +872,7 @@ export function CentralModule({
                 laborCostingCurrency={laborCostingCurrency}
                 laborCostingRateByUserId={laborCostingRateByUserId}
                 laborCostingEmployeeLabels={laborCostingEmployeeLabels}
+                gettingStartedRefreshTk={gettingStartedRefreshTk}
                 canAccessVisitors={canAccessVisitors}
                 canAccessHazards={canAccessHazards}
                 canAccessCorrective={canAccessCorrective}
