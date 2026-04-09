@@ -1167,7 +1167,7 @@ export function HazardModule({
                 onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
               />
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-sm">
                 <span className="text-gray-600 dark:text-gray-400">{t.hazards_lat ?? "Lat"}</span>
                 <input
@@ -1333,7 +1333,7 @@ export function HazardModule({
                 <ImagePlus className="h-4 w-4" />
                 {t.hazards_photos ?? "Photos"}
               </h4>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(detail.photos ?? []).map((url) => (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

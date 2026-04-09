@@ -890,11 +890,11 @@ export function LogisticsModule({
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span>{formatInventoryUnitLabel(item, t)}</span>
-                    <span>${item.purchasePriceCAD.toFixed(2)}</span>
+                  <div className="grid grid-cols-1 gap-2 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
+                    <span className="break-words">{formatInventoryUnitLabel(item, t)}</span>
+                    <span className="break-words">${item.purchasePriceCAD.toFixed(2)}</span>
                     {isTrackedAsset(item) && (
-                      <span className="col-span-2">
+                      <span className="col-span-full sm:col-span-2">
                         <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!item.assignedToProjectId)}`}>
                           {getProjectName(item.assignedToProjectId)}
                         </span>
@@ -1163,7 +1163,7 @@ export function LogisticsModule({
           {adjustModal && (
             <>
               <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={onCloseAdjustModal} />
-              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
+              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {adjustModal.type === "add" ? (t.addUnits ?? "Add units") : (t.removeUnits ?? "Remove units")}
@@ -1220,7 +1220,7 @@ export function LogisticsModule({
                 onChange={handleReturnPhotoChange}
               />
               <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeReturnModal} />
-              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-4 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
+              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl space-y-4 dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
                     {tlLabels.returnToWarehouse ?? "Return to warehouse"}
@@ -1239,7 +1239,7 @@ export function LogisticsModule({
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                     {tlLabels.conditionOnReturn ?? "Condition on return"}
                   </label>
-                  <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {(["good", "damaged", "maintenance"] as const).map((cond) => (
                       <button
                         key={cond}
@@ -1539,10 +1539,10 @@ export function LogisticsModule({
                       {getStatusLabel((v.vehicleStatus ?? "available") === "available" ? "available" : (v.vehicleStatus ?? "available") === "in_use" ? "inUse" : (v.vehicleStatus ?? "available") === "maintenance" ? "maintenance" : "outOfService")}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span>{t.whUsualDriver}: {driver?.name ?? "—"}</span>
+                  <div className="grid grid-cols-1 gap-2 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
+                    <span className="break-words">{t.whUsualDriver}: {driver?.name ?? "—"}</span>
                     {v.documents?.length ? (
-                      <div className="col-span-2 flex flex-wrap items-center gap-2">
+                      <div className="col-span-full flex flex-wrap items-center gap-2 sm:col-span-2">
                         <span>{(tlLabels as Record<string, string>).vehicle_documents ?? "Vehicle documents"}:</span>
                         {vehicleDocFleetBadge(v.documents, tlLabels as Record<string, string>)}
                         <span className="text-zinc-400">({v.documents.length})</span>
@@ -1551,34 +1551,34 @@ export function LogisticsModule({
                       <>
                         <span>{t.whInsuranceExpiry}: {v.insuranceExpiry ?? "—"}</span>
                         {(v.insuranceExpiry && v.insuranceExpiry < today) && (
-                          <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                          <span className="col-span-full inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 sm:col-span-2">
                             {tlLabels.insuranceExpiredBadge ?? "Insurance expired"}
                           </span>
                         )}
                         {(v.inspectionExpiry && v.inspectionExpiry < today) && (
-                          <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                          <span className="col-span-full inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 sm:col-span-2">
                             {tlLabels.inspectionExpiredBadge ?? "Inspection expired"}
                           </span>
                         )}
                       </>
                     )}
-                    <span className="col-span-2">
+                    <span className="col-span-full sm:col-span-2">
                       <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!v.currentProjectId)}`}>
                         {getProjectName(v.currentProjectId)}
                       </span>
                     </span>
                     {maintenanceSoon && (
-                      <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                      <span className="col-span-full inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 sm:col-span-2">
                         {tlLabels.maintenanceSoon ?? "Maintenance due soon"}
                       </span>
                     )}
                     {maintenanceWarning && !maintenanceSoon && daysUntil != null && (
-                      <span className="col-span-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      <span className="col-span-full inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 sm:col-span-2">
                         {(tlLabels.maintenanceInDays ?? "Maintenance in {n} days").replace("{n}", String(daysUntil))}
                       </span>
                     )}
                     {(complianceFields ?? []).filter((f) => f.target.includes("vehicle")).length > 0 ? (
-                      <div className="col-span-2 flex flex-wrap gap-2 pt-1">
+                      <div className="col-span-full flex flex-wrap gap-2 pt-1 sm:col-span-2">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 w-full">
                           {(t as Record<string, string>).settingsCompliance ?? t.compliance ?? ""}
                         </span>
@@ -2084,7 +2084,7 @@ export function LogisticsModule({
                 <>
                   <div className="flex border-b border-zinc-200 dark:border-slate-700 p-2 gap-1">
                     {(["info", "history", "gallery"] as const).map((tabId) => (
-                      <button key={tabId} type="button" onClick={() => setAssetDrawerTab(tabId)} className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg min-h-[40px] transition-colors ${assetDrawerTab === tabId ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
+                      <button key={tabId} type="button" onClick={() => setAssetDrawerTab(tabId)} className={`min-h-[44px] flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${assetDrawerTab === tabId ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
                         {tabId === "info" ? "Info" : tabId === "history" ? (t.usageHistory ?? "Historial") : (tl.assetGallery ?? "Galería")}
                       </button>
                     ))}
@@ -2118,7 +2118,7 @@ export function LogisticsModule({
                       {galleryPhotos.length === 0 ? (
                         <p className="text-sm text-zinc-500 dark:text-zinc-400">{tlLabels.noAssetPhotos ?? "No photos for this asset yet"}</p>
                       ) : (
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {galleryPhotos.map((photo, idx) => (
                             <div key={idx} className="relative">
                               <img src={photo.url} alt="" className="w-full h-28 object-cover rounded-xl cursor-pointer border border-zinc-200 dark:border-slate-700" onClick={() => setLightboxUrl(photo.url)} />

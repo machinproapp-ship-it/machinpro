@@ -1234,7 +1234,7 @@ export function ProjectsModule({
           })}
 
           {(projects ?? []).length === 0 && (
-            <div className="col-span-2 py-12 text-center text-sm text-zinc-400 dark:text-zinc-500">
+            <div className="col-span-full py-12 text-center text-sm text-zinc-400 dark:text-zinc-500 sm:col-span-2 lg:col-span-3">
               {t.noProjectsAssigned ?? PM_EN.noProjectsAssigned}
             </div>
           )}
@@ -1284,8 +1284,8 @@ export function ProjectsModule({
             </div>
           </div>
 
-          {/* KPIs rápidos — grid 2×2 en móvil, 3 columnas si hay presupuesto + cierre + equipo */}
-          <div className="grid grid-cols-2 gap-3 sm:max-w-none w-full sm:w-auto auto-rows-fr md:grid-cols-3">
+          {/* KPIs rápidos — 1 col en móvil estrecho, 2–3 columnas en tablet+ */}
+          <div className="grid w-full auto-rows-fr grid-cols-1 gap-3 sm:max-w-none sm:w-auto sm:grid-cols-2 md:grid-cols-3">
             {selectedProject.budgetCAD != null && (
               <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
@@ -1303,12 +1303,17 @@ export function ProjectsModule({
             {daysRemaining !== null && (
               <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
-                  <Calendar className="h-3 w-3" /> Cierre
+                  <Calendar className="h-3 w-3" aria-hidden /> {tl.daysRemaining ?? PM_EN.daysRemaining}
                 </p>
-                <p className={`text-sm font-semibold ${daysRemaining < 0 ? "text-red-500" : daysRemaining < 30 ? "text-amber-600 dark:text-amber-400" : "text-zinc-900 dark:text-zinc-100"}`}>
-                  {daysRemaining < 0 ? `${Math.abs(daysRemaining)}d vencido` : `${daysRemaining}d`}
+                <p className={`text-sm font-semibold break-words ${daysRemaining < 0 ? "text-red-500" : daysRemaining < 30 ? "text-amber-600 dark:text-amber-400" : "text-zinc-900 dark:text-zinc-100"}`}>
+                  {daysRemaining < 0
+                    ? `${Math.abs(daysRemaining)} ${tl.certDaysOverdue ?? PM_EN.certDaysOverdue}`
+                    : (tl.wh_maintenance_days_short ?? PM_EN.wh_maintenance_days_short).replace(
+                        "{n}",
+                        String(daysRemaining)
+                      )}
                 </p>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">{fmtYmd(selectedProject.estimatedEnd)}</p>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 break-words">{fmtYmd(selectedProject.estimatedEnd)}</p>
               </div>
             )}
             <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
@@ -1972,7 +1977,7 @@ export function ProjectsModule({
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                   <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? PM_EN.invPhotosTitle}
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 w-full min-w-0">
+                <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                   {invPhotos.flatMap((entry) =>
                     (entry.photoUrls || []).map((url, i) => (
                       <button
@@ -2228,7 +2233,7 @@ export function ProjectsModule({
                     })}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 w-full min-w-0">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                     {filteredPendingObra.map((entry) => {
                       const cat = entry.photoCategory ?? "progress";
                       const catBadgeClass =
@@ -2298,7 +2303,7 @@ export function ProjectsModule({
                   text={t.noApprovedPhotos ?? PM_EN.noApprovedPhotos}
                 />
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                   {filteredApprovedObra.map((entry) => {
                     const showDl =
                       selectedProject &&
@@ -2382,7 +2387,7 @@ export function ProjectsModule({
                     }
                   />
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full min-w-0">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                     {[...inspectionPhotosPool]
                       .sort(
                         (a, b) =>
@@ -3237,7 +3242,7 @@ export function ProjectsModule({
                                 className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-slate-900 p-4 space-y-3"
                               >
                                 <p className="text-sm text-zinc-900 dark:text-zinc-100">{item.question}</p>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
                                   <button
                                     type="button"
                                     onClick={() => setResp("yes")}
@@ -3620,7 +3625,7 @@ export function ProjectsModule({
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-3">
               {(t as Record<string, string>).photoCategoryLabel ?? PM_EN.photoCategoryLabel}
             </h3>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {(["progress", "incident", "health_safety"] as const).map((cat) => (
                 <button
                   key={cat}

@@ -698,7 +698,7 @@ export function DailyFieldReportView({
 
   if (isEmployeeView) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-zinc-50 dark:bg-zinc-950">
         <header className="shrink-0 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-slate-900">
           <button
             type="button"
@@ -724,7 +724,7 @@ export function DailyFieldReportView({
             <h2 className="mb-3 font-semibold text-zinc-900 dark:text-white">
               {tl.daily_report_summary ?? "Day summary"}
             </h2>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+            <div className="grid grid-cols-1 gap-2 text-center text-sm sm:grid-cols-3">
               <div className="rounded-lg bg-zinc-50 px-2 py-3 dark:bg-slate-800/80">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {tl.daily_report_metric_hours ?? tl.dailyReportHours ?? "Hours"}
@@ -839,7 +839,7 @@ export function DailyFieldReportView({
           <p className="mb-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
             {tl.daily_report_summary ?? "Day summary"}
           </p>
-          <div className="grid grid-cols-3 gap-2 text-center text-sm">
+          <div className="grid grid-cols-1 gap-2 text-center text-sm sm:grid-cols-3">
             <div>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 {tl.daily_report_metric_hours ?? tl.dailyReportHours ?? "Hours"}
@@ -1183,7 +1183,7 @@ export function DailyFieldReportView({
                   />
                 </label>
               )}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                 {draft.photos.map((p) => (
                   <div key={p.id} className="relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1194,7 +1194,7 @@ export function DailyFieldReportView({
                         onClick={() =>
                           setDraft((d) => ({ ...d, photos: d.photos.filter((x) => x.id !== p.id) }))
                         }
-                        className="absolute right-1 top-1 rounded bg-red-600 px-2 py-1 text-xs text-white"
+                        className="absolute right-1 top-1 flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-red-600 px-2 text-xs text-white"
                       >
                         {tl.common_delete ?? "×"}
                       </button>

@@ -147,7 +147,7 @@ export function Sidebar({
         }`}
         aria-hidden={!mobileDrawerOpen}
       >
-        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-slate-800 px-3 py-3">
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-slate-800 px-4 py-3">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{drawerTitle}</h2>
           <button
             type="button"
@@ -158,7 +158,7 @@ export function Sidebar({
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto p-2" aria-label={drawerTitle}>
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2" aria-label={drawerTitle}>
           {visibleItems.map((item) => {
             const isActive = activeSection === item.id;
             return (

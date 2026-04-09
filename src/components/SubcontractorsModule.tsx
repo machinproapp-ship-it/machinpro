@@ -910,7 +910,7 @@ export function SubcontractorsModule({
           </button>
         </div>
       ) : null}
-      <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
+      <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Building2 className="h-5 w-5" />
@@ -928,8 +928,8 @@ export function SubcontractorsModule({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="col-span-2 relative">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="relative sm:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
             value={search}
@@ -963,7 +963,7 @@ export function SubcontractorsModule({
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="col-span-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2.5 text-sm min-h-[44px]"
+          className="col-span-full min-h-[44px] rounded-lg border border-zinc-300 bg-white px-2 py-2.5 text-sm dark:border-zinc-600 dark:bg-slate-800 sm:col-span-2"
         >
           <option value="all">{t.whFilterAll ?? ""}</option>
           <option value="none">{tl.subcontractors_no_projects ?? ""}</option>

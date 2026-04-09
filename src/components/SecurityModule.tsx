@@ -221,7 +221,7 @@ export function SecurityModule({
   const visibleTabs = TAB_CONFIG.filter((x) => allowed(x.id));
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4 overflow-x-hidden">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{L("nav_security", "Security")}</h2>
 
       <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 pb-2" variant="inherit">

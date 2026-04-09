@@ -211,7 +211,7 @@ function SkeletonLoader() {
     <div className="space-y-6 animate-pulse" aria-busy="true" aria-live="polite">
       <div className="h-7 w-56 max-w-[80%] rounded-lg bg-gray-200 dark:bg-gray-600" />
       <div className="h-4 w-full max-w-md rounded bg-gray-100 dark:bg-gray-700" />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
@@ -1695,7 +1695,7 @@ function CentralDashboardBody(
 
   return (
     <>
-      <section className="mb-4 w-full min-w-0 max-w-full space-y-2">
+      <section className="mb-4 w-full min-w-0 max-w-full space-y-2 overflow-x-hidden">
         <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <p className="min-w-0 text-lg font-medium text-gray-900 dark:text-white break-words">
             {getGreeting()} — {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}

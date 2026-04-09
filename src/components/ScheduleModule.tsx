@@ -1011,7 +1011,7 @@ function TimesheetsView({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4 overflow-x-hidden">
       <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/50 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-sm font-semibold text-zinc-900 dark:text-white">
           {lx.timesheet_total_month ?? "Total this month"}:{" "}
@@ -2821,7 +2821,7 @@ export default function ScheduleModule({
                       type="button"
                       onClick={() => setAvailabilityWeekOffset(0)}
                       disabled={availabilityWeekOffset === 0}
-                      className="shrink-0 rounded-lg border border-amber-300 px-2.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:pointer-events-none disabled:opacity-40 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950/30 min-h-[40px]"
+                      className="shrink-0 rounded-lg border border-amber-300 px-2.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:pointer-events-none disabled:opacity-40 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950/30 min-h-[44px] min-w-[44px]"
                     >
                       {(labels as Record<string, string>).schedule_this_week_btn ??
                         ALL_TRANSLATIONS.es.schedule_this_week_btn ??

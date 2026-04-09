@@ -515,7 +515,7 @@ export function FormsModule({
 
 
   return (
-    <section className="space-y-4">
+    <section className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
       {/* ---------- LIST VIEW ---------- */}
       {view === "list" && (
         <>

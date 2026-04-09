@@ -298,7 +298,7 @@ export function VisitorModule({
   }
 
   return (
-    <section className="space-y-6">
+    <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">

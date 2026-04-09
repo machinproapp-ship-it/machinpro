@@ -81,7 +81,7 @@ function EmptyRow({ text }: { text: string }) {
 
 export function OperationsModule({ projects = [], employees = [], clockEntries = [], labels: t }: OperationsModuleProps) {
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-4">
+    <section className="min-w-0 space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
         {t.nav_operations || ALL_TRANSLATIONS.en.nav_operations}
       </h2>
@@ -100,9 +100,9 @@ export function OperationsModule({ projects = [], employees = [], clockEntries =
               return (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 dark:border-slate-700 px-3 py-2.5"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 dark:border-slate-700 px-3 py-2.5"
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-[min(100%,16rem)] sm:basis-auto">
                     <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
                       {emp?.name ?? entry.employeeId}
                     </p>
@@ -111,8 +111,8 @@ export function OperationsModule({ projects = [], employees = [], clockEntries =
                     </p>
                   </div>
                   {entry.locationAlert && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-xs font-medium shrink-0">
-                      ⚠ Fuera de rango GPS
+                    <span className="inline-flex min-h-[44px] max-w-full shrink-0 items-center gap-1 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      {t.ops_gps_out_of_range_badge ?? ALL_TRANSLATIONS.en.ops_gps_out_of_range_badge}
                     </span>
                   )}
                 </div>

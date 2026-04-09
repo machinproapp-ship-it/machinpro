@@ -862,7 +862,7 @@ export function CentralModule({
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="min-w-0 space-y-6 overflow-x-hidden animate-in fade-in duration-500">
       {centralView !== "dashboard" && (
         <div className="flex items-center gap-3">
           <button
@@ -1740,19 +1740,20 @@ export function CentralModule({
               aria-hidden
               onClick={() => setEmployeePanelId(null)}
             />
-            <div className="
-              fixed z-50 bg-white dark:bg-slate-900
-              border border-zinc-200 dark:border-slate-700 shadow-xl
-              overflow-y-auto
-              inset-x-0 bottom-0 rounded-t-2xl max-h-[90vh]
-              sm:inset-y-0 sm:right-0 sm:left-auto sm:bottom-auto
-              sm:w-full sm:max-w-lg sm:rounded-none sm:rounded-l-2xl sm:max-h-full
-            ">
-              <div className="sm:hidden flex justify-center pt-3 pb-1">
+            <div
+              className="
+              fixed inset-x-4 bottom-0 z-50 max-h-[90vh] overflow-y-auto overflow-x-hidden
+              rounded-t-2xl border border-zinc-200 bg-white shadow-xl
+              dark:border-slate-700 dark:bg-slate-900
+              sm:inset-x-0 sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:max-h-full
+              sm:max-w-lg sm:rounded-none sm:rounded-l-2xl
+            "
+            >
+              <div className="flex justify-center pb-1 pt-3 sm:hidden">
                 <div className="h-1 w-10 rounded-full bg-zinc-300 dark:bg-slate-600" />
               </div>
 
-              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-slate-700">
+              <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-sm font-bold text-amber-700 dark:text-amber-400 shrink-0">
                     {emp.name?.charAt(0).toUpperCase() ?? "?"}
@@ -1784,8 +1785,8 @@ export function CentralModule({
                 </button>
               </div>
 
-              <div className="px-6 py-5 space-y-5">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-5 px-4 py-5 sm:px-6">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="rounded-xl bg-zinc-50 dark:bg-slate-800/50 px-4 py-3">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">
                       {t.hoursLogged ?? "Horas / mes"}
@@ -1805,8 +1806,10 @@ export function CentralModule({
                 </div>
 
                 {emp.payType && (
-                  <div className="px-6 py-3 border-t border-zinc-100 dark:border-slate-800">
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">Tipo de pago</p>
+                  <div className="border-t border-zinc-100 py-3 dark:border-slate-800">
+                    <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      {(t as Record<string, string>).employees_payment_type ?? t.employees_section_pay ?? "Pay type"}
+                    </p>
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       {emp.payType === "hourly"
                         ? `${emp.hourlyRate ?? "?"} CAD/h`
@@ -1824,8 +1827,12 @@ export function CentralModule({
                       </p>
                     )}
                     {emp.email && (
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        <span className="text-zinc-400 dark:text-zinc-500 mr-2">Email</span>
+                      <p className="break-words text-sm text-zinc-600 dark:text-zinc-400">
+                        <span className="mr-2 text-zinc-400 dark:text-zinc-500">
+                          {(labels as Record<string, string>).visitors_email ??
+                            (labels as Record<string, string>).login_email_label ??
+                            "Email"}
+                        </span>
                         {emp.email}
                       </p>
                     )}
@@ -1838,51 +1845,45 @@ export function CentralModule({
                   </h5>
 
                   {certs.length === 0 ? (
-                    <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/40 px-4 py-6 text-center">
-                      <p className="text-sm text-zinc-400 dark:text-zinc-500 italic">
-                        Sin certificados registrados
+                    <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-6 text-center dark:border-slate-700 dark:bg-slate-800/40">
+                      <p className="text-sm italic text-zinc-400 dark:text-zinc-500">
+                        {labels.securityNoCerts ?? (labels as Record<string, string>).noStaff ?? "—"}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {(certs ?? []).map((c) => {
                         const state = certSemaphore(c.expiryDate);
-                        const days  = c.expiryDate ? daysUntilExpiry(c.expiryDate) : null;
+                        const days = c.expiryDate ? daysUntilExpiry(c.expiryDate) : null;
+                        const tlPanel = labels as Record<string, string>;
                         const rowClass =
                           state === "expired"
                             ? "border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/20"
                             : state === "soon"
-                            ? "border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20"
-                            : "border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900";
-                        const dot =
-                          state === "expired" ? "??"
-                          : state === "soon"  ? "??"
-                          : state === "ok"    ? "??"
-                          : "?";
+                              ? "border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20"
+                              : "border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900";
                         const expiryText =
                           state === "expired"
-                            ? `VENCIDO ? ${c.expiryDate}`
-                            : state === "soon"
-                            ? `? Vence en ${days} d?a${days !== 1 ? "s" : ""}`
-                            : c.expiryDate
-                            ? `OK Vence: ${c.expiryDate}`
-                            : "Sin fecha de vencimiento";
+                            ? `${tlPanel.expired ?? "Expired"} · ${c.expiryDate ?? ""}`
+                            : state === "soon" && days != null
+                              ? (tlPanel.expiresInDays ?? "Expires in {n} days").replace("{n}", String(days))
+                              : c.expiryDate
+                                ? `${tlPanel.expiresOn ?? "Expires"}: ${c.expiryDate}`
+                                : tlPanel.noExpiry ?? "—";
                         const textColor =
                           state === "expired"
-                            ? "text-red-600 dark:text-red-400 font-semibold"
+                            ? "font-semibold text-red-600 dark:text-red-400"
                             : state === "soon"
-                            ? "text-amber-600 dark:text-amber-400 font-medium"
-                            : "text-zinc-500 dark:text-zinc-400";
+                              ? "font-medium text-amber-600 dark:text-amber-400"
+                              : "text-zinc-500 dark:text-zinc-400";
                         return (
                           <div
                             key={c.id}
                             className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${rowClass}`}
                           >
-                            <span className="text-base shrink-0" aria-hidden>{dot}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                                {c.name}
-                              </p>
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" aria-hidden />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{c.name}</p>
                               <p className={`text-xs ${textColor}`}>{expiryText}</p>
                             </div>
                           </div>
@@ -1891,25 +1892,30 @@ export function CentralModule({
                     </div>
                   )}
 
-                  <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-slate-700">
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wide mb-2">
-                      Estado global
+                  <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-slate-700">
+                    <p className="mb-2 text-xs uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                      {(labels as Record<string, string>).employees_status ??
+                        (labels as Record<string, string>).common_status ??
+                        "Status"}
                     </p>
                     {(() => {
                       const st = getTrainingStatus(certs);
-                      if (st === "sin_certs") return (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 dark:bg-zinc-700 px-3 py-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                          ? Sin certificados
-                        </span>
-                      );
-                      if (st === "pendiente") return (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
-                          ?? Pendiente ? hay certificados vencidos
-                        </span>
-                      );
+                      const tlG = labels as Record<string, string>;
+                      if (st === "sin_certs")
+                        return (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
+                            {labels.securityNoCerts ?? tlG.withoutCerts ?? "—"}
+                          </span>
+                        );
+                      if (st === "pendiente")
+                        return (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                            {labels.pending ?? tlG.securityPending ?? tlG.expiredCerts ?? "—"}
+                          </span>
+                        );
                       return (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                          ?? Al d?a ? todos los certificados vigentes
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                          {labels.upToDate ?? labels.securityOk ?? "—"}
                         </span>
                       );
                     })()}
@@ -2535,7 +2541,8 @@ export function CentralModule({
                       <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                         {gl && gl.trim() !== "" ? gl : group.id}
                       </h4>
-                      <table className="w-full text-sm">
+                      <div className="w-full overflow-x-auto">
+                      <table className="w-full min-w-0 text-sm">
                         <tbody>
                           {group.keys.map((key) => (
                             <tr key={key} className="border-b border-zinc-100 dark:border-white/5">
@@ -2557,16 +2564,26 @@ export function CentralModule({
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setRoleModalOpen(false)} className="px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRoleModalOpen(false)}
+                className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
                 {labels.cancel ?? "Cancelar"}
               </button>
-              <button type="button" onClick={saveRole} disabled={!roleDraft.name.trim()} className="px-4 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-500 disabled:opacity-50">
+              <button
+                type="button"
+                onClick={saveRole}
+                disabled={!roleDraft.name.trim()}
+                className="min-h-[44px] rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+              >
                 {editingRoleId
                   ? (labels.save ?? "Guardar")
                   : ((labels as Record<string, string>).create_role ?? labels.createRole ?? "Crear rol")}

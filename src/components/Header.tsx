@@ -67,9 +67,9 @@ export function Header({
   labels: t,
 }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-10 border-b border-zinc-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-10 min-w-0 border-b border-zinc-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
+      <div className="mx-auto flex min-w-0 max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:flex-nowrap sm:px-6">
+        <div className="flex min-w-0 max-w-full flex-1 basis-full items-center gap-2 sm:basis-auto sm:gap-3">
           {logoUrl ? (
             <BrandLogoImage
               src={logoUrl}
@@ -79,7 +79,7 @@ export function Header({
               scale={1.2}
             />
           ) : null}
-          <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
+          <h1 className="min-w-0 truncate text-lg font-bold tracking-tight text-zinc-900 dark:text-white sm:text-xl">
             {companyName.trim() ? (
               companyName.trim()
             ) : (
@@ -87,7 +87,7 @@ export function Header({
             )}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 max-w-full flex-1 basis-full flex-wrap items-center justify-end gap-2 sm:basis-auto sm:flex-nowrap">
           <div className="relative" ref={syncPopoverRef}>
             <button
               type="button"
@@ -126,7 +126,7 @@ export function Header({
             {notificationsOpen && (
               <>
                 <div className="fixed inset-0 z-40" aria-hidden onClick={() => setNotificationsOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 w-72 max-h-80 overflow-y-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-2">
+                <div className="absolute right-0 top-full z-50 mt-1 max-h-80 max-w-[min(18rem,calc(100vw-32px))] overflow-y-auto rounded-xl border border-zinc-200 bg-white py-2 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:w-72 sm:max-w-none">
                   <p className="px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">{t.notifications}</p>
                   {notificationsList.length === 0 ? (
                     <p className="px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">{t.noNotifications}</p>
@@ -153,7 +153,7 @@ export function Header({
           <div className="relative group">
             <button
               type="button"
-              className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 flex items-center gap-1.5 min-w-[140px] min-h-[44px] justify-center"
+              className="flex min-h-[44px] min-w-0 max-w-full flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 sm:min-w-[140px] sm:flex-initial sm:max-w-none"
               title={t.sessionRole}
               aria-haspopup="listbox"
               aria-expanded={roleSelectorOpen}
@@ -165,7 +165,7 @@ export function Header({
             {roleSelectorOpen && (
               <>
                 <div className="fixed inset-0 z-40" aria-hidden onClick={() => setRoleSelectorOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1">
+                <div className="absolute right-0 top-full z-50 mt-1 max-w-[min(14rem,calc(100vw-32px))] rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:w-56 sm:max-w-none">
                   {(["admin", "logistic", "supervisor", "worker"] as const).map((role) => (
                     <button
                       key={role}
