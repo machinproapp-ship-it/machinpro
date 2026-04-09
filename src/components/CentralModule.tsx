@@ -235,6 +235,9 @@ interface CentralModuleProps {
   complianceAlerts?: ComplianceAlert[];
   pendingOpenEmployeeId?: string | null;
   onPendingOpenEmployeeHandled?: () => void;
+  /** Global search: open binders view on the folder that contains this document. */
+  pendingOpenBinderDocumentId?: string | null;
+  onPendingOpenBinderDocumentHandled?: () => void;
   companyName?: string | null;
   onNavigateAppSection?: (section: MainSection) => void;
   onQuickNewHazard?: () => void;
@@ -404,6 +407,8 @@ export function CentralModule({
   complianceAlerts: complianceWatchdogAlerts = [],
   pendingOpenEmployeeId = null,
   onPendingOpenEmployeeHandled,
+  pendingOpenBinderDocumentId = null,
+  onPendingOpenBinderDocumentHandled,
   companyName = null,
   onNavigateAppSection,
   onQuickNewHazard,
@@ -599,6 +604,11 @@ export function CentralModule({
     setEmployeePanelId(pendingOpenEmployeeId);
     onPendingOpenEmployeeHandled?.();
   }, [pendingOpenEmployeeId, onPendingOpenEmployeeHandled]);
+
+  useEffect(() => {
+    if (!pendingOpenBinderDocumentId) return;
+    setCentralView("binders");
+  }, [pendingOpenBinderDocumentId]);
 
   const safeSubcontractors = Array.isArray(subcontractors) ? subcontractors : [];
 
@@ -1110,7 +1120,20 @@ export function CentralModule({
       )}
 
       {centralView === "binders" && canOpenCompanyBinders && companyBindersPanel ? (
-        <div className="min-w-0">{companyBindersPanel}</div>
+        <div className="min-w-0">
+          {React.isValidElement(companyBindersPanel)
+            ? React.cloneElement(
+                companyBindersPanel as React.ReactElement<{
+                  focusDocumentId?: string | null;
+                  onFocusDocumentHandled?: () => void;
+                }>,
+                {
+                  focusDocumentId: pendingOpenBinderDocumentId ?? null,
+                  onFocusDocumentHandled: onPendingOpenBinderDocumentHandled,
+                }
+              )
+            : companyBindersPanel}
+        </div>
       ) : null}
       {centralView === "training" && canOpenCompanyTraining && companyTrainingPanel ? (
         <div className="min-w-0">{companyTrainingPanel}</div>
@@ -1160,7 +1183,9 @@ export function CentralModule({
                               </div>
                               <div className="min-w-0">
                                 <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
-                                <p className="text-sm text-zinc-600 dark:text-zinc-300">{a.certName}</p>
+                                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                                  {a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName}
+                                </p>
                                 <p className="text-xs text-red-700 dark:text-red-300">
                                   {overdue} {tl.certDaysOverdue ?? ""} · {tl.expiresOn ?? ""} {expStr}
                                 </p>
@@ -1215,7 +1240,9 @@ export function CentralModule({
                               </div>
                               <div className="min-w-0">
                                 <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
-                                <p className="text-sm text-zinc-600 dark:text-zinc-300">{a.certName}</p>
+                                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                                  {a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName}
+                                </p>
                                 <p className="text-xs text-amber-800 dark:text-amber-200">
                                   {a.daysLeft} {tl.certDaysLeft ?? ""} · {tl.expiresOn ?? ""} {expStr}
                                 </p>
@@ -1270,7 +1297,9 @@ export function CentralModule({
                               </div>
                               <div className="min-w-0">
                                 <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
-                                <p className="text-sm text-zinc-600 dark:text-zinc-300">{a.certName}</p>
+                                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                                  {a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName}
+                                </p>
                                 <p className="text-xs text-yellow-900/90 dark:text-yellow-200/90">
                                   {a.daysLeft} {tl.certDaysLeft ?? ""} · {tl.expiresOn ?? ""} {expStr}
                                 </p>

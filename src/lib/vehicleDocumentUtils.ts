@@ -2,12 +2,43 @@
 export type VehicleDocument = {
   id: string;
   name: string;
+  /** When set, UI prefers `t[nameKey] ?? name` so labels follow app language. */
+  nameKey?: string;
   expiryDate?: string;
   documentUrl?: string;
   alertDays?: number;
 };
 
 export type VehicleDocComputedStatus = "ok" | "soon" | "expired" | "nodate";
+
+/** English fallbacks when no locale dictionary is available (e.g. SSR / first paint). */
+export const VEHICLE_DOC_FALLBACK_EN: Record<string, string> = {
+  vehicle_doc_insurance: "Insurance",
+  vehicle_doc_safety_inspection: "Safety inspection",
+  vehicle_doc_registration: "Registration",
+  vehicle_doc_emissions_test: "Emissions test",
+  vehicle_doc_itv: "Vehicle inspection",
+  vehicle_doc_mot: "MOT",
+  vehicle_doc_road_tax: "Road tax",
+  vehicle_doc_transport_card: "Transport card",
+  vehicle_doc_verification: "Vehicle verification",
+  vehicle_doc_tenencia: "Vehicle tax",
+  vehicle_doc_circulation_card: "Circulation card",
+  vehicle_doc_inspection: "Inspection",
+};
+
+export function vehicleDocDisplayName(
+  doc: Pick<VehicleDocument, "name" | "nameKey">,
+  t?: Record<string, string>
+): string {
+  const dict = t ?? VEHICLE_DOC_FALLBACK_EN;
+  if (doc.nameKey) {
+    const tr = dict[doc.nameKey];
+    if (tr) return tr;
+    return VEHICLE_DOC_FALLBACK_EN[doc.nameKey] ?? doc.name;
+  }
+  return doc.name;
+}
 
 export function computeVehicleDocStatus(
   expiryDate: string | undefined,
@@ -25,41 +56,42 @@ export function computeVehicleDocStatus(
   return "ok";
 }
 
-export function defaultVehicleDocumentTemplates(countryCode: string | undefined): { name: string }[] {
+/** i18n keys for default rows, in display order, by company country. */
+export function defaultVehicleDocumentTemplateKeys(countryCode: string | undefined): string[] {
   const cc = (countryCode ?? "").trim().toUpperCase();
   if (cc === "ES" || cc === "AD" || isEuSpainLike(cc)) {
     return [
-      { name: "Seguro" },
-      { name: "ITV" },
-      { name: "Permiso de circulación" },
-      { name: "Tarjeta de transporte" },
+      "vehicle_doc_insurance",
+      "vehicle_doc_itv",
+      "vehicle_doc_registration",
+      "vehicle_doc_transport_card",
     ];
   }
   if (cc === "CA" || cc === "US") {
     return [
-      { name: "Insurance" },
-      { name: "Safety inspection" },
-      { name: "Registration" },
-      { name: "Emissions test" },
+      "vehicle_doc_insurance",
+      "vehicle_doc_safety_inspection",
+      "vehicle_doc_registration",
+      "vehicle_doc_emissions_test",
     ];
   }
   if (cc === "MX") {
     return [
-      { name: "Seguro" },
-      { name: "Verificación vehicular" },
-      { name: "Tenencia" },
-      { name: "Tarjeta de circulación" },
+      "vehicle_doc_insurance",
+      "vehicle_doc_verification",
+      "vehicle_doc_tenencia",
+      "vehicle_doc_circulation_card",
     ];
   }
   if (cc === "GB" || cc === "UK") {
     return [
-      { name: "Insurance" },
-      { name: "MOT" },
-      { name: "Road tax" },
-      { name: "Vehicle registration" },
+      "vehicle_doc_insurance",
+      "vehicle_doc_mot",
+      "vehicle_doc_road_tax",
+      "vehicle_doc_registration",
     ];
   }
-  return [{ name: "Seguro / Insurance" }, { name: "Inspección / Inspection" }];
+  return ["vehicle_doc_insurance", "vehicle_doc_inspection"];
 }
 
 function isEuSpainLike(cc: string): boolean {
@@ -98,10 +130,14 @@ export function newVehicleDocumentId(): string {
   return `vd-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function seedVehicleDocumentsFromCountry(countryCode: string | undefined): VehicleDocument[] {
-  return defaultVehicleDocumentTemplates(countryCode).map((t) => ({
+export function seedVehicleDocumentsFromCountry(
+  countryCode: string | undefined,
+  t?: Record<string, string>
+): VehicleDocument[] {
+  return defaultVehicleDocumentTemplateKeys(countryCode).map((key) => ({
     id: newVehicleDocumentId(),
-    name: t.name,
+    nameKey: key,
+    name: vehicleDocDisplayName({ name: "", nameKey: key }, t),
     alertDays: 30,
   }));
 }
@@ -118,14 +154,16 @@ export function ensureVehicleDocuments(
     registrationDocUrl?: string;
     documents?: VehicleDocument[];
   },
-  countryCode: string | undefined
+  countryCode: string | undefined,
+  t?: Record<string, string>
 ): VehicleDocument[] {
   if (v.documents && v.documents.length > 0) return v.documents;
   const out: VehicleDocument[] = [];
   if (v.insuranceExpiry || v.insuranceDocUrl) {
     out.push({
       id: newVehicleDocumentId(),
-      name: "Seguro / Insurance",
+      nameKey: "vehicle_doc_insurance",
+      name: vehicleDocDisplayName({ name: "", nameKey: "vehicle_doc_insurance" }, t),
       expiryDate: v.insuranceExpiry || undefined,
       documentUrl: v.insuranceDocUrl || undefined,
       alertDays: 30,
@@ -134,7 +172,8 @@ export function ensureVehicleDocuments(
   if (v.inspectionExpiry || v.inspectionDocUrl) {
     out.push({
       id: newVehicleDocumentId(),
-      name: "Inspección / Inspection",
+      nameKey: "vehicle_doc_inspection",
+      name: vehicleDocDisplayName({ name: "", nameKey: "vehicle_doc_inspection" }, t),
       expiryDate: v.inspectionExpiry || undefined,
       documentUrl: v.inspectionDocUrl || undefined,
       alertDays: 30,
@@ -143,13 +182,14 @@ export function ensureVehicleDocuments(
   if (v.registrationDocUrl) {
     out.push({
       id: newVehicleDocumentId(),
-      name: "Matriculación / Registration",
+      nameKey: "vehicle_doc_registration",
+      name: vehicleDocDisplayName({ name: "", nameKey: "vehicle_doc_registration" }, t),
       documentUrl: v.registrationDocUrl || undefined,
       alertDays: 30,
     });
   }
   if (out.length > 0) return out;
-  return seedVehicleDocumentsFromCountry(countryCode);
+  return seedVehicleDocumentsFromCountry(countryCode, t);
 }
 
 export function worstVehicleDocStatus(docs: VehicleDocument[] | undefined): VehicleDocComputedStatus {

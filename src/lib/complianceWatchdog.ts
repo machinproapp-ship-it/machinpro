@@ -10,6 +10,8 @@ export type ComplianceAlert = {
   vehicleId?: string;
   vehiclePlate?: string;
   certName: string;
+  /** When set with vehicle docs, UI can resolve `t[certNameKey] ?? certName`. */
+  certNameKey?: string;
   expiryDate: string;
   daysLeft: number;
   severity: "expired" | "critical" | "warning";
@@ -97,6 +99,7 @@ export function runVehicleDocumentsWatchdog(vehicles: VehicleForWatchdog[]): Com
           vehicleId: v.id,
           vehiclePlate: v.plate,
           certName: doc.name,
+          certNameKey: doc.nameKey,
           expiryDate: doc.expiryDate,
           daysLeft,
           severity: "expired",
@@ -107,6 +110,7 @@ export function runVehicleDocumentsWatchdog(vehicles: VehicleForWatchdog[]): Com
           vehicleId: v.id,
           vehiclePlate: v.plate,
           certName: doc.name,
+          certNameKey: doc.nameKey,
           expiryDate: doc.expiryDate,
           daysLeft,
           severity: "critical",
@@ -117,6 +121,7 @@ export function runVehicleDocumentsWatchdog(vehicles: VehicleForWatchdog[]): Com
           vehicleId: v.id,
           vehiclePlate: v.plate,
           certName: doc.name,
+          certNameKey: doc.nameKey,
           expiryDate: doc.expiryDate,
           daysLeft,
           severity: "warning",

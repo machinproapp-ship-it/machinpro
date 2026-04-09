@@ -637,7 +637,7 @@ export function HazardModule({
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400">{t.hazards_open ?? "Open"}</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">

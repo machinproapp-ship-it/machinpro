@@ -1522,29 +1522,29 @@ function CentralDashboardBody(
         return widgetChrome(
           id,
           <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-orange-500" aria-hidden />
+            <h3 className="text-xs font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2 sm:text-sm sm:mb-3">
+              <Shield className="h-3.5 w-3.5 text-orange-500 sm:h-4 sm:w-4" aria-hidden />
               {title}
             </h3>
-            <ul className="text-sm space-y-2 text-gray-800 dark:text-gray-200">
+            <ul className="text-xs space-y-1.5 text-gray-800 dark:text-gray-200 sm:text-sm sm:space-y-2">
               <li className="flex justify-between gap-2">
-                <span>{L("dashboard_security_open_hazards") || L("hazards_title")}</span>
-                <span className="font-semibold tabular-nums">{hazardRows.length}</span>
+                <span className="min-w-0 truncate pr-1">{L("dashboard_security_open_hazards") || L("hazards_title")}</span>
+                <span className="font-semibold tabular-nums shrink-0">{hazardRows.length}</span>
               </li>
               <li className="flex justify-between gap-2">
-                <span>{L("dashboard_security_pending_actions") || L("security_corrective")}</span>
-                <span className="font-semibold tabular-nums">{correctivePendingCount}</span>
+                <span className="min-w-0 truncate pr-1">{L("dashboard_security_pending_actions") || L("security_corrective")}</span>
+                <span className="font-semibold tabular-nums shrink-0">{correctivePendingCount}</span>
               </li>
               <li className="flex justify-between gap-2">
-                <span>{L("dashboard_security_expired_certs") || L("complianceWatchdog")}</span>
-                <span className="font-semibold tabular-nums">{complianceExpiredCertCount}</span>
+                <span className="min-w-0 truncate pr-1">{L("dashboard_security_expired_certs") || L("complianceWatchdog")}</span>
+                <span className="font-semibold tabular-nums shrink-0">{complianceExpiredCertCount}</span>
               </li>
             </ul>
             {onOpenOperationsSecurity ? (
               <button
                 type="button"
                 onClick={() => onOpenOperationsSecurity()}
-                className="mt-3 min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 py-2"
+                className="mt-2 min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 py-2 sm:mt-3 sm:text-sm"
               >
                 {L("dashboard_security_open_operations") || L("nav_operations") || "Operations"}
               </button>

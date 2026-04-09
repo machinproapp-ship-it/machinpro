@@ -65,10 +65,12 @@ import {
   Bell,
   Settings,
   Menu,
+  Search,
 } from "lucide-react";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import { postAppNotification } from "@/lib/clientNotifications";
 import { NotificationBell } from "@/components/NotificationBell";
+import { GlobalSearchModal } from "@/components/GlobalSearchModal";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
 import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
@@ -86,6 +88,7 @@ import {
   newVehicleDocumentId,
   seedVehicleDocumentsFromCountry,
   computeVehicleDocStatus,
+  vehicleDocDisplayName,
   type VehicleDocument,
 } from "@/lib/vehicleDocumentUtils";
 import type { Language, Currency } from "@/lib/i18n";
@@ -929,6 +932,8 @@ export default function Home() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [pendingOpenBinderDocumentId, setPendingOpenBinderDocumentId] = useState<string | null>(null);
   const [complianceNotifOpen, setComplianceNotifOpen] = useState(false);
   const complianceNotifRef = useRef<HTMLDivElement>(null);
   const { photos, uploadPhoto, approvePhoto, rejectPhoto } = useProjectPhotos(companyId);
@@ -1421,7 +1426,7 @@ export default function Home() {
     const normalize = (list: Vehicle[]) =>
       list.map((v) => ({
         ...v,
-        documents: ensureVehicleDocuments(v, undefined),
+        documents: ensureVehicleDocuments(v, undefined, undefined),
       }));
     if (typeof window === "undefined") return normalize(INITIAL_VEHICLES);
     try {
@@ -2242,6 +2247,19 @@ export default function Home() {
   const workerEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : null;
 
   const clearPendingOpenEmployee = useCallback(() => setPendingOpenEmployeeId(null), []);
+  const clearPendingOpenBinderDocument = useCallback(() => setPendingOpenBinderDocumentId(null), []);
+
+  useEffect(() => {
+    if (!session) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setGlobalSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [session]);
 
   const criticalComplianceCount = useMemo(
     () => complianceAlerts.filter((a) => a.severity !== "warning").length,
@@ -2580,6 +2598,58 @@ export default function Home() {
     setActiveSection("site");
     setProjectsSecurityTabSig((n) => n + 1);
   }, [perms.site, visibleProjects]);
+
+  const handleGlobalSearchSelectEmployee = useCallback((id: string) => {
+    setActiveSection("office");
+    setPendingOpenEmployeeId(id);
+  }, []);
+
+  const handleGlobalSearchSelectProject = useCallback((id: string) => {
+    setActiveSection("site");
+    setOperationsMainTab("projects");
+    setSiteSelectedProjectId(id);
+  }, []);
+
+  const handleGlobalSearchSelectVehicle = useCallback(() => {
+    setActiveSection("warehouse");
+    setWarehouseSubTab("fleet");
+  }, []);
+
+  const handleGlobalSearchSelectSupplier = useCallback(() => {
+    setActiveSection("warehouse");
+    setWarehouseSubTab("suppliers");
+  }, []);
+
+  const handleGlobalSearchSelectDocument = useCallback((docId: string, _binderId?: string) => {
+    void _binderId;
+    setActiveSection("office");
+    setPendingOpenBinderDocumentId(docId);
+  }, []);
+
+  const globalSearchFlags = useMemo(
+    () => ({
+      employees: !!(perms.canAccessEmployees ?? false),
+      projects: !!(perms.site && canViewProjectsTab),
+      vehicles: !!perms.warehouse,
+      suppliers: !!perms.warehouse,
+      documents: !!(
+        rolePerms.canViewSecurityDocs ||
+        rolePerms.canManageSecurityDocs ||
+        rolePerms.canViewBinders ||
+        rolePerms.canManageBinders
+      ),
+    }),
+    [
+      perms.canAccessEmployees,
+      perms.site,
+      perms.warehouse,
+      canViewProjectsTab,
+      rolePerms.canViewSecurityDocs,
+      rolePerms.canManageSecurityDocs,
+      rolePerms.canViewBinders,
+      rolePerms.canManageBinders,
+    ]
+  );
 
   const scheduleSelfIds = useMemo(
     () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),
@@ -3591,10 +3661,11 @@ export default function Home() {
     setVehicleDraft({});
   }
   function saveVehicle() {
+    const docT = t as Record<string, string>;
     const docList =
       vehicleDraft.documents && vehicleDraft.documents.length > 0
         ? vehicleDraft.documents
-        : seedVehicleDocumentsFromCountry(companyCountry);
+        : seedVehicleDocumentsFromCountry(companyCountry, docT);
     if (editingVehicleId) {
       setVehicles((prev) => {
         const next = prev.map((v) =>
@@ -3941,7 +4012,18 @@ export default function Home() {
                 )}
               </div>
             </div>
-            <div className="flex w-full min-w-0 max-w-full flex-wrap items-center justify-stretch gap-2 sm:w-auto sm:justify-end sm:gap-3">
+              <div className="flex w-full min-w-0 max-w-full flex-wrap items-center justify-stretch gap-2 sm:w-auto sm:justify-end sm:gap-3">
+              {session && companyId ? (
+                <button
+                  type="button"
+                  onClick={() => setGlobalSearchOpen(true)}
+                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-gray-700 dark:bg-gray-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  aria-label={(t as Record<string, string>).search_global ?? "Search"}
+                  title={(t as Record<string, string>).search_kb_hint ?? "Ctrl+K"}
+                >
+                  <Search className="h-5 w-5 shrink-0" aria-hidden />
+                </button>
+              ) : null}
               {session && companyId ? (
                 <NotificationBell
                   supabase={supabase}
@@ -4019,7 +4101,11 @@ export default function Home() {
                                   <span className="font-medium text-zinc-900 dark:text-white">
                                     {watchdogSubjectLabel(a)}
                                   </span>
-                                  <span className="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">{a.certName}</span>
+                                  <span className="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                    {a.certNameKey
+                                      ? ((t as Record<string, string>)[a.certNameKey] ?? a.certName)
+                                      : a.certName}
+                                  </span>
                                 </button>
                               </li>
                             ))
@@ -4081,6 +4167,34 @@ export default function Home() {
               )}
             </div>
           </header>
+
+          {session && companyId ? (
+            <GlobalSearchModal
+              open={globalSearchOpen}
+              onClose={() => setGlobalSearchOpen(false)}
+              labels={t as Record<string, string>}
+              employees={activeEmployees.map((e) => ({
+                id: e.id,
+                name: e.name,
+                email: e.email,
+              }))}
+              projects={visibleProjects.map((p) => ({ id: p.id, name: p.name }))}
+              vehicles={(vehicles ?? []).map((v) => ({ id: v.id, plate: v.plate }))}
+              suppliers={(suppliers ?? []).map((s) => ({ id: s.id, name: s.name }))}
+              binderDocuments={(binderDocuments ?? []).map((d) => ({
+                id: d.id,
+                name: d.name,
+                binderId: d.binderId,
+              }))}
+              binders={(binders ?? []).map((b) => ({ id: b.id, name: b.name }))}
+              flags={globalSearchFlags}
+              onSelectEmployee={handleGlobalSearchSelectEmployee}
+              onSelectProject={handleGlobalSearchSelectProject}
+              onSelectVehicle={handleGlobalSearchSelectVehicle}
+              onSelectSupplier={handleGlobalSearchSelectSupplier}
+              onSelectDocument={handleGlobalSearchSelectDocument}
+            />
+          ) : null}
 
           <div className="max-w-7xl mx-auto space-y-6 min-w-0 w-full">
             {activeSection === "office" && perms.office && (
@@ -4281,6 +4395,8 @@ export default function Home() {
                 complianceAlerts={complianceAlerts}
                 pendingOpenEmployeeId={pendingOpenEmployeeId}
                 onPendingOpenEmployeeHandled={clearPendingOpenEmployee}
+                pendingOpenBinderDocumentId={pendingOpenBinderDocumentId}
+                onPendingOpenBinderDocumentHandled={clearPendingOpenBinderDocument}
                 companyName={(profile?.companyName ?? companyName) || null}
                 onNavigateAppSection={(s) => setActiveSection(s)}
                 onQuickNewHazard={() => {
@@ -4482,13 +4598,15 @@ export default function Home() {
                 onAddFleet={() => {
                   setVehicleFormOpen(true);
                   setEditingVehicleId(null);
-                  setVehicleDraft({ documents: seedVehicleDocumentsFromCountry(companyCountry) });
+                  setVehicleDraft({
+                    documents: seedVehicleDocumentsFromCountry(companyCountry, t as Record<string, string>),
+                  });
                 }}
                 onEditFleet={(v) => {
                   setEditingVehicleId(v.id);
                   setVehicleDraft({
                     ...v,
-                    documents: ensureVehicleDocuments(v, companyCountry),
+                    documents: ensureVehicleDocuments(v, companyCountry, t as Record<string, string>),
                   });
                   setVehicleFormOpen(true);
                 }}
@@ -5912,8 +6030,13 @@ export default function Home() {
       {vehicleFormOpen && (
         <>
           <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeVehicleForm} />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{editingVehicleId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")} vehículo</h3>
+          <div className="fixed z-50 flex max-h-[100dvh] w-full flex-col border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-8 max-sm:max-h-[calc(100dvh-2rem)] max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:border-b-0 sm:left-1/2 sm:top-1/2 sm:max-h-[min(92dvh,720px)] sm:w-[min(100%,28rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border">
+            <div className="shrink-0 border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                {editingVehicleId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")} vehículo
+              </h3>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
             <div className="space-y-3">
               {(() => {
                 const tl = t as Record<string, string>;
@@ -5941,10 +6064,10 @@ export default function Home() {
                 };
                 return (
                   <>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Matrícula</label><input type="text" value={vehicleDraft.plate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, plate: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Conductor habitual</label><select value={vehicleDraft.usualDriverId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, usualDriverId: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(employees ?? []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Proyecto asignado</label><select value={vehicleDraft.currentProjectId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, currentProjectId: e.target.value || null }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{tl.status ?? "Estado"}</label><select value={vehicleDraft.vehicleStatus ?? "available"} onChange={(e) => setVehicleDraft((d) => ({ ...d, vehicleStatus: e.target.value as VehicleStatus }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="available">{tl.available ?? "Disponible"}</option><option value="in_use">{tl.inUse ?? "En uso"}</option><option value="maintenance">{tl.maintenance ?? "Mantenimiento"}</option><option value="out_of_service">{tl.outOfService ?? "Fuera de servicio"}</option></select></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Matrícula</label><input type="text" value={vehicleDraft.plate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, plate: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Conductor habitual</label><select value={vehicleDraft.usualDriverId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, usualDriverId: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(employees ?? []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Proyecto asignado</label><select value={vehicleDraft.currentProjectId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, currentProjectId: e.target.value || null }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{tl.status ?? "Estado"}</label><select value={vehicleDraft.vehicleStatus ?? "available"} onChange={(e) => setVehicleDraft((d) => ({ ...d, vehicleStatus: e.target.value as VehicleStatus }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="available">{tl.available ?? "Disponible"}</option><option value="in_use">{tl.inUse ?? "En uso"}</option><option value="maintenance">{tl.maintenance ?? "Mantenimiento"}</option><option value="out_of_service">{tl.outOfService ?? "Fuera de servicio"}</option></select></div>
               <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-slate-700">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{tl.vehicle_documents ?? "Documentación del vehículo"}</p>
@@ -5972,17 +6095,19 @@ export default function Home() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <input
                         type="text"
-                        value={doc.name}
+                        value={vehicleDocDisplayName(doc, tl)}
                         onChange={(e) =>
                           setVehicleDraft((d) => ({
                             ...d,
                             documents: (d.documents ?? []).map((x) =>
-                              x.id === doc.id ? { ...x, name: e.target.value } : x
+                              x.id === doc.id
+                                ? { ...x, name: e.target.value, nameKey: undefined }
+                                : x
                             ),
                           }))
                         }
                         placeholder={tl.name ?? "Nombre del documento"}
-                        className="w-full sm:flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                        className="min-h-[44px] w-full min-w-0 sm:flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                       />
                       <div className="flex items-center gap-2 shrink-0">
                         {docStatusBadge(doc)}
@@ -6013,7 +6138,7 @@ export default function Home() {
                             ),
                           }))
                         }
-                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                        className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
@@ -6030,7 +6155,7 @@ export default function Home() {
                           }))
                         }
                         placeholder="https://"
-                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                        className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
@@ -6050,7 +6175,7 @@ export default function Home() {
                             ),
                           }))
                         }
-                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                        className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                       />
                     </div>
                   </div>
@@ -6059,11 +6184,15 @@ export default function Home() {
                   </>
                 );
               })()}
-              <div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).lastMaintenance ?? "Último mantenimiento"}</label><input type="date" value={vehicleDraft.lastMaintenanceDate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, lastMaintenanceDate: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).nextMaintenance ?? "Próximo mantenimiento"}</label><input type="date" value={vehicleDraft.nextMaintenanceDate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, nextMaintenanceDate: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).mileage ?? "Kilometraje"}</label><input type="number" min={0} value={vehicleDraft.mileage ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, mileage: e.target.value ? parseInt(e.target.value, 10) : undefined }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).lastMaintenance ?? "Último mantenimiento"}</label><input type="date" value={vehicleDraft.lastMaintenanceDate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, lastMaintenanceDate: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div><div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).nextMaintenance ?? "Próximo mantenimiento"}</label><input type="date" value={vehicleDraft.nextMaintenanceDate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, nextMaintenanceDate: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).mileage ?? "Kilometraje"}</label><input type="number" min={0} value={vehicleDraft.mileage ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, mileage: e.target.value ? parseInt(e.target.value, 10) : undefined }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Notas</label><textarea rows={2} value={vehicleDraft.notes ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, notes: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
             </div>
-            <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={closeVehicleForm} className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">{t.cancel ?? "Cancelar"}</button><button type="button" onClick={saveVehicle} className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]">{t.save ?? "Guardar"}</button></div>
+            </div>
+            <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-zinc-200 bg-white px-4 py-4 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:justify-end sm:px-6">
+              <button type="button" onClick={closeVehicleForm} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:w-auto">{t.cancel ?? "Cancelar"}</button>
+              <button type="button" onClick={saveVehicle} className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-500 sm:w-auto">{t.save ?? "Guardar"}</button>
+            </div>
           </div>
         </>
       )}

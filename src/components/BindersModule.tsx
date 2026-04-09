@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Shield,
   FileWarning,
@@ -62,6 +62,9 @@ export interface BindersModuleProps {
   onDeleteBinder: (id: string) => void;
   onAddDocument: (d: BinderDocument) => void;
   onDeleteDocument: (id: string) => void;
+  /** Deep-link from global search: open the binder that contains this document. */
+  focusDocumentId?: string | null;
+  onFocusDocumentHandled?: () => void;
 }
 
 export function BindersModule({
@@ -76,11 +79,28 @@ export function BindersModule({
   onDeleteBinder,
   onAddDocument,
   onDeleteDocument,
+  focusDocumentId = null,
+  onFocusDocumentHandled,
 }: BindersModuleProps) {
   const [view, setView] = useState<BindersView>("list");
   const [selectedBinder, setSelectedBinder] = useState<Binder | null>(null);
   const [addBinderOpen, setAddBinderOpen] = useState(false);
   const [addDocumentOpen, setAddDocumentOpen] = useState(false);
+
+  useEffect(() => {
+    if (!focusDocumentId) return;
+    const doc = documents.find((d) => d.id === focusDocumentId);
+    if (!doc) {
+      onFocusDocumentHandled?.();
+      return;
+    }
+    const binder = binders.find((b) => b.id === doc.binderId);
+    if (binder) {
+      setSelectedBinder(binder);
+      setView("binder");
+    }
+    onFocusDocumentHandled?.();
+  }, [focusDocumentId, documents, binders, onFocusDocumentHandled]);
 
   const openBinder = (binder: Binder) => {
     setSelectedBinder(binder);

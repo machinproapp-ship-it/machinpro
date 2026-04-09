@@ -1176,7 +1176,7 @@ export function CorrectiveActionsModule({
                 <ImagePlus className="h-4 w-4" />
                 {t.actions_evidence ?? "Evidence"}
               </h4>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(detail.photos ?? []).map((url) => (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
