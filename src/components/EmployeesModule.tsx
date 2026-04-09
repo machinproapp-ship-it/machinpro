@@ -45,6 +45,13 @@ import {
   permLocaleKey,
   pickDefaultWorkerRoleId,
 } from "@/types/roles";
+import type { EmployeeDocument } from "@/lib/employeeDocumentUtils";
+import {
+  computeEmployeeDocStatus,
+  employeeDocDisplayName,
+  employeeDocumentRowNeedsRedHighlight,
+  worstEmployeeDocStatus,
+} from "@/lib/employeeDocumentUtils";
 import type {
   ComplianceField,
   ComplianceRecord,
@@ -67,6 +74,8 @@ const EmployeeGpsRouteTab = dynamic(
 
 export interface EmployeesModuleProps {
   companyId: string | null;
+  /** `companies.country_code` — plantillas de documentos (create vía API usa el mismo país). */
+  companyCountryCode?: string;
   /** Para nombre de archivo CSV export. */
   companyName?: string | null;
   /** Moneda por defecto del perfil empresa (ajustes). */
@@ -160,9 +169,86 @@ type EmployeeDocRow = {
   id: string;
   user_id: string;
   name: string;
+  name_key?: string | null;
   file_url?: string | null;
+  expiry_date?: string | null;
+  alert_days?: number | null;
+  required?: boolean | null;
+  deleted_at?: string | null;
   created_at?: string | null;
 };
+
+function employeeDocRowToDocument(r: EmployeeDocRow): EmployeeDocument {
+  return {
+    id: r.id,
+    name: r.name,
+    nameKey: r.name_key ?? undefined,
+    expiryDate: r.expiry_date ? String(r.expiry_date).slice(0, 10) : undefined,
+    documentUrl: r.file_url ?? undefined,
+    alertDays: r.alert_days ?? 30,
+    required: r.required ?? undefined,
+  };
+}
+
+function employeeDocFleetBadge(
+  docs: EmployeeDocument[] | undefined,
+  labels: Record<string, string>
+): React.ReactNode | null {
+  if (!docs?.length) return null;
+  const w = worstEmployeeDocStatus(docs);
+  if (w === "ok")
+    return (
+      <span className="inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        {labels.valid ?? "Al día"}
+      </span>
+    );
+  if (w === "soon")
+    return (
+      <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+        {labels.expiring ?? "Vence pronto"}
+      </span>
+    );
+  if (w === "expired")
+    return (
+      <span className="inline-flex rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+        {labels.expired ?? "Vencido"}
+      </span>
+    );
+  return (
+    <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+      {labels.missing ?? "Sin fecha"}
+    </span>
+  );
+}
+
+function employeeDocStatusBadge(
+  st: ReturnType<typeof computeEmployeeDocStatus>,
+  labels: Record<string, string>
+): React.ReactNode {
+  if (st === "ok")
+    return (
+      <span className="inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        {labels.valid ?? ""}
+      </span>
+    );
+  if (st === "soon")
+    return (
+      <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+        {labels.expiring ?? ""}
+      </span>
+    );
+  if (st === "expired")
+    return (
+      <span className="inline-flex rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+        {labels.expired ?? ""}
+      </span>
+    );
+  return (
+    <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+      {labels.missing ?? ""}
+    </span>
+  );
+}
 
 function coercePayAmount(v: unknown): number | null {
   if (v == null || v === "") return null;
@@ -303,6 +389,7 @@ const PAY_CURRENCIES = ["CAD", "USD", "EUR", "GBP", "MXN", "BRL", "ARS", "COP", 
 
 export function EmployeesModule({
   companyId,
+  companyCountryCode,
   companyName = "",
   defaultPayCurrency = "CAD",
   labels: t,
@@ -342,7 +429,7 @@ export function EmployeesModule({
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Partial<ProfileRow>>({});
   const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
-  const [employeeDocs, setEmployeeDocs] = useState<EmployeeDocRow[]>([]);
+  const [employeeDocsByUser, setEmployeeDocsByUser] = useState<Record<string, EmployeeDocRow[]>>({});
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -390,9 +477,12 @@ export function EmployeesModule({
     [projects]
   );
 
+  void companyCountryCode;
+
   const load = useCallback(async () => {
     if (!companyId) {
       setRows([]);
+      setEmployeeDocsByUser({});
       setLoading(false);
       return;
     }
@@ -413,8 +503,27 @@ export function EmployeesModule({
     if (error) {
       console.error(error);
       setRows([]);
+      setEmployeeDocsByUser({});
     } else {
       setRows((data ?? []) as ProfileRow[]);
+    }
+    const { data: edocs, error: edocsErr } = await supabase
+      .from("employee_documents")
+      .select("*")
+      .eq("company_id", companyId);
+    if (edocsErr) {
+      console.error("[EmployeesModule] employee_documents", edocsErr);
+      setEmployeeDocsByUser({});
+    } else {
+      const buckets: Record<string, EmployeeDocRow[]> = {};
+      for (const raw of edocs ?? []) {
+        const r = raw as EmployeeDocRow;
+        if (r.deleted_at) continue;
+        const uid = r.user_id;
+        if (!buckets[uid]) buckets[uid] = [];
+        buckets[uid].push(r);
+      }
+      setEmployeeDocsByUser(buckets);
     }
     setLoading(false);
   }, [companyId]);
@@ -442,6 +551,11 @@ export function EmployeesModule({
     () => rows.find((r) => r.id === selectedId) ?? null,
     [rows, selectedId]
   );
+
+  const employeeDocs = useMemo(() => {
+    if (!selectedId) return [];
+    return employeeDocsByUser[selectedId] ?? [];
+  }, [selectedId, employeeDocsByUser]);
 
   useEffect(() => {
     setEmployeeDetailTab("info");
@@ -534,7 +648,6 @@ export function EmployeesModule({
   const loadAssignments = useCallback(async () => {
     if (!supabase || !companyId || !selectedId) {
       setAssignedProjectIds([]);
-      setEmployeeDocs([]);
       return;
     }
     const { data: pj } = await supabase
@@ -547,13 +660,6 @@ export function EmployeesModule({
     } else {
       setAssignedProjectIds([]);
     }
-    const { data: docs } = await supabase
-      .from("employee_documents")
-      .select("*")
-      .eq("user_id", selectedId)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-    setEmployeeDocs((docs ?? []) as EmployeeDocRow[]);
   }, [companyId, selectedId]);
 
   useEffect(() => {
@@ -769,7 +875,29 @@ export function EmployeesModule({
     }
   };
 
-  const uploadEmployeeDoc = async (file: File) => {
+  const uploadEmployeeDocForRow = async (docId: string, file: File) => {
+    if (!cloudinaryCloudName || !cloudinaryUploadPreset || !selected || !companyId || !canManageEmployees)
+      return;
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", cloudinaryUploadPreset);
+    fd.append("folder", "machinpro/employee-docs");
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryCloudName}/raw/upload`, {
+      method: "POST",
+      body: fd,
+    });
+    const data = (await res.json()) as { secure_url?: string; error?: { message?: string } };
+    if (!data.secure_url) return;
+    const { error } = await supabase
+      .from("employee_documents")
+      .update({ file_url: data.secure_url })
+      .eq("id", docId)
+      .eq("company_id", companyId)
+      .eq("user_id", selected.id);
+    if (!error) void load();
+  };
+
+  const uploadEmployeeDocAdHoc = async (file: File) => {
     if (!cloudinaryCloudName || !cloudinaryUploadPreset || !selected || !companyId || !canManageEmployees)
       return;
     const fd = new FormData();
@@ -789,7 +917,19 @@ export function EmployeesModule({
       name,
       file_url: data.secure_url,
     });
-    if (!error) void loadAssignments();
+    if (!error) void load();
+  };
+
+  const saveEmployeeDocExpiry = async (docId: string, expiryYmd: string) => {
+    if (!selected || !companyId || !canManageEmployees) return;
+    const y = expiryYmd.trim() ? expiryYmd.slice(0, 10) : null;
+    const { error } = await supabase
+      .from("employee_documents")
+      .update({ expiry_date: y })
+      .eq("id", docId)
+      .eq("company_id", companyId)
+      .eq("user_id", selected.id);
+    if (!error) void load();
   };
 
   const togglePermission = (key: keyof RolePermissions) => {
@@ -1895,23 +2035,78 @@ export function EmployeesModule({
             <FileText className="h-4 w-4" />
             {tl.employeeDocs ?? ""}
           </h3>
-          <ul className="space-y-2 text-sm">
-            {employeeDocs.map((d) => (
-              <li key={d.id}>
-                {d.file_url ? (
-                  <a
-                    href={d.file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-amber-600 dark:text-amber-400 underline break-all"
-                  >
-                    {d.name}
-                  </a>
-                ) : (
-                  d.name
-                )}
-              </li>
-            ))}
+          <ul className="space-y-3 text-sm">
+            {employeeDocs.map((d) => {
+              const docModel = employeeDocRowToDocument(d);
+              const st = computeEmployeeDocStatus(docModel.expiryDate, docModel.alertDays ?? 30);
+              const label = employeeDocDisplayName(docModel, t as Record<string, string>);
+              return (
+                <li
+                  key={d.id}
+                  className="flex flex-col gap-2 border-b border-zinc-100 dark:border-slate-800 pb-3 last:border-b-0 last:pb-0"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-zinc-900 dark:text-white">{label}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {employeeDocStatusBadge(st, t as Record<string, string>)}
+                        {d.expiry_date ? (
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {tl.expiresOn ?? ""}: {String(d.expiry_date).slice(0, 10)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {tl.vehicle_doc_expiry ?? tl.expiresOn ?? ""}: —
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {d.file_url ? (
+                        <a
+                          href={d.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-h-[44px] inline-flex items-center rounded-lg border border-amber-500/50 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300"
+                        >
+                          {(tl as Record<string, string>).gallery_download ?? "Download"}
+                        </a>
+                      ) : null}
+                      {canManageEmployees ? (
+                        <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-600">
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              e.target.value = "";
+                              if (f) void uploadEmployeeDocForRow(d.id, f);
+                            }}
+                          />
+                          {tl.employees_upload_document ?? ""}
+                        </label>
+                      ) : null}
+                    </div>
+                  </div>
+                  {canManageEmployees ? (
+                    <label className="block text-xs text-zinc-500">
+                      {tl.vehicle_doc_expiry ?? tl.expiresOn ?? ""}
+                      <input
+                        type="date"
+                        defaultValue={d.expiry_date ? String(d.expiry_date).slice(0, 10) : ""}
+                        key={`${d.id}-${d.expiry_date ?? ""}`}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          const prev = d.expiry_date ? String(d.expiry_date).slice(0, 10) : "";
+                          if (v !== prev) void saveEmployeeDocExpiry(d.id, v);
+                        }}
+                        className="mt-1 w-full max-w-[14rem] rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm min-h-[44px] dark:border-zinc-600 dark:bg-slate-800"
+                      />
+                    </label>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
           {canManageEmployees && (
             <label className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm cursor-pointer">
@@ -1921,7 +2116,7 @@ export function EmployeesModule({
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   e.target.value = "";
-                  if (f) void uploadEmployeeDoc(f);
+                  if (f) void uploadEmployeeDocAdHoc(f);
                 }}
               />
               {tl.employees_upload_document ?? ""}
@@ -2324,16 +2519,26 @@ export function EmployeesModule({
       ) : employeesBrowseTab === "compliance" && employeeTargetComplianceFields.length > 0 ? (
         <>
           <div className="md:hidden space-y-3">
-            {filtered.map((r) => (
+            {filtered.map((r) => {
+              const dm = (employeeDocsByUser[r.id] ?? []).map(employeeDocRowToDocument);
+              const urgent = employeeDocumentRowNeedsRedHighlight(dm);
+              return (
               <button
                 key={r.id}
                 type="button"
                 onClick={() => setSelectedId(r.id)}
-                className="w-full min-w-0 text-left rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-2 min-h-[44px]"
+                className={`w-full min-w-0 text-left rounded-xl border bg-white dark:bg-slate-900 p-4 space-y-2 min-h-[44px] ${
+                  urgent
+                    ? "border-red-500 dark:border-red-700 border-2"
+                    : "border-zinc-200 dark:border-slate-700"
+                }`}
               >
-                <p className="font-medium text-zinc-900 dark:text-white truncate">
-                  {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-zinc-900 dark:text-white truncate min-w-0">
+                    {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
+                  </p>
+                  {employeeDocFleetBadge(dm, tl as Record<string, string>)}
+                </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{roleLabel(r)}</p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {r.profile_status === "inactive"
@@ -2368,7 +2573,8 @@ export function EmployeesModule({
                   ) : null}
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         <HorizontalScrollFade className="hidden md:block">
           <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
@@ -2389,16 +2595,27 @@ export function EmployeesModule({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
-                  <tr key={r.id} className="border-b border-zinc-100 dark:border-slate-800 last:border-b-0">
+                {filtered.map((r) => {
+                  const dm = (employeeDocsByUser[r.id] ?? []).map(employeeDocRowToDocument);
+                  const urgent = employeeDocumentRowNeedsRedHighlight(dm);
+                  return (
+                  <tr
+                    key={r.id}
+                    className={`border-b border-zinc-100 dark:border-slate-800 last:border-b-0 ${
+                      urgent ? "bg-red-50/60 dark:bg-red-950/25" : ""
+                    }`}
+                  >
                     <td className="sticky left-0 z-[1] bg-white dark:bg-slate-900 px-3 py-2.5 align-middle">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(r.id)}
-                        className="min-h-[44px] w-full text-left font-medium text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400"
-                      >
-                        {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(r.id)}
+                          className="min-h-[44px] flex-1 min-w-0 text-left font-medium text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400"
+                        >
+                          {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
+                        </button>
+                        {employeeDocFleetBadge(dm, tl as Record<string, string>)}
+                      </div>
                     </td>
                     {employeeTargetComplianceFields.map((field) => {
                       const tid = complianceTargetId(r.id);
@@ -2415,7 +2632,8 @@ export function EmployeesModule({
                       );
                     })}
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>
@@ -2423,12 +2641,17 @@ export function EmployeesModule({
         </>
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-slate-700 rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
-          {filtered.map((r) => (
+          {filtered.map((r) => {
+            const dm = (employeeDocsByUser[r.id] ?? []).map(employeeDocRowToDocument);
+            const urgent = employeeDocumentRowNeedsRedHighlight(dm);
+            return (
             <li key={r.id}>
               <button
                 type="button"
                 onClick={() => setSelectedId(r.id)}
-                className="w-full min-w-0 flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800 min-h-[56px] cursor-pointer"
+                className={`w-full min-w-0 flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-slate-800 min-h-[56px] cursor-pointer ${
+                  urgent ? "bg-red-50/70 dark:bg-red-950/30 border-l-4 border-l-red-500" : ""
+                }`}
               >
                 <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-sm font-medium shrink-0">
                   {r.avatar_url ? (
@@ -2450,18 +2673,22 @@ export function EmployeesModule({
                     })()}
                   </p>
                 </div>
-                <span className="text-xs rounded-full px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0">
-                  {r.profile_status === "inactive"
-                    ? tl.common_inactive ?? ""
-                    : r.profile_status === "invited"
-                      ? tl.employees_status_invited ?? ""
-                      : r.profile_status === "deleted"
-                        ? tl.employees_status_deleted ?? ""
-                        : tl.common_active ?? ""}
-                </span>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  {employeeDocFleetBadge(dm, tl as Record<string, string>)}
+                  <span className="text-xs rounded-full px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                    {r.profile_status === "inactive"
+                      ? tl.common_inactive ?? ""
+                      : r.profile_status === "invited"
+                        ? tl.employees_status_invited ?? ""
+                        : r.profile_status === "deleted"
+                          ? tl.employees_status_deleted ?? ""
+                          : tl.common_active ?? ""}
+                  </span>
+                </div>
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
       {!loading && filtered.length === 0 && (

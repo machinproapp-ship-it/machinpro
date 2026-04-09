@@ -1171,7 +1171,7 @@ export function CentralModule({
                         const subject = watchdogSubjectLabel(a);
                         return (
                           <li
-                            key={`exp-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
+                            key={`exp-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId ?? a.subcontractorId}-${a.certName}-${a.expiryDate}`}
                             className="flex flex-col gap-3 rounded-xl border border-red-200/80 bg-red-50/50 p-4 dark:border-red-900/40 dark:bg-red-950/20 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 flex-1 gap-3">
@@ -1196,6 +1196,8 @@ export function CentralModule({
                               onClick={() => {
                                 if (a.source === "vehicle") {
                                   onNavigateAppSection?.("warehouse");
+                                } else if (a.source === "subcontractor") {
+                                  onNavigateAppSection?.("subcontractors");
                                 } else if (a.employeeId) {
                                   setCentralView("personnel");
                                   setEmployeePanelId(a.employeeId);
@@ -1205,7 +1207,9 @@ export function CentralModule({
                             >
                               {a.source === "vehicle"
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
-                                : tl.viewEmployee ?? ""}
+                                : a.source === "subcontractor"
+                                  ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
+                                  : tl.viewEmployee ?? ""}
                             </button>
                           </li>
                         );
@@ -1228,7 +1232,7 @@ export function CentralModule({
                         const subject = watchdogSubjectLabel(a);
                         return (
                           <li
-                            key={`crit-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
+                            key={`crit-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId ?? a.subcontractorId}-${a.certName}-${a.expiryDate}`}
                             className="flex flex-col gap-3 rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 flex-1 gap-3">
@@ -1253,6 +1257,8 @@ export function CentralModule({
                               onClick={() => {
                                 if (a.source === "vehicle") {
                                   onNavigateAppSection?.("warehouse");
+                                } else if (a.source === "subcontractor") {
+                                  onNavigateAppSection?.("subcontractors");
                                 } else if (a.employeeId) {
                                   setCentralView("personnel");
                                   setEmployeePanelId(a.employeeId);
@@ -1262,7 +1268,9 @@ export function CentralModule({
                             >
                               {a.source === "vehicle"
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
-                                : tl.viewEmployee ?? ""}
+                                : a.source === "subcontractor"
+                                  ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
+                                  : tl.viewEmployee ?? ""}
                             </button>
                           </li>
                         );
@@ -1285,7 +1293,7 @@ export function CentralModule({
                         const subject = watchdogSubjectLabel(a);
                         return (
                           <li
-                            key={`warn-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
+                            key={`warn-${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId ?? a.subcontractorId}-${a.certName}-${a.expiryDate}`}
                             className="flex flex-col gap-3 rounded-xl border border-yellow-200/80 bg-yellow-50/40 p-4 dark:border-yellow-900/30 dark:bg-yellow-950/10 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 flex-1 gap-3">
@@ -1310,6 +1318,8 @@ export function CentralModule({
                               onClick={() => {
                                 if (a.source === "vehicle") {
                                   onNavigateAppSection?.("warehouse");
+                                } else if (a.source === "subcontractor") {
+                                  onNavigateAppSection?.("subcontractors");
                                 } else if (a.employeeId) {
                                   setCentralView("personnel");
                                   setEmployeePanelId(a.employeeId);
@@ -1319,7 +1329,9 @@ export function CentralModule({
                             >
                               {a.source === "vehicle"
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
-                                : tl.viewEmployee ?? ""}
+                                : a.source === "subcontractor"
+                                  ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
+                                  : tl.viewEmployee ?? ""}
                             </button>
                           </li>
                         );

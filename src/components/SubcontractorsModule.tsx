@@ -16,6 +16,10 @@ import {
   UserPlus,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
+import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
+import type { EmployeeDocument } from "@/lib/employeeDocumentUtils";
+import { employeeDocumentRowNeedsRedHighlight } from "@/lib/employeeDocumentUtils";
 import type { CustomRole } from "@/types/roles";
 
 export interface SubcontractorsModuleProps {
@@ -87,6 +91,37 @@ type ComplianceDraft = {
   file_url: string;
   expires_at: string;
 };
+
+function subcontractorDocFleetBadge(
+  docs: VehicleDocument[] | undefined,
+  labels: Record<string, string>
+): React.ReactNode | null {
+  if (!docs?.length) return null;
+  const w = worstVehicleDocStatus(docs);
+  if (w === "ok")
+    return (
+      <span className="inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        {labels.valid ?? ""}
+      </span>
+    );
+  if (w === "soon")
+    return (
+      <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+        {labels.expiring ?? ""}
+      </span>
+    );
+  if (w === "expired")
+    return (
+      <span className="inline-flex rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+        {labels.expired ?? ""}
+      </span>
+    );
+  return (
+    <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+      {labels.missing ?? ""}
+    </span>
+  );
+}
 
 function docTone(expiresAt: string | null | undefined, t: Record<string, string>): { cls: string; label: string } {
   if (!expiresAt)
@@ -191,6 +226,7 @@ export function SubcontractorsModule({
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [historyTitleDraft, setHistoryTitleDraft] = useState("");
   const [detailProjectIds, setDetailProjectIds] = useState<string[]>([]);
+  const [subDocsBySubId, setSubDocsBySubId] = useState<Record<string, VehicleDocument[]>>({});
 
   const [formName, setFormName] = useState("");
   const [formCompany, setFormCompany] = useState("");
@@ -223,6 +259,7 @@ export function SubcontractorsModule({
   const load = useCallback(async () => {
     if (!supabase || !companyId) {
       setList([]);
+      setSubDocsBySubId({});
       setLoading(false);
       return;
     }
@@ -235,8 +272,33 @@ export function SubcontractorsModule({
     if (error) {
       console.error(error);
       setList([]);
+      setSubDocsBySubId({});
     } else {
       setList((data ?? []) as SubRow[]);
+    }
+    const { data: allDocs, error: docErr } = await supabase
+      .from("subcontractor_documents")
+      .select("*")
+      .eq("company_id", companyId);
+    if (docErr) {
+      console.error("[SubcontractorsModule] subcontractor_documents", docErr);
+      setSubDocsBySubId({});
+    } else {
+      const m: Record<string, VehicleDocument[]> = {};
+      for (const raw of allDocs ?? []) {
+        const r = raw as DocRow;
+        const sid = r.subcontractor_id;
+        const vd: VehicleDocument = {
+          id: r.id,
+          name: r.name,
+          expiryDate: r.expires_at ? String(r.expires_at).slice(0, 10) : undefined,
+          documentUrl: r.file_url ?? undefined,
+          alertDays: 30,
+        };
+        if (!m[sid]) m[sid] = [];
+        m[sid].push(vd);
+      }
+      setSubDocsBySubId(m);
     }
     const { data: pj } = await supabase.from("subcontractor_projects").select("subcontractor_id");
     const counts: Record<string, number> = {};
@@ -975,14 +1037,22 @@ export function SubcontractorsModule({
         <p className="text-sm text-zinc-500">{t.loading ?? ""}</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {filtered.map((s) => (
+          {filtered.map((s) => {
+            const vdocs = subDocsBySubId[s.id] ?? [];
+            const urgent = employeeDocumentRowNeedsRedHighlight(vdocs as EmployeeDocument[]);
+            return (
             <button
               key={s.id}
               type="button"
               onClick={() => setSelectedId(s.id)}
-              className="flex flex-col rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden hover:border-amber-400/60 p-4 text-left min-h-[44px] cursor-pointer bg-white dark:bg-slate-900"
+              className={`flex flex-col rounded-xl border overflow-hidden hover:border-amber-400/60 p-4 text-left min-h-[44px] cursor-pointer bg-white dark:bg-slate-900 ${
+                urgent ? "border-red-500 dark:border-red-700 border-2" : "border-zinc-200 dark:border-slate-700"
+              }`}
             >
-              <p className="font-semibold text-zinc-900 dark:text-white">{s.name}</p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="font-semibold text-zinc-900 dark:text-white min-w-0">{s.name}</p>
+                {subcontractorDocFleetBadge(vdocs, t as Record<string, string>)}
+              </div>
               <p className="text-xs text-zinc-500">{s.company_name ?? "—"}</p>
               <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{s.trade ?? "—"}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
@@ -1000,7 +1070,8 @@ export function SubcontractorsModule({
                 </span>
               </div>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
       {!loading && filtered.length === 0 && (

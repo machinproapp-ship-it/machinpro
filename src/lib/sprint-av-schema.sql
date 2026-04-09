@@ -193,6 +193,14 @@ CREATE TABLE IF NOT EXISTS employee_documents (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Seguridad integrada — plantillas por país (ejecutar si la tabla ya existía sin columnas)
+ALTER TABLE employee_documents
+  ADD COLUMN IF NOT EXISTS name_key TEXT,
+  ADD COLUMN IF NOT EXISTS expiry_date DATE,
+  ADD COLUMN IF NOT EXISTS alert_days INTEGER DEFAULT 30,
+  ADD COLUMN IF NOT EXISTS required BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
 ALTER TABLE employee_documents ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Empresa ve employee_documents" ON employee_documents;
 CREATE POLICY "Empresa ve employee_documents"

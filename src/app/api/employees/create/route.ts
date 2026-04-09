@@ -10,6 +10,7 @@ import {
   buildEmployeeInviteEmailHtml,
   employeeInviteSubject,
 } from "@/lib/transactionalEmailHtml";
+import { seedEmployeeDocumentsFromCountry } from "@/lib/employeeDocumentUtils";
 
 export const runtime = "nodejs";
 
@@ -203,6 +204,33 @@ export async function POST(req: NextRequest) {
       console.error("[api/employees/create] profile upsert:", profErr);
       await admin.auth.admin.deleteUser(userId);
       return NextResponse.json({ error: profErr.message }, { status: 500 });
+    }
+
+    const { data: coRow } = await admin
+      .from("companies")
+      .select("country_code")
+      .eq("id", companyId)
+      .maybeSingle();
+    const countryCode =
+      typeof (coRow as { country_code?: string } | null)?.country_code === "string"
+        ? (coRow as { country_code: string }).country_code
+        : undefined;
+    const seededDocs = seedEmployeeDocumentsFromCountry(countryCode, undefined);
+    for (const doc of seededDocs) {
+      const ins = await admin.from("employee_documents").insert({
+        company_id: companyId,
+        user_id: userId,
+        name: doc.name,
+        name_key: doc.nameKey ?? null,
+        file_url: doc.documentUrl ?? null,
+        expiry_date: doc.expiryDate ?? null,
+        alert_days: doc.alertDays ?? 30,
+        required: doc.required ?? true,
+      });
+      if (ins.error) {
+        console.error("[api/employees/create] employee_documents seed:", ins.error);
+        break;
+      }
     }
 
     const resendKey = process.env.RESEND_API_KEY;

@@ -79,10 +79,12 @@ import {
   mergeComplianceAlerts,
   runComplianceWatchdog,
   runVehicleDocumentsWatchdog,
+  runSubcontractorWatchdog,
   shouldRunWatchdog,
   setLastWatchdogRun,
   watchdogSubjectLabel,
   type ComplianceAlert,
+  type SubcontractorForWatchdog,
 } from "@/lib/complianceWatchdog";
 import {
   ensureVehicleDocuments,
@@ -1221,6 +1223,7 @@ export default function Home() {
   );
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [subcontractorsForWatchdog, setSubcontractorsForWatchdog] = useState<SubcontractorForWatchdog[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>(INITIAL_SCHEDULE);
   const [clockEntries, setClockEntries] = useState<ClockEntry[]>([]);
   /** Fichajes desde `time_entries` (Supabase); se fusionan con fichajes locales. */
@@ -1648,6 +1651,7 @@ export default function Home() {
       setUserToEmployeeMap({});
       userIdToEmployeeIdRef.current = new Map();
       setTeamProfiles([]);
+      setSubcontractorsForWatchdog([]);
       return;
     }
     const cid = companyId;
@@ -1710,7 +1714,7 @@ export default function Home() {
         supabase.from("roles").select("*").eq("company_id", cid).order("created_at", { ascending: true }),
         supabase
           .from("companies")
-          .select("name, logo_url, address, phone, email, website")
+          .select("name, logo_url, address, phone, email, website, country_code")
           .eq("id", cid)
           .maybeSingle(),
       ]);
@@ -1886,11 +1890,18 @@ export default function Home() {
         setCompanyPhone(mappedCompanyPhone);
         setCompanyEmail(mappedCompanyEmail);
         setCompanyWebsite(mappedCompanyWebsite);
+        const ccode = row.country_code;
+        if (typeof ccode === "string" && ccode.trim()) {
+          const up = ccode.trim().toUpperCase();
+          setCompanyCountry(up);
+          setSubcontractorCountryCode(up);
+        }
       }
 
       if (!cancelled) {
         void (async () => {
-          const [timeEntriesResult, vacationsResult, scheduleResult, auditResult] = await Promise.all([
+          const [timeEntriesResult, vacationsResult, scheduleResult, auditResult, subRowsResult, subDocsResult] =
+            await Promise.all([
             supabase
               .from("time_entries")
               .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
@@ -1910,6 +1921,8 @@ export default function Home() {
               .eq("company_id", cid)
               .order("created_at", { ascending: false })
               .limit(50),
+            supabase.from("subcontractors").select("id, name").eq("company_id", cid),
+            supabase.from("subcontractor_documents").select("*").eq("company_id", cid),
           ]);
 
           if (cancelled) return;
@@ -2025,6 +2038,40 @@ export default function Home() {
           if (!cancelled) {
             mappedAuditLogs = (auditData ?? []) as AuditLogEntry[];
             setAuditLogs(mappedAuditLogs);
+          }
+
+          const { data: subRowsRaw, error: subRowsErr } = subRowsResult;
+          const { data: subDocsRaw, error: subDocsErr } = subDocsResult;
+          if (!cancelled && !subRowsErr && !subDocsErr) {
+            const docBuckets = new Map<string, VehicleDocument[]>();
+            for (const raw of subDocsRaw ?? []) {
+              const r = raw as Record<string, unknown>;
+              const sid = r.subcontractor_id != null ? String(r.subcontractor_id) : "";
+              if (!sid) continue;
+              const vd: VehicleDocument = {
+                id: String(r.id ?? ""),
+                name: String(r.name ?? ""),
+                expiryDate:
+                  r.expires_at != null && String(r.expires_at).trim()
+                    ? String(r.expires_at).slice(0, 10)
+                    : undefined,
+                documentUrl: typeof r.file_url === "string" && r.file_url.trim() ? r.file_url : undefined,
+                alertDays: 30,
+              };
+              const arr = docBuckets.get(sid) ?? [];
+              arr.push(vd);
+              docBuckets.set(sid, arr);
+            }
+            const wd: SubcontractorForWatchdog[] = (subRowsRaw ?? []).map((row: { id: string; name: string }) => ({
+              id: String(row.id),
+              name: String(row.name ?? ""),
+              documents: docBuckets.get(String(row.id)) ?? [],
+            }));
+            setSubcontractorsForWatchdog(wd);
+          } else if (!cancelled && (subRowsErr || subDocsErr)) {
+            if (subRowsErr) console.error("[page] subcontractors watchdog load", subRowsErr);
+            if (subDocsErr) console.error("[page] subcontractor_documents watchdog load", subDocsErr);
+            setSubcontractorsForWatchdog([]);
           }
 
           const cacheWriteOk =
@@ -2280,7 +2327,8 @@ export default function Home() {
   useEffect(() => {
     const empAlerts = runComplianceWatchdog((employees ?? []) as CentralEmployee[]);
     const vehicleAlerts = runVehicleDocumentsWatchdog(vehicles ?? []);
-    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts);
+    const subAlerts = runSubcontractorWatchdog(subcontractorsForWatchdog ?? []);
+    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts, subAlerts);
     setComplianceAlerts(merged);
     if (shouldRunWatchdog()) {
       setLastWatchdogRun();
@@ -2288,7 +2336,7 @@ export default function Home() {
         console.log(`[ComplianceWatchdog] ${merged.length} alertas encontradas`);
       }
     }
-  }, [employees, vehicles]);
+  }, [employees, vehicles, subcontractorsForWatchdog]);
 
   useEffect(() => {
     if (!complianceNotifOpen) return;
@@ -4157,7 +4205,7 @@ export default function Home() {
                             .slice(0, 30)
                             .map((a) => (
                               <li
-                                key={`${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId}-${a.certName}-${a.expiryDate}`}
+                                key={`${a.source ?? "employee"}-${a.employeeId ?? a.vehicleId ?? a.subcontractorId}-${a.certName}-${a.expiryDate}`}
                               >
                                 <button
                                   type="button"
@@ -4166,6 +4214,8 @@ export default function Home() {
                                     setComplianceNotifOpen(false);
                                     if (a.source === "vehicle") {
                                       setActiveSection("warehouse");
+                                    } else if (a.source === "subcontractor") {
+                                      setActiveSection("subcontractors");
                                     } else {
                                       setActiveSection("office");
                                       setPendingOpenEmployeeId(a.employeeId ?? null);
@@ -4777,6 +4827,7 @@ export default function Home() {
               <>
               <EmployeesModule
                 companyId={companyId}
+                companyCountryCode={companyCountry}
                 companyName={profile?.companyName ?? companyName ?? ""}
                 onBackToOffice={() => setActiveSection("office")}
                 defaultPayCurrency={currency}

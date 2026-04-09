@@ -1,7 +1,7 @@
 import type { CentralEmployee } from "@/types/shared";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
 
-export type ComplianceAlertSource = "employee" | "vehicle";
+export type ComplianceAlertSource = "employee" | "vehicle" | "subcontractor";
 
 export type ComplianceAlert = {
   source: ComplianceAlertSource;
@@ -9,6 +9,8 @@ export type ComplianceAlert = {
   employeeName?: string;
   vehicleId?: string;
   vehiclePlate?: string;
+  subcontractorId?: string;
+  subcontractorName?: string;
   certName: string;
   /** When set with vehicle docs, UI can resolve `t[certNameKey] ?? certName`. */
   certNameKey?: string;
@@ -19,6 +21,7 @@ export type ComplianceAlert = {
 
 export function watchdogSubjectLabel(a: ComplianceAlert): string {
   if (a.source === "vehicle") return a.vehiclePlate?.trim() || a.vehicleId || "—";
+  if (a.source === "subcontractor") return (a.subcontractorName ?? "").trim() || a.subcontractorId || "—";
   return (a.employeeName ?? "").trim() || a.employeeId || "—";
 }
 
@@ -133,11 +136,76 @@ export function runVehicleDocumentsWatchdog(vehicles: VehicleForWatchdog[]): Com
   return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
+export type SubcontractorDocument = VehicleDocument;
+
+export type SubcontractorForWatchdog = {
+  id: string;
+  name: string;
+  documents?: SubcontractorDocument[];
+};
+
+/** Alerts for subcontractor documents using each document's `alertDays` (default 30). */
+export function runSubcontractorWatchdog(subcontractors: SubcontractorForWatchdog[]): ComplianceAlert[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const alerts: ComplianceAlert[] = [];
+
+  for (const s of subcontractors) {
+    for (const doc of s.documents ?? []) {
+      if (!doc.expiryDate?.trim()) continue;
+      const expiry = new Date(doc.expiryDate.includes("T") ? doc.expiryDate : `${doc.expiryDate}T12:00:00`);
+      if (Number.isNaN(expiry.getTime())) continue;
+      expiry.setHours(0, 0, 0, 0);
+      const daysLeft = Math.floor((expiry.getTime() - today.getTime()) / 86400000);
+      const alertWindow = doc.alertDays ?? 30;
+      const criticalWindow = Math.min(7, alertWindow);
+
+      if (daysLeft < 0) {
+        alerts.push({
+          source: "subcontractor",
+          subcontractorId: s.id,
+          subcontractorName: s.name,
+          certName: doc.name,
+          certNameKey: doc.nameKey,
+          expiryDate: doc.expiryDate,
+          daysLeft,
+          severity: "expired",
+        });
+      } else if (daysLeft <= criticalWindow) {
+        alerts.push({
+          source: "subcontractor",
+          subcontractorId: s.id,
+          subcontractorName: s.name,
+          certName: doc.name,
+          certNameKey: doc.nameKey,
+          expiryDate: doc.expiryDate,
+          daysLeft,
+          severity: "critical",
+        });
+      } else if (daysLeft <= alertWindow) {
+        alerts.push({
+          source: "subcontractor",
+          subcontractorId: s.id,
+          subcontractorName: s.name,
+          certName: doc.name,
+          certNameKey: doc.nameKey,
+          expiryDate: doc.expiryDate,
+          daysLeft,
+          severity: "warning",
+        });
+      }
+    }
+  }
+
+  return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
 export function mergeComplianceAlerts(
   employeeAlerts: ComplianceAlert[],
-  vehicleAlerts: ComplianceAlert[]
+  vehicleAlerts: ComplianceAlert[],
+  subcontractorAlerts: ComplianceAlert[] = []
 ): ComplianceAlert[] {
-  return [...employeeAlerts, ...vehicleAlerts].sort((a, b) => a.daysLeft - b.daysLeft);
+  return [...employeeAlerts, ...vehicleAlerts, ...subcontractorAlerts].sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
 export function getLastWatchdogRun(): string | null {
