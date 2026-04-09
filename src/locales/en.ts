@@ -1987,6 +1987,9 @@ export default {
   push_type_action: "Overdue actions",
   push_type_visitor: "Long visits",
   push_saved: "Preferences saved",
+  notifications_push_enable: "Enable push notifications",
+  notifications_push_enabled: "Push notifications enabled",
+  notifications_push_disabled: "Push notifications disabled",
 
   rfi_menu: "RFI",
   rfi_title: "Requests for information (RFI)",

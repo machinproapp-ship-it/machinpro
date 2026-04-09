@@ -132,7 +132,18 @@ export type Currency =
   | "JPY"
   | "KRW"
   | "INR"
-  | "ZAR";
+  | "ZAR"
+  | "ARS"
+  | "CLP"
+  | "COP"
+  | "PEN"
+  | "UYU"
+  | "BRL"
+  | "GTQ"
+  | "HNL"
+  | "NIO"
+  | "CRC"
+  | "PAB";
 
 export const CURRENCY_META: Record<Currency, { symbol: string; label: string; region: string }> = {
   CAD: { symbol: "C$", label: "Canadian Dollar", region: "CA" },
@@ -159,12 +170,35 @@ export const CURRENCY_META: Record<Currency, { symbol: string; label: string; re
   KRW: { symbol: "₩", label: "South Korean Won", region: "KR" },
   INR: { symbol: "₹", label: "Indian Rupee", region: "IN" },
   ZAR: { symbol: "R", label: "South African Rand", region: "ZA" },
+  ARS: { symbol: "$", label: "Argentine Peso", region: "AR" },
+  CLP: { symbol: "$", label: "Chilean Peso", region: "CL" },
+  COP: { symbol: "$", label: "Colombian Peso", region: "CO" },
+  PEN: { symbol: "S/", label: "Peruvian Sol", region: "PE" },
+  UYU: { symbol: "$U", label: "Uruguayan Peso", region: "UY" },
+  BRL: { symbol: "R$", label: "Brazilian Real", region: "BR" },
+  GTQ: { symbol: "Q", label: "Guatemalan Quetzal", region: "GT" },
+  HNL: { symbol: "L", label: "Honduran Lempira", region: "HN" },
+  NIO: { symbol: "C$", label: "Nicaraguan Córdoba", region: "NI" },
+  CRC: { symbol: "₡", label: "Costa Rican Colón", region: "CR" },
+  PAB: { symbol: "B/.", label: "Panamanian Balboa", region: "PA" },
 };
 
 export const REGION_DEFAULT_CURRENCY: Record<string, Currency> = {
   CA: "CAD",
   US: "USD",
   MX: "MXN",
+  AR: "ARS",
+  BR: "BRL",
+  CL: "CLP",
+  CO: "COP",
+  CR: "CRC",
+  GT: "GTQ",
+  HN: "HNL",
+  NI: "NIO",
+  PA: "PAB",
+  PE: "PEN",
+  SV: "USD",
+  UY: "UYU",
   GB: "GBP",
   SE: "SEK",
   NO: "NOK",
@@ -177,6 +211,7 @@ export const REGION_DEFAULT_CURRENCY: Record<string, Currency> = {
   HR: "HRK",
   TR: "TRY",
   UA: "UAH",
+  CH: "CHF",
   AU: "AUD",
   NZ: "NZD",
   SG: "SGD",
@@ -185,4 +220,14 @@ export const REGION_DEFAULT_CURRENCY: Record<string, Currency> = {
   IN: "INR",
   ZA: "ZAR",
   EU: "EUR",
+  ES: "EUR",
+  FR: "EUR",
+  DE: "EUR",
+  IT: "EUR",
+  PT: "EUR",
+  NL: "EUR",
+  BE: "EUR",
+  AT: "EUR",
+  IE: "EUR",
+  GR: "EUR",
 };

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { insertNotificationRow } from "@/lib/notifications-server";
+import { dispatchWebPushToUser } from "@/lib/push-dispatch";
 import { createSupabaseServiceRole } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -105,6 +107,39 @@ export async function POST(req: NextRequest) {
 
   if (insErr) {
     return NextResponse.json({ error: insErr.message }, { status: 500 });
+  }
+
+  const company_id = String(project.company_id);
+  const projectName = typeof project.name === "string" ? project.name : "Project";
+  const { data: adminRows } = await admin
+    .from("user_profiles")
+    .select("id")
+    .eq("company_id", company_id)
+    .in("role", ["admin", "supervisor"]);
+  const notifyIds = [...new Set((adminRows ?? []).map((r) => String((r as { id: string }).id)).filter(Boolean))];
+  const title = "New site visitor";
+  const bodyLine = `${name} checked in · ${projectName}`;
+  for (const uid of notifyIds) {
+    const ins = await insertNotificationRow(admin, {
+      company_id,
+      user_id: uid,
+      type: "visitor_checked_in",
+      title,
+      body: bodyLine,
+      data: {
+        visitor_log_id: (row as { id?: string })?.id,
+        project_id: projectId,
+        visitor_name: name,
+      },
+    });
+    if (ins.ok) {
+      void dispatchWebPushToUser(admin, company_id, uid, {
+        title,
+        body: bodyLine,
+        url: "/",
+        type: "visitor_checked_in",
+      });
+    }
   }
 
   return NextResponse.json({ visitor: row });

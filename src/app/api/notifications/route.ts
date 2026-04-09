@@ -7,6 +7,7 @@ import {
   resolveTargetUserId,
   verifyInternalSecret,
 } from "@/lib/notifications-server";
+import { dispatchWebPushToUser } from "@/lib/push-dispatch";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -136,5 +137,14 @@ export async function POST(req: NextRequest) {
   });
 
   if (!ins.ok) return NextResponse.json({ error: ins.error }, { status: 500 });
+
+  const bodyText = b.body != null && String(b.body).trim() ? String(b.body).trim() : title;
+  void dispatchWebPushToUser(admin, companyId, resolvedUserId, {
+    title,
+    body: bodyText,
+    url: "/",
+    type,
+  });
+
   return NextResponse.json({ ok: true, id: ins.id });
 }

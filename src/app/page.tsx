@@ -42,6 +42,7 @@ import { EmployeesModule } from "@/components/EmployeesModule";
 import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { ModuleHelpFab } from "@/components/ModuleHelpFab";
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
@@ -186,6 +187,17 @@ const CURRENCY_SYMBOLS: Record<Currency, string> = {
   KRW: "₩",
   INR: "₹",
   ZAR: "R",
+  ARS: "$",
+  CLP: "$",
+  COP: "$",
+  PEN: "S/",
+  UYU: "$U",
+  BRL: "R$",
+  GTQ: "Q",
+  HNL: "L",
+  NIO: "C$",
+  CRC: "₡",
+  PAB: "B/.",
 };
 const CURRENCY_RATES: Record<Currency, number> = {
   CAD: 1,
@@ -212,6 +224,17 @@ const CURRENCY_RATES: Record<Currency, number> = {
   KRW: 980,
   INR: 61,
   ZAR: 13.5,
+  ARS: 220,
+  CLP: 680,
+  COP: 3100,
+  PEN: 2.75,
+  UYU: 27,
+  BRL: 4.0,
+  GTQ: 5.7,
+  HNL: 19.5,
+  NIO: 26,
+  CRC: 380,
+  PAB: 0.72,
 };
 
 const TRANSLATIONS = ALL_TRANSLATIONS;
@@ -1029,6 +1052,7 @@ export default function Home() {
   }, []);
 
   const [currency, setCurrency] = useState<Currency>("CAD");
+  const currencyManuallyChangedRef = useRef(false);
   const [measurementSystem, setMeasurementSystem] = useState<"metric" | "imperial">("metric");
   const [companyCountry, setCompanyCountry] = useState<string>("CA");
   const userTimeZone = useMemo(() => resolveUserTimezone(profile?.timezone ?? null), [profile?.timezone]);
@@ -3172,8 +3196,29 @@ export default function Home() {
         .single();
       if (error || !data) return;
       setVacationRequests((prev) => [data as VacationRequestRow, ...prev]);
+      const tl = t as Record<string, string>;
+      const title = tl.notif_vacation_pending_title ?? tl.schedule_vacation_pending_list ?? "Vacation pending approval";
+      const who =
+        (profile?.fullName ?? "").trim() ||
+        (profile?.email ?? "").trim() ||
+        (user.email ?? "").trim() ||
+        user.id;
+      const body = `${who}: ${start} → ${end}` + (notes?.trim() ? ` · ${notes.trim()}` : "");
+      for (const e of activeEmployees) {
+        const r = (e.role ?? "").toLowerCase();
+        if (r !== "admin" && r !== "supervisor") continue;
+        if (e.id === user.id) continue;
+        void postAppNotification(supabase, {
+          companyId,
+          targetUserId: e.id,
+          type: "vacation_pending_approval",
+          title,
+          body,
+          data: { vacationRequestId: (data as VacationRequestRow).id, userId: user.id },
+        });
+      }
     },
-    [supabase, companyId, user?.id]
+    [supabase, companyId, user?.id, user?.email, profile?.fullName, profile?.email, t, activeEmployees]
   );
 
   /** Resuelve nombres en turnos (IDs de perfil, employee_id legacy, o demo e1/e2). Perfil MachinPro gana sobre nombre de employee. */
@@ -3758,13 +3803,18 @@ export default function Home() {
           onCountryChange={(country, defaults) => {
             setCompanyCountry(country);
             if (defaults) {
-              setCurrency(defaults.currency as Currency);
+              if (!currencyManuallyChangedRef.current) {
+                setCurrency(defaults.currency as Currency);
+              }
               setMeasurementSystem(defaults.measurementSystem);
             }
             const defaultFields = getDefaultComplianceFields(country);
             setComplianceFields((prev) => [...defaultFields, ...prev.filter((f) => !f.isDefault)]);
           }}
-          onCurrencyChange={(c) => setCurrency(c)}
+          onCurrencyChange={(c) => {
+            currencyManuallyChangedRef.current = true;
+            setCurrency(c);
+          }}
           onMeasurementSystemChange={setMeasurementSystem}
           onLogoUrlChange={setLogoUrl}
           onLogoUpload={handleLogoUpload}
@@ -5156,7 +5206,10 @@ export default function Home() {
                 language={language}
                 setLanguage={(lang) => void applyLanguage(lang)}
                 currency={currency}
-                setCurrency={(c) => setCurrency(c as Currency)}
+                setCurrency={(c) => {
+                  currencyManuallyChangedRef.current = true;
+                  setCurrency(c as Currency);
+                }}
                 measurementSystem={measurementSystem}
                 setMeasurementSystem={setMeasurementSystem}
                 canEditCompanyProfile={!!rolePerms.canEditCompanyProfile}
@@ -5169,7 +5222,9 @@ export default function Home() {
                 onCountryChange={(country, defaults) => {
                   setCompanyCountry(country);
                   if (defaults) {
-                    setCurrency(defaults.currency as Currency);
+                    if (!currencyManuallyChangedRef.current) {
+                      setCurrency(defaults.currency as Currency);
+                    }
                     setMeasurementSystem(defaults.measurementSystem);
                   }
                   const defaultFields = getDefaultComplianceFields(country);
@@ -5565,10 +5620,16 @@ export default function Home() {
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                   {(t as Record<string, string>).projectFormLocationLabel ?? ""}
                 </label>
-                <input type="text" value={projectFormLocation}
-                  onChange={(e) => setProjectFormLocation(e.target.value)}
+                <AddressAutocomplete
+                  value={projectFormLocation}
+                  onChange={setProjectFormLocation}
                   placeholder={(t as Record<string, string>).projectFormLocationPlaceholder ?? ""}
-                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
+                  onPlaceResolved={(p) => {
+                    if (p.lat != null) setProjectFormLat(String(p.lat));
+                    if (p.lng != null) setProjectFormLng(String(p.lng));
+                  }}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                />
               </div>
 
               <div>

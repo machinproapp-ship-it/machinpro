@@ -23,7 +23,7 @@ import {
   getRiskScore,
 } from "@/types/hazard";
 import { useToast } from "@/components/Toast";
-import { requestCompanyPushNotification } from "@/lib/clientCompanyPush";
+import { postAppNotification } from "@/lib/clientNotifications";
 import { FilterGrid } from "@/components/FilterGrid";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
@@ -53,7 +53,7 @@ export interface HazardModuleProps {
   userName: string;
   userProfileId: string | null;
   projects: { id: string; name: string }[];
-  employees: { id: string; name: string }[];
+  employees: { id: string; name: string; role?: string }[];
   /** Abre el módulo de acciones correctivas con peligro/proyecto pre-rellenados. */
   onOpenCorrectiveFromHazard?: (p: {
     hazardId: string;
@@ -446,13 +446,18 @@ export function HazardModule({
       new_value: { details: { payload } },
     });
     showToast("success", t.toast_saved ?? "Saved");
-    if (payload.severity === "critical") {
-      void requestCompanyPushNotification({
+    const title = t.new_hazard ?? t.push_new_hazard ?? "New hazard";
+    const body = form.title.trim();
+    for (const emp of employees) {
+      const r = (emp.role ?? "").toLowerCase();
+      if (r !== "admin" && r !== "supervisor") continue;
+      void postAppNotification(supabase, {
         companyId,
-        title: t.push_new_hazard ?? "Critical hazard",
-        body: form.title.trim(),
-        url: "/",
-        type: "hazard_critical",
+        targetUserId: emp.id,
+        type: "hazard_reported",
+        title,
+        body,
+        data: { hazardId: id, projectId: form.project_id || undefined },
       });
     }
     setCreateOpen(false);

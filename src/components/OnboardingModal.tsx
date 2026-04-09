@@ -9,72 +9,23 @@ import type { Language } from "@/types/shared";
 import { CURRENCY_META, type Currency } from "@/lib/i18n";
 import { IANA_TIMEZONE_OPTIONS, resolveUserTimezone } from "@/lib/dateUtils";
 import { supabase } from "@/lib/supabase";
+import {
+  REGIONAL_COUNTRY_DEFAULTS,
+  REGIONAL_COUNTRIES,
+  REGIONAL_TZ_BY_COUNTRY,
+} from "@/lib/regionalCountries";
 
 export type TranslationEntry = Record<string, string>;
 
-const COUNTRY_DEFAULTS: Record<string, { currency: string; measurementSystem: "metric" | "imperial" }> = {
-  CA: { currency: "CAD", measurementSystem: "metric" },
-  US: { currency: "USD", measurementSystem: "imperial" },
-  MX: { currency: "MXN", measurementSystem: "metric" },
-  GB: { currency: "GBP", measurementSystem: "imperial" },
-  ES: { currency: "EUR", measurementSystem: "metric" },
-  FR: { currency: "EUR", measurementSystem: "metric" },
-  DE: { currency: "EUR", measurementSystem: "metric" },
-  IT: { currency: "EUR", measurementSystem: "metric" },
-  PT: { currency: "EUR", measurementSystem: "metric" },
-  NL: { currency: "EUR", measurementSystem: "metric" },
-  PL: { currency: "PLN", measurementSystem: "metric" },
-  SE: { currency: "SEK", measurementSystem: "metric" },
-  NO: { currency: "NOK", measurementSystem: "metric" },
-  DK: { currency: "DKK", measurementSystem: "metric" },
-  CH: { currency: "CHF", measurementSystem: "metric" },
-  BE: { currency: "EUR", measurementSystem: "metric" },
-  AT: { currency: "EUR", measurementSystem: "metric" },
-  IE: { currency: "EUR", measurementSystem: "metric" },
-  CZ: { currency: "CZK", measurementSystem: "metric" },
-  HU: { currency: "HUF", measurementSystem: "metric" },
-  RO: { currency: "RON", measurementSystem: "metric" },
-  BG: { currency: "BGN", measurementSystem: "metric" },
-  HR: { currency: "HRK", measurementSystem: "metric" },
-  GR: { currency: "EUR", measurementSystem: "metric" },
-  TR: { currency: "TRY", measurementSystem: "metric" },
-  EU: { currency: "EUR", measurementSystem: "metric" },
-  AU: { currency: "AUD", measurementSystem: "metric" },
-  NZ: { currency: "NZD", measurementSystem: "metric" },
-  SG: { currency: "SGD", measurementSystem: "metric" },
-  JP: { currency: "JPY", measurementSystem: "metric" },
-  KR: { currency: "KRW", measurementSystem: "metric" },
-  IN: { currency: "INR", measurementSystem: "metric" },
-  ZA: { currency: "ZAR", measurementSystem: "metric" },
-};
+const COUNTRY_DEFAULTS: Record<string, { currency: string; measurementSystem: "metric" | "imperial" }> =
+  Object.fromEntries(
+    Object.entries(REGIONAL_COUNTRY_DEFAULTS).map(([code, v]) => [
+      code,
+      { currency: v.currency, measurementSystem: v.measurementSystem },
+    ])
+  );
 
-const COUNTRIES = [
-  { code: "CA", flag: "🇨🇦", name: "Canada" },
-  { code: "US", flag: "🇺🇸", name: "United States" },
-  { code: "MX", flag: "🇲🇽", name: "México" },
-  { code: "GB", flag: "🇬🇧", name: "United Kingdom" },
-  { code: "ES", flag: "🇪🇸", name: "España" },
-  { code: "FR", flag: "🇫🇷", name: "France" },
-  { code: "DE", flag: "🇩🇪", name: "Deutschland" },
-  { code: "IT", flag: "🇮🇹", name: "Italia" },
-  { code: "PT", flag: "🇵🇹", name: "Portugal" },
-  { code: "NL", flag: "🇳🇱", name: "Nederland" },
-  { code: "PL", flag: "🇵🇱", name: "Polska" },
-  { code: "SE", flag: "🇸🇪", name: "Sverige" },
-  { code: "NO", flag: "🇳🇴", name: "Norge" },
-  { code: "DK", flag: "🇩🇰", name: "Danmark" },
-  { code: "CH", flag: "🇨🇭", name: "Schweiz" },
-  { code: "BE", flag: "🇧🇪", name: "Belgium" },
-  { code: "AT", flag: "🇦🇹", name: "Österreich" },
-  { code: "IE", flag: "🇮🇪", name: "Ireland" },
-  { code: "CZ", flag: "🇨🇿", name: "Česká republika" },
-  { code: "HU", flag: "🇭🇺", name: "Magyarország" },
-  { code: "RO", flag: "🇷🇴", name: "România" },
-  { code: "BG", flag: "🇧🇬", name: "България" },
-  { code: "HR", flag: "🇭🇷", name: "Hrvatska" },
-  { code: "GR", flag: "🇬🇷", name: "Ελλάδα" },
-  { code: "TR", flag: "🇹🇷", name: "Türkiye" },
-] as const;
+const COUNTRIES = REGIONAL_COUNTRIES;
 
 const ONBOARDING_INDUSTRY_OPTIONS = [
   { value: "construction", labelKey: "onboarding_industry_construction" },
@@ -91,40 +42,7 @@ const ONBOARDING_SIZE_OPTIONS = [
   { value: "201+", labelKey: "onboarding_size_201_plus" },
 ] as const;
 
-const TZ_BY_COUNTRY: Record<string, string> = {
-  CA: "America/Toronto",
-  US: "America/New_York",
-  MX: "America/Mexico_City",
-  GB: "Europe/London",
-  ES: "Europe/Madrid",
-  FR: "Europe/Paris",
-  DE: "Europe/Berlin",
-  IT: "Europe/Rome",
-  PT: "Europe/Lisbon",
-  NL: "Europe/Amsterdam",
-  PL: "Europe/Warsaw",
-  SE: "Europe/Stockholm",
-  NO: "Europe/Oslo",
-  DK: "Europe/Copenhagen",
-  CH: "Europe/Zurich",
-  BE: "Europe/Brussels",
-  AT: "Europe/Vienna",
-  IE: "Europe/Dublin",
-  CZ: "Europe/Prague",
-  HU: "Europe/Budapest",
-  RO: "Europe/Bucharest",
-  BG: "Europe/Sofia",
-  HR: "Europe/Zagreb",
-  GR: "Europe/Athens",
-  TR: "Europe/Istanbul",
-  AU: "Australia/Sydney",
-  NZ: "Pacific/Auckland",
-  SG: "Asia/Singapore",
-  JP: "Asia/Tokyo",
-  KR: "Asia/Seoul",
-  IN: "Asia/Kolkata",
-  ZA: "Africa/Johannesburg",
-};
+const TZ_BY_COUNTRY = REGIONAL_TZ_BY_COUNTRY;
 
 export interface OnboardingModalProps {
   onComplete: () => void | Promise<void>;

@@ -2,8 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ParsedEmployeeCert } from "@/lib/employeeCertificatesJson";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
 import { insertNotificationRow } from "@/lib/notifications-server";
+import { dispatchWebPushToUser } from "@/lib/push-dispatch";
 
-export const CERT_NOTIF_TYPES = ["cert_expiring_15", "cert_expiring_7", "cert_expired"] as const;
+export const CERT_NOTIF_TYPES = ["cert_expiring_15", "cert_expiring_7", "cert_expiring_3", "cert_expired"] as const;
 export type CertNotificationType = (typeof CERT_NOTIF_TYPES)[number];
 
 /** YYYY-MM-DD → days from today (local midnight). */
@@ -20,6 +21,7 @@ export function daysUntilExpiry(expiryIsoDate: string): number | null {
 
 export function classifyCertNotification(daysLeft: number): CertNotificationType | null {
   if (daysLeft < 0) return "cert_expired";
+  if (daysLeft <= 3) return "cert_expiring_3";
   if (daysLeft <= 7) return "cert_expiring_7";
   if (daysLeft <= 15) return "cert_expiring_15";
   return null;
@@ -76,9 +78,22 @@ async function sendCertNotification(
       certificate_id: cert.id,
       cert_name: cert.name,
       expiry_date: cert.expiryDate,
-      severity: type === "cert_expired" ? "expired" : type === "cert_expiring_7" ? "urgent" : "warning",
+      severity:
+        type === "cert_expired"
+          ? "expired"
+          : type === "cert_expiring_3" || type === "cert_expiring_7"
+            ? "urgent"
+            : "warning",
     },
   });
+  if (res.ok) {
+    void dispatchWebPushToUser(admin, companyId, userId, {
+      title: titleEn,
+      body: bodyEn,
+      url: "/",
+      type,
+    });
+  }
   return res.ok;
 }
 
@@ -110,11 +125,13 @@ export async function runCertificateNotificationsForCompany(
   const titleFor = (type: CertNotificationType): string => {
     if (type === "cert_expiring_15") return "Certificate expiring soon";
     if (type === "cert_expiring_7") return "Certificate expiring soon";
+    if (type === "cert_expiring_3") return "Certificate expiring soon";
     return "Certificate expired";
   };
   const bodyFor = (type: CertNotificationType, certName: string): string => {
     if (type === "cert_expiring_15") return `${certName} expires in 15 days`;
     if (type === "cert_expiring_7") return `${certName} expires in 7 days`;
+    if (type === "cert_expiring_3") return `${certName} expires in 3 days`;
     return `${certName} has expired`;
   };
 

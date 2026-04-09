@@ -555,7 +555,7 @@ export function LogisticsModule({
         tlLabels.type ?? "Category",
         tlLabels.quantity ?? "Quantity",
         tlLabels.status ?? "Status",
-        t.filterByProject ?? "Project",
+        t.assignedProject ?? t.filterByProject ?? "Project",
       ];
       const lines = [headers.map((h) => csvCell(h)).join(",")];
       const categoryLabel = (i: InventoryItem) =>
@@ -1588,7 +1588,7 @@ export function LogisticsModule({
                   <th className="px-4 py-3 font-medium">{t.whUsualDriver ?? "Usual driver"}</th>
                   <th className="px-4 py-3 font-medium">{t.whInsuranceExpiry ?? "Insurance expiry"}</th>
                   <th className="px-4 py-3 font-medium">{vehicleInspectionLabel}</th>
-                  <th className="px-4 py-3 font-medium">{tlLabels.project ?? "Project"}</th>
+                  <th className="px-4 py-3 font-medium">{t.assignedProject ?? "Project"}</th>
                   <th className="px-4 py-3 font-medium">{tlLabels.status ?? "Status"}</th>
                   <th className="px-4 py-3 font-medium">{tlLabels.wh_maintenance_column ?? "Maintenance"}</th>
                   <th className="px-4 py-3 text-right">{t.edit ?? "Actions"}</th>

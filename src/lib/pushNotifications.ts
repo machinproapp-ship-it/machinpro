@@ -27,7 +27,7 @@ export async function subscribeToPush(params: {
   companyId: string;
   subscription: PushSubscriptionJSON;
 }): Promise<boolean> {
-  const res = await fetch("/api/push/subscribe", {
+  const res = await fetch("/api/notifications/subscribe", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -46,7 +46,9 @@ export async function registerPushSubscription(params: {
   accessToken: string;
   companyId: string;
 }): Promise<{ ok: boolean; reason?: "no_sw" | "no_vapid" | "denied" | "failed" }> {
-  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapid =
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() ||
+    process.env.VAPID_PUBLIC_KEY?.trim();
   if (!vapid) return { ok: false, reason: "no_vapid" };
   const perm = await requestPushPermission();
   if (perm !== "granted") return { ok: false, reason: "denied" };
@@ -70,7 +72,7 @@ export async function unsubscribeFromPush(params: {
   accessToken: string;
   endpoint: string;
 }): Promise<boolean> {
-  const res = await fetch("/api/push/subscribe", {
+  const res = await fetch("/api/notifications/subscribe", {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",

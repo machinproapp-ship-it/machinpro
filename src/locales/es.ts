@@ -1894,6 +1894,9 @@ export default {
   push_type_action: "Acciones vencidas",
   push_type_visitor: "Visitantes prolongados",
   push_saved: "Preferencias guardadas",
+  notifications_push_enable: "Activar notificaciones push",
+  notifications_push_enabled: "Notificaciones push activadas",
+  notifications_push_disabled: "Notificaciones push desactivadas",
 
   rfi_menu: "RFI",
   rfi_title: "Solicitudes de información (RFI)",

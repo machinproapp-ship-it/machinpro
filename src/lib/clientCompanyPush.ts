@@ -13,7 +13,7 @@ export async function requestCompanyPushNotification(body: {
   const token = data.session?.access_token;
   if (!token) return;
   try {
-    await fetch("/api/push/send", {
+    await fetch("/api/notifications/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

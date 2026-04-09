@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useAppLocale } from "@/hooks/useAppLocale";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import { LANGUAGES } from "@/lib/i18n";
+import { REGIONAL_COUNTRIES } from "@/lib/regionalCountries";
 import type { Language } from "@/types/shared";
 
 export default function RegisterPublicPage() {
@@ -18,6 +19,7 @@ export default function RegisterPublicPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [signupCountry, setSignupCountry] = useState("US");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -92,7 +94,7 @@ export default function RegisterPublicPage() {
           full_name: fullName.trim(),
           company_name: companyName.trim(),
           registration_source: "free",
-          signup_country: "US",
+          signup_country: signupCountry.trim() || "US",
         },
       },
     });
@@ -212,6 +214,23 @@ export default function RegisterPublicPage() {
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 min-h-[44px]"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {tx("register_free_country", "Country / region")}
+              </label>
+              <select
+                value={signupCountry}
+                onChange={(e) => setSignupCountry(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 min-h-[44px]"
+                aria-label={tx("register_free_country", "Country / region")}
+              >
+                {REGIONAL_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">

@@ -25,58 +25,10 @@ import {
   resolveUserTimezone,
 } from "@/lib/dateUtils";
 import { REGIONAL_TIMEZONE_GROUPS, allGroupedTimezones, cityLabelFromIana } from "@/lib/regionalTimezones";
+import { REGIONAL_COUNTRY_DEFAULTS as COUNTRY_DEFAULTS, REGIONAL_COUNTRIES as COUNTRIES } from "@/lib/regionalCountries";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 
 const SETTINGS_SUPPORT_EMAIL = "support@machin.pro";
-
-const COUNTRY_DEFAULTS: Record<
-  string,
-  { currency: string; measurementSystem: "metric" | "imperial"; taxIdLabel: string }
-> = {
-  CA: { currency: "CAD", measurementSystem: "metric", taxIdLabel: "BN / GST Number" },
-  US: { currency: "USD", measurementSystem: "imperial", taxIdLabel: "EIN" },
-  MX: { currency: "MXN", measurementSystem: "metric", taxIdLabel: "RFC" },
-  GB: { currency: "GBP", measurementSystem: "imperial", taxIdLabel: "VAT Number" },
-  EU: { currency: "EUR", measurementSystem: "metric", taxIdLabel: "VAT Number" },
-  ES: { currency: "EUR", measurementSystem: "metric", taxIdLabel: "CIF/NIF" },
-  FR: { currency: "EUR", measurementSystem: "metric", taxIdLabel: "SIRET" },
-  DE: { currency: "EUR", measurementSystem: "metric", taxIdLabel: "Steuernummer" },
-  IT: { currency: "EUR", measurementSystem: "metric", taxIdLabel: "Partita IVA" },
-  PT: { currency: "EUR", measurementSystem: "metric", taxIdLabel: "NIF" },
-  NL: { currency: "EUR", measurementSystem: "metric", taxIdLabel: "BTW-nummer" },
-  PL: { currency: "PLN", measurementSystem: "metric", taxIdLabel: "NIP" },
-  SE: { currency: "SEK", measurementSystem: "metric", taxIdLabel: "Organisationsnummer" },
-  NO: { currency: "NOK", measurementSystem: "metric", taxIdLabel: "Organisasjonsnummer" },
-  DK: { currency: "DKK", measurementSystem: "metric", taxIdLabel: "CVR-nummer" },
-  CH: { currency: "CHF", measurementSystem: "metric", taxIdLabel: "UID" },
-};
-
-const COUNTRIES = [
-  { code: "CA", flag: "🇨🇦", name: "Canada" },
-  { code: "US", flag: "🇺🇸", name: "United States" },
-  { code: "MX", flag: "🇲🇽", name: "México" },
-  { code: "GB", flag: "🇬🇧", name: "United Kingdom" },
-  { code: "ES", flag: "🇪🇸", name: "España" },
-  { code: "FR", flag: "🇫🇷", name: "France" },
-  { code: "DE", flag: "🇩🇪", name: "Deutschland" },
-  { code: "IT", flag: "🇮🇹", name: "Italia" },
-  { code: "PT", flag: "🇵🇹", name: "Portugal" },
-  { code: "NL", flag: "🇳🇱", name: "Nederland" },
-  { code: "PL", flag: "🇵🇱", name: "Polska" },
-  { code: "SE", flag: "🇸🇪", name: "Sverige" },
-  { code: "NO", flag: "🇳🇴", name: "Norge" },
-  { code: "DK", flag: "🇩🇰", name: "Danmark" },
-  { code: "CH", flag: "🇨🇭", name: "Schweiz" },
-  { code: "BE", flag: "🇧🇪", name: "Belgium" },
-  { code: "AT", flag: "🇦🇹", name: "Österreich" },
-  { code: "IE", flag: "🇮🇪", name: "Ireland" },
-  { code: "CZ", flag: "🇨🇿", name: "Česká republika" },
-  { code: "HU", flag: "🇭🇺", name: "Magyarország" },
-  { code: "RO", flag: "🇷🇴", name: "România" },
-  { code: "BG", flag: "🇧🇬", name: "България" },
-  { code: "HR", flag: "🇭🇷", name: "Hrvatska" },
-  { code: "GR", flag: "🇬🇷", name: "Ελλάδα" },
-  { code: "TR", flag: "🇹🇷", name: "Türkiye" },
-];
 
 export interface SettingsModuleProps {
   labels: Record<string, string>;
@@ -680,7 +632,7 @@ export function SettingsModule({
               <section className="space-y-4">
               <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]">
                 <span className="text-sm text-zinc-800 dark:text-zinc-200">
-                  {tl.push_enable ?? "Enable push"}
+                  {tl.notifications_push_enable ?? tl.push_enable ?? "Enable push"}
                 </span>
                 <input
                   type="checkbox"
@@ -698,7 +650,10 @@ export function SettingsModule({
                       });
                       if (r.ok) {
                         setPushSubscribed(true);
-                        showToast("success", tl.push_saved ?? "Saved");
+                        showToast(
+                          "success",
+                          tl.notifications_push_enabled ?? tl.push_saved ?? "Saved"
+                        );
                       } else if (r.reason === "denied") {
                         showToast("warning", tl.push_permission_denied ?? "");
                         setPushSubscribed(false);
@@ -718,7 +673,10 @@ export function SettingsModule({
                           await sub.unsubscribe();
                         }
                         setPushSubscribed(false);
-                        showToast("success", tl.push_saved ?? "Saved");
+                        showToast(
+                          "success",
+                          tl.notifications_push_disabled ?? tl.push_saved ?? "Saved"
+                        );
                       } catch {
                         showToast("error", tl.toast_error ?? "Error");
                         setPushSubscribed(true);
@@ -884,10 +842,10 @@ export function SettingsModule({
                       <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
                         {tl.company_address ?? "Address"}
                       </label>
-                      <textarea
+                      <AddressAutocomplete
                         value={companyAddress}
-                        onChange={(e) => onCompanyAddressChange(e.target.value)}
-                        rows={2}
+                        onChange={onCompanyAddressChange}
+                        placeholder={tl.company_address ?? ""}
                         className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
