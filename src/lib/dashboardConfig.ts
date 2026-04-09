@@ -5,6 +5,7 @@
 
 export const DASHBOARD_WIDGET_IDS = [
   "team_timeclock",
+  "team_map",
   "my_timeclock",
   "activity",
   "compliance_alerts",

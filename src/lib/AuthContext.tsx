@@ -28,6 +28,8 @@ interface UserProfile {
   timezone?: string | null;
   phone?: string | null;
   avatarUrl?: string | null;
+  /** AH-20: periodic GPS during active shift (default true if column missing). */
+  locationSharingEnabled?: boolean;
 }
 
 interface AuthContextValue {
@@ -69,6 +71,8 @@ function mapRowToProfile(data: ProfileSelectRow, email: string | null): UserProf
   const timezone = tzRaw && isValidIanaTimeZone(tzRaw) ? tzRaw : null;
   const phoneRaw = row.phone;
   const avatarRaw = row.avatar_url;
+  const locShareRaw = row.location_sharing_enabled;
+  const locationSharingEnabled = locShareRaw !== false;
   const companies = data.companies as { name: string } | null | undefined;
   return {
     id: data.id,
@@ -84,6 +88,7 @@ function mapRowToProfile(data: ProfileSelectRow, email: string | null): UserProf
     timezone,
     phone: typeof phoneRaw === "string" && phoneRaw.trim() ? phoneRaw.trim() : null,
     avatarUrl: typeof avatarRaw === "string" && avatarRaw.trim() ? avatarRaw.trim() : null,
+    locationSharingEnabled,
   };
 }
 

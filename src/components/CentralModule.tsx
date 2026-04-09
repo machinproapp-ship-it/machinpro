@@ -253,6 +253,7 @@ interface CentralModuleProps {
   /** Permisos efectivos para CentralDashboardLive (widgets / Zona 1). */
   dashboardCanManageEmployees?: boolean;
   dashboardCanViewTeamClock?: boolean;
+  dashboardCanViewTeamAvailability?: boolean;
   dashboardCanManageComplianceAlerts?: boolean;
   dashboardCanViewLogistics?: boolean;
   dashboardCanViewEmployees?: boolean;
@@ -411,6 +412,7 @@ export function CentralModule({
   canViewAttendance = false,
   dashboardCanManageEmployees = false,
   dashboardCanViewTeamClock = false,
+  dashboardCanViewTeamAvailability = false,
   dashboardCanManageComplianceAlerts = false,
   dashboardCanViewLogistics = false,
   dashboardCanViewEmployees = false,
@@ -863,6 +865,7 @@ export function CentralModule({
                 canViewEmployees={dashboardCanViewEmployees}
                 canViewAuditLog={dashboardCanViewAuditLog}
                 canViewTeamClock={dashboardCanViewTeamClock}
+                canViewTeamAvailability={dashboardCanViewTeamAvailability}
                 canManageComplianceAlerts={dashboardCanManageComplianceAlerts}
                 canViewLogistics={dashboardCanViewLogistics}
                 canViewDashboardWidgets={dashboardCanViewDashboardWidgets}

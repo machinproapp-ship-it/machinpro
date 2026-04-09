@@ -72,6 +72,9 @@ export interface SettingsModuleProps {
   setProfilePhone?: (v: string) => void;
   profileAvatarUrl?: string;
   onProfileAvatarUpload?: () => void;
+  /** AH-20: share GPS during active shift (saved in user_profiles). */
+  profileLocationSharingEnabled?: boolean;
+  setProfileLocationSharingEnabled?: (v: boolean) => void;
   onSaveProfile?: () => void | Promise<void>;
   profileSaveBusy?: boolean;
   onRequestPasswordReset?: () => void | Promise<void>;
@@ -128,6 +131,8 @@ export function SettingsModule({
   setProfilePhone,
   profileAvatarUrl = "",
   onProfileAvatarUpload,
+  profileLocationSharingEnabled = true,
+  setProfileLocationSharingEnabled,
   onSaveProfile,
   profileSaveBusy = false,
   onRequestPasswordReset,
@@ -518,7 +523,11 @@ export function SettingsModule({
             </div>
           )}
 
-          {activeSettingsSection === "profile" && setProfileFullName && setProfilePhone && onSaveProfile && (
+          {activeSettingsSection === "profile" &&
+            setProfileFullName &&
+            setProfilePhone &&
+            onSaveProfile &&
+            setProfileLocationSharingEnabled && (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
                 <User className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
@@ -557,6 +566,22 @@ export function SettingsModule({
                   onChange={(e) => setProfilePhone(e.target.value)}
                   className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                 />
+              </div>
+              <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/40 px-4 py-3 space-y-2 max-w-md">
+                <label className="flex items-center justify-between gap-3 cursor-pointer min-h-[44px]">
+                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                    {tl.gps_location_sharing ?? ""}
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-zinc-300 text-amber-600 focus:ring-amber-500"
+                    checked={profileLocationSharingEnabled}
+                    onChange={(e) => setProfileLocationSharingEnabled(e.target.checked)}
+                  />
+                </label>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {tl.gps_location_sharing_hint ?? ""}
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.language}</label>

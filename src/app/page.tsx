@@ -86,7 +86,8 @@ import {
   persistUserLocale,
   persistUserTimezone,
 } from "@/lib/localePreference";
-import { dateLocaleForUser, resolveUserTimezone, formatTime } from "@/lib/dateUtils";
+import { dateLocaleForUser, resolveUserTimezone, formatTime, formatTodayYmdInTimeZone } from "@/lib/dateUtils";
+import { useShiftGpsTracking } from "@/hooks/useShiftGpsTracking";
 import {
   aggregateProjectLabor,
   buildLaborRateByUserId,
@@ -2465,6 +2466,36 @@ export default function Home() {
   );
 
   const currentUserEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : effectiveRole === "supervisor" ? effectiveEmployeeId : null;
+
+  const activeShiftTimeEntryId = useMemo(() => {
+    const ymd = formatTodayYmdInTimeZone(userTimeZone);
+    const ids = new Set(
+      [profile?.id, user?.id, effectiveEmployeeId, currentUserEmployeeId].filter(Boolean).map(String)
+    );
+    const open = displayClockEntries.find(
+      (e) =>
+        !e.clockOut &&
+        e.date === ymd &&
+        ids.has(String(e.employeeId)) &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.id)
+    );
+    return open?.id ?? null;
+  }, [
+    displayClockEntries,
+    profile?.id,
+    user?.id,
+    effectiveEmployeeId,
+    currentUserEmployeeId,
+    userTimeZone,
+  ]);
+
+  useShiftGpsTracking({
+    entryId: activeShiftTimeEntryId,
+    companyId: companyId ?? null,
+    userId: user?.id ?? null,
+    enabled: profile?.locationSharingEnabled !== false,
+  });
+
   /** Admins (y project managers) ven todos los proyectos; el flag canViewOnlyAssignedProjects también es true en admin y no debe vaciar la lista. */
   const visibleProjects =
     effectiveRole === "admin" || effectiveRole === "projectManager"
@@ -2545,6 +2576,7 @@ export default function Home() {
   const [profileEditName, setProfileEditName] = useState("");
   const [profileEditPhone, setProfileEditPhone] = useState("");
   const [profileEditAvatarUrl, setProfileEditAvatarUrl] = useState("");
+  const [profileLocationSharingEnabled, setProfileLocationSharingEnabled] = useState(true);
   const [profileSaveBusy, setProfileSaveBusy] = useState(false);
   const [passwordResetBusy, setPasswordResetBusy] = useState(false);
 
@@ -2553,7 +2585,8 @@ export default function Home() {
     setProfileEditName(profile.fullName ?? "");
     setProfileEditPhone(profile.phone ?? "");
     setProfileEditAvatarUrl(profile.avatarUrl ?? "");
-  }, [profile?.id, profile?.fullName, profile?.phone, profile?.avatarUrl]);
+    setProfileLocationSharingEnabled(profile.locationSharingEnabled !== false);
+  }, [profile?.id, profile?.fullName, profile?.phone, profile?.avatarUrl, profile?.locationSharingEnabled]);
 
   const handleProfileAvatarUpload = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -2607,6 +2640,7 @@ export default function Home() {
         full_name: profileEditName.trim() || null,
         phone: profileEditPhone.trim() || null,
         avatar_url: profileEditAvatarUrl.trim() || null,
+        location_sharing_enabled: profileLocationSharingEnabled,
       })
       .eq("id", user.id);
     setProfileSaveBusy(false);
@@ -2635,6 +2669,7 @@ export default function Home() {
     profileEditName,
     profileEditPhone,
     profileEditAvatarUrl,
+    profileLocationSharingEnabled,
     profile?.employeeId,
     syncSession,
     showToast,
@@ -4247,6 +4282,7 @@ export default function Home() {
                     rolePerms.canManageTimeclock
                   )
                 }
+                dashboardCanViewTeamAvailability={!!rolePerms.canViewTeamAvailability}
                 dashboardCanManageComplianceAlerts={
                   !!(rolePerms.canManageCompliance || rolePerms.canManageEmployees)
                 }
@@ -4779,6 +4815,7 @@ export default function Home() {
                 }}
                 canViewAttendancePanel={!!rolePerms.canViewAttendance}
                 canUseProjectTimeclock={!!rolePerms.canViewTimeclock}
+                shiftLocationSharingEnabled={profile?.locationSharingEnabled !== false}
                 visitorOpenQrSignal={dashVisitorQrSig}
                 visitorTabSignal={dashVisitorTabSig}
                 openRfiTabSignal={projectsOpenRfiSig}
@@ -5293,6 +5330,8 @@ export default function Home() {
                 setProfilePhone={setProfileEditPhone}
                 profileAvatarUrl={profileEditAvatarUrl}
                 onProfileAvatarUpload={handleProfileAvatarUpload}
+                profileLocationSharingEnabled={profileLocationSharingEnabled}
+                setProfileLocationSharingEnabled={setProfileLocationSharingEnabled}
                 onSaveProfile={() => void handleSaveUserProfile()}
                 profileSaveBusy={profileSaveBusy}
                 onRequestPasswordReset={() => void handleRequestPasswordReset()}

@@ -250,6 +250,8 @@ export interface ProjectsModuleProps {
   /** Sprint AV: GPS timeclock + attendance */
   canViewAttendancePanel?: boolean;
   canUseProjectTimeclock?: boolean;
+  /** AH-20: respect user preference for periodic GPS on project timeclock. */
+  shiftLocationSharingEnabled?: boolean;
   /** Desde Central: abrir pestaña Visitantes + modal QR */
   visitorOpenQrSignal?: number;
   /** Solo cambiar a la pestaña (p. ej. alerta visita larga), sin abrir modal QR */
@@ -502,6 +504,7 @@ export function ProjectsModule({
   onDeleteTask,
   canViewAttendancePanel = false,
   canUseProjectTimeclock = false,
+  shiftLocationSharingEnabled = true,
   visitorOpenQrSignal = 0,
   visitorTabSignal = 0,
   showProjectVisitorsTab = true,
@@ -1402,6 +1405,7 @@ export function ProjectsModule({
                   canViewAttendance={canViewAttendancePanel}
                   dateLocale={dateLoc}
                   timeZone={userTz}
+                  locationSharingEnabled={shiftLocationSharingEnabled}
                 />
               )}
 

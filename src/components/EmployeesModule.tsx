@@ -19,7 +19,9 @@ import {
   ChevronLeft,
   Calendar,
   Clock,
+  MapPin,
 } from "lucide-react";
+import { EmployeeGpsRouteTab } from "@/components/EmployeeGpsRouteTab";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
 import { useToast } from "@/components/Toast";
@@ -367,6 +369,8 @@ export function EmployeesModule({
   const [fichajeTime, setFichajeTime] = useState("");
   const [fichajeNotes, setFichajeNotes] = useState("");
   const [fichajeSaving, setFichajeSaving] = useState(false);
+  const [employeeDetailTab, setEmployeeDetailTab] = useState<"info" | "route">("info");
+  const [employeeHasGpsData, setEmployeeHasGpsData] = useState(false);
 
   const activeProjects = useMemo(
     () => projects.filter((p) => !p.archived),
@@ -425,6 +429,33 @@ export function EmployeesModule({
     () => rows.find((r) => r.id === selectedId) ?? null,
     [rows, selectedId]
   );
+
+  useEffect(() => {
+    setEmployeeDetailTab("info");
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!supabase || !viewerIsAdmin || !selected?.id) {
+      setEmployeeHasGpsData(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { count, error } = await supabase
+        .from("gps_tracking")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", selected.id)
+        .eq("company_id", companyId);
+      if (!cancelled && !error) setEmployeeHasGpsData((count ?? 0) > 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id, viewerIsAdmin, companyId]);
+
+  useEffect(() => {
+    if (!employeeHasGpsData) setEmployeeDetailTab("info");
+  }, [employeeHasGpsData]);
 
   const weekYmds = useMemo(() => weekYmdsMondayFirstInTimeZone(timeZone), [timeZone]);
 
@@ -1110,24 +1141,72 @@ export function EmployeesModule({
           )}
         </div>
 
-        {(viewerIsAdmin || selected.id === currentUserProfileId) && companyId ? (
-          <SafetyPassportPanel
-            t={t as Record<string, string>}
-            companyId={companyId}
-            profileId={selected.id}
-            profileName={name}
-            dateLocale={dateLocale}
-            complianceFields={complianceFields}
-            complianceRecords={complianceRecords}
-            userProfileToEmployeeId={userProfileToEmployeeId}
-          />
+        {viewerIsAdmin && employeeHasGpsData ? (
+          <div
+            className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-slate-700 pb-3"
+            role="tablist"
+            aria-label={tl.gps_route_history ?? "Route"}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={employeeDetailTab === "info"}
+              onClick={() => setEmployeeDetailTab("info")}
+              className={`min-h-[44px] rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                employeeDetailTab === "info"
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                  : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {tl.employees_basic_info ?? ""}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={employeeDetailTab === "route"}
+              onClick={() => setEmployeeDetailTab("route")}
+              className={`min-h-[44px] inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                employeeDetailTab === "route"
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                  : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.gps_route_history ?? ""}
+            </button>
+          </div>
         ) : null}
 
-        <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            {tl.employees_basic_info ?? ""}
-          </h3>
+        {employeeDetailTab === "route" && viewerIsAdmin && employeeHasGpsData ? (
+          <EmployeeGpsRouteTab
+            companyId={companyId}
+            userId={selected.id}
+            employeeName={name}
+            timeZone={timeZone}
+            language={(dateLocale || "en").split("-")[0] || "en"}
+            countryCode={((dateLocale || "en-CA").split("-")[1] ?? "CA").toUpperCase()}
+            labels={t as Record<string, string>}
+          />
+        ) : (
+          <>
+            {(viewerIsAdmin || selected.id === currentUserProfileId) && companyId ? (
+              <SafetyPassportPanel
+                t={t as Record<string, string>}
+                companyId={companyId}
+                profileId={selected.id}
+                profileName={name}
+                dateLocale={dateLocale}
+                complianceFields={complianceFields}
+                complianceRecords={complianceRecords}
+                userProfileToEmployeeId={userProfileToEmployeeId}
+              />
+            ) : null}
+
+            <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                {tl.employees_basic_info ?? ""}
+              </h3>
           {isSelf && !(draft.full_name ?? selected.full_name ?? "").trim() && (tl.employees_add_profile_name_hint ?? "").trim() ? (
             <p className="text-xs text-amber-700 dark:text-amber-300/90 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2">
               {tl.employees_add_profile_name_hint}
@@ -1893,6 +1972,8 @@ export function EmployeesModule({
             </button>
           )}
         </section>
+          </>
+        )}
 
         {complianceEdit && onComplianceRecordsChange && (
           <>

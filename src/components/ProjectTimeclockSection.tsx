@@ -27,6 +27,7 @@ export function ProjectTimeclockSection({
   canViewAttendance,
   dateLocale = typeof navigator !== "undefined" ? navigator.language : "en-US",
   timeZone: timeZoneProp,
+  locationSharingEnabled = true,
 }: {
   companyId: string | null | undefined;
   projectId: string;
@@ -37,6 +38,8 @@ export function ProjectTimeclockSection({
   canViewAttendance: boolean;
   dateLocale?: string;
   timeZone?: string;
+  /** When false, no periodic GPS samples for this project shift. */
+  locationSharingEnabled?: boolean;
 }) {
   void useMachinProDisplayPrefs();
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
@@ -76,11 +79,6 @@ export function ProjectTimeclockSection({
     void loadToday();
   }, [loadMine, loadToday]);
 
-  useEffect(() => {
-    const id = window.setInterval(() => setTick((x) => x + 1), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const stopGps = () => {
     if (gpsTimer.current) {
       clearInterval(gpsTimer.current);
@@ -88,17 +86,28 @@ export function ProjectTimeclockSection({
     }
   };
 
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((x) => x + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!locationSharingEnabled) stopGps();
+  }, [locationSharingEnabled]);
+
   const pushGps = async (entryId: string) => {
     if (!supabase || !companyId || !userProfileId) return;
     const client = supabase;
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const acc = pos.coords.accuracy;
         await client.from("gps_tracking").insert({
           entry_id: entryId,
           user_id: userProfileId,
           company_id: companyId,
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
+          ...(Number.isFinite(acc) ? { accuracy: acc } : {}),
         });
       },
       () => {},
@@ -125,9 +134,11 @@ export function ProjectTimeclockSection({
       if (!error && data) {
         const row = data as TimeEntryRow;
         setActive(row);
-        void pushGps(row.id);
         stopGps();
-        gpsTimer.current = setInterval(() => void pushGps(row.id), GPS_INTERVAL_MS);
+        if (locationSharingEnabled) {
+          void pushGps(row.id);
+          gpsTimer.current = setInterval(() => void pushGps(row.id), GPS_INTERVAL_MS);
+        }
         void loadToday();
       }
     };

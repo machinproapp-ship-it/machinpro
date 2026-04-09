@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
@@ -22,7 +23,18 @@ import {
   X,
   Settings2,
   Package,
+  MapPin,
 } from "lucide-react";
+
+const TeamGpsMapWidget = dynamic(
+  () => import("@/components/TeamGpsMapWidget").then((m) => m.TeamGpsMapWidget),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[300px] md:h-[450px] animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800/80" />
+    ),
+  }
+);
 import { supabase } from "@/lib/supabase";
 import { GettingStartedWidget } from "@/components/GettingStartedWidget";
 import { LaborCostingDashboardWidget } from "@/components/LaborCostingDashboardWidget";
@@ -267,6 +279,7 @@ function UnifiedDashCard({
 
 const WIDGET_LABEL_KEYS: Record<DashboardWidgetId, string> = {
   team_timeclock: "dashboard_widget_team_timeclock",
+  team_map: "gps_map_title",
   my_timeclock: "myClockIn",
   activity: "dashboard_widget_activity",
   compliance_alerts: "complianceWatchdog",
@@ -301,6 +314,8 @@ export interface CentralDashboardLiveProps {
   canViewAuditLog?: boolean;
   /** Widget fichaje del equipo. */
   canViewTeamClock: boolean;
+  /** AH-20: mapa GPS del equipo (disponibilidad). */
+  canViewTeamAvailability?: boolean;
   /** Alertas compliance e incidencias ampliadas. */
   canManageComplianceAlerts: boolean;
   canAccessVisitors: boolean;
@@ -389,6 +404,7 @@ function CentralDashboardBody(
     canViewEmployees = false,
     canViewAuditLog = false,
     canViewTeamClock,
+    canViewTeamAvailability = false,
     canManageComplianceAlerts,
     canAccessVisitors,
     canAccessHazards,
@@ -537,6 +553,8 @@ function CentralDashboardBody(
       switch (id) {
         case "team_timeclock":
           return canViewTeamClock;
+        case "team_map":
+          return canViewTeamAvailability;
         case "my_timeclock":
           return true;
         case "activity":
@@ -563,6 +581,7 @@ function CentralDashboardBody(
     },
     [
       canViewTeamClock,
+      canViewTeamAvailability,
       canManageEmployees,
       canViewAuditLog,
       canManageComplianceAlerts,
@@ -1307,6 +1326,25 @@ function CentralDashboardBody(
                 </div>
               </>
             ) : null}
+          </>
+        );
+      case "team_map":
+        if (!primaryReady) return widgetSkeleton();
+        return widgetChrome(
+          id,
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-violet-500" aria-hidden />
+              {title}
+            </h3>
+            <TeamGpsMapWidget
+              companyId={companyId}
+              timeZone={timeZone}
+              language={language}
+              countryCode={countryCode}
+              projectNameById={projectNameById}
+              labels={labels}
+            />
           </>
         );
       case "my_timeclock":
