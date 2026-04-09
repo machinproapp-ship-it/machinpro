@@ -81,7 +81,7 @@ function EmptyRow({ text }: { text: string }) {
 
 export function OperationsModule({ projects = [], employees = [], clockEntries = [], labels: t }: OperationsModuleProps) {
   return (
-    <section className="min-w-0 space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
+    <section className="min-w-0 space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-6 lg:p-8">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
         {t.nav_operations || ALL_TRANSLATIONS.en.nav_operations}
       </h2>

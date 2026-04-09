@@ -910,7 +910,7 @@ export function SubcontractorsModule({
           </button>
         </div>
       ) : null}
-      <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 space-y-4">
+      <section className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Building2 className="h-5 w-5" />

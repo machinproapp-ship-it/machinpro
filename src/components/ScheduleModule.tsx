@@ -1294,7 +1294,7 @@ function TimesheetsView({
       {selectedSheet && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSheetId(null)} />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[min(95vw,calc(100%-2rem))] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl max-h-[90vh] overflow-y-auto sm:p-6">
+          <div className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(95vw,calc(100%-2rem))] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:max-w-xl lg:max-w-2xl">
             <div className="mb-4 flex items-center justify-between gap-2">
               <h3 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-white sm:text-lg">
                 {getEmployeeName(selectedSheet.employeeId)} · {selectedSheet.weekStart} – {selectedSheet.weekEnd}
@@ -2250,7 +2250,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={() => !schedManualSaving && setSchedManualModal(null)}
           />
-          <div className="fixed z-[56] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+          <div className="fixed inset-x-0 bottom-0 z-[56] max-h-[90vh] space-y-3 overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl md:max-w-lg lg:max-w-xl">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                 {schedManualModal.mode === "in" ? lx.clock_manual_in ?? "" : lx.clock_manual_out ?? ""}
@@ -2961,7 +2961,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={() => setSelectedDay(null)}
           />
-          <div className="fixed z-50 inset-x-0 bottom-0 rounded-t-2xl max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-700 shadow-xl sm:inset-y-0 sm:left-auto sm:right-0 sm:top-0 sm:bottom-auto sm:max-w-md sm:rounded-none sm:rounded-l-2xl sm:max-h-full">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:top-0 sm:max-h-full sm:max-w-md sm:rounded-none sm:rounded-l-2xl md:max-w-lg lg:max-w-xl">
             <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-zinc-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {new Intl.DateTimeFormat(dateLocale, {
@@ -3217,7 +3217,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={resetForm}
           />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[min(95vw,calc(100%-2rem))] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-xl max-h-[min(90dvh,90vh)] overflow-y-auto max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:left-0 max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:rounded-t-2xl max-md:pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="fixed left-1/2 top-1/2 z-50 max-h-[min(90dvh,90vh)] w-[min(95vw,calc(100%-2rem))] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:max-w-xl lg:max-w-2xl max-md:inset-x-0 max-md:bottom-0 max-md:left-0 max-md:top-auto max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:rounded-t-2xl max-md:pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {editingEntryId
@@ -3588,7 +3588,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={() => setDeleteConfirmEntryId(null)}
           />
-          <div className="fixed left-1/2 top-1/2 z-[61] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
+          <div className="fixed left-1/2 top-1/2 z-[61] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-md lg:max-w-lg">
             <p className="text-zinc-700 dark:text-zinc-300 mb-6">
               {labels.confirmDeleteShift ?? "¿Eliminar este turno? Esta acción no se puede deshacer"}
             </p>

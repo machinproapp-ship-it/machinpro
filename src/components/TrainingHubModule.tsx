@@ -419,7 +419,7 @@ export function TrainingHubModule({
       ) : null}
 
       {canManageTraining && visibleCourses.length > 0 ? (
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
           {visibleCourses.map((c) => (
             <li
               key={c.id}
@@ -513,7 +513,7 @@ export function TrainingHubModule({
         <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {L(t, "training_assignments_title", "Assignments")}
         </h4>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:gap-5 lg:grid-cols-3">
           {canManageTraining ? (
             <label className="block text-xs text-zinc-600 dark:text-zinc-400">
               {L(t, "training_filter_employee", "Employee")}

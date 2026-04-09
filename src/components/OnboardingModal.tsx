@@ -438,7 +438,7 @@ export function OnboardingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4 sm:py-6">
       <div
-        className="mx-auto flex max-h-[min(100dvh,100svh)] w-full max-w-[min(32rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:my-auto sm:max-h-[min(92dvh,720px)] sm:max-w-lg sm:rounded-2xl"
+        className="mx-auto flex max-h-[min(100dvh,100svh)] w-full max-w-[min(32rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:my-auto sm:max-h-[min(92dvh,720px)] sm:max-w-lg sm:rounded-2xl md:max-w-xl lg:max-w-2xl"
         role="dialog"
         aria-modal
         aria-labelledby="onboarding-title"

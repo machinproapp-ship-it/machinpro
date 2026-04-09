@@ -229,9 +229,9 @@ export function GlobalSearchModal({
         role="dialog"
         aria-modal="true"
         aria-label={L.search_global ?? "Search"}
-        className="fixed z-[121] flex max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-x-hidden border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 max-sm:inset-0 max-sm:rounded-none sm:left-1/2 sm:top-[8vh] sm:max-h-[min(85vh,640px)] sm:w-[min(100%,calc(100vw-2rem),28rem)] sm:-translate-x-1/2 sm:rounded-2xl sm:border"
+        className="fixed z-[121] flex max-h-[100dvh] w-full max-w-[100vw] flex-col overflow-x-hidden border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 max-sm:inset-0 max-sm:rounded-none sm:left-1/2 sm:top-[8vh] sm:max-h-[min(85vh,720px)] sm:w-[min(100%,calc(100vw-2rem),28rem)] sm:-translate-x-1/2 sm:rounded-2xl sm:border lg:max-w-2xl"
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 px-3 py-2 dark:border-slate-700 sm:px-4">
+        <div className="flex min-w-0 shrink-0 items-center gap-2 border-b border-zinc-200 px-4 py-2 dark:border-slate-700 md:px-6">
           <Search className="h-5 w-5 shrink-0 text-zinc-400" aria-hidden />
           <input
             ref={inputRef}
@@ -253,7 +253,7 @@ export function GlobalSearchModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-3">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-3 md:px-6 md:py-4">
           {debounced.length < 1 ? (
             <p className="py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
               {L.search_type_hint ?? L.search_global ?? "Type to search"}
@@ -300,7 +300,7 @@ export function GlobalSearchModal({
             </div>
           )}
         </div>
-        <p className="shrink-0 border-t border-zinc-100 px-4 py-2 text-center text-[11px] text-zinc-400 dark:border-slate-800 dark:text-zinc-500">
+        <p className="shrink-0 border-t border-zinc-100 px-4 py-2 text-center text-[11px] text-zinc-400 dark:border-slate-800 dark:text-zinc-500 md:px-6">
           {L.search_kb_hint ?? "Ctrl+K"}
         </p>
       </div>

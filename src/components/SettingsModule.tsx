@@ -308,7 +308,7 @@ export function SettingsModule({
   };
 
   return (
-    <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 md:p-8 shadow-sm space-y-6 md:space-y-8">
+    <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-8 md:p-8 lg:p-10">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
         <Sliders className="h-5 w-5" />
         {t.settings}
@@ -351,7 +351,7 @@ export function SettingsModule({
 
       <div className="flex min-h-0 flex-col overflow-x-hidden md:flex-row md:items-start md:gap-0">
         <nav
-          className="hidden md:flex w-full shrink-0 flex-col gap-1 md:w-[200px] md:min-w-[200px] md:max-w-[200px] md:flex-shrink-0 md:border-r md:border-zinc-200 md:pr-3 dark:md:border-slate-700"
+          className="hidden w-full shrink-0 flex-col gap-1 md:flex md:w-72 md:min-w-[18rem] md:max-w-[18rem] md:flex-shrink-0 md:border-r md:border-zinc-200 md:pr-4 dark:md:border-slate-700 lg:w-80 lg:min-w-[20rem] lg:max-w-[20rem] lg:pr-5"
           aria-label={t.settings || ALL_TRANSLATIONS.en.settings}
         >
           {settingsNavEntries.map(([id, label]) => {

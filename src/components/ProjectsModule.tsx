@@ -1156,7 +1156,7 @@ export function ProjectsModule({
   if (!selectedProject) {
     return (
       <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
-        <div className="border-b border-zinc-200 dark:border-slate-700 px-4 py-4 sm:px-6 sm:py-5 min-w-0">
+        <div className="border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5 lg:px-8 min-w-0">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
             <Building2 className="h-5 w-5 text-amber-500" />
             {t.siteAdminView ?? PM_EN.siteAdminView}
@@ -1166,7 +1166,7 @@ export function ProjectsModule({
           </p>
         </div>
 
-        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full min-w-0">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 md:gap-6 lg:grid-cols-3 lg:p-8">
           {(projects ?? []).map((proj) => {
             const assigned = (allEmployees ?? []).filter((e) => (proj.assignedEmployeeIds ?? []).includes(e.id));
             const pendingCount = (diaryEntries ?? []).filter(
@@ -1248,7 +1248,7 @@ export function ProjectsModule({
     <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
 
       {/* Header */}
-      <div className="border-b border-zinc-200 dark:border-slate-700 px-4 py-4 sm:px-6 sm:py-5 bg-zinc-50 dark:bg-slate-800/60 min-w-0">
+      <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800/60 sm:px-6 sm:py-5 lg:px-8 min-w-0">
         <div className="flex items-center gap-2 mb-3">
           <button
             type="button"
@@ -1285,7 +1285,7 @@ export function ProjectsModule({
           </div>
 
           {/* KPIs rápidos — 1 col en móvil estrecho, 2–3 columnas en tablet+ */}
-          <div className="grid w-full auto-rows-fr grid-cols-1 gap-3 sm:max-w-none sm:w-auto sm:grid-cols-2 md:grid-cols-3">
+          <div className="grid w-full auto-rows-fr grid-cols-1 gap-3 sm:max-w-none sm:w-auto sm:grid-cols-2 sm:gap-4 md:grid-cols-3 md:gap-4 lg:gap-5">
             {selectedProject.budgetCAD != null && (
               <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
@@ -1412,7 +1412,7 @@ export function ProjectsModule({
       })()}
 
       {/* Contenido */}
-      <div className="w-full min-w-0 max-w-full overflow-x-hidden p-4 sm:p-6">
+      <div className="w-full min-w-0 max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8">
 
         {dispatchedRequestsForProject.length > 0 && (
           <div className="space-y-2 mb-3">
@@ -1450,7 +1450,7 @@ export function ProjectsModule({
         {/* ══ TAB GENERAL ══ */}
         {activeTab === "general" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
               <InfoRow
                 label={tl.projectFormTypeLabel ?? PM_EN.projectFormTypeLabel}
                 value={
@@ -1977,7 +1977,7 @@ export function ProjectsModule({
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                   <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? PM_EN.invPhotosTitle}
                 </h3>
-                <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                   {invPhotos.flatMap((entry) =>
                     (entry.photoUrls || []).map((url, i) => (
                       <button
@@ -2233,7 +2233,7 @@ export function ProjectsModule({
                     })}
                   </div>
                 ) : (
-                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                     {filteredPendingObra.map((entry) => {
                       const cat = entry.photoCategory ?? "progress";
                       const catBadgeClass =
@@ -2303,7 +2303,7 @@ export function ProjectsModule({
                   text={t.noApprovedPhotos ?? PM_EN.noApprovedPhotos}
                 />
               ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                   {filteredApprovedObra.map((entry) => {
                     const showDl =
                       selectedProject &&

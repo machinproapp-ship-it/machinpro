@@ -515,7 +515,7 @@ export function FormsModule({
 
 
   return (
-    <section className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
+    <section className="mx-auto w-full min-w-0 max-w-full space-y-4 overflow-x-hidden lg:max-w-6xl">
       {/* ---------- LIST VIEW ---------- */}
       {view === "list" && (
         <>

@@ -106,7 +106,7 @@ export function Sidebar({
     <>
       <aside
         className={`relative z-20 border-r border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-950 hidden lg:flex flex-col self-stretch pt-4 transition-[width] duration-200 ${
-          collapsed ? "w-16" : "w-56"
+          collapsed ? "w-16" : "w-56 lg:w-64 xl:w-72"
         }`}
       >
         <div className="p-2 flex flex-col gap-0.5 min-w-0">

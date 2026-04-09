@@ -68,7 +68,7 @@ export function Header({
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-10 min-w-0 border-b border-zinc-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
-      <div className="mx-auto flex min-w-0 max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:flex-nowrap sm:px-6">
+      <div className="mx-auto flex min-w-0 max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:max-w-7xl lg:px-8">
         <div className="flex min-w-0 max-w-full flex-1 basis-full items-center gap-2 sm:basis-auto sm:gap-3">
           {logoUrl ? (
             <BrandLogoImage

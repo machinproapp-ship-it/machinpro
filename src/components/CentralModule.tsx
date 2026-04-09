@@ -1452,13 +1452,13 @@ export function CentralModule({
                 overflow-y-auto
                 inset-x-0 bottom-0 rounded-t-2xl max-h-[90vh]
                 sm:inset-y-0 sm:right-0 sm:left-auto sm:bottom-auto
-                sm:w-full sm:max-w-lg sm:rounded-none sm:rounded-l-2xl sm:max-h-full
+                sm:w-full sm:max-w-lg sm:rounded-none sm:rounded-l-2xl sm:max-h-full lg:max-w-xl xl:max-w-2xl
               "
             >
               <div className="sm:hidden flex justify-center pt-3 pb-1">
                 <div className="h-1 w-10 rounded-full bg-zinc-300 dark:bg-slate-600" />
               </div>
-              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-slate-700">
+              <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-slate-700 lg:px-8">
                 <div className="flex items-center gap-3 min-w-0">
                   <span
                     className="inline-flex h-10 w-10 shrink-0 rounded-full border-2 border-white dark:border-zinc-800 shadow"
@@ -1474,7 +1474,7 @@ export function CentralModule({
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="px-6 py-5 space-y-6">
+              <div className="space-y-6 px-6 py-5 lg:px-8">
                 <div>
                   <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-3">
                     {tl.activePermissions ?? "Active permissions"}
@@ -1746,7 +1746,7 @@ export function CentralModule({
               rounded-t-2xl border border-zinc-200 bg-white shadow-xl
               dark:border-slate-700 dark:bg-slate-900
               sm:inset-x-0 sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:max-h-full
-              sm:max-w-lg sm:rounded-none sm:rounded-l-2xl
+              sm:max-w-lg sm:rounded-none sm:rounded-l-2xl lg:max-w-xl xl:max-w-2xl
             "
             >
               <div className="flex justify-center pb-1 pt-3 sm:hidden">
@@ -2083,7 +2083,7 @@ export function CentralModule({
                             onClick={() => !edDocUploading && setEmployeeDocUploadOpen(false)}
                           />
                           <div
-                            className="fixed z-[61] left-4 right-4 bottom-4 sm:left-auto sm:top-1/2 sm:-translate-y-1/2 sm:right-4 sm:bottom-auto sm:max-w-md w-auto max-h-[85vh] overflow-y-auto rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-5 space-y-4"
+                            className="fixed z-[61] left-4 right-4 bottom-4 w-auto max-h-[85vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-auto sm:right-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:max-w-md md:max-w-lg lg:max-w-xl space-y-4"
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="employee-doc-upload-title"
@@ -2344,14 +2344,14 @@ export function CentralModule({
         return (
           <>
             <div className="fixed inset-0 z-40 bg-black/50 touch-none" aria-hidden onClick={() => setSubcontractorDetailId(null)} />
-            <div className="fixed z-50 bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-700 shadow-xl overflow-y-auto inset-x-0 bottom-0 rounded-t-2xl max-h-[90vh] sm:inset-y-0 sm:right-0 sm:left-auto sm:bottom-auto sm:w-full sm:max-w-lg sm:rounded-none sm:rounded-l-2xl sm:max-h-full">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-slate-700">
+            <div className="fixed z-50 border border-zinc-200 bg-white shadow-xl overflow-y-auto inset-x-0 bottom-0 rounded-t-2xl max-h-[90vh] dark:border-slate-700 dark:bg-slate-900 sm:inset-y-0 sm:right-0 sm:left-auto sm:bottom-auto sm:w-full sm:max-w-lg sm:rounded-none sm:rounded-l-2xl sm:max-h-full lg:max-w-xl xl:max-w-2xl">
+              <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-slate-700 lg:px-8">
                 <h4 className="text-base font-semibold text-zinc-900 dark:text-white">{sub.name}</h4>
                 <button type="button" onClick={() => setSubcontractorDetailId(null)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center">
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="px-6 py-5 space-y-4">
+              <div className="space-y-4 px-6 py-5 lg:px-8">
                 <p className="text-sm text-zinc-600 dark:text-zinc-400"><span className="text-zinc-400 mr-2">{t.specialty ?? "Especialidad"}</span>{(t[sub.specialty] ?? sub.specialty)}</p>
                 {sub.address && <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2"><MapPin className="h-4 w-4" />{sub.address}</p>}
                 {sub.emergencyContactName && <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2"><Phone className="h-4 w-4" />{sub.emergencyContactName} {sub.emergencyContactPhone}</p>}
@@ -2436,7 +2436,7 @@ export function CentralModule({
         return (
           <>
             <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => { setSubcontractorModalOpen(false); setSubcontractorDraft({}); }} />
-            <div className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl border border-zinc-200 dark:border-slate-700 shadow-xl p-6">
+            <div className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-xl lg:max-w-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{isNew ? (t.addSubcontractor ?? "A?adir subcontratista") : (t.edit ?? "Editar")}</h3>
                 <button type="button" onClick={() => { setSubcontractorModalOpen(false); setSubcontractorDraft({}); }} className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700"><X className="h-5 w-5" /></button>
@@ -2493,7 +2493,7 @@ export function CentralModule({
       {roleModalOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setRoleModalOpen(false)} />
-          <div className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-1rem)] max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl border border-zinc-200 dark:border-slate-700 shadow-xl p-6">
+          <div className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-1rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-xl lg:max-w-2xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {editingRoleId
@@ -2632,7 +2632,7 @@ export function CentralModule({
         return (
           <>
             <div className="fixed inset-0 z-50 bg-black/50" aria-hidden onClick={() => { setEditingComplianceRecord(null); setComplianceRecordDraft({}); }} />
-            <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-lg lg:max-w-xl" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{field.name}</h3>
               <div className="space-y-4">
                 {field.fieldType === "date" && (

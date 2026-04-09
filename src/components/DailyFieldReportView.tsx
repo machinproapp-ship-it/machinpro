@@ -699,7 +699,7 @@ export function DailyFieldReportView({
   if (isEmployeeView) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-zinc-50 dark:bg-zinc-950">
-        <header className="shrink-0 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-slate-900">
+        <header className="shrink-0 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-slate-900 lg:px-8">
           <button
             type="button"
             onClick={onBack}
@@ -714,7 +714,7 @@ export function DailyFieldReportView({
             {projectName} · {formatReportDate(draft.date, language, countryCode, timeZone)}
           </p>
         </header>
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-28">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-28 lg:px-8">
           {errMsg && (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
               {errMsg}
@@ -802,7 +802,7 @@ export function DailyFieldReportView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="shrink-0 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-slate-900">
+      <header className="shrink-0 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-slate-900 lg:px-8">
         <button
           type="button"
           onClick={onBack}
@@ -868,7 +868,7 @@ export function DailyFieldReportView({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-36">
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-36 lg:px-8">
         {/* Cabecera */}
         <section className="mb-6 rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-slate-900">
           <button

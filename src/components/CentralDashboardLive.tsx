@@ -1282,7 +1282,7 @@ function CentralDashboardBody(
                   aria-hidden
                   onClick={() => !manualClockSaving && setManualClockOpen(false)}
                 />
-                <div className="fixed z-[71] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+                <div className="fixed z-[71] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl md:max-w-lg lg:max-w-xl">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-base font-semibold text-gray-900 dark:text-white">{L("clock_manual_entry")}</h4>
                     <button
@@ -1752,7 +1752,7 @@ function CentralDashboardBody(
       {showZone1 ? (
         <>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 md:grid-flow-dense min-w-0">
+          <div className="grid grid-cols-1 gap-3 mb-6 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense lg:grid-cols-3">
             {(
               (canViewEmployees || canManageEmployees
                 ? [
@@ -1839,7 +1839,11 @@ function CentralDashboardBody(
                   <div
                     key={item.key}
                     className={`min-w-0 ${
-                      arr.length % 2 === 1 && index === arr.length - 1 ? "md:col-span-2" : ""
+                      arr.length % 2 === 1 && index === arr.length - 1
+                        ? arr.length === 1
+                          ? "md:col-span-2 lg:col-span-3"
+                          : "md:col-span-2 lg:col-span-1"
+                        : ""
                     }`}
                   >
                     {item.node}
@@ -1853,7 +1857,7 @@ function CentralDashboardBody(
       {canViewDashboardWidgets ? (
         <>
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0 md:grid-flow-dense">
+      <div className="grid grid-cols-1 gap-3 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense">
         {(() => {
           const opsIds = orderedVisibleWidgets.filter(canShowWidget);
           return opsIds.map((id, index) => (
@@ -1869,8 +1873,8 @@ function CentralDashboardBody(
       {customizeOpen ? (
         <>
           <div className="fixed inset-0 z-[70] min-h-[100dvh] bg-black/50" aria-hidden onClick={() => setCustomizeOpen(false)} />
-          <div className="fixed z-[71] inset-x-0 bottom-0 max-h-[min(88vh,96dvh)] w-full max-w-none overflow-y-auto rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="fixed z-[71] inset-x-0 bottom-0 max-h-[min(88vh,96dvh)] w-full max-w-none overflow-y-auto rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl md:max-w-xl lg:max-w-2xl">
+            <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700 md:px-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <GripVertical className="h-4 w-4" aria-hidden />
                 {L("dashboard_customize_title")}
@@ -1961,7 +1965,7 @@ function CentralDashboardBody(
                 })}
               </ul>
             </div>
-            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 dark:border-gray-700 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white dark:bg-gray-900 sm:flex-row sm:flex-wrap sm:justify-end">
+            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-gray-700 dark:bg-gray-900 sm:flex-row sm:flex-wrap sm:justify-end md:px-6">
               <button
                 type="button"
                 onClick={() => setCustomizeOpen(false)}

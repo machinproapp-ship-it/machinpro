@@ -685,7 +685,7 @@ export function LogisticsModule({
   if (warehouseSectionsEnabled.inventory) tabs.push({ id: "incidents", label: tlLabels.incidents ?? "Incidents", icon: <AlertTriangle className="h-4 w-4" />, badge: unreviewedIncidents });
 
   return (
-    <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 md:p-8 shadow-sm space-y-6">
+    <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-8 md:p-8 lg:p-10">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{t.warehouse}</h2>
 
       <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0 -mx-1 min-w-0 px-1 sm:mx-0 sm:px-0">
@@ -1974,7 +1974,7 @@ export function LogisticsModule({
         return (
           <>
             <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSupplierId(null)} />
-            <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white dark:bg-slate-900 border-l border-zinc-200 dark:border-slate-700 shadow-xl overflow-y-auto">
+            <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-md border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 md:max-w-lg lg:max-w-xl">
               <div className="p-4 border-b border-zinc-200 dark:border-slate-700 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{s.name}</h3>
                 <button type="button" onClick={() => setSelectedSupplierId(null)} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center">
@@ -2040,7 +2040,7 @@ export function LogisticsModule({
       {selectedAsset && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedAsset(null)} />
-          <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white dark:bg-slate-900 border-l border-zinc-200 dark:border-slate-700 shadow-xl overflow-y-auto">
+          <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-md border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 md:max-w-lg lg:max-w-xl">
             <div className="p-4 border-b border-zinc-200 dark:border-slate-700 flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white truncate">
@@ -2309,7 +2309,7 @@ export function LogisticsModule({
         return (
           <>
             <div className="fixed inset-0 z-50 bg-black/50" aria-hidden onClick={() => { setEditingVehicleCompliance(null); setVehicleComplianceDraft({}); }} />
-            <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-lg lg:max-w-xl" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{field.name}</h3>
               <div className="space-y-4">
                 {field.fieldType === "date" && (

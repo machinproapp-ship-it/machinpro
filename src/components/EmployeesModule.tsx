@@ -1225,7 +1225,7 @@ export function EmployeesModule({
               {tl.employees_add_profile_name_hint}
             </p>
           ) : null}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
             <label className="block text-sm">
               <span className="text-zinc-500">{t.personnel ?? ""}</span>
               <input
@@ -1364,7 +1364,7 @@ export function EmployeesModule({
         {fichajeInOpen && showFichajeManage ? (
           <>
             <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => !fichajeSaving && setFichajeInOpen(false)} />
-            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md md:max-w-lg lg:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">{tl.clock_manual_in ?? ""}</p>
                 <button
@@ -1443,7 +1443,7 @@ export function EmployeesModule({
         {fichajeOutOpen && showFichajeManage && todayClock && !todayClock.clockOut ? (
           <>
             <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => !fichajeSaving && setFichajeOutOpen(false)} />
-            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md md:max-w-lg lg:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">{tl.clock_manual_out ?? ""}</p>
                 <button
@@ -1576,7 +1576,7 @@ export function EmployeesModule({
             <p className="text-sm text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap">{formatPayReadOnly(selected)}</p>
           ) : null}
           {canManageEmployees && !workerSelf ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
               <label className="block text-sm sm:col-span-2">
                 <span className="text-zinc-500">{tl.employees_payment_type ?? ""}</span>
                 <select
@@ -1995,7 +1995,7 @@ export function EmployeesModule({
               aria-hidden
               onClick={() => setComplianceEdit(null)}
             />
-            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-auto sm:right-4 sm:top-24 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:rounded-xl">
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-auto sm:right-4 sm:top-24 sm:bottom-auto sm:inset-x-auto sm:max-w-md md:max-w-lg lg:max-w-xl sm:rounded-xl">
               <div className="flex justify-between items-center">
                 <h4 className="font-semibold text-sm">{complianceFieldLabel(complianceEdit.field)}</h4>
                 <button
@@ -2074,7 +2074,7 @@ export function EmployeesModule({
               onClick={() => !hardDeleteBusy && setEmployeeDeleteModalOpen(false)}
             />
             <div
-              className="fixed z-[63] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+              className="fixed z-[63] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-lg md:max-w-xl lg:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
               role="dialog"
               aria-modal="true"
               aria-labelledby="employee-delete-dialog-title"
@@ -2140,7 +2140,7 @@ export function EmployeesModule({
         {inviteOpen && (
           <>
             <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => setInviteOpen(false)} />
-            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+            <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md md:max-w-lg lg:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
               <p className="text-sm font-medium">{t.employees_invite ?? ""}</p>
               <input
                 type="email"
@@ -2189,7 +2189,7 @@ export function EmployeesModule({
           </button>
         </div>
       ) : null}
-      <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
+      <section className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Users className="h-5 w-5" />
@@ -2476,7 +2476,7 @@ export function EmployeesModule({
             onClick={() => !createSaving && setCreateOpen(false)}
           />
           <div
-            className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+            className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md md:max-w-lg lg:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -2736,7 +2736,7 @@ export function EmployeesModule({
       {inviteOpen && (
         <>
           <div className="fixed inset-0 z-[60] bg-black/50" aria-hidden onClick={() => setInviteOpen(false)} />
-          <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
+          <div className="fixed z-[61] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border bg-white dark:bg-slate-900 p-4 shadow-xl space-y-3 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md md:max-w-lg lg:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
             <p className="text-sm font-medium">{t.employees_invite ?? ""}</p>
             <input
               type="email"
