@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Bell, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  Check,
+  CheckCheck,
+  ClipboardList,
+  Palmtree,
+  ShieldAlert,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useNotifications, type AppNotificationRow } from "@/hooks/useNotifications";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notificationDisplayBody, notificationDisplayTitle } from "@/lib/notificationUi";
@@ -16,19 +26,40 @@ type Props = {
   localeBcp47: string;
   /** IANA TZ for absolute date/time line. */
   timeZone: string;
+  /** Abrir entidad relacionada (proyecto, calendario, etc.). */
+  onNavigate?: (n: AppNotificationRow) => void;
 };
 
-export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZone }: Props) {
+function categoryIcon(type: string) {
+  const t = type.toLowerCase();
+  if (t.startsWith("cert_")) return { Icon: ShieldAlert, key: "compliance" as const };
+  if (t.includes("hazard")) return { Icon: AlertTriangle, key: "hazard" as const };
+  if (t.includes("visitor")) return { Icon: UserRound, key: "visitor" as const };
+  if (t.includes("vacation")) return { Icon: Palmtree, key: "vacation" as const };
+  if (t.includes("daily_report")) return { Icon: ClipboardList, key: "daily_report" as const };
+  return { Icon: Bell, key: "system" as const };
+}
+
+export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZone, onNavigate }: Props) {
   const tl = labels;
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
   const [mdPanelLayout, setMdPanelLayout] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const { notifications, unreadCount, loading, disabled, markAsRead, markAllAsRead } = useNotifications(
-    supabase,
-    enabled
-  );
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    loadingMore,
+    hasMore,
+    disabled,
+    filter,
+    setFilter,
+    markAsRead,
+    markAllAsRead,
+    loadMore,
+  } = useNotifications(supabase, enabled);
   void useMachinProDisplayPrefs();
 
   useEffect(() => {
@@ -84,8 +115,15 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
 
   if (!enabled || disabled) return null;
 
-  const onItemActivate = async (n: AppNotificationRow) => {
+  const activateRow = async (n: AppNotificationRow) => {
     if (!n.read) await markAsRead(n.id);
+    onNavigate?.(n);
+    setOpen(false);
+  };
+
+  const onMarkReadOnly = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    void markAsRead(id);
   };
 
   return (
@@ -101,7 +139,7 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
       >
         <Bell className="h-5 w-5 shrink-0" aria-hidden />
         {unreadCount > 0 ? (
-          <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-bold text-white dark:bg-amber-500">
+          <span className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:bg-amber-500 dark:ring-zinc-900">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
@@ -114,7 +152,7 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
             ref={panelRef}
             role="dialog"
             aria-label={tl.notifications_title ?? ""}
-            className="fixed inset-0 z-[61] flex flex-col bg-white dark:bg-slate-900 md:fixed md:inset-auto md:left-auto md:bottom-auto md:h-auto md:max-h-[min(70vh,32rem)] md:w-[min(100vw-2rem,22rem)] md:rounded-xl md:border md:border-zinc-200 md:shadow-lg dark:md:border-zinc-700 md:z-[100]"
+            className="fixed inset-0 z-[61] flex w-full max-w-full flex-col bg-white dark:bg-slate-900 md:inset-auto md:left-auto md:h-auto md:max-h-[min(70vh,32rem)] md:w-[min(100vw-2rem,22rem)] md:rounded-xl md:border md:border-zinc-200 md:shadow-lg dark:md:border-zinc-700 md:z-[100]"
             style={
               open && mdPanelLayout
                 ? {
@@ -126,7 +164,7 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
                 : undefined
             }
           >
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
               <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
                 {tl.notifications_title ?? "Notifications"}
               </h2>
@@ -139,18 +177,46 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            <div className="flex shrink-0 gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-700">
+              <button
+                type="button"
+                onClick={() => setFilter("all")}
+                className={`min-h-[40px] flex-1 rounded-lg px-3 py-2 text-center text-xs font-medium ${
+                  filter === "all"
+                    ? "bg-amber-600 text-white"
+                    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                {tl.notifications_filter_all ?? "All"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter("unread")}
+                className={`min-h-[40px] flex-1 rounded-lg px-3 py-2 text-center text-xs font-medium ${
+                  filter === "unread"
+                    ? "bg-amber-600 text-white"
+                    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                {tl.notifications_filter_unread ?? "Unread"}
+              </button>
+            </div>
+
             {unreadCount > 0 ? (
               <div className="shrink-0 border-b border-zinc-200 px-3 py-2 dark:border-zinc-700">
                 <button
                   type="button"
                   onClick={() => void markAllAsRead()}
-                  className="min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                  className="flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
                 >
+                  <CheckCheck className="h-4 w-4 shrink-0" />
                   {tl.notifications_mark_all_read ?? "Mark all read"}
                 </button>
               </div>
             ) : null}
-            <div className="min-h-0 flex-1 overflow-y-auto">
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {loading ? (
                 <p
                   className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
@@ -160,7 +226,7 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
                 </p>
               ) : notifications.length === 0 ? (
                 <p className="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                  {tl.notifications_empty ?? "All caught up"}
+                  {tl.notifications_empty ?? "No notifications"}
                 </p>
               ) : (
                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -174,31 +240,73 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
                     );
                     const rel = formatRelative(n.created_at, localeBcp47);
                     const abs = formatDateTime(n.created_at, localeBcp47, timeZone);
+                    const { Icon } = categoryIcon(n.type);
                     return (
-                      <li key={n.id}>
+                      <li key={n.id} className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => void onItemActivate(n)}
-                          className={`flex w-full min-h-[44px] flex-col gap-0.5 px-4 py-3 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-slate-800/80 ${
+                          onClick={() => void activateRow(n)}
+                          className={`flex min-h-[44px] min-w-0 flex-1 items-start gap-3 px-3 py-3 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-slate-800/80 ${
                             !n.read ? "bg-amber-50/80 dark:bg-amber-950/20" : ""
                           }`}
                         >
-                          <span className={`font-medium ${!n.read ? "text-zinc-900 dark:text-white" : "text-zinc-700 dark:text-zinc-300"}`}>
-                            {title}
+                          <span
+                            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 dark:bg-slate-800 dark:text-zinc-300"
+                            aria-hidden
+                          >
+                            <Icon className="h-4 w-4" />
                           </span>
-                          {body ? (
-                            <span className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">{body}</span>
-                          ) : null}
-                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                            {rel}
-                            {abs && abs !== "—" ? ` · ${abs}` : ""}
+                          <span className="min-w-0 flex-1">
+                            <span
+                              className={`block font-medium ${
+                                !n.read ? "text-zinc-900 dark:text-white" : "text-zinc-700 dark:text-zinc-300"
+                              }`}
+                            >
+                              {title}
+                            </span>
+                            {body ? (
+                              <span className="mt-0.5 line-clamp-2 block text-xs text-zinc-600 dark:text-zinc-400">
+                                {body}
+                              </span>
+                            ) : null}
+                            <span className="mt-1 block text-[11px] text-zinc-400 dark:text-zinc-500">
+                              {rel}
+                              {abs && abs !== "—" ? ` · ${abs}` : ""}
+                            </span>
                           </span>
                         </button>
+                        {!n.read ? (
+                          <button
+                            type="button"
+                            onClick={(e) => onMarkReadOnly(e, n.id)}
+                            className="flex shrink-0 min-h-[44px] min-w-[44px] items-center justify-center text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                            aria-label={tl.notifications_mark_read ?? "Mark as read"}
+                            title={tl.notifications_mark_read ?? "Mark as read"}
+                          >
+                            <Check className="h-5 w-5" />
+                          </button>
+                        ) : (
+                          <span className="w-11 shrink-0" aria-hidden />
+                        )}
                       </li>
                     );
                   })}
                 </ul>
               )}
+              {!loading && hasMore ? (
+                <div className="border-t border-zinc-200 p-3 dark:border-zinc-700">
+                  <button
+                    type="button"
+                    disabled={loadingMore}
+                    onClick={() => void loadMore()}
+                    className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 py-3 text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                  >
+                    {loadingMore
+                      ? tl.notifications_loading ?? "…"
+                      : tl.notifications_load_more ?? "Load more"}
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </>

@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS daily_reports (
   site_conditions TEXT DEFAULT '',
   notes TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'draft'
-    CHECK (status IN ('draft', 'published')),
+    CHECK (status IN ('draft', 'published', 'approved')),
   ppe_selected TEXT[] NOT NULL DEFAULT '{}',
   ppe_other TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -70,6 +70,7 @@ import {
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import { postAppNotification } from "@/lib/clientNotifications";
 import { NotificationBell } from "@/components/NotificationBell";
+import type { AppNotificationRow } from "@/hooks/useNotifications";
 import { GlobalSearchModal } from "@/components/GlobalSearchModal";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
@@ -2088,6 +2089,11 @@ export default function Home() {
   });
 
   const [siteSelectedProjectId, setSiteSelectedProjectId] = useState<string | null>(null);
+  const [dailyReportNotificationFocus, setDailyReportNotificationFocus] = useState<{
+    projectId: string;
+    reportId: string;
+    sig: number;
+  } | null>(null);
   const [siteDiaryNotesDraft, setSiteDiaryNotesDraft] = useState("");
 
   const [clockInProjectCode, setClockInProjectCode] = useState("");
@@ -3173,12 +3179,79 @@ export default function Home() {
           targetEmployeeKey: pid,
           type: "daily_report_pending",
           title,
-          data: { reportId: report.id, projectId: report.projectId, date: report.date },
+          data: {
+            reportId: report.id,
+            projectId: report.projectId,
+            date: report.date,
+            project: report.projectName ?? "",
+          },
+        });
+      }
+      const supTitle = tl.notif_daily_report_submitted_title ?? tl.daily_report_send ?? "Daily report submitted";
+      const supBodyRaw = tl.notif_daily_report_submitted_body ?? "";
+      const supBody =
+        supBodyRaw.replace(/\{project\}/g, report.projectName ?? "").replace(/\{date\}/g, report.date) ||
+        `${report.projectName ?? ""} · ${report.date}`;
+      for (const e of activeEmployees) {
+        const r = (e.role ?? "").toLowerCase();
+        if (r !== "admin" && r !== "supervisor") continue;
+        if (e.id === report.createdBy) continue;
+        void postAppNotification(supabase, {
+          companyId,
+          targetUserId: e.id,
+          type: "daily_report_submitted",
+          title: supTitle,
+          body: supBody,
+          data: {
+            reportId: report.id,
+            projectId: report.projectId,
+            date: report.date,
+            project: report.projectName ?? "",
+          },
         });
       }
     },
-    [companyId, supabase, t]
+    [companyId, supabase, t, activeEmployees]
   );
+
+  const consumeDailyReportNotificationFocus = useCallback(() => {
+    setDailyReportNotificationFocus(null);
+  }, []);
+
+  const handleAppNotificationNavigate = useCallback((n: AppNotificationRow) => {
+    const data = n.data as Record<string, unknown> | null | undefined;
+    const projectId = typeof data?.projectId === "string" ? data.projectId : "";
+    const reportId = typeof data?.reportId === "string" ? data.reportId : "";
+    const ty = (n.type || "").toLowerCase();
+    if (ty.includes("daily_report") && projectId && reportId) {
+      setActiveSection("site");
+      setOperationsMainTab("projects");
+      setSiteSelectedProjectId(projectId);
+      setDailyReportNotificationFocus({ projectId, reportId, sig: Date.now() });
+      return;
+    }
+    if (ty.includes("vacation")) {
+      setActiveSection("schedule");
+      return;
+    }
+    if ((ty === "photo_approved" || ty === "photo_rejected") && projectId) {
+      setActiveSection("site");
+      setOperationsMainTab("projects");
+      setSiteSelectedProjectId(projectId);
+      return;
+    }
+    if (ty === "project_assigned" && projectId) {
+      setActiveSection("site");
+      setOperationsMainTab("projects");
+      setSiteSelectedProjectId(projectId);
+      return;
+    }
+    if ((ty === "shift_created" || ty === "shift_updated") && projectId) {
+      setActiveSection("site");
+      setOperationsMainTab("projects");
+      setSiteSelectedProjectId(projectId);
+    }
+  }, []);
 
   const handleAddScheduleEntry = (entry: Omit<ScheduleEntry, "id">) => {
     const newId = `se${Date.now()}`;
@@ -4031,6 +4104,7 @@ export default function Home() {
                   enabled
                   localeBcp47={dateLocaleBcp47}
                   timeZone={userTimeZone}
+                  onNavigate={handleAppNotificationNavigate}
                 />
               ) : null}
               {pendingSync.length > 0 ? (
@@ -5007,6 +5081,8 @@ export default function Home() {
                 dailyReports={dailyReports}
                 onRefreshDailyReports={reloadDailyReports}
                 onDailyReportPublished={handleDailyReportPublished}
+                focusDailyReportNav={dailyReportNotificationFocus}
+                onConsumeDailyReportNav={consumeDailyReportNotificationFocus}
                 teamProfiles={teamProfiles}
                 canManageDailyReports={!!rolePerms.canManageDailyReports}
                 companyId={companyId ?? ""}

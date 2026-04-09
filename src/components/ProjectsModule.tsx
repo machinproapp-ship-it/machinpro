@@ -305,6 +305,9 @@ export interface ProjectsModuleProps {
     projectName: string;
     count: number;
   }) => void;
+  /** Desde el centro de notificaciones: abrir parte diario en el proyecto. */
+  focusDailyReportNav?: { projectId: string; reportId: string; sig: number } | null;
+  onConsumeDailyReportNav?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -562,12 +565,15 @@ export function ProjectsModule({
   canUploadPhotos = false,
   onGalleryPhotoDownloaded,
   onGalleryPhotosBulkDownloaded,
+  focusDailyReportNav = null,
+  onConsumeDailyReportNav,
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const lastVisitorNavSig = useRef(0);
   const lastRfiNavSig = useRef(0);
   const lastSecurityNavSig = useRef(0);
+  const dailyReportFocusConsumedSig = useRef(0);
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -723,6 +729,21 @@ export function ProjectsModule({
   }, [projectsSecurityTabSignal, selectedProjectId, showProjectSecurityTab]);
 
   useEffect(() => {
+    if (!focusDailyReportNav) return;
+    const { projectId, reportId, sig } = focusDailyReportNav;
+    if (selectedProjectId !== projectId) {
+      onSelectProject(projectId);
+      return;
+    }
+    if (dailyReportFocusConsumedSig.current === sig) return;
+    dailyReportFocusConsumedSig.current = sig;
+    setActiveTab("formularios");
+    setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
+    setOpenDailyReportKey(reportId);
+    onConsumeDailyReportNav?.();
+  }, [focusDailyReportNav, selectedProjectId, onSelectProject, currentUserRole, onConsumeDailyReportNav]);
+
+  useEffect(() => {
     if (!openSafetyChecklistId) {
       setSafetyDraft(null);
       return;
@@ -786,7 +807,7 @@ export function ProjectsModule({
   const dailyReportsListForUi = useMemo(() => {
     if (currentUserRole === "worker") {
       if (!userAssignedToProject || !selectedProjectId) return [];
-      return dailyReportsForProject.filter((r) => r.status === "published");
+      return dailyReportsForProject.filter((r) => r.status === "published" || r.status === "approved");
     }
     return dailyReportsForProject;
   }, [currentUserRole, dailyReportsForProject, userAssignedToProject, selectedProjectId]);
@@ -2486,13 +2507,18 @@ export function ProjectsModule({
                     const st =
                       dr.status === "draft"
                         ? {
-                            label: tl.reportStatusDraft ?? tl.formStatusDraft ?? PM_EN.draft,
+                            label: tl.daily_report_status_draft ?? tl.reportStatusDraft ?? tl.formStatusDraft ?? PM_EN.draft,
                             cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
                           }
-                        : {
-                            label: tl.reportStatusPublished ?? PM_EN.published,
-                            cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200",
-                          };
+                        : dr.status === "approved"
+                          ? {
+                              label: tl.daily_report_status_approved ?? PM_EN.approved ?? "Approved",
+                              cls: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200",
+                            }
+                          : {
+                              label: tl.daily_report_status_sent ?? tl.reportStatusPublished ?? PM_EN.published,
+                              cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200",
+                            };
                     const sigN = dr.signatures.length;
                     const tot = Math.max(assignedEmployees.length, projectProfileAssignees.length, 1);
                     return (
@@ -3423,6 +3449,7 @@ export function ProjectsModule({
                   onRefreshList={() => void onRefreshDailyReports?.()}
                   onReportCreated={(id) => setOpenDailyReportKey(id)}
                   onReportPublished={onDailyReportPublished}
+                  canApproveReport={canManageDailyReports}
                 />
               </div>
             )}

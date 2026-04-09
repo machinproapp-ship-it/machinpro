@@ -32,15 +32,23 @@ export async function GET(req: NextRequest) {
   const client = userClient(token);
   if (!client) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
 
-  const { data: rows, error } = await client
+  const { searchParams } = req.nextUrl;
+  const limitRaw = parseInt(searchParams.get("limit") || "20", 10);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 20;
+  const offsetRaw = parseInt(searchParams.get("offset") || "0", 10);
+  const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+  const unreadOnly = searchParams.get("unread") === "1";
+
+  let listQuery = client
     .from("notifications")
     .select("id, company_id, user_id, type, title, body, data, read, read_at, created_at, expires_at")
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .order("created_at", { ascending: false });
+  if (unreadOnly) listQuery = listQuery.eq("read", false);
+  const { data: rows, error } = await listQuery.range(offset, offset + limit - 1);
 
   if (error) {
     if (error.code === "42P01" || error.message?.includes("does not exist")) {
-      return NextResponse.json({ notifications: [], unreadCount: 0, disabled: true });
+      return NextResponse.json({ notifications: [], unreadCount: 0, disabled: true, hasMore: false });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -52,10 +60,12 @@ export async function GET(req: NextRequest) {
     .eq("read", false);
 
   const unreadCount = !countErr && typeof count === "number" ? count : list.filter((r) => !r.read).length;
+  const hasMore = list.length >= limit;
 
   return NextResponse.json({
     notifications: list,
     unreadCount,
+    hasMore,
   });
 }
 

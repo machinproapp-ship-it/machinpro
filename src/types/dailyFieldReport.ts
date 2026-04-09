@@ -1,7 +1,8 @@
 /** Valores persistidos en BD (inglés). La UI traduce con t.clave. */
 export type DailyReportWeather = "sunny" | "cloudy" | "rain" | "wind" | "snow";
 
-export type DailyReportStatus = "draft" | "published";
+/** `published` = sent to team (signatures/tasks); `approved` = supervisor closed. */
+export type DailyReportStatus = "draft" | "published" | "approved";
 
 export type DailyReportSignatureMethod = "tap" | "drawing" | "tap_named";
 

@@ -168,12 +168,20 @@ export function generateDailyFieldReportPdf(params: {
   const dateStr = formatReportDate(report.date, language, countryCode, tz);
   const statusStr =
     report.status === "draft"
-      ? tl.reportStatusDraft ?? "Draft"
-      : tl.reportStatusPublished ?? "Published";
+      ? tl.daily_report_status_draft ?? tl.reportStatusDraft ?? "Draft"
+      : report.status === "approved"
+        ? tl.daily_report_status_approved ?? tl.reportStatusApproved ?? "Approved"
+        : tl.daily_report_status_sent ?? tl.reportStatusPublished ?? "Sent";
 
-  const logoBlock = companyLogoUrl
+  const machinProLogoSrc =
+    typeof window !== "undefined" ? `${window.location.origin}/logo-source.png` : "";
+  const companyLogoHtml = companyLogoUrl
     ? `<div class="logo-wrap"><img class="logo" src="${escapeHtml(companyLogoUrl)}" alt="" crossorigin="anonymous" /></div>`
     : "";
+  const machinProLogoHtml = machinProLogoSrc
+    ? `<div class="logo-wrap"><img class="logo" src="${escapeHtml(machinProLogoSrc)}" alt="MachinPro" crossorigin="anonymous" /></div>`
+    : "";
+  const logoBlock = `<div class="logo-row">${companyLogoHtml}${machinProLogoHtml}</div>`;
 
   const bodyParts = [
     section(tl.weatherSection ?? "Weather", p(tl.weatherSection ?? "Weather", weatherLabel(report.weather, tl))),
@@ -205,6 +213,7 @@ export function generateDailyFieldReportPdf(params: {
     body { font-family: system-ui, sans-serif; color: #18181b; font-size: 11pt; line-height: 1.45; padding-bottom: 28px; }
     .hdr { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; padding-bottom: 12px; }
     .hdr-rule { border: 0; border-top: 2px solid #b45309; margin: 12px 0 16px; }
+    .logo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
     .logo { max-height: 56px; max-width: 160px; object-fit: contain; }
     .h1 { font-size: 1.35rem; margin: 8px 0 4px; }
     .co { font-weight: 700; margin: 0; }

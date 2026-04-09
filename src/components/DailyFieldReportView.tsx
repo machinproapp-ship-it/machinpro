@@ -131,8 +131,10 @@ export type DailyFieldReportViewProps = {
   onRefreshList?: () => void;
   /** Tras el primer guardado de un parte nuevo, sincroniza la clave abierta con el id persistido. */
   onReportCreated?: (id: string) => void;
-  /** Cuando pasa a publicado (primera vez). */
+  /** Cuando pasa a publicado / enviado (primera vez). */
   onReportPublished?: (report: DailyFieldReport) => void;
+  /** Supervisor puede cerrar el parte como aprobado. */
+  canApproveReport?: boolean;
 };
 
 export function DailyFieldReportView({
@@ -160,6 +162,7 @@ export function DailyFieldReportView({
   onRefreshList,
   onReportCreated,
   onReportPublished,
+  canApproveReport = false,
 }: DailyFieldReportViewProps) {
   void useMachinProDisplayPrefs();
   const tl = rawLabels as Record<string, string>;
@@ -185,14 +188,17 @@ export function DailyFieldReportView({
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [clockedIds, setClockedIds] = useState<Set<string>>(new Set());
+  const [dayWorkedMinutes, setDayWorkedMinutes] = useState<number | null>(null);
   const [signModal, setSignModal] = useState<"none" | "pick" | "draw" | "tap_named">("none");
   const [tapNamedInput, setTapNamedInput] = useState("");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
 
-  const readOnly =
-    (!isEmployeeView && draft.status === "published") ||
-    (isEmployeeView && false);
+  const supervisorFormLocked =
+    !isEmployeeView && (draft.status === "published" || draft.status === "approved");
+  const readOnly = supervisorFormLocked || (isEmployeeView && false);
+  const isSent = draft.status === "published";
+  const isApproved = draft.status === "approved";
 
   const myTasks = useMemo(() => {
     if (!isEmployeeView) return [];
@@ -229,6 +235,52 @@ export function DailyFieldReportView({
       setClockedIds(s);
     })();
   }, [companyId, projectId, draft.date]);
+
+  useEffect(() => {
+    if (!supabase || !companyId || !projectId || !draft.date) {
+      setDayWorkedMinutes(null);
+      return;
+    }
+    const start = new Date(`${draft.date}T00:00:00`);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    void (async () => {
+      const { data } = await supabase
+        .from("time_entries")
+        .select("clock_in_at, clock_out_at")
+        .eq("company_id", companyId)
+        .eq("project_id", projectId)
+        .gte("clock_in_at", start.toISOString())
+        .lt("clock_in_at", end.toISOString());
+      let minutes = 0;
+      for (const row of data ?? []) {
+        const r = row as { clock_in_at?: string; clock_out_at?: string | null };
+        const cin = r.clock_in_at ? new Date(r.clock_in_at).getTime() : NaN;
+        if (!Number.isFinite(cin)) continue;
+        const cout = r.clock_out_at
+          ? new Date(r.clock_out_at).getTime()
+          : Date.now();
+        if (cout > cin) minutes += Math.round((cout - cin) / 60_000);
+      }
+      setDayWorkedMinutes(minutes);
+    })();
+  }, [companyId, projectId, draft.date, supabase]);
+
+  const daySummaryPresent = useMemo(
+    () => draft.attendance.filter((a) => a.status === "present").length,
+    [draft.attendance]
+  );
+  const daySummaryTasksDone = useMemo(
+    () => draft.tasks.filter((t) => t.completed).length,
+    [draft.tasks]
+  );
+  const daySummaryHoursLabel = useMemo(() => {
+    if (dayWorkedMinutes == null) return "—";
+    const h = Math.floor(dayWorkedMinutes / 60);
+    const m = dayWorkedMinutes % 60;
+    if (h <= 0) return `${m}m`;
+    return `${h}h ${m > 0 ? `${m}m` : ""}`.trim();
+  }, [dayWorkedMinutes]);
 
   useEffect(() => {
     if (isEmployeeView || draft.status !== "draft" || draft.attendance.length > 0) return;
@@ -384,8 +436,13 @@ export function DailyFieldReportView({
     void persist({ ...draft, status: "published" });
   }, [draft, persist, readOnly]);
 
+  const handleApprove = useCallback(() => {
+    if (!canApproveReport || draft.status !== "published") return;
+    void persist({ ...draft, status: "approved" });
+  }, [canApproveReport, draft, persist]);
+
   const handlePdf = useCallback(() => {
-    if (draft.status !== "published") return;
+    if (draft.status !== "published" && draft.status !== "approved") return;
     generateDailyFieldReportPdf({
       report: draft,
       companyName,
@@ -492,13 +549,152 @@ export function DailyFieldReportView({
   const statusBadge =
     draft.status === "draft"
       ? {
-          text: tl.reportStatusDraft ?? tl.formStatusDraft ?? "Draft",
+          text: tl.daily_report_status_draft ?? tl.reportStatusDraft ?? tl.formStatusDraft ?? "Draft",
           cls: "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200",
         }
-      : {
-          text: tl.reportStatusPublished ?? tl.publishReport ?? "Published",
-          cls: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200",
-        };
+      : draft.status === "approved"
+        ? {
+            text: tl.daily_report_status_approved ?? tl.reportStatusApproved ?? "Approved",
+            cls: "bg-violet-100 text-violet-900 dark:bg-violet-900/30 dark:text-violet-200",
+          }
+        : {
+            text: tl.daily_report_status_sent ?? tl.reportStatusPublished ?? "Sent",
+            cls: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200",
+          };
+
+  const canShowSignModals =
+    signModal !== "none" &&
+    (isEmployeeView || (readOnly && canApproveReport && isSent && !isApproved && !alreadySigned));
+
+  const signModals = canShowSignModals ? (
+    <>
+      {signModal === "pick" && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
+            <h3 className="mb-3 font-semibold text-zinc-900 dark:text-white">{tl.signatureMethod ?? "Method"}</h3>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-left text-sm dark:border-zinc-600"
+                onClick={() => void submitSignature("tap")}
+              >
+                {tl.signTap ?? "Tap confirm"}
+              </button>
+              <button
+                type="button"
+                className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-left text-sm dark:border-zinc-600"
+                onClick={startDraw}
+              >
+                {tl.signDraw ?? "Draw"}
+              </button>
+              <button
+                type="button"
+                className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-left text-sm dark:border-zinc-600"
+                onClick={() => setSignModal("tap_named")}
+              >
+                {tl.signTapNamed ?? "Tap + name"}
+              </button>
+              <button
+                type="button"
+                className="mt-2 min-h-[44px] text-sm text-zinc-500"
+                onClick={() => setSignModal("none")}
+              >
+                {tl.cancel ?? "Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {signModal === "tap_named" && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
+            <label className="block text-sm">
+              <span className="text-zinc-500">{tl.preparedBy ?? "Name"}</span>
+              <input
+                value={tapNamedInput}
+                onChange={(e) => setTapNamedInput(e.target.value)}
+                className="mt-1 w-full min-h-[44px] rounded-xl border border-zinc-300 px-3 dark:border-zinc-600 dark:bg-slate-800"
+              />
+            </label>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-medium text-white"
+                onClick={() =>
+                  void submitSignature("tap_named", JSON.stringify({ name: tapNamedInput || currentUserName }))
+                }
+              >
+                {tl.common_confirm ?? "Confirm"}
+              </button>
+              <button type="button" className="min-h-[44px] px-4 text-sm" onClick={() => setSignModal("pick")}>
+                {tl.back ?? "Back"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {signModal === "draw" && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
+            <canvas
+              ref={canvasRef}
+              width={320}
+              height={180}
+              className="w-full touch-none rounded-lg border border-zinc-300 bg-white"
+              onPointerDown={(e) => {
+                drawing.current = true;
+                const c = canvasRef.current;
+                if (!c) return;
+                const ctx = c.getContext("2d");
+                if (!ctx) return;
+                const r = c.getBoundingClientRect();
+                ctx.beginPath();
+                ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
+              }}
+              onPointerMove={(e) => {
+                if (!drawing.current) return;
+                const c = canvasRef.current;
+                if (!c) return;
+                const ctx = c.getContext("2d");
+                if (!ctx) return;
+                const r = c.getBoundingClientRect();
+                ctx.lineTo(e.clientX - r.left, e.clientY - r.top);
+                ctx.stroke();
+              }}
+              onPointerUp={() => {
+                drawing.current = false;
+              }}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="min-h-[44px] flex-1 rounded-xl bg-zinc-200 px-4 py-2 text-sm dark:bg-zinc-700"
+                onClick={startDraw}
+              >
+                {tl.dailyReportClearCanvas ?? "Clear"}
+              </button>
+              <button
+                type="button"
+                className="min-h-[44px] flex-1 rounded-xl bg-amber-600 px-4 py-2 text-sm text-white"
+                onClick={() => {
+                  const data = getCanvasData();
+                  if (data) void submitSignature("drawing", data);
+                }}
+              >
+                <Check className="mr-1 inline h-4 w-4" />
+                {tl.common_confirm ?? "OK"}
+              </button>
+              <button type="button" className="min-h-[44px] px-4 text-sm" onClick={() => setSignModal("pick")}>
+                {tl.back ?? "Back"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  ) : null;
 
   if (isEmployeeView) {
     return (
@@ -524,6 +720,31 @@ export function DailyFieldReportView({
               {errMsg}
             </p>
           )}
+          <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-slate-900">
+            <h2 className="mb-3 font-semibold text-zinc-900 dark:text-white">
+              {tl.daily_report_summary ?? "Day summary"}
+            </h2>
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="rounded-lg bg-zinc-50 px-2 py-3 dark:bg-slate-800/80">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {tl.daily_report_metric_hours ?? tl.dailyReportHours ?? "Hours"}
+                </p>
+                <p className="mt-1 font-semibold text-zinc-900 dark:text-white">{daySummaryHoursLabel}</p>
+              </div>
+              <div className="rounded-lg bg-zinc-50 px-2 py-3 dark:bg-slate-800/80">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {tl.daily_report_metric_present ?? tl.attendance ?? "Present"}
+                </p>
+                <p className="mt-1 font-semibold text-zinc-900 dark:text-white">{daySummaryPresent}</p>
+              </div>
+              <div className="rounded-lg bg-zinc-50 px-2 py-3 dark:bg-slate-800/80">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {tl.daily_report_metric_tasks ?? tl.dailyTasks ?? "Tasks"}
+                </p>
+                <p className="mt-1 font-semibold text-zinc-900 dark:text-white">{daySummaryTasksDone}</p>
+              </div>
+            </div>
+          </section>
           <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-slate-900">
             <h2 className="mb-3 font-semibold text-zinc-900 dark:text-white">{tl.dailyTasks ?? "Tasks"}</h2>
             {myTasks.length === 0 ? (
@@ -569,137 +790,12 @@ export function DailyFieldReportView({
                 onClick={() => setSignModal("pick")}
                 className="min-h-[44px] rounded-xl bg-amber-600 px-4 py-3 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
               >
-                {tl.signReport ?? "Sign report"}
+                {tl.daily_report_sign ?? tl.signReport ?? "Sign report"}
               </button>
             )}
           </section>
         </div>
-
-        {signModal === "pick" && (
-          <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
-              <h3 className="mb-3 font-semibold text-zinc-900 dark:text-white">{tl.signatureMethod ?? "Method"}</h3>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-left text-sm dark:border-zinc-600"
-                  onClick={() => void submitSignature("tap")}
-                >
-                  {tl.signTap ?? "Tap confirm"}
-                </button>
-                <button
-                  type="button"
-                  className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-left text-sm dark:border-zinc-600"
-                  onClick={startDraw}
-                >
-                  {tl.signDraw ?? "Draw"}
-                </button>
-                <button
-                  type="button"
-                  className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-left text-sm dark:border-zinc-600"
-                  onClick={() => setSignModal("tap_named")}
-                >
-                  {tl.signTapNamed ?? "Tap + name"}
-                </button>
-                <button
-                  type="button"
-                  className="mt-2 min-h-[44px] text-sm text-zinc-500"
-                  onClick={() => setSignModal("none")}
-                >
-                  {tl.cancel ?? "Cancel"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {signModal === "tap_named" && (
-          <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-            <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
-              <label className="block text-sm">
-                <span className="text-zinc-500">{tl.preparedBy ?? "Name"}</span>
-                <input
-                  value={tapNamedInput}
-                  onChange={(e) => setTapNamedInput(e.target.value)}
-                  className="mt-1 w-full min-h-[44px] rounded-xl border border-zinc-300 px-3 dark:border-zinc-600 dark:bg-slate-800"
-                />
-              </label>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  className="flex-1 min-h-[44px] rounded-xl bg-amber-600 py-3 text-sm font-medium text-white"
-                  onClick={() =>
-                    void submitSignature("tap_named", JSON.stringify({ name: tapNamedInput || currentUserName }))
-                  }
-                >
-                  {tl.common_confirm ?? "Confirm"}
-                </button>
-                <button type="button" className="min-h-[44px] px-4 text-sm" onClick={() => setSignModal("pick")}>
-                  {tl.back ?? "Back"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {signModal === "draw" && (
-          <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
-              <canvas
-                ref={canvasRef}
-                width={320}
-                height={180}
-                className="w-full touch-none rounded-lg border border-zinc-300 bg-white"
-                onPointerDown={(e) => {
-                  drawing.current = true;
-                  const c = canvasRef.current;
-                  if (!c) return;
-                  const ctx = c.getContext("2d");
-                  if (!ctx) return;
-                  const r = c.getBoundingClientRect();
-                  ctx.beginPath();
-                  ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
-                }}
-                onPointerMove={(e) => {
-                  if (!drawing.current) return;
-                  const c = canvasRef.current;
-                  if (!c) return;
-                  const ctx = c.getContext("2d");
-                  if (!ctx) return;
-                  const r = c.getBoundingClientRect();
-                  ctx.lineTo(e.clientX - r.left, e.clientY - r.top);
-                  ctx.stroke();
-                }}
-                onPointerUp={() => {
-                  drawing.current = false;
-                }}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="min-h-[44px] flex-1 rounded-xl bg-zinc-200 px-4 py-2 text-sm dark:bg-zinc-700"
-                  onClick={startDraw}
-                >
-                  {tl.dailyReportClearCanvas ?? "Clear"}
-                </button>
-                <button
-                  type="button"
-                  className="min-h-[44px] flex-1 rounded-xl bg-amber-600 px-4 py-2 text-sm text-white"
-                  onClick={() => {
-                    const data = getCanvasData();
-                    if (data) void submitSignature("drawing", data);
-                  }}
-                >
-                  <Check className="mr-1 inline h-4 w-4" />
-                  {tl.common_confirm ?? "OK"}
-                </button>
-                <button type="button" className="min-h-[44px] px-4 text-sm" onClick={() => setSignModal("pick")}>
-                  {tl.back ?? "Back"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {signModals}
       </div>
     );
   }
@@ -737,6 +833,31 @@ export function DailyFieldReportView({
           <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-slate-800/50">
             <p className="text-xs text-zinc-500 dark:text-zinc-400">{tl.preparedBy ?? "Prepared by"}</p>
             <p className="text-sm font-medium text-zinc-900 dark:text-white">{draft.createdByName || currentUserName}</p>
+          </div>
+        </div>
+        <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 dark:border-zinc-700 dark:bg-slate-800/50">
+          <p className="mb-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+            {tl.daily_report_summary ?? "Day summary"}
+          </p>
+          <div className="grid grid-cols-3 gap-2 text-center text-sm">
+            <div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {tl.daily_report_metric_hours ?? tl.dailyReportHours ?? "Hours"}
+              </p>
+              <p className="font-semibold text-zinc-900 dark:text-white">{daySummaryHoursLabel}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {tl.daily_report_metric_present ?? tl.attendance ?? "Present"}
+              </p>
+              <p className="font-semibold text-zinc-900 dark:text-white">{daySummaryPresent}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {tl.daily_report_metric_tasks ?? tl.dailyTasks ?? "Tasks"}
+              </p>
+              <p className="font-semibold text-zinc-900 dark:text-white">{daySummaryTasksDone}</p>
+            </div>
           </div>
         </div>
       </header>
@@ -1085,8 +1206,8 @@ export function DailyFieldReportView({
           )}
         </section>
 
-        {/* Firmas lectura */}
-        {draft.status === "published" && (
+        {/* Firmas lectura + firma supervisor (móvil) */}
+        {(draft.status === "published" || draft.status === "approved") && (
           <section className="mb-6 rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-slate-900">
             <button
               type="button"
@@ -1097,31 +1218,50 @@ export function DailyFieldReportView({
               {sigOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </button>
             {sigOpen && (
-              <ul className="border-t border-zinc-100 px-4 py-3 dark:border-zinc-800">
-                {draft.signatures.map((s) => (
-                  <li key={s.id} className="flex flex-wrap justify-between gap-2 border-b border-zinc-50 py-2 text-sm dark:border-zinc-800">
-                    <span>
-                      {s.employeeName ?? "—"}{" "}
-                      {s.method === "tap_named" && s.signatureData
-                        ? ` (${(() => {
-                            try {
-                              const j = JSON.parse(s.signatureData!) as { name?: string };
-                              return j.name ?? "";
-                            } catch {
-                              return "";
-                            }
-                          })()})`
-                        : ""}
-                    </span>
-                    <span className="text-zinc-500">
-                      {formatReportDateTime(s.signedAt, language, countryCode, timeZone)}
-                    </span>
-                  </li>
-                ))}
-                {draft.signatures.length === 0 && (
-                  <li className="text-sm text-zinc-500">{tl.dailyReportNoSignaturesYet ?? "—"}</li>
-                )}
-              </ul>
+              <div className="space-y-3 border-t border-zinc-100 px-4 py-3 dark:border-zinc-800">
+                {readOnly &&
+                  canApproveReport &&
+                  draft.status === "published" &&
+                  !alreadySigned && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setSignModal("pick")}
+                      className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border-2 border-amber-500 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+                    >
+                      <PenLine className="h-4 w-4 shrink-0" />
+                      {tl.daily_report_sign ?? tl.signReport ?? "Sign report"}
+                    </button>
+                  )}
+                <ul>
+                  {draft.signatures.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex flex-wrap justify-between gap-2 border-b border-zinc-50 py-2 text-sm dark:border-zinc-800"
+                    >
+                      <span>
+                        {s.employeeName ?? "—"}{" "}
+                        {s.method === "tap_named" && s.signatureData
+                          ? ` (${(() => {
+                              try {
+                                const j = JSON.parse(s.signatureData!) as { name?: string };
+                                return j.name ?? "";
+                              } catch {
+                                return "";
+                              }
+                            })()})`
+                          : ""}
+                      </span>
+                      <span className="text-zinc-500">
+                        {formatReportDateTime(s.signedAt, language, countryCode, timeZone)}
+                      </span>
+                    </li>
+                  ))}
+                  {draft.signatures.length === 0 && (
+                    <li className="text-sm text-zinc-500">{tl.dailyReportNoSignaturesYet ?? "—"}</li>
+                  )}
+                </ul>
+              </div>
             )}
           </section>
         )}
@@ -1150,9 +1290,20 @@ export function DailyFieldReportView({
         </div>
       )}
 
-      {readOnly && draft.status === "published" && (
+      {readOnly && (draft.status === "published" || draft.status === "approved") && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur dark:border-zinc-800 dark:bg-slate-900/95 sm:static sm:border-0 sm:bg-transparent sm:p-0">
-          <div className="mx-auto flex max-w-3xl justify-end">
+          <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:justify-end">
+            {canApproveReport && draft.status === "published" && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={handleApprove}
+                className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+              >
+                <Check className="h-4 w-4" />
+                {tl.daily_report_approve ?? "Approve report"}
+              </button>
+            )}
             <button
               type="button"
               onClick={handlePdf}
@@ -1164,6 +1315,7 @@ export function DailyFieldReportView({
           </div>
         </div>
       )}
+      {signModals}
     </div>
   );
 }

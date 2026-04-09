@@ -84,7 +84,10 @@ export function reportFromRow(
       ? weatherRaw
       : "sunny";
   const statusRaw = asStr(row.status);
-  const status = statusRaw === "published" ? "published" : "draft";
+  const status: DailyFieldReport["status"] =
+    statusRaw === "published" || statusRaw === "approved"
+      ? statusRaw
+      : "draft";
   const ppe = row.ppe_selected;
   return {
     id: asStr(row.id),
