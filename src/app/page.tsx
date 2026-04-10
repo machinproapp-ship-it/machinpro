@@ -5653,6 +5653,7 @@ export default function Home() {
                 focusHelpSectionSignal={settingsHelpFocusSignal}
                 darkMode={darkMode ?? false}
                 onDarkModeChange={(next) => setDarkMode(next)}
+                showMfaSecuritySection={effectiveRole === "admin" || effectiveRole === "supervisor"}
               />
               <ModuleHelpFab
                 moduleKey="settings"

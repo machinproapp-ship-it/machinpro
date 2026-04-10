@@ -11,6 +11,7 @@ import {
   Building2,
   Globe,
   CreditCard,
+  Shield,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
@@ -27,6 +28,8 @@ import {
 import { REGIONAL_TIMEZONE_GROUPS, allGroupedTimezones, cityLabelFromIana } from "@/lib/regionalTimezones";
 import { REGIONAL_COUNTRY_DEFAULTS as COUNTRY_DEFAULTS, REGIONAL_COUNTRIES as COUNTRIES } from "@/lib/regionalCountries";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
+import { supabase } from "@/lib/supabase";
+import type { Factor } from "@supabase/supabase-js";
 
 const SETTINGS_SUPPORT_EMAIL = "support@machin.pro";
 
@@ -89,6 +92,8 @@ export interface SettingsModuleProps {
   /** Theme control (moved from app header). */
   darkMode?: boolean;
   onDarkModeChange?: (dark: boolean) => void;
+  /** TOTP MFA (admin / supervisor). */
+  showMfaSecuritySection?: boolean;
 }
 
 export function SettingsModule({
@@ -143,6 +148,7 @@ export function SettingsModule({
   focusHelpSectionSignal = 0,
   darkMode = false,
   onDarkModeChange,
+  showMfaSecuritySection = false,
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -161,6 +167,26 @@ export function SettingsModule({
   const [timeFormat, setTimeFormat] = useState<string>("24");
   const [weekStart, setWeekStart] = useState<string>("monday");
   const [numberFormat, setNumberFormat] = useState<string>("comma_decimal");
+
+  const [mfaVerifiedFactorId, setMfaVerifiedFactorId] = useState<string | null>(null);
+  const [mfaEnrolling, setMfaEnrolling] = useState(false);
+  const [mfaQr, setMfaQr] = useState<string | null>(null);
+  const [mfaPendingFactorId, setMfaPendingFactorId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [mfaMessage, setMfaMessage] = useState<string | null>(null);
+
+  const refreshMfaFactors = useCallback(async () => {
+    if (!showMfaSecuritySection || !session?.access_token) return;
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error || !data) return;
+    const v = (data.totp ?? []).find((f: Factor) => f.status === "verified");
+    setMfaVerifiedFactorId(v?.id ?? null);
+  }, [showMfaSecuritySection, session?.access_token]);
+
+  useEffect(() => {
+    void refreshMfaFactors();
+  }, [refreshMfaFactors]);
 
   type SettingsSectionId =
     | "general"
@@ -631,6 +657,139 @@ export function SettingsModule({
                   {tl.changePassword ?? ""}
                 </button>
               ) : null}
+
+              {showMfaSecuritySection && session?.access_token ? (
+                <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/40 px-4 py-4 space-y-3 max-w-md">
+                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                    <Shield className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                    {tl.mfa_title ?? ""}
+                  </h4>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    {mfaVerifiedFactorId ? (tl.mfa_status_active ?? "") : (tl.mfa_status_inactive ?? "")}
+                  </p>
+                  {mfaMessage ? (
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400">{mfaMessage}</p>
+                  ) : null}
+
+                  {!mfaEnrolling ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={mfaBusy || !!mfaVerifiedFactorId}
+                        onClick={() => void (async () => {
+                          setMfaBusy(true);
+                          setMfaMessage(null);
+                          const { data: en, error: enErr } = await supabase.auth.mfa.enroll({
+                            factorType: "totp",
+                            friendlyName: "MachinPro",
+                            issuer: "MachinPro",
+                          });
+                          setMfaBusy(false);
+                          if (enErr || !en?.id) {
+                            setMfaMessage(tl.mfa_error ?? "");
+                            return;
+                          }
+                          setMfaPendingFactorId(en.id);
+                          const qr =
+                            en.factor_type === "totp" && en.totp?.qr_code ? String(en.totp.qr_code) : "";
+                          setMfaQr(qr || null);
+                          setMfaEnrolling(true);
+                          setMfaCode("");
+                        })()}
+                        className="min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                      >
+                        {tl.mfa_enable_btn ?? ""}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={mfaBusy || !mfaVerifiedFactorId}
+                        onClick={() => void (async () => {
+                          if (!mfaVerifiedFactorId) return;
+                          setMfaBusy(true);
+                          setMfaMessage(null);
+                          const { error: unErr } = await supabase.auth.mfa.unenroll({
+                            factorId: mfaVerifiedFactorId,
+                          });
+                          setMfaBusy(false);
+                          if (unErr) {
+                            setMfaMessage(tl.mfa_error ?? "");
+                            return;
+                          }
+                          setMfaVerifiedFactorId(null);
+                          setMfaMessage(tl.mfa_disabled_success ?? "");
+                          showToast("success", tl.mfa_disabled_success ?? "");
+                          void refreshMfaFactors();
+                        })()}
+                        className="min-h-[44px] rounded-xl border border-red-300 dark:border-red-800 px-4 py-2 text-sm font-medium text-red-800 dark:text-red-200 disabled:opacity-50"
+                      >
+                        {tl.mfa_disable_btn ?? ""}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400">{tl.mfa_scan_qr ?? ""}</p>
+                      {mfaQr ? (
+                        <img src={mfaQr} alt="" className="mx-auto h-40 w-40 rounded-lg border border-zinc-200 dark:border-slate-600" />
+                      ) : null}
+                      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        {tl.mfa_enter_code ?? ""}
+                        <input
+                          value={mfaCode}
+                          onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                          className="mt-1 w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                        />
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={mfaBusy || !mfaPendingFactorId || mfaCode.trim().length < 6}
+                          onClick={() => void (async () => {
+                            if (!mfaPendingFactorId) return;
+                            setMfaBusy(true);
+                            setMfaMessage(null);
+                            const { error: vErr } = await supabase.auth.mfa.challengeAndVerify({
+                              factorId: mfaPendingFactorId,
+                              code: mfaCode.trim(),
+                            });
+                            setMfaBusy(false);
+                            if (vErr) {
+                              setMfaMessage(tl.mfa_error ?? "");
+                              return;
+                            }
+                            setMfaEnrolling(false);
+                            setMfaQr(null);
+                            setMfaPendingFactorId(null);
+                            setMfaCode("");
+                            await refreshMfaFactors();
+                            setMfaMessage(tl.mfa_success ?? "");
+                            showToast("success", tl.mfa_success ?? "");
+                          })()}
+                          className="min-h-[44px] rounded-xl bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                        >
+                          {tl.mfa_verify_btn ?? ""}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={mfaBusy}
+                          onClick={() => {
+                            setMfaEnrolling(false);
+                            setMfaQr(null);
+                            setMfaPendingFactorId(null);
+                            setMfaCode("");
+                            setMfaMessage(null);
+                          }}
+                          className="min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
+                        >
+                          {tl.common_cancel ?? t.cancel ?? ""}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => void onSaveProfile()}

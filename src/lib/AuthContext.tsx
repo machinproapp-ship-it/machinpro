@@ -1,11 +1,26 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase, type AuthGetSessionResult } from "./supabase";
 import type { AuthChangeEvent, User, Session } from "@supabase/supabase-js";
 import type { Language } from "@/types/shared";
 import { isValidLanguage } from "@/lib/localePreference";
 import { isValidIanaTimeZone } from "@/lib/dateUtils";
+import { postAuthAudit } from "@/lib/postAuthAudit";
+
+/** Inactivity sign-out delay (configurable). */
+export const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
+const SESSION_WARN_BEFORE_MS = 5 * 60 * 1000;
+const SESSION_REV_CHECK_MS = 60 * 1000;
+const STORAGE_REV_PREFIX = "machinpro_session_rev_";
 
 /** Mirrors `user_profiles` in Supabase; optional name fields if columns exist. */
 interface UserProfile {
@@ -38,9 +53,11 @@ interface AuthContextValue {
   profile: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  signOut: (opts?: { reason?: "user" | "timeout" | "revoked" }) => Promise<void>;
   /** Relee sesión y perfil desde Supabase (p. ej. tras login en LoginScreen). */
   syncSession: () => Promise<void>;
+  sessionIdleWarning: boolean;
+  continueSession: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -97,6 +114,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionIdleWarning, setSessionIdleWarning] = useState(false);
+
+  const sessionRef = useRef<Session | null>(null);
+  const profileRef = useRef<UserProfile | null>(null);
+  const lastActivityRef = useRef(Date.now());
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const fetchProfile = async (userId: string) => {
     if (!supabase) return;
@@ -196,26 +225,118 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    console.log("[AUTH] Intentando login con:", email);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    console.log("[AUTH] Respuesta:", { data, error });
-    return { error: error?.message ?? null };
-  };
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return;
+    const meta = user.app_metadata as Record<string, unknown> | undefined;
+    const rev = Number(meta?.machinpro_session_rev ?? 0);
+    if (Number.isFinite(rev)) {
+      try {
+        localStorage.setItem(`${STORAGE_REV_PREFIX}${user.id}`, String(rev));
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [user?.id, user?.app_metadata]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async (opts?: { reason?: "user" | "timeout" | "revoked" }) => {
+    const reason = opts?.reason ?? "user";
+    const s = sessionRef.current;
+    const token = s?.access_token ?? null;
+    const companyId = profileRef.current?.companyId ?? null;
+    if (reason === "timeout") {
+      await postAuthAudit({ action: "auth_session_timeout", accessToken: token, companyId });
+    } else if (reason === "user") {
+      await postAuthAudit({ action: "auth_logout", accessToken: token, companyId });
+    }
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
     setProfile(null);
+    setSessionIdleWarning(false);
+  }, []);
+
+  useEffect(() => {
+    if (!session?.access_token || !user?.id) return;
+    const uid = user.id;
+    const checkRev = async () => {
+      const { data } = await supabase.auth.getUser();
+      const u = data.user;
+      if (!u || u.id !== uid) return;
+      const meta = u.app_metadata as Record<string, unknown> | undefined;
+      const serverRev = Number(meta?.machinpro_session_rev ?? 0);
+      let stored = 0;
+      try {
+        stored = Number(localStorage.getItem(`${STORAGE_REV_PREFIX}${uid}`) ?? 0);
+      } catch {
+        /* ignore */
+      }
+      if (Number.isFinite(serverRev) && serverRev !== stored) {
+        await signOut({ reason: "revoked" });
+      }
+    };
+    const id = window.setInterval(() => void checkRev(), SESSION_REV_CHECK_MS);
+    void checkRev();
+    return () => clearInterval(id);
+  }, [session?.access_token, user?.id, signOut]);
+
+  const bumpActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    setSessionIdleWarning(false);
+  }, []);
+
+  const continueSession = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    setSessionIdleWarning(false);
+  }, []);
+
+  useEffect(() => {
+    if (!session?.access_token) {
+      setSessionIdleWarning(false);
+      return;
+    }
+    lastActivityRef.current = Date.now();
+    const types = ["click", "keydown", "mousemove", "touchstart"] as const;
+    const onAct = () => bumpActivity();
+    types.forEach((evt) => window.addEventListener(evt, onAct, { passive: true }));
+    return () => types.forEach((evt) => window.removeEventListener(evt, onAct));
+  }, [session?.access_token, bumpActivity]);
+
+  useEffect(() => {
+    if (!session?.access_token) return;
+    const tick = () => {
+      const idle = Date.now() - lastActivityRef.current;
+      if (idle >= SESSION_TIMEOUT_MS) {
+        void signOut({ reason: "timeout" });
+        return;
+      }
+      setSessionIdleWarning(idle >= SESSION_TIMEOUT_MS - SESSION_WARN_BEFORE_MS);
+    };
+    const id = window.setInterval(tick, 10_000);
+    tick();
+    return () => clearInterval(id);
+  }, [session?.access_token, signOut]);
+
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error: error?.message ?? null };
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, session, profile, loading, signIn, signOut, syncSession }}
+      value={{
+        user,
+        session,
+        profile,
+        loading,
+        signIn,
+        signOut,
+        syncSession,
+        sessionIdleWarning,
+        continueSession,
+      }}
     >
       {children}
     </AuthContext.Provider>

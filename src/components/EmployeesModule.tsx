@@ -21,6 +21,7 @@ import {
   Calendar,
   Clock,
   MapPin,
+  LogOut,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
@@ -462,6 +463,8 @@ export function EmployeesModule({
   const [employeeDeleteModalOpen, setEmployeeDeleteModalOpen] = useState(false);
   const [hardDeleteConfirmInput, setHardDeleteConfirmInput] = useState("");
   const [hardDeleteBusy, setHardDeleteBusy] = useState(false);
+  const [forceLogoutModalOpen, setForceLogoutModalOpen] = useState(false);
+  const [forceLogoutBusy, setForceLogoutBusy] = useState(false);
   const [employeesBrowseTab, setEmployeesBrowseTab] = useState<"people" | "compliance">("people");
   const [fichajeInOpen, setFichajeInOpen] = useState(false);
   const [fichajeOutOpen, setFichajeOutOpen] = useState(false);
@@ -1016,6 +1019,39 @@ export function EmployeesModule({
       if (ok) window.alert(ok);
     } finally {
       setHardDeleteBusy(false);
+    }
+  };
+
+  const runForceLogoutEmployee = async () => {
+    if (!viewerIsAdmin || !companyId || !selectedId) return;
+    const targetRow = rows.find((r) => r.id === selectedId);
+    if (!targetRow) return;
+    const lx = t as Record<string, string>;
+    setForceLogoutBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        showToast("error", (lx.auth_force_logout_error ?? "").trim() || "Error");
+        return;
+      }
+      const res = await fetch("/api/auth/force-logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ companyId, targetUserId: targetRow.id }),
+      });
+      const j = (await res.json()) as { error?: string; ok?: boolean };
+      if (!res.ok || !j.ok) {
+        showToast("error", (lx.auth_force_logout_error ?? "").trim() || "Error");
+        return;
+      }
+      showToast("success", (lx.auth_force_logout_success ?? "").trim() || "OK");
+      setForceLogoutModalOpen(false);
+    } finally {
+      setForceLogoutBusy(false);
     }
   };
 
@@ -2179,6 +2215,16 @@ export function EmployeesModule({
               {tl.employees_delete_action ?? tl.common_delete ?? ""}
             </button>
           )}
+          {viewerIsAdmin && !isDeletedProfile && selected.id !== currentUserProfileId && (
+            <button
+              type="button"
+              className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100"
+              onClick={() => setForceLogoutModalOpen(true)}
+            >
+              <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.auth_force_logout_btn ?? ""}
+            </button>
+          )}
         </section>
           </>
         )}
@@ -2257,6 +2303,45 @@ export function EmployeesModule({
               >
                 {tl.employees_save_changes ?? t.save ?? ""}
               </button>
+            </div>
+          </>
+        )}
+
+        {forceLogoutModalOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-[62] bg-black/50"
+              aria-hidden
+              onClick={() => !forceLogoutBusy && setForceLogoutModalOpen(false)}
+            />
+            <div
+              className="fixed z-[63] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="force-logout-dialog-title"
+            >
+              <h3 id="force-logout-dialog-title" className="text-base font-semibold text-zinc-900 dark:text-white">
+                {tl.auth_force_logout_btn ?? ""}
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">{tl.auth_force_logout_confirm ?? ""}</p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={forceLogoutBusy}
+                  className="min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm"
+                  onClick={() => !forceLogoutBusy && setForceLogoutModalOpen(false)}
+                >
+                  {tl.cancel ?? ""}
+                </button>
+                <button
+                  type="button"
+                  disabled={forceLogoutBusy}
+                  className="min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  onClick={() => void runForceLogoutEmployee()}
+                >
+                  {forceLogoutBusy ? "…" : (tl.auth_force_logout_btn ?? "")}
+                </button>
+              </div>
             </div>
           </>
         )}
