@@ -134,6 +134,7 @@ import type { Binder, BinderDocument, BinderCategory } from "@/types/binders";
 import type { FormTemplate, FormInstance } from "@/types/forms";
 import type { Subcontractor } from "@/types/subcontractor";
 import { INITIAL_FORM_TEMPLATES } from "@/lib/formTemplates";
+import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
@@ -1300,6 +1301,14 @@ export default function Home() {
       return [];
     }
   });
+  const [formsOpenFillInstanceId, setFormsOpenFillInstanceId] = useState<string | null>(null);
+  const [formsListProjectFilterOnOpen, setFormsListProjectFilterOnOpen] = useState<string | null>(
+    null
+  );
+  const consumeFormsOpenFillNavigation = useCallback(() => {
+    setFormsOpenFillInstanceId(null);
+    setFormsListProjectFilterOnOpen(null);
+  }, []);
   const [binders, setBinders] = useState<Binder[]>(INITIAL_BINDERS);
   const [binderDocuments, setBinderDocuments] = useState<BinderDocument[]>([]);
 
@@ -5302,15 +5311,22 @@ export default function Home() {
                     new_value: { photo_count: payload.count },
                   });
                 }}
-                onCreateForm={(projectId, form) => {
-                  const newForm = {
-                    ...form,
-                    id: "form-" + Date.now(),
-                    createdAt: new Date().toISOString(),
-                    responses: [] as ProjectForm["responses"],
-                  };
-                  console.log("Creando formulario:", newForm);
-                  setProjectForms((prev) => [...prev, newForm]);
+                formTemplates={formTemplates}
+                onStartFormFromMachinTemplate={({ templateId, projectId }) => {
+                  const template = formTemplates.find((x) => x.id === templateId);
+                  if (!template) return;
+                  const instance = buildFormInstanceFromTemplate(template, projectId, {
+                    currentUserEmployeeId: effectiveEmployeeId ?? "",
+                    employees: activeEmployees.map((e) => ({ id: e.id, name: e.name })),
+                    projects: (visibleProjects ?? []).map((p) => ({
+                      id: p.id,
+                      assignedEmployeeIds: p.assignedEmployeeIds,
+                    })),
+                  });
+                  setFormInstances((prev) => [...prev, instance]);
+                  setFormsOpenFillInstanceId(instance.id);
+                  setFormsListProjectFilterOnOpen(projectId);
+                  setActiveSection("forms");
                 }}
                 onDeleteForm={(formId) => {
                   setProjectForms((prev) => {
@@ -5582,6 +5598,9 @@ export default function Home() {
                 labels={t as Record<string, string>}
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
+                openFillInstanceId={formsOpenFillInstanceId}
+                listProjectFilterOnOpen={formsListProjectFilterOnOpen}
+                onConsumeOpenFillNavigation={consumeFormsOpenFillNavigation}
               />
               <ModuleHelpFab
                 moduleKey="forms"

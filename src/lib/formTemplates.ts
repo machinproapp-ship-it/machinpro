@@ -711,4 +711,43 @@ export const INITIAL_FORM_TEMPLATES: FormTemplate[] = [
       },
     ],
   },
+  {
+    id: "tpl-blank-custom",
+    name: "form_blank_custom_name",
+    description: "form_blank_custom_desc",
+    region: ["GLOBAL"],
+    category: "form_cat_custom",
+    isBase: true,
+    requiresAllSignatures: false,
+    expiresInHours: 72,
+    createdAt: "2026-01-01T00:00:00Z",
+    createdBy: "machinpro",
+    language: "en",
+    sections: [
+      {
+        id: "blank_main",
+        title: "form_sec_general",
+        fields: [
+          {
+            id: "blank_project",
+            type: "text",
+            label: "form_lbl_project",
+            required: true,
+          },
+          {
+            id: "blank_date",
+            type: "date",
+            label: "form_lbl_date",
+            required: true,
+          },
+          {
+            id: "blank_details",
+            type: "textarea",
+            label: "form_lbl_description",
+            required: false,
+          },
+        ],
+      },
+    ],
+  },
 ];

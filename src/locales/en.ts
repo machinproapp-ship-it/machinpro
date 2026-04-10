@@ -2593,6 +2593,9 @@ export default {
   forms_duplicate: "Duplicate",
   forms_previous: "Previous",
   forms_clear: "Clear",
+  forms_modal_category: "Category",
+  forms_modal_no_templates_hint:
+    "No templates match this category. You can start with the blank form below.",
   fullName: "Full name",
   forms_pdf_project: "Project",
   forms_pdf_date: "Date",
@@ -2629,6 +2632,9 @@ export default {
   form_cat_prl: "PRL",
   form_cat_rams: "RAMS",
   form_cat_ats: "ATS",
+  form_cat_custom: "Custom",
+  form_blank_custom_name: "Blank custom form",
+  form_blank_custom_desc: "Start from a minimal template and add the details you need.",
 
   form_sec_general: "General",
   form_sec_work_plan: "Work plan",

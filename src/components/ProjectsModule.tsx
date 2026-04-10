@@ -60,6 +60,7 @@ import type { ToolStatus, ResourceRequest } from "@/components/LogisticsModule";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import type { UserRole } from "@/types/shared";
 import { ProjectSecurityTab } from "@/components/ProjectSecurityTab";
+import type { FormTemplate } from "@/types/forms";
 import type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask, TaskPriority } from "@/types/projectTask";
@@ -72,7 +73,11 @@ import {
   formatCalendarYmd,
   formatCurrency,
 } from "@/lib/dateUtils";
-import { getTemplatesForCountry } from "@/lib/safetyChecklistTemplates";
+import { resolveFormLabel } from "@/lib/formTemplateDisplay";
+import {
+  filterFormTemplatesByProjectCategory,
+  PROJECT_FORM_BLANK_TEMPLATE_ID,
+} from "@/lib/projectFormTemplateCategories";
 import { generateSafetyChecklistPdf } from "@/lib/generateSafetyChecklistReport";
 import { DailyFieldReportView } from "@/components/DailyFieldReportView";
 import { formatReportDate } from "@/lib/dailyReportFormat";
@@ -229,11 +234,11 @@ export interface ProjectsModuleProps {
   onConfirmReception?: (requestId: string) => void;
   companyPlan?: string;
   projectForms?: ProjectForm[];
-  onCreateForm?: (
-    projectId: string,
-    form: Omit<ProjectForm, "id" | "createdAt" | "responses">
-  ) => void;
   onDeleteForm?: (formId: string) => void;
+  /** MachinPro form templates (Operaciones → proyecto → Formularios). */
+  formTemplates?: FormTemplate[];
+  /** Creates a {@link FormInstance} and should open the Forms module fill flow. */
+  onStartFormFromMachinTemplate?: (payload: { templateId: string; projectId: string }) => void;
   companyName?: string;
   companyLogoUrl?: string;
   companyAddress?: string;
@@ -452,18 +457,6 @@ function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
   );
 }
 
-function checklistItemsFromTemplate(
-  template: { items: { category: string; question: string }[] } | undefined
-): SafetyChecklistItem[] {
-  if (!template?.items.length) return [];
-  const ts = Date.now();
-  return template.items.map((row, i) => ({
-    id: `item-${ts}-${i}`,
-    category: row.category,
-    question: row.question,
-  }));
-}
-
 // ─── Definición de tabs ────────────────────────────────────────────────────────
 
 type TabId =
@@ -528,8 +521,9 @@ export function ProjectsModule({
   onConfirmReception,
   companyPlan = "esencial",
   projectForms,
-  onCreateForm,
   onDeleteForm,
+  formTemplates = [],
+  onStartFormFromMachinTemplate,
   companyName = "",
   companyLogoUrl,
   companyAddress = "",
@@ -623,7 +617,6 @@ export function ProjectsModule({
   const [pendingViewMode, setPendingViewMode] = useState<"list" | "grid">("list");
   const [pendingDetailEntry, setPendingDetailEntry] = useState<ProjectDiaryEntry | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newFormTitle, setNewFormTitle] = useState("");
   const [newFormType, setNewFormType] = useState<ProjectForm["type"]>("inspection");
   const [newFormTemplateId, setNewFormTemplateId] = useState<string>("");
   const [openSafetyChecklistId, setOpenSafetyChecklistId] = useState<string | null>(null);
@@ -646,7 +639,23 @@ export function ProjectsModule({
     dueDate: "",
   });
 
-  const availableTemplates = useMemo(() => getTemplatesForCountry(countryCode), [countryCode]);
+  const filteredMachinTemplates = useMemo(
+    () => filterFormTemplatesByProjectCategory(formTemplates, newFormType),
+    [formTemplates, newFormType]
+  );
+
+  useEffect(() => {
+    const blankOk = formTemplates.some((x) => x.id === PROJECT_FORM_BLANK_TEMPLATE_ID);
+    const filtered = filterFormTemplatesByProjectCategory(formTemplates, newFormType);
+    const ids = filtered.map((t) => t.id);
+    if (filtered.length > 0) {
+      setNewFormTemplateId((prev) => (prev && ids.includes(prev) ? prev : ids[0]!));
+    } else if (blankOk) {
+      setNewFormTemplateId(PROJECT_FORM_BLANK_TEMPLATE_ID);
+    } else {
+      setNewFormTemplateId("");
+    }
+  }, [newFormType, formTemplates]);
 
   const dailyReportsForProject = useMemo(() => {
     if (!selectedProjectId) return [];
@@ -2971,58 +2980,70 @@ export function ProjectsModule({
                   <h3 className="font-semibold text-zinc-900 dark:text-white">
                     {(t as Record<string, string>).createForm ?? PM_EN.createForm}
                   </h3>
-                  <input
-                    type="text"
-                    value={newFormTitle}
-                    onChange={(e) => setNewFormTitle(e.target.value)}
-                    placeholder={(t as Record<string, string>).formTitle ?? PM_EN.formTitle}
-                    className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
-                  />
-                  <select
-                    value={newFormType}
-                    onChange={(e) => setNewFormType(e.target.value as ProjectForm["type"])}
-                    className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
-                  >
-                    <option value="inspection">
-                      {(t as Record<string, string>).formTypeInspection ?? PM_EN.formTypeInspection}
-                    </option>
-                    <option value="tailgate">
-                      {(t as Record<string, string>).formTypeTailgate ?? PM_EN.formTypeTailgate}
-                    </option>
-                    <option value="safety">
-                      {(t as Record<string, string>).formTypeSafety ?? PM_EN.formTypeSafety}
-                    </option>
-                    <option value="custom">
-                      {(t as Record<string, string>).formTypeCustom ?? PM_EN.formTypeCustom}
-                    </option>
-                  </select>
-                  {newFormType === "safety" && (
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-                        {(t as Record<string, string>).selectTemplate ?? PM_EN.selectTemplate}
-                      </label>
-                      <select
-                        value={newFormTemplateId}
-                        onChange={(e) => setNewFormTemplateId(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
-                      >
-                        <option value="">
-                          {(t as Record<string, string>).noTemplate ?? PM_EN.noTemplate}
-                        </option>
-                        {availableTemplates.map((tpl) => (
-                          <option key={tpl.id} value={tpl.id}>
-                            {tpl.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {selectedProject && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {(t as Record<string, string>).form_lbl_project ?? PM_EN.form_lbl_project}:{" "}
+                      <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                        {selectedProject.name}
+                      </span>
+                    </p>
                   )}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      {(t as Record<string, string>).forms_modal_category ?? PM_EN.forms_modal_category}
+                    </label>
+                    <select
+                      value={newFormType}
+                      onChange={(e) => setNewFormType(e.target.value as ProjectForm["type"])}
+                      className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                    >
+                      <option value="inspection">
+                        {(t as Record<string, string>).formTypeInspection ?? PM_EN.formTypeInspection}
+                      </option>
+                      <option value="tailgate">
+                        {(t as Record<string, string>).formTypeTailgate ?? PM_EN.formTypeTailgate}
+                      </option>
+                      <option value="safety">
+                        {(t as Record<string, string>).formTypeSafety ?? PM_EN.formTypeSafety}
+                      </option>
+                      <option value="custom">
+                        {(t as Record<string, string>).formTypeCustom ?? PM_EN.formTypeCustom}
+                      </option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      {(t as Record<string, string>).selectTemplate ?? PM_EN.selectTemplate}
+                    </label>
+                    <select
+                      value={newFormTemplateId}
+                      onChange={(e) => setNewFormTemplateId(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                    >
+                      {filteredMachinTemplates.map((tpl) => (
+                        <option key={tpl.id} value={tpl.id}>
+                          {resolveFormLabel(tpl.name, tl)}
+                        </option>
+                      ))}
+                      {filteredMachinTemplates.length === 0 &&
+                        formTemplates.some((x) => x.id === PROJECT_FORM_BLANK_TEMPLATE_ID) && (
+                          <option value={PROJECT_FORM_BLANK_TEMPLATE_ID}>
+                            {resolveFormLabel("form_blank_custom_name", tl)}
+                          </option>
+                        )}
+                    </select>
+                    {filteredMachinTemplates.length === 0 && (
+                      <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        {(t as Record<string, string>).forms_modal_no_templates_hint ??
+                          PM_EN.forms_modal_no_templates_hint}
+                      </p>
+                    )}
+                  </div>
                   <div className="flex gap-3">
                     <button
                       type="button"
                       onClick={() => {
                         setShowCreateForm(false);
-                        setNewFormTitle("");
                         setNewFormTemplateId("");
                       }}
                       className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-600 py-3 text-sm min-h-[44px]"
@@ -3031,56 +3052,30 @@ export function ProjectsModule({
                     </button>
                     <button
                       type="button"
-                      disabled={!newFormTitle.trim()}
+                      disabled={
+                        !selectedProjectId ||
+                        !newFormTemplateId ||
+                        !formTemplates.some((x) => x.id === newFormTemplateId) ||
+                        !onStartFormFromMachinTemplate
+                      }
                       onClick={() => {
-                        if (!newFormTitle.trim() || !selectedProjectId) return;
-                        if (newFormType === "safety") {
-                          const checklistId = `scl-${Date.now()}`;
-                          const tpl = newFormTemplateId
-                            ? availableTemplates.find((x) => x.id === newFormTemplateId)
-                            : undefined;
-                          const items = checklistItemsFromTemplate(tpl);
-                          const checklist: SafetyChecklist = {
-                            id: checklistId,
-                            projectId: selectedProjectId,
-                            title: newFormTitle.trim(),
-                            date: new Date().toISOString().slice(0, 10),
-                            conductedBy: currentUserEmployeeId ?? "",
-                            conductedByName: currentUserDisplayName || currentUserName || "",
-                            items,
-                            status: "draft",
-                            createdAt: new Date().toISOString(),
-                          };
-                          onSaveChecklist?.(checklist);
-                          onCreateForm?.(selectedProjectId, {
-                            projectId: selectedProjectId,
-                            title: newFormTitle.trim(),
-                            type: "safety",
-                            status: "draft",
-                            createdBy: currentUserName ?? "",
-                            fields: [],
-                            qrCode: undefined,
-                            safetyChecklistId: checklistId,
-                          });
-                          setOpenSafetyChecklistId(checklistId);
-                        } else {
-                          onCreateForm?.(selectedProjectId, {
-                            projectId: selectedProjectId,
-                            title: newFormTitle.trim(),
-                            type: newFormType,
-                            status: "active",
-                            createdBy: currentUserName ?? "",
-                            fields: [],
-                            qrCode: undefined,
-                          });
-                        }
+                        if (
+                          !selectedProjectId ||
+                          !newFormTemplateId ||
+                          !formTemplates.some((x) => x.id === newFormTemplateId) ||
+                          !onStartFormFromMachinTemplate
+                        )
+                          return;
+                        onStartFormFromMachinTemplate({
+                          templateId: newFormTemplateId,
+                          projectId: selectedProjectId,
+                        });
                         setShowCreateForm(false);
-                        setNewFormTitle("");
                         setNewFormTemplateId("");
                       }}
                       className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white py-3 text-sm font-medium min-h-[44px]"
                     >
-                      {(t as Record<string, string>).create ?? PM_EN.create}
+                      {(t as Record<string, string>).forms_continue ?? PM_EN.forms_continue}
                     </button>
                   </div>
                 </div>

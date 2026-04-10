@@ -2445,6 +2445,9 @@ export default {
   forms_duplicate: "Duplica",
   forms_previous: "Indietro",
   forms_clear: "Cancella",
+  forms_modal_category: "Categoria",
+  forms_modal_no_templates_hint:
+    "Nessun modello per questa categoria. Puoi usare il modulo vuoto qui sotto.",
   fullName: "Nome completo",
   forms_pdf_project: "Progetto",
   forms_pdf_date: "Data",
@@ -2481,6 +2484,10 @@ export default {
   form_cat_prl: "PRL",
   form_cat_rams: "RAMS",
   form_cat_ats: "ATS",
+  form_cat_custom: "Personalizzato",
+  form_blank_custom_name: "Modulo personalizzato vuoto",
+  form_blank_custom_desc:
+    "Inizia da una struttura minima e compila i campi di cui hai bisogno.",
 
   form_sec_general: "Generale",
   form_sec_work_plan: "Piano di lavoro",

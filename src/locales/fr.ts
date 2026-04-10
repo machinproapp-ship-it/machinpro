@@ -2431,6 +2431,9 @@ export default {
   forms_duplicate: "Dupliquer",
   forms_previous: "Précédent",
   forms_clear: "Effacer",
+  forms_modal_category: "Catégorie",
+  forms_modal_no_templates_hint:
+    "Aucun modèle ne correspond à cette catégorie. Vous pouvez utiliser le formulaire vierge ci-dessous.",
   fullName: "Nom complet",
   forms_pdf_project: "Projet",
   forms_pdf_date: "Date",
@@ -2467,6 +2470,10 @@ export default {
   form_cat_prl: "PRL",
   form_cat_rams: "RAMS",
   form_cat_ats: "ATS",
+  form_cat_custom: "Personnalisé",
+  form_blank_custom_name: "Formulaire personnalisé vierge",
+  form_blank_custom_desc:
+    "Commencez avec une structure minimale et renseignez les champs dont vous avez besoin.",
 
   form_sec_general: "Général",
   form_sec_work_plan: "Plan de travail",

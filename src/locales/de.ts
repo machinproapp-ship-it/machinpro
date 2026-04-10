@@ -2420,6 +2420,9 @@ export default {
   forms_duplicate: "Duplizieren",
   forms_previous: "Zurück",
   forms_clear: "Löschen",
+  forms_modal_category: "Kategorie",
+  forms_modal_no_templates_hint:
+    "Keine Vorlagen für diese Kategorie. Sie können unten mit einem leeren Formular starten.",
   fullName: "Vollständiger Name",
   forms_pdf_project: "Projekt",
   forms_pdf_date: "Datum",
@@ -2456,6 +2459,10 @@ export default {
   form_cat_prl: "PRL",
   form_cat_rams: "RAMS",
   form_cat_ats: "ATS",
+  form_cat_custom: "Benutzerdefiniert",
+  form_blank_custom_name: "Leeres benutzerdefiniertes Formular",
+  form_blank_custom_desc:
+    "Starten Sie mit einer minimalen Vorlage und füllen Sie die benötigten Felder aus.",
 
   form_sec_general: "Allgemein",
   form_sec_work_plan: "Arbeitsplan",

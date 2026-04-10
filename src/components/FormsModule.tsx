@@ -25,6 +25,7 @@ import {
   resolveFormLabel,
   formatFormFieldValue,
 } from "@/lib/formTemplateDisplay";
+import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
 import QRCode from "qrcode";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatTime, resolveUserTimezone } from "@/lib/dateUtils";
@@ -63,6 +64,11 @@ export interface FormsModuleProps {
   labels?: Record<string, string>;
   dateLocale?: string;
   timeZone?: string;
+  /** When set with a matching instance, opens the step-by-step fill view (e.g. after creating from a project). */
+  openFillInstanceId?: string | null;
+  /** Optional project filter to apply when opening fill from navigation. */
+  listProjectFilterOnOpen?: string | null;
+  onConsumeOpenFillNavigation?: () => void;
 }
 
 function SignatureCanvas({
@@ -191,6 +197,9 @@ export function FormsModule({
   labels: labelsProp,
   dateLocale = typeof navigator !== "undefined" ? navigator.language : "en-US",
   timeZone: timeZoneProp,
+  openFillInstanceId: openFillInstanceIdProp = null,
+  listProjectFilterOnOpen = null,
+  onConsumeOpenFillNavigation,
 }: FormsModuleProps) {
   void useMachinProDisplayPrefs();
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
@@ -237,6 +246,25 @@ export function FormsModule({
   useEffect(() => {
     if (fillInstanceId) setFillSectionIndex(0);
   }, [fillInstanceId]);
+
+  const consumedOpenFillIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openFillInstanceIdProp) {
+      consumedOpenFillIdRef.current = null;
+      return;
+    }
+    if (consumedOpenFillIdRef.current === openFillInstanceIdProp) return;
+    const inst = instances.find((i) => i.id === openFillInstanceIdProp);
+    if (!inst) return;
+    consumedOpenFillIdRef.current = openFillInstanceIdProp;
+    if (listProjectFilterOnOpen) setSelectedProjectId(listProjectFilterOnOpen);
+    setFillInstanceId(inst.id);
+    setFillDraftValues(inst.fieldValues);
+    setFillDraftAttendees(inst.attendees);
+    setFillSectionIndex(0);
+    setView("fill");
+    onConsumeOpenFillNavigation?.();
+  }, [openFillInstanceIdProp, listProjectFilterOnOpen, instances, onConsumeOpenFillNavigation]);
 
   const getDirectSignCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = directSignCanvasRef.current;
@@ -412,33 +440,11 @@ export function FormsModule({
   const handleUseTemplate = (templateId: string, projectId: string) => {
     const template = getTemplate(templateId);
     if (!template) return;
-    const now = new Date();
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(now.getTime() + template.expiresInHours * 60 * 60 * 1000);
-    const project = getProject(projectId);
-    const assignedIds = project?.assignedEmployeeIds ?? [];
-    const initialAttendees: AttendeeRecord[] = assignedIds.map((empId, idx) => {
-      const emp = employees.find((e) => e.id === empId);
-      return {
-        id: `att-${idx}-${Date.now()}`,
-        name: emp?.name ?? empId,
-        employeeId: empId,
-        isExternal: false,
-      };
+    const instance = buildFormInstanceFromTemplate(template, projectId, {
+      currentUserEmployeeId,
+      employees,
+      projects,
     });
-    const instance: FormInstance = {
-      id: `fi-${Date.now()}`,
-      templateId: template.id,
-      projectId,
-      createdBy: currentUserEmployeeId,
-      createdAt: now.toISOString(),
-      date: now.toISOString().split("T")[0],
-      status: "draft",
-      fieldValues: {},
-      attendees: initialAttendees,
-      signToken: token,
-      tokenExpiresAt: expiresAt.toISOString(),
-    };
     onCreateInstance(instance);
     setFillInstanceId(instance.id);
     setFillDraftValues(instance.fieldValues);

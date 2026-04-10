@@ -2445,6 +2445,9 @@ export default {
   forms_duplicate: "Duplicar",
   forms_previous: "Anterior",
   forms_clear: "Limpar",
+  forms_modal_category: "Categoria",
+  forms_modal_no_templates_hint:
+    "Não há modelos para esta categoria. Pode usar o formulário em branco abaixo.",
   fullName: "Nome completo",
   forms_pdf_project: "Projeto",
   forms_pdf_date: "Data",
@@ -2481,6 +2484,10 @@ export default {
   form_cat_prl: "PRL",
   form_cat_rams: "RAMS",
   form_cat_ats: "ATS",
+  form_cat_custom: "Personalizado",
+  form_blank_custom_name: "Formulário personalizado em branco",
+  form_blank_custom_desc:
+    "Comece com uma estrutura mínima e preencha os campos necessários.",
 
   form_sec_general: "Geral",
   form_sec_work_plan: "Plano de trabalho",
