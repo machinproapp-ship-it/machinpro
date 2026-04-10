@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   FileText,
   Plus,
   ChevronLeft,
   X,
   Copy,
-  Camera,
   Trash2,
   Pencil,
   PenLine,
+  MapPinned,
 } from "lucide-react";
 import type {
   FormTemplate,
@@ -20,6 +20,11 @@ import type {
 } from "@/types/forms";
 import { generateFormPDF } from "@/lib/generateFormPDF";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import { FormFieldInput } from "@/components/FormFieldInput";
+import {
+  resolveFormLabel,
+  formatFormFieldValue,
+} from "@/lib/formTemplateDisplay";
 import QRCode from "qrcode";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatTime, resolveUserTimezone } from "@/lib/dateUtils";
@@ -60,61 +65,19 @@ export interface FormsModuleProps {
   timeZone?: string;
 }
 
-const defaultLabels: Record<string, string> = {
-  forms: "Formularios",
-  newForm: "Nuevo formulario",
-  templates: "Plantillas",
-  baseTemplate: "Plantilla base",
-  fillForm: "Rellenar",
-  exportPDF: "Exportar PDF",
-  signForm: "Firmar",
-  generateQR: "Generar QR",
-  copyLink: "Copiar enlace",
-  signedAt: "Firmado",
-  pendingSignature: "Pendiente",
-  formDraft: "Borrador",
-  formInProgress: "En proceso",
-  formCompleted: "Completado",
-  formApproved: "Aprobado",
-  attendees: "Asistentes",
-  addVisitor: "Añadir visitante",
-  orientationGiven: "Orientación dada",
-  scanQR: "Escanear QR",
-  linkExpires: "El enlace expira en 24 horas",
-  signatureConfirmed: "Firma registrada — Gracias",
-  view: "Ver",
-  continue: "Continuar",
-  useTemplate: "Usar esta plantilla",
-  edit: "Editar",
-  duplicate: "Duplicar",
-  company: "Empresa",
-  clear: "Limpiar",
-  saveDraft: "Guardar borrador",
-  submit: "Enviar",
-  previous: "Anterior",
-  next: "Siguiente",
-  cancel: "Cancelar",
-  fullName: "Nombre completo",
-  signHere: "Firmar aquí",
-  signWithFinger: "Firma con el dedo o el ratón",
-  signedOnSupervisorDevice: "Firmado en dispositivo del supervisor",
-  confirmSignature: "Confirmar firma",
-  companyRequired: "Empresa (obligatorio)",
-  signature: "Firma",
-  yes: "Sí",
-};
-
 function SignatureCanvas({
   value,
   onChange,
   onClear,
   label,
+  clearLabel,
   disabled,
 }: {
   value: string | undefined;
   onChange: (base64: string) => void;
   onClear: () => void;
   label: string;
+  clearLabel: string;
   disabled?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -206,7 +169,7 @@ function SignatureCanvas({
         onClick={clear}
         className="mt-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-400"
       >
-        {defaultLabels.clear}
+        {clearLabel}
       </button>
     </div>
   );
@@ -231,8 +194,8 @@ export function FormsModule({
 }: FormsModuleProps) {
   void useMachinProDisplayPrefs();
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
-  const t = { ...defaultLabels, ...labelsProp };
-  const l = (k: string) => (t as Record<string, string>)[k] ?? PM_EN[k] ?? k;
+  const t = { ...PM_EN, ...labelsProp } as Record<string, string>;
+  const l = (k: string) => t[k] ?? PM_EN[k] ?? k;
   const [view, setView] = useState<FormsView>("list");
   const [listTab, setListTab] = useState<ListTab>("all");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -253,7 +216,6 @@ export function FormsModule({
   const [selectedEmployeeEmail, setSelectedEmployeeEmail] = useState("");
   const [fillDraftValues, setFillDraftValues] = useState<Record<string, unknown>>({});
   const [fillDraftAttendees, setFillDraftAttendees] = useState<AttendeeRecord[]>([]);
-  const [fillSupervisorSig, setFillSupervisorSig] = useState("");
   const [directSignAttendee, setDirectSignAttendee] = useState<AttendeeRecord | null>(null);
   const [directSignInstance, setDirectSignInstance] = useState<FormInstance | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -264,11 +226,17 @@ export function FormsModule({
   const [visitorOrientation, setVisitorOrientation] = useState<"yes" | "na">("na");
   const [isDrawingVisitor, setIsDrawingVisitor] = useState(false);
   const visitorSignCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [filterAssigneeId, setFilterAssigneeId] = useState("");
+  const [fillSectionIndex, setFillSectionIndex] = useState(0);
 
   const openDirectSignModal = useCallback((att: AttendeeRecord, instance: FormInstance) => {
     setDirectSignAttendee(att);
     setDirectSignInstance(instance);
   }, []);
+
+  useEffect(() => {
+    if (fillInstanceId) setFillSectionIndex(0);
+  }, [fillInstanceId]);
 
   const getDirectSignCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = directSignCanvasRef.current;
@@ -417,16 +385,26 @@ export function FormsModule({
       ? instances.filter((i) => i.projectId === selectedProjectId)
       : instances;
 
+  const assigneeFilteredInstances =
+    filterAssigneeId && view === "list"
+      ? filteredInstances.filter((i) => i.createdBy === filterAssigneeId)
+      : filteredInstances;
+
   const listByTab =
     listTab === "pending"
-      ? filteredInstances.filter((i) => i.status === "draft")
+      ? assigneeFilteredInstances.filter((i) => i.status === "draft")
       : listTab === "in_progress"
-      ? filteredInstances.filter((i) => i.status === "in_progress")
+      ? assigneeFilteredInstances.filter((i) => i.status === "in_progress")
       : listTab === "completed"
-      ? filteredInstances.filter((i) =>
+      ? assigneeFilteredInstances.filter((i) =>
           ["completed", "approved"].includes(i.status)
         )
-      : filteredInstances;
+      : assigneeFilteredInstances;
+
+  const assigneeFilterName = useMemo(() => {
+    if (!filterAssigneeId) return "";
+    return employees.find((e) => e.id === filterAssigneeId)?.name ?? filterAssigneeId;
+  }, [filterAssigneeId, employees]);
 
   const getTemplate = (id: string) => templates.find((x) => x.id === id);
   const getProject = (id: string) => projects.find((p) => p.id === id);
@@ -465,7 +443,6 @@ export function FormsModule({
     setFillInstanceId(instance.id);
     setFillDraftValues(instance.fieldValues);
     setFillDraftAttendees(instance.attendees);
-    setFillSupervisorSig((instance.fieldValues["f11"] as string) ?? "");
     setView("fill");
     setCreateFromTemplateId(null);
   };
@@ -524,17 +501,33 @@ export function FormsModule({
               <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               {t.forms}
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
               >
-                <option value="">Todos los proyectos</option>
+                <option value="">{l("allProjects")}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+              <select
+                value={filterAssigneeId}
+                onChange={(e) => setFilterAssigneeId(e.target.value)}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+              >
+                <option value="">{l("forms_filter_assignee_all")}</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+              {filterAssigneeId ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">
+                  <MapPinned className="h-3.5 w-3.5 shrink-0" />
+                  {l("forms_filtering_by").replace("{name}", assigneeFilterName)}
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setView("template")}
@@ -552,7 +545,7 @@ export function FormsModule({
                 ["pending", t.formDraft],
                 ["in_progress", t.formInProgress],
                 ["completed", t.formCompleted],
-                ["all", "Todos"],
+                ["all", l("forms_tab_all")],
               ] as const
             ).map(([tab, label]) => (
               <button
@@ -573,7 +566,7 @@ export function FormsModule({
           <div className="grid gap-3">
             {listByTab.length === 0 ? (
               <p className="text-zinc-500 dark:text-zinc-400 py-8 text-center text-sm">
-                No hay formularios
+                {l("forms_list_empty")}
               </p>
             ) : (
               listByTab.map((inst) => {
@@ -621,7 +614,7 @@ export function FormsModule({
                         }}
                         className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
                       >
-                        {t.view}
+                        {l("forms_view")}
                       </button>
                       {(inst.status === "draft" || inst.status === "in_progress") && (
                         <button
@@ -630,12 +623,12 @@ export function FormsModule({
                             setFillInstanceId(inst.id);
                             setFillDraftValues(inst.fieldValues);
                             setFillDraftAttendees(inst.attendees);
-                            setFillSupervisorSig((inst.fieldValues["f11"] as string) ?? "");
+                            const tpl = getTemplate(inst.templateId);
                             setView("fill");
                           }}
                           className="rounded-lg bg-amber-600 text-white px-3 py-2 text-sm font-medium min-h-[44px]"
                         >
-                          {t.continue}
+                          {l("forms_continue")}
                         </button>
                       )}
                     </div>
@@ -680,20 +673,20 @@ export function FormsModule({
                     {template.isBase ? (
                       <BrandWordmark tone="onLight" className="inline text-xs font-medium" />
                     ) : (
-                      "Empresa"
+                      l("forms_company_badge")
                     )}
                   </span>
                 </div>
                 <h3 className="font-semibold text-zinc-900 dark:text-white">
-                  {template.name}
+                  {resolveFormLabel(template.name, t)}
                 </h3>
                 {template.description && (
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2">
-                    {template.description}
+                    {resolveFormLabel(template.description, t)}
                   </p>
                 )}
                 <p className="text-xs text-zinc-400">
-                  {template.region.join(", ")} · {template.category}
+                  {template.region.join(", ")} · {resolveFormLabel(template.category, t)}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-auto pt-2">
                   <select
@@ -703,7 +696,7 @@ export function FormsModule({
                       if (pid) handleUseTemplate(template.id, pid);
                     }}
                   >
-                    <option value="">{t.useTemplate}</option>
+                    <option value="">{l("useTemplate")}</option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -722,7 +715,7 @@ export function FormsModule({
                         type="button"
                         onClick={() => onDeleteTemplate(template.id)}
                         className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[36px]"
-                        title="Eliminar"
+                        title={l("forms_delete_template")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -732,9 +725,9 @@ export function FormsModule({
                     type="button"
                     onClick={() => handleDuplicateTemplate(template)}
                     className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[36px]"
-                    title={t.duplicate}
+                    title={l("forms_duplicate")}
                   >
-                    {t.duplicate}
+                    {l("forms_duplicate")}
                   </button>
                 </div>
               </div>
@@ -743,17 +736,24 @@ export function FormsModule({
         </>
       )}
 
-      {/* ---------- FILL VIEW (simplified: single section scroll + key fields) ---------- */}
+      {/* ---------- FILL VIEW (step-by-step sections + sticky footer) ---------- */}
       {view === "fill" && fillInstanceId && (() => {
         const instance = instances.find((i) => i.id === fillInstanceId);
         const template = instance ? getTemplate(instance.templateId) : null;
         if (!instance || !template) {
           return (
             <div className="flex items-center gap-3">
-              <button type="button" onClick={() => { setView("list"); setFillInstanceId(null); }} className="p-2 rounded-lg border">
+              <button
+                type="button"
+                onClick={() => {
+                  setView("list");
+                  setFillInstanceId(null);
+                }}
+                className="p-2 rounded-lg border border-zinc-200 dark:border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <p className="text-zinc-500">Formulario no encontrado</p>
+              <p className="text-zinc-500 dark:text-zinc-400">{l("forms_not_found")}</p>
             </div>
           );
         }
@@ -764,139 +764,213 @@ export function FormsModule({
           setFillDraftValues(next);
           onUpdateInstance({ ...instance, fieldValues: next });
         };
-        const updateAttendees = (next: AttendeeRecord[]) => {
-          setFillDraftAttendees(next);
-          onUpdateInstance({ ...instance, attendees: next });
+        const sections = template.sections;
+        const safeIdx = Math.min(
+          Math.max(0, fillSectionIndex),
+          Math.max(0, sections.length - 1)
+        );
+        const section = sections[safeIdx];
+        const progressPct = sections.length
+          ? ((safeIdx + 1) / sections.length) * 100
+          : 0;
+
+        const renderField = (field: FormField) => {
+          if (field.type === "attendance") {
+            return (
+              <div key={field.id}>
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  {l("attendees")}
+                </p>
+                <div className="space-y-0">
+                  {attendees.map((att) => (
+                    <div
+                      key={att.id}
+                      className="flex items-center justify-between py-3 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0 gap-2"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-sm font-bold text-amber-700 dark:text-amber-400">
+                          {att.name[0] ?? "?"}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                            {att.name}
+                          </p>
+                          {att.signedAt ? (
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                              {l("signedAt")} ·{" "}
+                              {formatTime(att.signedAt, dateLocale, timeZone)}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-zinc-400">
+                              {l("pendingSignature")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {!att.signedAt && (
+                        <button
+                          type="button"
+                          onClick={() => openDirectSignModal(att, instance)}
+                          className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
+                        >
+                          <PenLine className="h-3.5 w-3.5" />
+                          {l("signHere")}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setAddVisitorModalOpen(true)}
+                    className="text-sm text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 min-h-[44px]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {l("addVisitor")}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateQR(instance, template)}
+                  className="mt-3 rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
+                >
+                  {l("generateQR")}
+                </button>
+              </div>
+            );
+          }
+          if (field.type === "signature") {
+            return (
+              <SignatureCanvas
+                key={field.id}
+                label={resolveFormLabel(field.label, t)}
+                clearLabel={l("forms_clear")}
+                value={values[field.id] as string | undefined}
+                onChange={(v) => updateVal(field.id, v)}
+                onClear={() => updateVal(field.id, undefined)}
+              />
+            );
+          }
+          return (
+            <FormFieldInput
+              key={field.id}
+              field={field}
+              value={values[field.id]}
+              onChange={(v) => updateVal(field.id, v)}
+              optionsEmployees={
+                field.type === "select" &&
+                (!field.options || field.options.length === 0)
+                  ? employees
+                  : undefined
+              }
+              labels={t}
+            />
+          );
         };
+
         return (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
+          <div className="relative pb-28 lg:pb-10">
+            <div className="flex items-center gap-3 mb-4">
               <button
                 type="button"
-                onClick={() => { setView("list"); setFillInstanceId(null); }}
+                onClick={() => {
+                  setView("list");
+                  setFillInstanceId(null);
+                }}
                 className="p-2 rounded-lg border border-zinc-200 dark:border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">
-                {template.name}
+                {resolveFormLabel(template.name, t)}
               </h2>
             </div>
 
-            <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 space-y-6">
-              {template.sections.map((section) => (
-                <div key={section.id}>
-                  <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-200 mb-3">
-                    {section.title}
-                  </h3>
-                  <div className="space-y-4">
-                    {section.fields.map((field) => {
-                      if (field.type === "attendance") {
-                        return (
-                          <div key={field.id}>
-                            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                              {t.attendees}
-                            </p>
-                            <div className="space-y-0">
-                              {attendees.map((att) => (
-                                <div
-                                  key={att.id}
-                                  className="flex items-center justify-between py-3 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-sm font-bold text-amber-700 dark:text-amber-400">
-                                      {att.name[0] ?? "?"}
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                        {att.name}
-                                      </p>
-                                      {att.signedAt ? (
-                                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                                          ✓ {t.signedAt} · {formatTime(att.signedAt, dateLocale, timeZone)}
-                                        </p>
-                                      ) : (
-                                        <p className="text-xs text-zinc-400">{t.pendingSignature}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {!att.signedAt && (
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => openDirectSignModal(att, instance)}
-                                        className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
-                                      >
-                                        <PenLine className="h-3.5 w-3.5" />
-                                        {l("signHere")}
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="mt-3">
-                              <button
-                                type="button"
-                                onClick={() => setAddVisitorModalOpen(true)}
-                                className="text-sm text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-                              >
-                                <Plus className="h-4 w-4" />
-                                {t.addVisitor}
-                              </button>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleGenerateQR(instance, template)}
-                              className="mt-3 rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
-                            >
-                              {t.generateQR}
-                            </button>
-                          </div>
-                        );
-                      }
-                      if (field.type === "signature") {
-                        return (
-                          <SignatureCanvas
-                            key={field.id}
-                            label={field.label}
-                            value={fillSupervisorSig}
-                            onChange={(v) => {
-                              setFillSupervisorSig(v);
-                              updateVal(field.id, v);
-                            }}
-                            onClear={() => {
-                              setFillSupervisorSig("");
-                              updateVal(field.id, undefined);
-                            }}
-                          />
-                        );
-                      }
-                      return (
-                        <FormFieldInput
-                          key={field.id}
-                          field={field}
-                          value={values[field.id]}
-                          onChange={(v) => updateVal(field.id, v)}
-                          optionsEmployees={field.id === "f3" || field.id === "f4" ? employees : undefined}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+            <div className="lg:grid lg:grid-cols-[minmax(200px,240px)_1fr] gap-6 items-start">
+              <aside className="hidden lg:block sticky top-4 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-1">
+                {sections.map((s, i) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setFillSectionIndex(i)}
+                    className={`w-full text-left rounded-lg px-3 py-2.5 min-h-[44px] transition-colors ${
+                      i === safeIdx
+                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100"
+                        : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+                    }`}
+                  >
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {i + 1}/{sections.length}
+                    </span>
+                    <span className="block text-sm font-medium">
+                      {resolveFormLabel(s.title, t)}
+                    </span>
+                  </button>
+                ))}
+              </aside>
 
-              <div className="flex gap-2 pt-4">
+              <div className="min-w-0 rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+                <div className="mb-6">
+                  <div className="h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 transition-[width] duration-300"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                    {l("forms_fill_step")
+                      .replace("{current}", String(safeIdx + 1))
+                      .replace("{total}", String(sections.length))}
+                  </p>
+                </div>
+                <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-200 mb-4">
+                  {resolveFormLabel(section.title, t)}
+                </h3>
+                <div className="space-y-4">
+                  {section.fields.map((field) => renderField(field))}
+                </div>
+              </div>
+            </div>
+
+            <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur supports-[padding:max(0px)]:pb-[max(env(safe-area-inset-bottom),8px)]">
+              <div className="mx-auto w-full max-w-6xl flex flex-wrap items-center gap-2 px-4 py-3">
+                <button
+                  type="button"
+                  disabled={safeIdx <= 0}
+                  onClick={() => setFillSectionIndex((i) => Math.max(0, i - 1))}
+                  className="rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] disabled:opacity-40"
+                >
+                  {l("forms_previous")}
+                </button>
+                <button
+                  type="button"
+                  disabled={safeIdx >= sections.length - 1}
+                  onClick={() =>
+                    setFillSectionIndex((i) =>
+                      Math.min(sections.length - 1, i + 1)
+                    )
+                  }
+                  className="rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] disabled:opacity-40"
+                >
+                  {l("next")}
+                </button>
+                <div className="flex-1 min-w-[8px]" />
                 <button
                   type="button"
                   onClick={() => {
-                    onUpdateInstance({ ...instance, status: "draft", fieldValues: values, attendees });
+                    onUpdateInstance({
+                      ...instance,
+                      status: "draft",
+                      fieldValues: values,
+                      attendees,
+                    });
                     setView("list");
                     setFillInstanceId(null);
                   }}
                   className="rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
                 >
-                  {t.saveDraft}
+                  {l("saveDraft")}
                 </button>
                 <button
                   type="button"
@@ -910,12 +984,12 @@ export function FormsModule({
                     setView("list");
                     setFillInstanceId(null);
                   }}
-                  className="rounded-xl bg-amber-600 text-white px-4 py-2.5 text-sm font-medium min-h-[44px]"
+                  className="rounded-xl bg-amber-600 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-amber-500"
                 >
-                  {t.submit}
+                  {l("forms_submit")}
                 </button>
               </div>
-            </div>
+            </footer>
           </div>
         );
       })()}
@@ -948,7 +1022,7 @@ export function FormsModule({
                 </button>
                 <div>
                   <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">
-                    {template.name}
+                    {resolveFormLabel(template.name, t)}
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
                     {project?.name ?? instance.projectId} · {instance.date}
@@ -984,17 +1058,41 @@ export function FormsModule({
               {template.sections.map((section) => (
                 <div key={section.id}>
                   <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-200 mb-3">
-                    {section.title}
+                    {resolveFormLabel(section.title, t)}
                   </h3>
                   <div className="space-y-2 text-sm">
                     {section.fields.map((field) => {
-                      if (field.type === "signature" || field.type === "attendance") return null;
+                      if (field.type === "signature" || field.type === "attendance")
+                        return null;
                       const val = instance.fieldValues[field.id];
-                      if (val == null) return null;
-                      const text = Array.isArray(val) ? val.join(", ") : String(val);
+                      if (val == null || val === "") return null;
+                      if (
+                        field.type === "photo" &&
+                        typeof val === "string" &&
+                        val.startsWith("http")
+                      ) {
+                        return (
+                          <div key={field.id}>
+                            <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                              {resolveFormLabel(field.label, t)}:
+                            </span>{" "}
+                            <a
+                              href={val}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-amber-600 dark:text-amber-400 underline break-all"
+                            >
+                              {l("forms_view")}
+                            </a>
+                          </div>
+                        );
+                      }
+                      const text = formatFormFieldValue(field, val, l);
                       return (
-                        <p key={field.id}>
-                          <span className="font-medium text-zinc-600 dark:text-zinc-400">{field.label}:</span>{" "}
+                        <p key={field.id} className="whitespace-pre-wrap">
+                          <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                            {resolveFormLabel(field.label, t)}:
+                          </span>{" "}
                           {text}
                         </p>
                       );
@@ -1040,7 +1138,7 @@ export function FormsModule({
             </div>
             {qrDataUrl && (
               <div className="flex justify-center mb-4">
-                <img src={qrDataUrl} alt="QR" className="w-48 h-48" />
+                <img src={qrDataUrl} alt={l("scanQR")} className="w-48 h-48" />
               </div>
             )}
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">{t.linkExpires}</p>
@@ -1073,7 +1171,7 @@ export function FormsModule({
                 className={`rounded-lg px-3 py-2 text-sm font-medium min-h-[44px] flex items-center gap-1 text-white ${copied ? "bg-emerald-600" : "bg-amber-600"}`}
               >
                 <Copy className="h-4 w-4" />
-                {copied ? "✓ Copiado" : t.copyLink}
+                {copied ? l("forms_qr_copied") : t.copyLink}
               </button>
             </div>
             <div className="mt-3 space-y-2">
@@ -1083,14 +1181,14 @@ export function FormsModule({
                   onClick={() => setEmailMode("employee")}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${emailMode === "employee" ? "border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300" : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 text-zinc-600 dark:text-zinc-400"}`}
                 >
-                  Empleado
+                  {l("forms_email_employee_tab")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEmailMode("external")}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${emailMode === "external" ? "border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300" : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 text-zinc-600 dark:text-zinc-400"}`}
                 >
-                  Externo
+                  {l("forms_email_external_tab")}
                 </button>
               </div>
               {emailMode === "employee" ? (
@@ -1099,7 +1197,7 @@ export function FormsModule({
                   onChange={(e) => setSelectedEmployeeEmail(e.target.value)}
                   className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
                 >
-                  <option value="">Seleccionar empleado...</option>
+                  <option value="">{l("forms_email_select_employee")}</option>
                   {employees
                     .filter(
                       (emp) =>
@@ -1109,7 +1207,8 @@ export function FormsModule({
                     )
                     .map((emp) => (
                       <option key={emp.id} value={emp.email ?? ""}>
-                        {emp.name} {!emp.email ? "(sin email)" : ""}
+                        {emp.name}{" "}
+                        {!emp.email ? l("forms_email_no_email_suffix") : ""}
                       </option>
                     ))}
                 </select>
@@ -1127,7 +1226,7 @@ export function FormsModule({
               type="button"
               className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium"
             >
-              Enviar por email
+              {l("forms_send_email")}
             </button>
           </div>
         </>
@@ -1289,200 +1388,4 @@ export function FormsModule({
       )}
     </section>
   );
-}
-
-function FormFieldInput({
-  field,
-  value,
-  onChange,
-  optionsEmployees,
-}: {
-  field: FormField;
-  value: unknown;
-  onChange: (v: unknown) => void;
-  optionsEmployees?: EmployeeBasic[];
-}) {
-  const label = field.label;
-  const required = field.required;
-  const common = "w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]";
-
-  if (field.type === "text") {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <input
-          type="text"
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          className={common}
-          placeholder={field.placeholder}
-        />
-      </div>
-    );
-  }
-  if (field.type === "textarea") {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <textarea
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${common} resize-none`}
-          rows={3}
-          placeholder={field.placeholder}
-        />
-      </div>
-    );
-  }
-  if (field.type === "number") {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <input
-          type="number"
-          value={(value as number) ?? ""}
-          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
-          className={common}
-        />
-      </div>
-    );
-  }
-  if (field.type === "date") {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <input
-          type="date"
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value || undefined)}
-          className={common}
-        />
-      </div>
-    );
-  }
-  if (field.type === "time") {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <input
-          type="time"
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value || undefined)}
-          className={common}
-        />
-      </div>
-    );
-  }
-  if (field.type === "select") {
-    const opts = field.options?.length ? field.options : optionsEmployees?.map((e) => e.name) ?? [];
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <select
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value || undefined)}
-          className={common}
-        >
-          <option value="">Seleccionar...</option>
-          {opts.map((o) => (
-            <option key={o} value={o}>{o}</option>
-          ))}
-        </select>
-      </div>
-    );
-  }
-  if (field.type === "multiselect") {
-    const arr = (value as string[]) ?? [];
-    const opts = field.options ?? [];
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <div className="space-y-2">
-          {opts.map((opt) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={arr.includes(opt)}
-                onChange={(e) => {
-                  if (e.target.checked) onChange([...arr, opt]);
-                  else onChange(arr.filter((x) => x !== opt));
-                }}
-                className="rounded border-zinc-300 text-amber-600"
-              />
-              <span className="text-sm">{opt}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (field.type === "radio") {
-    const opts = field.options ?? [];
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-          {required && " *"}
-        </label>
-        <div className="flex gap-4">
-          {opts.map((opt) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name={field.id}
-                checked={(value as string) === opt}
-                onChange={() => onChange(opt)}
-                className="border-zinc-300 text-amber-600"
-              />
-              <span className="text-sm">{opt}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (field.type === "photo") {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {label}
-        </label>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const r = new FileReader();
-            r.onload = () => onChange(r.result as string);
-            r.readAsDataURL(file);
-          }}
-          className="text-sm"
-        />
-      </div>
-    );
-  }
-  return null;
 }

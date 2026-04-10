@@ -9,6 +9,11 @@ import {
   getSignPageTranslations,
   type SignPageLocale,
 } from "@/lib/signPageTranslations";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import {
+  resolveFormLabel,
+  formatFormFieldValue,
+} from "@/lib/formTemplateDisplay";
 import { BrandWordmark } from "@/components/BrandWordmark";
 
 function SignatureCanvas({
@@ -113,6 +118,11 @@ export default function SignPage() {
   const [locale, setLocale] = useState<SignPageLocale>("es");
 
   const t = getSignPageTranslations(locale);
+  const formLabels = {
+    ...ALL_TRANSLATIONS.en,
+    ...(ALL_TRANSLATIONS[locale] ?? {}),
+  } as Record<string, string>;
+  const L = (k: string) => formLabels[k] ?? k;
 
   useEffect(() => {
     setLocale(getSignPageLocale());
@@ -288,7 +298,7 @@ export default function SignPage() {
             <BrandWordmark tone="onLight" className="inline" />
           </h1>
           <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 mt-1">
-            {template.name}
+            {resolveFormLabel(template.name, formLabels)}
           </h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
             {t.project}: {projectName} · {t.date}: {instance.date}
@@ -304,17 +314,42 @@ export default function SignPage() {
           {template.sections.slice(0, 2).map((section) => (
             <div key={section.id}>
               <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
-                {section.title}
+                {resolveFormLabel(section.title, formLabels)}
               </h3>
               <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
                 {section.fields.map((field) => {
-                  if (field.type === "signature" || field.type === "attendance") return null;
+                  if (field.type === "signature" || field.type === "attendance")
+                    return null;
                   const val = instance.fieldValues[field.id];
-                  if (val == null) return null;
-                  const text = Array.isArray(val) ? val.join(", ") : String(val);
+                  if (val == null || val === "") return null;
+                  if (
+                    field.type === "photo" &&
+                    typeof val === "string" &&
+                    val.startsWith("http")
+                  ) {
+                    return (
+                      <p key={field.id}>
+                        <span className="font-medium">
+                          {resolveFormLabel(field.label, formLabels)}:
+                        </span>{" "}
+                        <a
+                          href={val}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-amber-600 dark:text-amber-400 underline break-all"
+                        >
+                          {L("forms_view")}
+                        </a>
+                      </p>
+                    );
+                  }
+                  const text = formatFormFieldValue(field, val, L);
                   return (
-                    <p key={field.id}>
-                      <span className="font-medium">{field.label}:</span> {text}
+                    <p key={field.id} className="whitespace-pre-wrap">
+                      <span className="font-medium">
+                        {resolveFormLabel(field.label, formLabels)}:
+                      </span>{" "}
+                      {text}
                     </p>
                   );
                 })}

@@ -10,7 +10,24 @@ export type FieldType =
   | "radio"
   | "photo"
   | "signature"
-  | "attendance";
+  | "attendance"
+  | "inspection_table";
+
+/** Row definition for `inspection_table` fields (`label` is an i18n key). */
+export interface InspectionTableRow {
+  id: string;
+  label: string;
+}
+
+/** Column definition for `inspection_table` fields (`label` is an i18n key). */
+export interface InspectionTableColumn {
+  id: string;
+  label: string;
+  /** Default `select` uses `field.options` or pass/fail/na presets. */
+  kind?: "select" | "text";
+}
+
+export type InspectionTableValue = Record<string, Record<string, string>>;
 
 export interface FormField {
   id: string;
@@ -19,6 +36,10 @@ export interface FormField {
   required: boolean;
   options?: string[];
   placeholder?: string;
+  rows?: InspectionTableRow[];
+  columns?: InspectionTableColumn[];
+  /** Supervisor / sign-off wiring for QR and PDF flows */
+  formRole?: "supervisor_display" | "supervisor_signature";
 }
 
 export interface FormSection {
