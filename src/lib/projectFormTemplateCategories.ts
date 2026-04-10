@@ -11,6 +11,16 @@ const SAFETY_CATEGORIES = new Set([
   "form_cat_prl",
   "form_cat_rams",
   "form_cat_ats",
+  "form_cat_ppe",
+]);
+
+/** Categories shown under project “Inspección” (field inspections, equipment, rental, etc.). */
+const INSPECTION_STYLE_CATEGORIES = new Set([
+  "form_cat_inspection",
+  "form_cat_tools",
+  "form_cat_scaffold",
+  "form_cat_rental",
+  "form_cat_forklift",
 ]);
 
 export type ProjectFormTemplateCategory = "inspection" | "tailgate" | "safety" | "custom";
@@ -19,9 +29,11 @@ export function filterFormTemplatesByProjectCategory(
   templates: FormTemplate[],
   kind: ProjectFormTemplateCategory
 ): FormTemplate[] {
-  if (kind === "inspection") return templates.filter((x) => x.category === "form_cat_inspection");
+  if (kind === "inspection")
+    return templates.filter((x) => INSPECTION_STYLE_CATEGORIES.has(x.category));
   if (kind === "tailgate") return templates.filter((x) => x.category === "form_cat_meeting");
   if (kind === "safety") return templates.filter((x) => SAFETY_CATEGORIES.has(x.category));
-  if (kind === "custom") return templates.filter((x) => x.category === "form_cat_custom");
+  if (kind === "custom")
+    return templates.filter((x) => !x.isBase || x.category === "form_cat_custom");
   return [];
 }

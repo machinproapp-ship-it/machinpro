@@ -36,6 +36,8 @@ export interface FormField {
   required: boolean;
   options?: string[];
   placeholder?: string;
+  /** When true (photo fields), value is `string[]` of image URLs. */
+  multiple?: boolean;
   rows?: InspectionTableRow[];
   columns?: InspectionTableColumn[];
   /** Supervisor / sign-off wiring for QR and PDF flows */

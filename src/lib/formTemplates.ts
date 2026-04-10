@@ -1,4 +1,5 @@
 import type { FormTemplate } from "@/types/forms";
+import { SPRINT_B_FORM_TEMPLATES } from "@/lib/formTemplatesSprintB";
 
 /** Base + regional MachinPro form templates (`name`, `description`, labels are i18n keys). */
 export const INITIAL_FORM_TEMPLATES: FormTemplate[] = [
@@ -711,6 +712,7 @@ export const INITIAL_FORM_TEMPLATES: FormTemplate[] = [
       },
     ],
   },
+  ...SPRINT_B_FORM_TEMPLATES,
   {
     id: "tpl-blank-custom",
     name: "form_blank_custom_name",

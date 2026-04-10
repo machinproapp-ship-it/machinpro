@@ -71,14 +71,19 @@ export function FormFieldInput({
       setUploading(true);
       try {
         const url = await uploadToCloudinary(file);
-        onChange(url);
+        if (field.type === "photo" && field.multiple) {
+          const prev = Array.isArray(value) ? (value as string[]) : [];
+          onChange([...prev, url]);
+        } else {
+          onChange(url);
+        }
       } catch {
         setUploadErr(L("forms_photo_upload_error"));
       } finally {
         setUploading(false);
       }
     },
-    [onChange, L]
+    [onChange, L, field.type, field.multiple, value]
   );
 
   if (field.type === "text") {
@@ -347,7 +352,13 @@ export function FormFieldInput({
     );
   }
   if (field.type === "photo") {
-    const url = typeof value === "string" ? value : "";
+    const urls =
+      field.multiple && Array.isArray(value)
+        ? (value as string[]).filter((u) => typeof u === "string")
+        : typeof value === "string" && value
+          ? [value]
+          : [];
+    const singleUrl = !field.multiple && typeof value === "string" ? value : "";
     return (
       <div>
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -439,23 +450,49 @@ export function FormFieldInput({
           <p className="text-sm text-red-600 dark:text-red-400 mt-2">{uploadErr}</p>
         )}
 
-        {url && (
-          <div className="mt-3 relative inline-block max-w-full">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={url}
-              alt=""
-              className="max-h-48 rounded-lg border border-zinc-200 dark:border-zinc-700"
-            />
-            <button
-              type="button"
-              onClick={() => onChange(undefined)}
-              className="absolute top-2 right-2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              aria-label={L("forms_photo_remove")}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+        {field.multiple ? (
+          <div className="mt-3 flex flex-wrap gap-3">
+            {urls.map((url, idx) => (
+              <div key={`${url}-${idx}`} className="relative inline-block max-w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt=""
+                  className="max-h-48 rounded-lg border border-zinc-200 dark:border-zinc-700"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = urls.filter((_, i) => i !== idx);
+                    onChange(next.length ? next : undefined);
+                  }}
+                  className="absolute top-2 right-2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label={L("forms_photo_remove")}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
           </div>
+        ) : (
+          singleUrl && (
+            <div className="mt-3 relative inline-block max-w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={singleUrl}
+                alt=""
+                className="max-h-48 rounded-lg border border-zinc-200 dark:border-zinc-700"
+              />
+              <button
+                type="button"
+                onClick={() => onChange(undefined)}
+                className="absolute top-2 right-2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label={L("forms_photo_remove")}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )
         )}
       </div>
     );

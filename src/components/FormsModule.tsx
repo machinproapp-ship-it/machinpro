@@ -26,6 +26,7 @@ import {
   formatFormFieldValue,
 } from "@/lib/formTemplateDisplay";
 import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
+import { FormTemplateBuilder } from "@/components/FormTemplateBuilder";
 import QRCode from "qrcode";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatTime, resolveUserTimezone } from "@/lib/dateUtils";
@@ -33,7 +34,27 @@ import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
 
-type FormsView = "list" | "template" | "fill" | "detail";
+type FormsView = "list" | "template" | "fill" | "detail" | "builder";
+
+const TEMPLATE_LIB_CATEGORY_FILTERS: { value: string; labelKey: string }[] = [
+  { value: "", labelKey: "forms_templates_filter_all" },
+  { value: "form_cat_meeting", labelKey: "form_cat_meeting" },
+  { value: "form_cat_report", labelKey: "form_cat_report" },
+  { value: "form_cat_inspection", labelKey: "form_cat_inspection" },
+  { value: "form_cat_permit", labelKey: "form_cat_permit" },
+  { value: "form_cat_training", labelKey: "form_cat_training" },
+  { value: "form_cat_loto", labelKey: "form_cat_loto" },
+  { value: "form_cat_prl", labelKey: "form_cat_prl" },
+  { value: "form_cat_rams", labelKey: "form_cat_rams" },
+  { value: "form_cat_ats", labelKey: "form_cat_ats" },
+  { value: "form_cat_tools", labelKey: "form_cat_tools" },
+  { value: "form_cat_scaffold", labelKey: "form_cat_scaffold" },
+  { value: "form_cat_rental", labelKey: "form_cat_rental" },
+  { value: "form_cat_forklift", labelKey: "form_cat_forklift" },
+  { value: "form_cat_ppe", labelKey: "form_cat_ppe" },
+  { value: "form_cat_custom", labelKey: "form_cat_custom" },
+  { value: "__my__", labelKey: "form_cat_my_templates" },
+];
 type ListTab = "pending" | "in_progress" | "completed" | "all";
 
 interface ProjectBasic {
@@ -237,6 +258,13 @@ export function FormsModule({
   const visitorSignCanvasRef = useRef<HTMLCanvasElement>(null);
   const [filterAssigneeId, setFilterAssigneeId] = useState("");
   const [fillSectionIndex, setFillSectionIndex] = useState(0);
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState("");
+
+  const libraryTemplates = useMemo(() => {
+    if (!templateCategoryFilter) return templates;
+    if (templateCategoryFilter === "__my__") return templates.filter((x) => !x.isBase);
+    return templates.filter((x) => x.category === templateCategoryFilter);
+  }, [templates, templateCategoryFilter]);
 
   const openDirectSignModal = useCallback((att: AttendeeRecord, instance: FormInstance) => {
     setDirectSignAttendee(att);
@@ -542,6 +570,16 @@ export function FormsModule({
                 <Plus className="h-4 w-4" />
                 {t.newForm}
               </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setView("builder")}
+                  className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
+                >
+                  <Pencil className="h-4 w-4" />
+                  {l("form_builder_title")}
+                </button>
+              )}
             </div>
           </div>
 
@@ -647,9 +685,18 @@ export function FormsModule({
       )}
 
       {/* ---------- TEMPLATE VIEW (library) ---------- */}
+      {view === "builder" && canManage && (
+        <FormTemplateBuilder
+          labels={t}
+          currentUserEmployeeId={currentUserEmployeeId}
+          onBack={() => setView("list")}
+          onSaveTemplate={onAddTemplate}
+        />
+      )}
+
       {view === "template" && (
         <>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => setView("list")}
@@ -662,8 +709,31 @@ export function FormsModule({
             </h2>
           </div>
 
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
+              {l("forms_templates_category_label")}
+            </label>
+            <select
+              value={templateCategoryFilter}
+              onChange={(e) => setTemplateCategoryFilter(e.target.value)}
+              className="w-full sm:max-w-md rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+            >
+              {TEMPLATE_LIB_CATEGORY_FILTERS.map((opt) => (
+                <option key={opt.value || "all"} value={opt.value}>
+                  {l(opt.labelKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {libraryTemplates.length === 0 ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 py-8 text-center">
+              {l("forms_templates_empty_category")}
+            </p>
+          ) : null}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map((template) => (
+            {libraryTemplates.map((template) => (
               <div
                 key={template.id}
                 className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col gap-3"
@@ -696,7 +766,7 @@ export function FormsModule({
                 </p>
                 <div className="flex flex-wrap gap-2 mt-auto pt-2">
                   <select
-                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-sm min-h-[36px]"
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2 text-sm min-h-[44px]"
                     onChange={(e) => {
                       const pid = e.target.value;
                       if (pid) handleUseTemplate(template.id, pid);
@@ -712,7 +782,7 @@ export function FormsModule({
                       <button
                         type="button"
                         onClick={() => onUpdateTemplate(template)}
-                        className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[36px]"
+                        className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
                         title={t.edit}
                       >
                         <Pencil className="h-4 w-4" />
@@ -720,7 +790,7 @@ export function FormsModule({
                       <button
                         type="button"
                         onClick={() => onDeleteTemplate(template.id)}
-                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[36px]"
+                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
                         title={l("forms_delete_template")}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -730,7 +800,7 @@ export function FormsModule({
                   <button
                     type="button"
                     onClick={() => handleDuplicateTemplate(template)}
-                    className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[36px]"
+                    className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center text-sm"
                     title={l("forms_duplicate")}
                   >
                     {l("forms_duplicate")}
