@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, Fragment } from "react";
+import dynamic from "next/dynamic";
 import {
   Warehouse,
   Package,
@@ -32,7 +33,11 @@ import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/li
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
 import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
-import { TeamGpsMapWidget } from "@/components/TeamGpsMapWidget";
+
+const TeamGpsMapWidget = dynamic(
+  () => import("@/components/TeamGpsMapWidget").then((m) => m.TeamGpsMapWidget),
+  { ssr: false }
+);
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";

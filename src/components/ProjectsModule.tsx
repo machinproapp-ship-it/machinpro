@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import {
   Building2,
@@ -77,7 +78,6 @@ import { DailyFieldReportView } from "@/components/DailyFieldReportView";
 import { formatReportDate } from "@/lib/dailyReportFormat";
 import type { ProjectLaborSummary } from "@/lib/laborCosting";
 import { VisitorModule } from "@/components/VisitorModule";
-import { TeamGpsMapWidget } from "@/components/TeamGpsMapWidget";
 import { ProjectEpiSafetyTab } from "@/components/ProjectEpiSafetyTab";
 import { useToast } from "@/components/Toast";
 import { supabase } from "@/lib/supabase";
@@ -101,6 +101,10 @@ import {
 } from "@/lib/galleryPhotoDownload";
 
 const PM_EN = ALL_TRANSLATIONS.en as Record<string, string>;
+const TeamGpsMapWidget = dynamic(
+  () => import("@/components/TeamGpsMapWidget").then((m) => m.TeamGpsMapWidget),
+  { ssr: false }
+);
 
 export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 
