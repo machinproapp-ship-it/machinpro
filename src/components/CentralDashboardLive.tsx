@@ -152,22 +152,30 @@ function auditActorLabel(
   profileByUserId: Record<string, AuditProfileSnippet>,
   labels: Record<string, string>
 ): string {
+  const localPart = (email: string): string => {
+    const e = email.trim();
+    const at = e.indexOf("@");
+    return at > 0 ? e.slice(0, at) : e;
+  };
+  const safeName = (raw: string): string => {
+    const t = raw.trim();
+    if (!t) return "";
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) return localPart(t);
+    return t;
+  };
+  const rawName = safeName(row.user_name ?? "");
+  const badGeneric =
+    /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
+  const un = rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
+  if (un) return un;
+
   const uid = (row.user_id ?? "").trim();
   const uidLower = uid.toLowerCase();
   const p =
     uid ? profileByUserId[uid] ?? profileByUserId[uidLower] : undefined;
   if (p) {
     const label = displayNameFromProfile(p.full_name, p.display_name, p.email);
-    if (label) return label;
-  }
-  const rawName = (row.user_name ?? "").trim();
-  const badGeneric =
-    /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
-  const un = rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
-  if (un) return un;
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawName)) {
-    const local = displayNameFromProfile(null, null, rawName);
-    if (local) return local;
+    if (label) return safeName(label);
   }
   return (labels.dashboard_activity_unknown_user ?? "").trim() || "—";
 }

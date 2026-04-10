@@ -1,8 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   dateLocaleForUser,
@@ -11,19 +9,7 @@ import {
   zonedYmdHmToUtcIso,
 } from "@/lib/dateUtils";
 import { nominatimReverseLabel } from "@/lib/nominatimReverse";
-
-function ensureLeafletDefaultIcons(): void {
-  const proto = L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown };
-  delete proto._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  });
-}
-
-const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+import { TeamGpsMapWidget } from "@/components/TeamGpsMapWidget";
 
 type GpsPoint = {
   id: string;
@@ -55,23 +41,6 @@ export function EmployeeGpsRouteTab({
   const [points, setPoints] = useState<GpsPoint[]>([]);
   const [addresses, setAddresses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [darkTiles, setDarkTiles] = useState(
-    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
-  );
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const tileRef = useRef<L.TileLayer | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
-
-  useEffect(() => {
-    const el = document.documentElement;
-    const sync = () => setDarkTiles(el.classList.contains("dark"));
-    sync();
-    const obs = new MutationObserver(sync);
-    obs.observe(el, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
 
   const loadPoints = useCallback(async () => {
     if (!supabase) return;
@@ -133,63 +102,12 @@ export function EmployeeGpsRouteTab({
     };
   }, [points, dateLoc]);
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    ensureLeafletDefaultIcons();
-    const map = L.map(containerRef.current, { zoomControl: true }).setView([20, 0], 2);
-    mapRef.current = map;
-    const g = L.layerGroup().addTo(map);
-    layerRef.current = g;
-    tileRef.current = L.tileLayer(darkTiles ? DARK_TILE_URL : LIGHT_TILE_URL, {
-      maxZoom: 19,
-      attribution: "&copy; OSM",
-    }).addTo(map);
-    const onResize = () => map.invalidateSize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      tileRef.current?.remove();
-      tileRef.current = null;
-      map.remove();
-      mapRef.current = null;
-      layerRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !tileRef.current) return;
-    map.removeLayer(tileRef.current);
-    tileRef.current = L.tileLayer(darkTiles ? DARK_TILE_URL : LIGHT_TILE_URL, {
-      maxZoom: 19,
-      attribution: "&copy; OSM",
-    }).addTo(map);
-  }, [darkTiles]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    const group = layerRef.current;
-    if (!map || !group) return;
-    group.clearLayers();
-    if (points.length === 0) return;
-    const latlngs = points.map((p) => [p.lat, p.lng] as L.LatLngExpression);
-    L.polyline(latlngs, { color: "#2563eb", weight: 4, opacity: 0.85 }).addTo(group);
-    for (const p of points) {
-      L.circleMarker([p.lat, p.lng], { radius: 5, color: "#1d4ed8", fillColor: "#3b82f6", fillOpacity: 0.9 }).addTo(
-        group
-      );
-    }
-    const bounds = L.latLngBounds(latlngs);
-    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
-    requestAnimationFrame(() => map.invalidateSize());
-  }, [points]);
-
   return (
     <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{Lx("gps_route_history")}</h3>
         <label className="text-sm text-zinc-600 dark:text-zinc-300 flex items-center gap-2">
-          <span className="sr-only">{Lx("date") || "Date"}</span>
+          <span className="sr-only">{Lx("gps_route_date_label") || Lx("date") || "Date"}</span>
           <input
             type="date"
             value={routeDate}
@@ -199,10 +117,16 @@ export function EmployeeGpsRouteTab({
         </label>
       </div>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">{employeeName}</p>
-      <div
-        ref={containerRef}
-        className="w-full rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-600 h-[300px] md:h-[450px] z-0"
-        aria-label={Lx("gps_route_history")}
+      <TeamGpsMapWidget
+        companyId={companyId}
+        timeZone={timeZone}
+        language={language}
+        countryCode={countryCode}
+        projectNameById={{}}
+        labels={labels}
+        filterUserId={userId}
+        showRoute
+        routeDate={routeDate}
       />
       {loading ? (
         <p className="text-sm text-zinc-500">{Lx("gpsLocating") || "…"}</p>

@@ -2134,7 +2134,10 @@ export default function ScheduleModule({
                     >
                       {gpsStatus === "locating"
                         ? (labels.gpsLocating ?? "…")
-                        : (labels.clockIn ?? "Fichar Entrada")}
+                        : ((((labels as Record<string, string>).clock_in_action) ??
+                            ((labels as Record<string, string>).timeclock_clock_in) ??
+                            labels.clockIn ??
+                            "").trim() || "Fichar")}
                     </button>
                   ) : null
                 ) : !todayEntry.clockOut ? (
@@ -3163,7 +3166,10 @@ export default function ScheduleModule({
                         >
                           {gpsStatus === "locating"
                             ? (labels.gpsLocating ?? "Obteniendo ubicación…")
-                            : (labels.clockIn ?? "Fichar Entrada")}
+                            : ((((labels as Record<string, string>).clock_in_action) ??
+                                ((labels as Record<string, string>).timeclock_clock_in) ??
+                                labels.clockIn ??
+                                "").trim() || "Fichar")}
                         </button>
                       ) : null
                     ) : !todayEntry.clockOut ? (

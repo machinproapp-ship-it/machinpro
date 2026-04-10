@@ -358,7 +358,7 @@ export function EmployeeShiftDayView({
                     >
                       {gpsStatus === "locating"
                         ? (tl.gpsLocating ?? "…")
-                        : (tl.clockIn ?? "Fichar entrada")}
+                        : ((tl.clock_in_action ?? tl.timeclock_clock_in ?? tl.clockIn ?? "").trim() || "Fichar")}
                     </button>
                   );
                 }
@@ -372,7 +372,7 @@ export function EmployeeShiftDayView({
                     >
                       {gpsStatus === "locating"
                         ? (tl.gpsLocating ?? "…")
-                        : (tl.clockIn ?? "Fichar entrada")}
+                        : ((tl.clock_in_action ?? tl.timeclock_clock_in ?? tl.clockIn ?? "").trim() || "Fichar")}
                     </button>
                   );
                 }
@@ -416,7 +416,7 @@ export function EmployeeShiftDayView({
                       >
                         {gpsStatus === "locating"
                           ? (tl.gpsLocating ?? "…")
-                          : (tl.clockIn ?? "Fichar entrada")}
+                          : ((tl.clock_in_action ?? tl.timeclock_clock_in ?? tl.clockIn ?? "").trim() || "Fichar")}
                       </button>
                     ) : null}
                   </div>

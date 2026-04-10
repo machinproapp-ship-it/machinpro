@@ -766,10 +766,6 @@ export function ProjectsModule({
   }, [companyId, selectedProjectId, supabase, timeZoneProp]);
 
   useEffect(() => {
-    if (activeTab === "mapa" && projectMapActiveCount === 0) setActiveTab("general");
-  }, [activeTab, projectMapActiveCount]);
-
-  useEffect(() => {
     const tab = visitorTabSignal ?? 0;
     const qr = visitorOpenQrSignal ?? 0;
     const mx = Math.max(tab, qr);
@@ -1412,7 +1408,7 @@ export function ProjectsModule({
                 if (tab.id === "rfi" && !showProjectRfiTab) return false;
                 if (tab.id === "seguridad" && !showProjectSecurityTab) return false;
                 if (tab.id === "project_epi" && !canEdit && !canViewAttendancePanel) return false;
-                if (tab.id === "mapa" && (!companyId || projectMapActiveCount === 0)) return false;
+                if (tab.id === "mapa" && !companyId) return false;
                 return true;
               }).map((tab) => {
               const label =
@@ -3627,16 +3623,26 @@ export function ProjectsModule({
           />
         ) : null}
 
-        {activeTab === "mapa" && selectedProject && companyId && projectMapActiveCount > 0 ? (
-          <TeamGpsMapWidget
-            companyId={companyId}
-            timeZone={userTz}
-            language={language}
-            countryCode={countryCode}
-            projectNameById={projectNameByIdForGps}
-            labels={t as Record<string, string>}
-            filterProjectId={selectedProject.id}
-          />
+        {activeTab === "mapa" && selectedProject && companyId ? (
+          projectMapActiveCount > 0 ? (
+            <TeamGpsMapWidget
+              companyId={companyId}
+              timeZone={userTz}
+              language={language}
+              countryCode={countryCode}
+              projectNameById={projectNameByIdForGps}
+              labels={t as Record<string, string>}
+              filterProjectId={selectedProject.id}
+            />
+          ) : (
+            <div className="rounded-xl border border-zinc-200 dark:border-slate-700 p-6 text-zinc-600 dark:text-zinc-300 flex items-center gap-3">
+              <MapPin className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+              <span>
+                {(t as Record<string, string>).gps_no_active_project ??
+                  "No hay empleados fichados en este proyecto ahora mismo"}
+              </span>
+            </div>
+          )
         ) : null}
       </div>
 
