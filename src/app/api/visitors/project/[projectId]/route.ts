@@ -34,7 +34,7 @@ export async function GET(
 
   const { data: company, error: cErr } = await admin
     .from("companies")
-    .select("id, name, logo_url")
+    .select("id, name, logo_url, country_code")
     .eq("id", project.company_id)
     .maybeSingle();
 
@@ -42,11 +42,14 @@ export async function GET(
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
+  const co = company as { id: string; name: string; logo_url?: string | null; country_code?: string | null };
   return NextResponse.json({
-    companyId: company.id,
-    companyName: company.name,
-    logoUrl: typeof company.logo_url === "string" && company.logo_url.trim() ? company.logo_url.trim() : null,
+    companyId: co.id,
+    companyName: co.name,
+    logoUrl: typeof co.logo_url === "string" && co.logo_url.trim() ? co.logo_url.trim() : null,
     projectId: project.id,
     projectName: project.name,
+    countryCode:
+      typeof co.country_code === "string" && co.country_code.trim() ? co.country_code.trim() : "CA",
   });
 }

@@ -32,6 +32,7 @@ import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/li
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
 import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
+import { TeamGpsMapWidget } from "@/components/TeamGpsMapWidget";
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
@@ -238,6 +239,12 @@ export interface LogisticsModuleProps {
   onMarkResourceItemReady?: (requestId: string, itemId: string) => void;
   companyName?: string;
   companyId?: string;
+  /** Flota → pestaña Seguimiento (mapa GPS del día). */
+  gpsMapTimeZone?: string;
+  gpsMapLanguage?: string;
+  gpsMapCountryCode?: string;
+  gpsProjectNameById?: Record<string, string>;
+  vehiclesForGpsMap?: Vehicle[];
 }
 
 function daysUntilExpiry(expiryDate: string): number {
@@ -436,6 +443,11 @@ export function LogisticsModule({
   onMarkResourceItemReady,
   companyName = "",
   companyId = "",
+  gpsMapTimeZone = "",
+  gpsMapLanguage = "es",
+  gpsMapCountryCode = "CA",
+  gpsProjectNameById = {},
+  vehiclesForGpsMap = [],
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
   const tlLabels = t as Record<string, string>;
@@ -469,6 +481,17 @@ export function LogisticsModule({
   useEffect(() => { setAssetDrawerTab("info"); }, [selectedAsset]);
   const [logisticsInvFiltersOpen, setLogisticsInvFiltersOpen] = useState(false);
   const [logisticsFleetFiltersOpen, setLogisticsFleetFiltersOpen] = useState(false);
+  const [fleetViewMode, setFleetViewMode] = useState<"list" | "tracking">("list");
+
+  const vehiclePlateByUserIdForGps = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const v of vehiclesForGpsMap ?? []) {
+      const uid = (v.usualDriverId ?? "").trim();
+      const plate = (v.plate ?? "").trim();
+      if (uid && plate) m[uid] = plate;
+    }
+    return m;
+  }, [vehiclesForGpsMap]);
 
   const openReturnPhotoCapture = () => {
     returnFileInputRef.current?.click();
@@ -1481,6 +1504,45 @@ export function LogisticsModule({
       )}
       {warehouseSubTab === "fleet" && (
         <div className="space-y-4">
+          {companyId && gpsMapTimeZone ? (
+            <div className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-slate-700 pb-3">
+              <button
+                type="button"
+                onClick={() => setFleetViewMode("list")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium min-h-[44px] transition-colors ${
+                  fleetViewMode === "list"
+                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200"
+                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                }`}
+              >
+                {tlLabels.whTabFleet ?? t.whTabFleet ?? "Fleet"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFleetViewMode("tracking")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium min-h-[44px] transition-colors ${
+                  fleetViewMode === "tracking"
+                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200"
+                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                }`}
+              >
+                {tlLabels.tab_tracking ?? "Tracking"}
+              </button>
+            </div>
+          ) : null}
+
+          {fleetViewMode === "tracking" && companyId && gpsMapTimeZone ? (
+            <TeamGpsMapWidget
+              companyId={companyId}
+              timeZone={gpsMapTimeZone}
+              language={gpsMapLanguage}
+              countryCode={gpsMapCountryCode}
+              projectNameById={gpsProjectNameById}
+              labels={t as Record<string, string>}
+              vehiclePlateByUserId={vehiclePlateByUserIdForGps}
+            />
+          ) : (
+        <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <button
@@ -1731,6 +1793,8 @@ export function LogisticsModule({
               </p>
             )}
           </div>
+        </div>
+          )}
         </div>
       )}
 

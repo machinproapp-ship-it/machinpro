@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { BrandWordmark } from "@/components/BrandWordmark";
@@ -12,6 +12,11 @@ import { buildVisitorCheckInUrl, buildVisitorProjectCheckInUrl } from "@/lib/vis
 import type { VisitorFormData } from "@/types/visitor";
 import { formatDateTime, resolveUserTimezone } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
+import {
+  defaultVisitorRequirements,
+  labelVisitorRequirements,
+  type VisitorRequirement,
+} from "@/lib/visitorDocumentUtils";
 
 const PHOTO_MAX_BYTES = 400_000;
 
@@ -23,6 +28,7 @@ type ProjectRoutePayload = {
   logoUrl: string | null;
   projectId: string;
   projectName: string;
+  countryCode: string;
 };
 
 async function fetchClientIp(): Promise<string | null> {
@@ -48,6 +54,7 @@ export default function VisitorCheckInPage() {
   const [companyId, setCompanyId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [companyError, setCompanyError] = useState<string | null>(null);
+  const [companyCountryCode, setCompanyCountryCode] = useState("CA");
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [dark, setDark] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,6 +86,7 @@ export default function VisitorCheckInPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const [requirementsChecked, setRequirementsChecked] = useState<Record<string, boolean>>({});
 
   void useMachinProDisplayPrefs();
   const visitLocale = typeof navigator !== "undefined" ? navigator.language : "en-US";
@@ -117,7 +125,12 @@ export default function VisitorCheckInPage() {
           return;
         }
         const cr = await fetch(`/api/visitors/company/${encodeURIComponent(routeId)}`);
-        const cj = (await cr.json()) as { id?: string; name?: string; error?: string };
+        const cj = (await cr.json()) as {
+          id?: string;
+          name?: string;
+          error?: string;
+          countryCode?: string;
+        };
         if (!cr.ok) {
           if (!cancelled) {
             setCompanyError(cj.error ?? t.visitors_error ?? "Error");
@@ -128,6 +141,9 @@ export default function VisitorCheckInPage() {
         if (!cancelled) {
           setCompanyId(cj.id ?? routeId);
           setCompanyName(cj.name ?? "");
+          setCompanyCountryCode(
+            typeof cj.countryCode === "string" && cj.countryCode.trim() ? cj.countryCode.trim() : "CA"
+          );
           setKind("company");
         }
       } catch {
@@ -141,6 +157,29 @@ export default function VisitorCheckInPage() {
       cancelled = true;
     };
   }, [routeId, t.visitors_error]);
+
+  const resolvedCountryCode =
+    kind === "project" ? projectCtx?.countryCode?.trim() || "CA" : companyCountryCode || "CA";
+
+  const accessRequirements = useMemo(
+    () => labelVisitorRequirements(defaultVisitorRequirements(resolvedCountryCode), lx),
+    [resolvedCountryCode, lx]
+  );
+
+  useEffect(() => {
+    setRequirementsChecked((prev) => {
+      const next = { ...prev };
+      for (const r of accessRequirements) {
+        if (next[r.id] === undefined) next[r.id] = false;
+      }
+      return next;
+    });
+  }, [accessRequirements]);
+
+  const accessRequirementsOk = useMemo(
+    () => accessRequirements.every((r) => !r.required || requirementsChecked[r.id]),
+    [accessRequirements, requirementsChecked]
+  );
 
   useEffect(() => {
     if (kind !== "company" || !companyId) return;
@@ -282,6 +321,7 @@ export default function VisitorCheckInPage() {
           reason: purpose,
           phone: form.visitor_phone.trim() || undefined,
           signature: signature_data,
+          requirements_met: requirementsChecked,
         }),
       });
       const j = (await res.json()) as {
@@ -361,6 +401,7 @@ export default function VisitorCheckInPage() {
         user_agent,
         terms_version: "v1.0",
         consent_timestamp,
+        requirements_met: requirementsChecked,
       })
       .select("id, visitor_name, check_in")
       .single();
@@ -643,6 +684,36 @@ export default function VisitorCheckInPage() {
                 </span>
               </label>
             </>
+          ) : null}
+
+          {accessRequirements.length > 0 ? (
+            <section className="rounded-xl border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                {lx.visitor_requirements_title ?? ""}
+              </h2>
+              <ul className="space-y-2">
+                {accessRequirements.map((r: VisitorRequirement) => (
+                  <li key={r.id}>
+                    <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-5 w-5 shrink-0 rounded border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800"
+                        checked={!!requirementsChecked[r.id]}
+                        onChange={(e) =>
+                          setRequirementsChecked((prev) => ({ ...prev, [r.id]: e.target.checked }))
+                        }
+                      />
+                      <span className="text-sm text-gray-800 dark:text-gray-200">{r.name}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {!accessRequirementsOk ? (
+                <p className="text-sm text-amber-800 dark:text-amber-200 rounded-lg bg-amber-100/80 dark:bg-amber-900/40 px-3 py-2">
+                  {lx.visitor_requirements_warning ?? ""}
+                </p>
+              ) : null}
+            </section>
           ) : null}
 
           <div>

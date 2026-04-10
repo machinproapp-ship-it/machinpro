@@ -207,7 +207,9 @@ export function EmployeeGpsRouteTab({
       {loading ? (
         <p className="text-sm text-zinc-500">{Lx("gpsLocating") || "…"}</p>
       ) : points.length === 0 ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">{Lx("gps_route_no_points")}</p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          {Lx("gps_no_route_data") || Lx("gps_route_no_points")}
+        </p>
       ) : (
         <ul className="space-y-2 max-h-64 overflow-y-auto text-sm border-t border-zinc-100 dark:border-slate-700 pt-3">
           {points.map((p) => (

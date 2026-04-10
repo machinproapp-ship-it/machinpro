@@ -267,6 +267,15 @@ export function VisitorModule({
     a.click();
   };
 
+  const requirementsMetSummary = (r: Visitor): string => {
+    const m = r.requirements_met;
+    if (!m || typeof m !== "object") return l("common_dash");
+    const vals = Object.values(m).filter((v) => typeof v === "boolean");
+    if (vals.length === 0) return l("common_dash");
+    const ok = vals.filter(Boolean).length;
+    return `${ok}/${vals.length}`;
+  };
+
   const printQr = () => {
     const canvas = qrCanvasRef.current;
     if (!canvas || typeof window === "undefined") return;
@@ -480,6 +489,9 @@ export function VisitorModule({
                     {r.purpose ?? l("common_dash")}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.host_name ?? l("common_dash")}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 tabular-nums">
+                    {requirementsMetSummary(r)}
+                  </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                     {formatDateTime(r.check_in, dateLocale, timeZone)}
                   </td>

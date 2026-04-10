@@ -20,6 +20,8 @@ export interface Visitor {
   vehicle_plate: string | null;
   safety_briefing_accepted: boolean;
   created_at: string;
+  /** Checklist de requisitos de acceso confirmados por el operador (JSON). */
+  requirements_met?: Record<string, boolean> | null;
 }
 
 export interface VisitorFormData {

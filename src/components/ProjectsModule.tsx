@@ -77,6 +77,20 @@ import { DailyFieldReportView } from "@/components/DailyFieldReportView";
 import { formatReportDate } from "@/lib/dailyReportFormat";
 import type { ProjectLaborSummary } from "@/lib/laborCosting";
 import { VisitorModule } from "@/components/VisitorModule";
+import { TeamGpsMapWidget } from "@/components/TeamGpsMapWidget";
+import { ProjectEpiSafetyTab } from "@/components/ProjectEpiSafetyTab";
+import { useToast } from "@/components/Toast";
+import { supabase } from "@/lib/supabase";
+import {
+  formatTodayYmdInTimeZone,
+  zonedYmdHmToUtcIso,
+} from "@/lib/dateUtils";
+import {
+  parseSafetyRequirementsJson,
+  findCertForRequirement,
+  defaultProjectSafetyRequirements,
+  type ProjectSafetyRequirementRow,
+} from "@/lib/projectSafetyUtils";
 import {
   downloadImageUrlAsFile,
   galleryPhotoFilename,
@@ -145,6 +159,7 @@ export interface Project {
   estimatedEnd: string;
   assignedEmployeeIds: string[];
   supervisorName?: string;
+  safetyRequirements?: unknown;
 }
 
 export type ProjectForm = {
@@ -308,6 +323,10 @@ export interface ProjectsModuleProps {
   /** Desde el centro de notificaciones: abrir parte diario en el proyecto. */
   focusDailyReportNav?: { projectId: string; reportId: string; sig: number } | null;
   onConsumeDailyReportNav?: () => void;
+  /** EPI / certificados por obra (JSON en Supabase). */
+  onUpdateProjectSafetyRequirements?: (projectId: string, rows: ProjectSafetyRequirementRow[]) => void;
+  /** Nombres de proyecto para leyendas en mapa GPS. */
+  projectNameByIdForGps?: Record<string, string>;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -452,7 +471,9 @@ type TabId =
   | "formularios"
   | "visitantes"
   | "rfi"
-  | "seguridad";
+  | "seguridad"
+  | "project_epi"
+  | "mapa";
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "general", icon: <Info className="h-4 w-4" /> },
@@ -464,6 +485,8 @@ const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "visitantes", icon: <UserCheck className="h-4 w-4" /> },
   { id: "rfi", icon: <FileQuestion className="h-4 w-4" /> },
   { id: "seguridad", icon: <Shield className="h-4 w-4" /> },
+  { id: "project_epi", icon: <HardHat className="h-4 w-4" /> },
+  { id: "mapa", icon: <MapPin className="h-4 w-4" /> },
 ];
 
 // ─── Componente principal ──────────────────────────────────────────────────────
@@ -567,9 +590,13 @@ export function ProjectsModule({
   onGalleryPhotosBulkDownloaded,
   focusDailyReportNav = null,
   onConsumeDailyReportNav,
+  onUpdateProjectSafetyRequirements,
+  projectNameByIdForGps = {},
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabId>("general");
+  const [projectMapActiveCount, setProjectMapActiveCount] = useState(0);
   const lastVisitorNavSig = useRef(0);
   const lastRfiNavSig = useRef(0);
   const lastSecurityNavSig = useRef(0);
@@ -704,6 +731,39 @@ export function ProjectsModule({
       setActiveTab("general");
     }
   }, [showProjectSecurityTab, activeTab]);
+
+  useEffect(() => {
+    if (!companyId || !selectedProjectId || !supabase) {
+      setProjectMapActiveCount(0);
+      return;
+    }
+    const tz = timeZoneProp ?? "UTC";
+    let cancelled = false;
+    const run = async () => {
+      const ymd = formatTodayYmdInTimeZone(tz);
+      const start = zonedYmdHmToUtcIso(ymd, "00:00", tz);
+      const end = zonedYmdHmToUtcIso(ymd, "23:59", tz);
+      const { count, error } = await supabase
+        .from("time_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("project_id", selectedProjectId)
+        .is("clock_out_at", null)
+        .gte("clock_in_at", start)
+        .lte("clock_in_at", end);
+      if (!cancelled) setProjectMapActiveCount(error ? 0 : count ?? 0);
+    };
+    void run();
+    const id = window.setInterval(() => void run(), 120_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [companyId, selectedProjectId, supabase, timeZoneProp]);
+
+  useEffect(() => {
+    if (activeTab === "mapa" && projectMapActiveCount === 0) setActiveTab("general");
+  }, [activeTab, projectMapActiveCount]);
 
   useEffect(() => {
     const tab = visitorTabSignal ?? 0;
@@ -1343,12 +1403,14 @@ export function ProjectsModule({
         return (
           <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 min-w-0">
             <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto px-4 sm:px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
-            {TABS.filter(
-              (tab) =>
-                (showProjectVisitorsTab || tab.id !== "visitantes") &&
-                (showProjectRfiTab || tab.id !== "rfi") &&
-                (showProjectSecurityTab || tab.id !== "seguridad")
-            ).map((tab) => {
+            {TABS.filter((tab) => {
+                if (tab.id === "visitantes" && !showProjectVisitorsTab) return false;
+                if (tab.id === "rfi" && !showProjectRfiTab) return false;
+                if (tab.id === "seguridad" && !showProjectSecurityTab) return false;
+                if (tab.id === "project_epi" && !canEdit && !canViewAttendancePanel) return false;
+                if (tab.id === "mapa" && (!companyId || projectMapActiveCount === 0)) return false;
+                return true;
+              }).map((tab) => {
               const label =
                 tab.id === "general"
                   ? t.siteTabGeneral ?? t.tabGeneral ?? PM_EN.tabGeneral
@@ -1371,6 +1433,10 @@ export function ProjectsModule({
                   ? (t as Record<string, string>).site_tab_rfi ?? (t as Record<string, string>).rfi_menu ?? PM_EN.rfi_menu
                   : tab.id === "seguridad"
                     ? (t as Record<string, string>).security_tab ?? PM_EN.security_tab
+                  : tab.id === "project_epi"
+                    ? (t as Record<string, string>).project_safety_title ?? PM_EN.project_safety_title
+                  : tab.id === "mapa"
+                    ? (t as Record<string, string>).tab_map ?? PM_EN.tab_map
                   : "";
               const badge =
                 tab.id === "galeria" && pendingObraPhotos.length > 0 && canApprove
@@ -1793,6 +1859,29 @@ export function ProjectsModule({
                     disabled={!addEmployeeToProjectId}
                     onClick={() => {
                       if (!selectedProject || !addEmployeeToProjectId) return;
+                      let rows = parseSafetyRequirementsJson(selectedProject.safetyRequirements);
+                      if (rows.length === 0)
+                        rows = defaultProjectSafetyRequirements(countryCode, selectedProject.type);
+                      const emp = (allEmployees ?? []).find((e) => e.id === addEmployeeToProjectId);
+                      const certReqs = rows.filter((r) => r.category === "certification");
+                      const missing = emp
+                        ? certReqs.some(
+                            (req) =>
+                              !findCertForRequirement(
+                                (emp.certificates ?? []).map((c) => ({
+                                  name: c.name,
+                                  expiryDate: c.expiryDate,
+                                })),
+                                req
+                              )
+                          )
+                        : false;
+                      if (missing) {
+                        showToast(
+                          "warning",
+                          tl.project_safety_missing_cert ?? PM_EN.project_safety_missing_cert
+                        );
+                      }
                       const current = selectedProject.assignedEmployeeIds ?? [];
                       onUpdateProjectEmployees?.(selectedProject.id, [...current, addEmployeeToProjectId]);
                       setAddEmployeeToProjectId("");
@@ -3517,6 +3606,32 @@ export function ProjectsModule({
             canShowActions={projectSecurityCanShowActions}
             dateLocale={projectSecurityDateLocale}
             timeZone={projectSecurityTimeZone}
+          />
+        ) : null}
+
+        {activeTab === "project_epi" && selectedProject && (canEdit || canViewAttendancePanel) ? (
+          <ProjectEpiSafetyTab
+            project={selectedProject}
+            allEmployees={allEmployees ?? []}
+            countryCode={countryCode}
+            companyId={companyId}
+            timeZone={userTz}
+            language={language}
+            labels={t as Record<string, string>}
+            canEdit={!!canEdit && !!onUpdateProjectSafetyRequirements}
+            onSaveRequirements={onUpdateProjectSafetyRequirements ?? (() => undefined)}
+          />
+        ) : null}
+
+        {activeTab === "mapa" && selectedProject && companyId && projectMapActiveCount > 0 ? (
+          <TeamGpsMapWidget
+            companyId={companyId}
+            timeZone={userTz}
+            language={language}
+            countryCode={countryCode}
+            projectNameById={projectNameByIdForGps}
+            labels={t as Record<string, string>}
+            filterProjectId={selectedProject.id}
           />
         ) : null}
       </div>

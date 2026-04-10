@@ -1330,11 +1330,11 @@ export function EmployeesModule({
           )}
         </div>
 
-        {viewerIsAdmin && employeeHasGpsData ? (
+        {viewerIsAdmin && companyId ? (
           <div
             className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-slate-700 pb-3"
             role="tablist"
-            aria-label={tl.gps_route_history ?? "Route"}
+            aria-label={tl.tab_route ?? tl.gps_route_history ?? "Route"}
           >
             <button
               type="button"
@@ -1361,12 +1361,12 @@ export function EmployeesModule({
               }`}
             >
               <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-              {tl.gps_route_history ?? ""}
+              {tl.tab_route ?? tl.gps_route_history ?? ""}
             </button>
           </div>
         ) : null}
 
-        {employeeDetailTab === "route" && viewerIsAdmin && employeeHasGpsData ? (
+        {employeeDetailTab === "route" && viewerIsAdmin && companyId ? (
           <EmployeeGpsRouteTab
             companyId={companyId}
             userId={selected.id}

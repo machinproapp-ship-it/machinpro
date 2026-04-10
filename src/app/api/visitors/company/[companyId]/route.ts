@@ -19,7 +19,7 @@ export async function GET(
 
   const { data, error } = await admin
     .from("companies")
-    .select("id, name")
+    .select("id, name, country_code")
     .eq("id", companyId)
     .maybeSingle();
 
@@ -30,5 +30,10 @@ export async function GET(
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ id: data.id, name: data.name });
+  const row = data as { id: string; name: string; country_code?: string | null };
+  return NextResponse.json({
+    id: row.id,
+    name: row.name,
+    countryCode: typeof row.country_code === "string" && row.country_code.trim() ? row.country_code.trim() : "CA",
+  });
 }

@@ -12,6 +12,8 @@ type Body = {
   reason?: string;
   phone?: string;
   signature?: string;
+  /** requirement id → confirmed by operator (warn-only checklist). */
+  requirements_met?: Record<string, boolean>;
 };
 
 const MAX_NAME = 500;
@@ -37,6 +39,10 @@ export async function POST(req: NextRequest) {
     typeof body.company === "string" && body.company.trim() ? body.company.trim().slice(0, MAX_COMPANY) : null;
   const phone =
     typeof body.phone === "string" && body.phone.trim() ? body.phone.trim().slice(0, MAX_PHONE) : null;
+  const requirements_met =
+    body.requirements_met && typeof body.requirements_met === "object" && !Array.isArray(body.requirements_met)
+      ? body.requirements_met
+      : {};
 
   if (!projectId) {
     return NextResponse.json({ error: "projectId required" }, { status: 400 });
@@ -101,6 +107,7 @@ export async function POST(req: NextRequest) {
       user_agent,
       terms_version: "v1.0",
       consent_timestamp,
+      requirements_met,
     })
     .select("*")
     .single();

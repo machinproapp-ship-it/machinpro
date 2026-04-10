@@ -80,12 +80,14 @@ import {
   runComplianceWatchdog,
   runVehicleDocumentsWatchdog,
   runSubcontractorWatchdog,
+  runProjectEmployeeComplianceCheck,
   shouldRunWatchdog,
   setLastWatchdogRun,
   watchdogSubjectLabel,
   type ComplianceAlert,
   type SubcontractorForWatchdog,
 } from "@/lib/complianceWatchdog";
+import type { ProjectSafetyRequirementRow } from "@/lib/projectSafetyUtils";
 import {
   ensureVehicleDocuments,
   newVehicleDocumentId,
@@ -329,6 +331,8 @@ export interface Project {
   projectCode?: string;
   /** Estado operativo (lista Central / formulario). */
   lifecycleStatus?: "active" | "paused" | "completed";
+  /** JSON from `projects.safety_requirements` (EPI / certificados / procedimientos). */
+  safetyRequirements?: unknown;
 }
 
 export type ProjectType = "residential" | "commercial" | "industrial";
@@ -1254,6 +1258,25 @@ export default function Home() {
   const invalidateDashboardCache = useCallback(() => {
     dashboardCacheRef.current = null;
   }, []);
+
+  const handleUpdateProjectSafetyRequirements = useCallback(
+    async (projectId: string, rows: ProjectSafetyRequirementRow[]) => {
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, safetyRequirements: rows } : p))
+      );
+      if (supabase && companyId) {
+        const { error } = await supabase
+          .from("projects")
+          .update({ safety_requirements: rows })
+          .eq("id", projectId)
+          .eq("company_id", companyId);
+        if (error) console.error("[page] safety_requirements update", error);
+      }
+      invalidateDashboardCache();
+    },
+    [supabase, companyId, invalidateDashboardCache]
+  );
+
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>(() => {
     if (typeof window === "undefined") return INITIAL_FORM_TEMPLATES;
@@ -1818,6 +1841,7 @@ export default function Home() {
             assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
               ? (p.assigned_employee_ids as string[])
               : [],
+            safetyRequirements: p.safety_requirements ?? undefined,
           }));
           setProjects(mappedProjects);
         }
@@ -2328,7 +2352,17 @@ export default function Home() {
     const empAlerts = runComplianceWatchdog((employees ?? []) as CentralEmployee[]);
     const vehicleAlerts = runVehicleDocumentsWatchdog(vehicles ?? []);
     const subAlerts = runSubcontractorWatchdog(subcontractorsForWatchdog ?? []);
-    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts, subAlerts);
+    const projectEmpAlerts = runProjectEmployeeComplianceCheck(
+      (projects ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        archived: p.archived,
+        assignedEmployeeIds: p.assignedEmployeeIds ?? [],
+        safetyRequirements: p.safetyRequirements,
+      })),
+      (employees ?? []) as CentralEmployee[]
+    );
+    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts, subAlerts, projectEmpAlerts);
     setComplianceAlerts(merged);
     if (shouldRunWatchdog()) {
       setLastWatchdogRun();
@@ -2336,7 +2370,7 @@ export default function Home() {
         console.log(`[ComplianceWatchdog] ${merged.length} alertas encontradas`);
       }
     }
-  }, [employees, vehicles, subcontractorsForWatchdog]);
+  }, [employees, vehicles, subcontractorsForWatchdog, projects]);
 
   useEffect(() => {
     if (!complianceNotifOpen) return;
@@ -3705,7 +3739,14 @@ export default function Home() {
     estimatedEnd: p.estimatedEnd,
     assignedEmployeeIds: p.assignedEmployeeIds,
     supervisorName: undefined,
+    safetyRequirements: p.safetyRequirements,
   }));
+
+  const projectNameByIdForGps = useMemo(() => {
+    const o: Record<string, string> = {};
+    for (const p of projects ?? []) o[p.id] = p.name;
+    return o;
+  }, [projects]);
 
   const siteInventoryItems: ProjectInventoryItem[] = (inventoryItems ?? []).map((i) => ({
     id: i.id,
@@ -4814,6 +4855,11 @@ export default function Home() {
                 cloudinaryUploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ""}
                 companyName={profile?.companyName ?? companyName ?? ""}
                 companyId={companyId ?? ""}
+                gpsMapTimeZone={userTimeZone}
+                gpsMapLanguage={language}
+                gpsMapCountryCode={companyCountry}
+                gpsProjectNameById={projectNameByIdForGps}
+                vehiclesForGpsMap={vehicles}
               />
               <ModuleHelpFab
                 moduleKey="warehouse"
@@ -5043,6 +5089,16 @@ export default function Home() {
                       p.id === projectId ? { ...p, assignedEmployeeIds: employeeIds } : p
                     )
                   );
+                  if (companyId && supabase) {
+                    void (async () => {
+                      const { error } = await supabase
+                        .from("projects")
+                        .update({ assigned_employee_ids: employeeIds })
+                        .eq("id", projectId)
+                        .eq("company_id", companyId);
+                      if (error) console.error("[page] assigned_employee_ids update", error);
+                    })();
+                  }
                   if (!companyId || !supabase) return;
                   const added = employeeIds.filter((eid) => !prevAssigned.includes(eid));
                   if (added.length === 0) return;
@@ -5058,6 +5114,10 @@ export default function Home() {
                     });
                   }
                 }}
+                onUpdateProjectSafetyRequirements={
+                  rolePerms.canEditProjects ? handleUpdateProjectSafetyRequirements : undefined
+                }
+                projectNameByIdForGps={projectNameByIdForGps}
                 onUpdateItemProject={(itemId, projectId) => {
                   setInventoryItems((prev) =>
                     prev.map((i) =>

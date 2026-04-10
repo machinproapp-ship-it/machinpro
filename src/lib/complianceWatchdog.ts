@@ -1,5 +1,10 @@
 import type { CentralEmployee } from "@/types/shared";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
+import {
+  findCertForRequirement,
+  parseSafetyRequirementsJson,
+  type ProjectSafetyRequirementRow,
+} from "@/lib/projectSafetyUtils";
 
 export type ComplianceAlertSource = "employee" | "vehicle" | "subcontractor";
 
@@ -17,12 +22,72 @@ export type ComplianceAlert = {
   expiryDate: string;
   daysLeft: number;
   severity: "expired" | "critical" | "warning";
+  /** Project context (missing cert vs project requirement). */
+  projectId?: string;
+  projectName?: string;
 };
 
 export function watchdogSubjectLabel(a: ComplianceAlert): string {
-  if (a.source === "vehicle") return a.vehiclePlate?.trim() || a.vehicleId || "—";
-  if (a.source === "subcontractor") return (a.subcontractorName ?? "").trim() || a.subcontractorId || "—";
-  return (a.employeeName ?? "").trim() || a.employeeId || "—";
+  let base: string;
+  if (a.source === "vehicle") base = a.vehiclePlate?.trim() || a.vehicleId || "—";
+  else if (a.source === "subcontractor") base = (a.subcontractorName ?? "").trim() || a.subcontractorId || "—";
+  else base = (a.employeeName ?? "").trim() || a.employeeId || "—";
+  const pn = (a.projectName ?? "").trim();
+  return pn ? `${base} · ${pn}` : base;
+}
+
+export type ProjectForEmployeeCompliance = {
+  id: string;
+  name: string;
+  archived?: boolean;
+  assignedEmployeeIds: string[];
+  /** Raw JSON from `projects.safety_requirements`. */
+  safetyRequirements?: unknown;
+};
+
+/**
+ * For each active project and assigned employee, flags missing **certification** requirements (warning only).
+ */
+export function runProjectEmployeeComplianceCheck(
+  projects: ProjectForEmployeeCompliance[],
+  employees: CentralEmployee[]
+): ComplianceAlert[] {
+  const empById = new Map(employees.map((e) => [e.id, e]));
+  const alerts: ComplianceAlert[] = [];
+
+  for (const proj of projects) {
+    if (proj.archived) continue;
+    const rows: ProjectSafetyRequirementRow[] = parseSafetyRequirementsJson(proj.safetyRequirements);
+    const certReqs = rows.filter((r) => r.category === "certification");
+    if (certReqs.length === 0) continue;
+
+    for (const uid of proj.assignedEmployeeIds ?? []) {
+      const emp = empById.get(uid);
+      if (!emp) continue;
+      const certs = emp.certificates ?? [];
+      for (const req of certReqs) {
+        const hit = findCertForRequirement(
+          certs.map((c) => ({ name: c.name, expiryDate: c.expiryDate })),
+          req
+        );
+        if (hit) continue;
+        alerts.push({
+          source: "employee",
+          employeeId: emp.id,
+          employeeName: emp.name ?? "",
+          certName: req.nameKey,
+          certNameKey: req.nameKey,
+          expiryDate: "",
+          daysLeft: 365,
+          severity: "warning",
+          projectId: proj.id,
+          projectName: proj.name,
+        });
+      }
+    }
+  }
+
+  return alerts;
 }
 
 export function runComplianceWatchdog(employees: CentralEmployee[]): ComplianceAlert[] {
@@ -203,9 +268,12 @@ export function runSubcontractorWatchdog(subcontractors: SubcontractorForWatchdo
 export function mergeComplianceAlerts(
   employeeAlerts: ComplianceAlert[],
   vehicleAlerts: ComplianceAlert[],
-  subcontractorAlerts: ComplianceAlert[] = []
+  subcontractorAlerts: ComplianceAlert[] = [],
+  projectEmployeeAlerts: ComplianceAlert[] = []
 ): ComplianceAlert[] {
-  return [...employeeAlerts, ...vehicleAlerts, ...subcontractorAlerts].sort((a, b) => a.daysLeft - b.daysLeft);
+  return [...employeeAlerts, ...vehicleAlerts, ...subcontractorAlerts, ...projectEmployeeAlerts].sort(
+    (a, b) => a.daysLeft - b.daysLeft
+  );
 }
 
 export function getLastWatchdogRun(): string | null {

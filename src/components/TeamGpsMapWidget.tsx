@@ -41,6 +41,7 @@ type MarkerModel = {
   lat: number;
   lng: number;
   lastRecordedAt: string;
+  vehiclePlate?: string | null;
 };
 
 const REFRESH_MS = 120_000;
@@ -54,6 +55,8 @@ export function TeamGpsMapWidget({
   countryCode = "CA",
   projectNameById,
   labels,
+  filterProjectId = null,
+  vehiclePlateByUserId,
 }: {
   companyId: string;
   timeZone: string;
@@ -61,6 +64,8 @@ export function TeamGpsMapWidget({
   countryCode?: string;
   projectNameById: Record<string, string>;
   labels: Record<string, string>;
+  filterProjectId?: string | null;
+  vehiclePlateByUserId?: Record<string, string>;
 }) {
   const Lx = (k: string) => labels[k] ?? "";
   const dateLoc = useMemo(() => dateLocaleForUser(language, countryCode), [language, countryCode]);
@@ -96,13 +101,16 @@ export function TeamGpsMapWidget({
       const dayStart = zonedYmdHmToUtcIso(todayYmd, "00:00", timeZone);
       const dayEnd = zonedYmdHmToUtcIso(todayYmd, "23:59", timeZone);
 
-      const { data: entries, error: entErr } = await supabase
+      let entQuery = supabase
         .from("time_entries")
         .select("id, user_id, project_id, clock_in_at, clock_in_lat, clock_in_lng")
         .eq("company_id", companyId)
         .is("clock_out_at", null)
         .gte("clock_in_at", dayStart)
         .lte("clock_in_at", dayEnd);
+      const fp = filterProjectId?.trim();
+      if (fp) entQuery = entQuery.eq("project_id", fp);
+      const { data: entries, error: entErr } = await entQuery;
 
       if (entErr) throw entErr;
       const list = (entries ?? []) as ActiveEntry[];
@@ -160,6 +168,7 @@ export function TeamGpsMapWidget({
         if (lat == null || lng == null) continue;
         const pid = e.project_id != null ? String(e.project_id) : "";
         const projectLabel = pid ? projectNameById[pid] ?? pid : "—";
+        const plate = vehiclePlateByUserId?.[e.user_id]?.trim() || null;
         next.push({
           entryId: e.id,
           userId: e.user_id,
@@ -169,6 +178,7 @@ export function TeamGpsMapWidget({
           lat,
           lng,
           lastRecordedAt: gps?.recorded_at ?? e.clock_in_at,
+          vehiclePlate: plate,
         });
       }
       setMarkers(next);
@@ -178,7 +188,7 @@ export function TeamGpsMapWidget({
     } finally {
       setLoading(false);
     }
-  }, [companyId, timeZone, projectNameById]);
+  }, [companyId, timeZone, projectNameById, filterProjectId, vehiclePlateByUserId]);
 
   useEffect(() => {
     void load();
@@ -240,17 +250,23 @@ export function TeamGpsMapWidget({
     const projectLbl = labels.project ?? "Project";
     const clockInLbl = labels.clockInEntry ?? "In";
     const lastPosLbl = labels.gps_last_position ?? "";
+    const vehLbl = labels.gps_vehicle_assigned ?? "";
     group.clearLayers();
     for (const m of markers) {
       const mk = L.marker([m.lat, m.lng]);
       const lastPos = formatDateTime(m.lastRecordedAt, dateLoc, timeZone);
       const clockIn = formatTime(m.clockInAt, dateLoc, timeZone);
+      const vehLine =
+        m.vehiclePlate && vehLbl
+          ? `<div><span class="opacity-70">${escapeHtml(vehLbl)}:</span> ${escapeHtml(m.vehiclePlate)}</div>`
+          : "";
       mk.bindPopup(
         `<div class="text-sm space-y-1 min-w-[200px]">
           <div class="font-semibold">${escapeHtml(m.name)}</div>
           <div><span class="opacity-70">${escapeHtml(projectLbl)}:</span> ${escapeHtml(m.projectLabel)}</div>
           <div><span class="opacity-70">${escapeHtml(clockInLbl)}:</span> ${escapeHtml(clockIn)}</div>
           <div><span class="opacity-70">${escapeHtml(lastPosLbl)}:</span> ${escapeHtml(lastPos)}</div>
+          ${vehLine}
         </div>`
       );
       mk.addTo(group);
@@ -260,7 +276,7 @@ export function TeamGpsMapWidget({
       map.fitBounds(bounds, { padding: [28, 28], maxZoom: 15 });
     }
     requestAnimationFrame(() => map.invalidateSize());
-  }, [markers, dateLoc, timeZone, labels.project, labels.clockInEntry, labels.gps_last_position]);
+  }, [markers, dateLoc, timeZone, labels.project, labels.clockInEntry, labels.gps_last_position, labels.gps_vehicle_assigned]);
 
   return (
     <div className="space-y-2">
