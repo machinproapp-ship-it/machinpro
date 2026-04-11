@@ -738,7 +738,8 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
     name: "Administrador",
     color: "#b45309",
     createdAt: new Date().toISOString(),
-    permissions: fullAdministratorPermissions(),
+    /** merge con emptyRolePermissionsInline() por si ROLE_PERMISSION_KEYS crece antes que fullAdmin */
+    permissions: fillRolePermissions(fullAdministratorPermissions()),
   },
   {
     id: "role-supervisor",
@@ -781,6 +782,17 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewHazards: true,
       canViewCorrectiveActions: true,
       canViewTimeclock: true,
+      canViewWorkOrders: true,
+      canManageWorkOrders: true,
+      canReportProduction: true,
+      canViewProductionCatalog: true,
+      canManageProductionCatalog: true,
+      canViewPayroll: true,
+      canManagePayroll: true,
+      canExportPayroll: true,
+      canViewProjectCosts: true,
+      canManageProjectCosts: true,
+      canExportProjectCosts: true,
     }),
   },
   {
@@ -6146,6 +6158,9 @@ export default function Home() {
                 onRequestVacation={handleCreateVacationRequest}
                 labels={{
                   schedule: t.schedule ?? "Horario",
+                  payroll_title: (t as Record<string, string>).payroll_title ?? "Nóminas",
+                  payroll_pay_toggle_hours: (t as Record<string, string>).payroll_pay_toggle_hours,
+                  payroll_pay_toggle_production: (t as Record<string, string>).payroll_pay_toggle_production,
                   clock_tab: (t as Record<string, string>).clock_tab,
                   schedule_tab_calendar: (t as Record<string, string>).schedule_tab_calendar,
                   shift: (t as Record<string, string>).shift ?? "Turno",

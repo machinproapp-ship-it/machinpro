@@ -1066,7 +1066,7 @@ function CentralDashboardBody(
             .select("project_id")
             .eq("user_id", currentUserId)
             .eq("company_id", companyId)
-            .limit(500);
+            .limit(120);
           if (epErr) throw epErr;
           const projectIdsForUser = ((epData ?? []) as { project_id: string }[]).map((r) =>
             String(r.project_id)
@@ -1144,7 +1144,7 @@ function CentralDashboardBody(
             )
             .eq("company_id", companyId)
             .order("created_at", { ascending: false })
-            .limit(80);
+            .limit(36);
           if (error) throw error;
           const rows = (data ?? []) as AuditLogEntry[];
           const filteredRows = filterBusinessAuditRows(rows, 10);
@@ -1199,7 +1199,7 @@ function CentralDashboardBody(
             .eq("company_id", companyId)
             .or(orFilter)
             .order("check_in", { ascending: false })
-            .limit(400);
+            .limit(72);
 
           if (merged.error) {
             const [todayRes, activeRes, recentRes] = await Promise.all([

@@ -903,7 +903,7 @@ export function ProjectsModule({
         case "costes":
           return showProjectCostsTab;
         case "work_order":
-          return canViewWorkOrders && !!companyId;
+          return !!canViewWorkOrders;
         case "mapa":
           return showProjectMapTab && !!companyId;
         default:
@@ -924,7 +924,6 @@ export function ProjectsModule({
       showProjectCostsTab,
       canViewWorkOrders,
       showProjectMapTab,
-      companyId,
     ]
   );
 
@@ -4153,7 +4152,12 @@ export function ProjectsModule({
           </div>
         ) : null}
 
-        {activeTab === "work_order" && selectedProject && canViewWorkOrders && companyId ? (
+        {activeTab === "work_order" && selectedProject && canViewWorkOrders ? (
+          !companyId ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {(t as Record<string, string>).employees_no_company ?? ""}
+            </p>
+          ) : (
           <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
@@ -4438,6 +4442,7 @@ export function ProjectsModule({
               </div>
             ) : null}
           </div>
+          )
         ) : null}
 
         {activeTab === "project_epi" && selectedProject && showProjectEpiTab ? (

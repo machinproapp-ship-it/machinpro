@@ -266,6 +266,9 @@ export interface ScheduleModuleProps {
     labor_cost_by_employee?: string;
     labor_cost_by_project?: string;
     logistics_filters_toggle?: string;
+    payroll_title?: string;
+    payroll_pay_toggle_hours?: string;
+    payroll_pay_toggle_production?: string;
     admin?: string;
     supervisor?: string;
     worker?: string;
@@ -2129,7 +2132,7 @@ export default function ScheduleModule({
                   : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
               }`}
             >
-              {lx.payroll_title ?? "Payroll"}
+              {lx.payroll_title ?? "Nóminas"}
             </button>
           ) : null}
           {showVacationsTab ? (
@@ -3026,7 +3029,7 @@ export default function ScheduleModule({
 
       {showPayrollTab && scheduleSubTab === "payroll" && (
         <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
-          <div className="flex flex-wrap gap-2" role="group" aria-label={lx.payroll_title ?? "Payroll"}>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={lx.payroll_title ?? "Nóminas"}>
             <button
               type="button"
               onClick={() => setPayrollPayMode("hours")}
