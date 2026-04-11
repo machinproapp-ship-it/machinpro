@@ -136,6 +136,7 @@ import type { FormTemplate, FormInstance } from "@/types/forms";
 import type { Subcontractor } from "@/types/subcontractor";
 import { INITIAL_FORM_TEMPLATES } from "@/lib/formTemplates";
 import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
+import { resolveFormLabel } from "@/lib/formTemplateDisplay";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
@@ -336,6 +337,30 @@ export interface Project {
   lifecycleStatus?: "active" | "paused" | "completed";
   /** JSON from `projects.safety_requirements` (EPI / certificados / procedimientos). */
   safetyRequirements?: unknown;
+}
+
+function dashboardFormContextLine(
+  f: FormInstance,
+  projects: Pick<Project, "id" | "name">[],
+  vehicles: Vehicle[],
+  rentals: Rental[],
+  tl: Record<string, string>
+): string {
+  const ctx = f.contextType ?? (f.projectId ? "project" : "general");
+  if (ctx === "general") return tl.forms_badge_general ?? "General";
+  if (ctx === "project") {
+    const n = projects.find((p) => p.id === f.projectId)?.name ?? f.contextName ?? f.projectId;
+    return `${tl.forms_badge_project ?? "Project"} · ${n}`;
+  }
+  if (ctx === "vehicle") {
+    const n = f.contextName ?? vehicles.find((v) => v.id === f.contextId)?.plate ?? f.contextId ?? "—";
+    return `${tl.forms_badge_vehicle ?? "Vehicle"} · ${n}`;
+  }
+  if (ctx === "rental") {
+    const n = f.contextName ?? rentals.find((r) => r.id === f.contextId)?.name ?? f.contextId ?? "—";
+    return `${tl.forms_badge_rental ?? "Rental"} · ${n}`;
+  }
+  return "—";
 }
 
 export type ProjectType = "residential" | "commercial" | "industrial";
@@ -1392,9 +1417,15 @@ export default function Home() {
   const [formsListProjectFilterOnOpen, setFormsListProjectFilterOnOpen] = useState<string | null>(
     null
   );
+  const [formsListContextFilterOnOpen, setFormsListContextFilterOnOpen] = useState<{
+    type: "vehicle" | "rental";
+    id: string;
+  } | null>(null);
+  const [formsOpenTemplatePickerTk, setFormsOpenTemplatePickerTk] = useState(0);
   const consumeFormsOpenFillNavigation = useCallback(() => {
     setFormsOpenFillInstanceId(null);
     setFormsListProjectFilterOnOpen(null);
+    setFormsListContextFilterOnOpen(null);
   }, []);
   const [binders, setBinders] = useState<Binder[]>(INITIAL_BINDERS);
   const [binderDocuments, setBinderDocuments] = useState<BinderDocument[]>([]);
@@ -1575,6 +1606,65 @@ export default function Home() {
       return INITIAL_RENTALS;
     }
   });
+
+  const dashboardFormsActiveCount = useMemo(
+    () => formInstances.filter((f) => f.status === "draft" || f.status === "in_progress").length,
+    [formInstances]
+  );
+
+  const dashboardFormsPendingPreview = useMemo(() => {
+    const ymd = formatTodayYmdInTimeZone(userTimeZone);
+    const tl = t as Record<string, string>;
+    return formInstances
+      .filter(
+        (f) =>
+          (f.status === "draft" || f.status === "in_progress") &&
+          (f.date === ymd || (f.createdAt && f.createdAt.startsWith(ymd)))
+      )
+      .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
+      .slice(0, 5)
+      .map((f) => {
+        const tpl = formTemplates.find((x) => x.id === f.templateId);
+        const name = tpl ? resolveFormLabel(tpl.name, tl) : f.templateId;
+        const contextLine = dashboardFormContextLine(f, projects, vehicles, rentals, tl);
+        const statusLbl =
+          f.status === "draft"
+            ? (tl.formDraft ?? "Draft")
+            : f.status === "in_progress"
+              ? (tl.formInProgress ?? "In progress")
+              : f.status;
+        return { id: f.id, name, contextLine, status: statusLbl };
+      });
+  }, [formInstances, formTemplates, userTimeZone, projects, vehicles, rentals, t]);
+
+  const logisticsActiveFormsTodayByVehicleId = useMemo(() => {
+    const ymd = formatTodayYmdInTimeZone(userTimeZone);
+    const m: Record<string, number> = {};
+    for (const f of formInstances) {
+      if (f.status !== "draft" && f.status !== "in_progress") continue;
+      const d = f.date ?? f.createdAt?.slice(0, 10);
+      if (d !== ymd) continue;
+      if (f.contextType === "vehicle" && f.contextId) {
+        m[f.contextId] = (m[f.contextId] ?? 0) + 1;
+      }
+    }
+    return m;
+  }, [formInstances, userTimeZone]);
+
+  const logisticsActiveFormsTodayByRentalId = useMemo(() => {
+    const ymd = formatTodayYmdInTimeZone(userTimeZone);
+    const m: Record<string, number> = {};
+    for (const f of formInstances) {
+      if (f.status !== "draft" && f.status !== "in_progress") continue;
+      const d = f.date ?? f.createdAt?.slice(0, 10);
+      if (d !== ymd) continue;
+      if (f.contextType === "rental" && f.contextId) {
+        m[f.contextId] = (m[f.contextId] ?? 0) + 1;
+      }
+    }
+    return m;
+  }, [formInstances, userTimeZone]);
+
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     if (typeof window === "undefined") return INITIAL_SUPPLIERS;
     try {
@@ -4906,6 +4996,14 @@ export default function Home() {
                 laborCostingCurrency={currency}
                 laborCostingRateByUserId={laborCostingRateByUserId}
                 laborCostingEmployeeLabels={laborCostingEmployeeLabels}
+                canViewForms={!!rolePerms.canViewForms}
+                dashboardFormsActiveCount={dashboardFormsActiveCount}
+                dashboardFormsPendingPreview={dashboardFormsPendingPreview}
+                onNavigateToForms={() => setActiveSection("forms")}
+                onNavigateToFormsNew={() => {
+                  setActiveSection("forms");
+                  setFormsOpenTemplatePickerTk((n) => n + 1);
+                }}
                 onQuickNewRfi={() => {
                   if (!perms.site) return;
                   const vp = visibleProjects ?? [];
@@ -5180,6 +5278,17 @@ export default function Home() {
                 gpsMapCountryCode={companyCountry}
                 gpsProjectNameById={projectNameByIdForGps}
                 vehiclesForGpsMap={vehicles}
+                canViewForms={!!rolePerms.canViewForms}
+                activeFormsTodayByVehicleId={logisticsActiveFormsTodayByVehicleId}
+                activeFormsTodayByRentalId={logisticsActiveFormsTodayByRentalId}
+                onOpenFormsFilteredByVehicle={(vehicleId) => {
+                  setActiveSection("forms");
+                  setFormsListContextFilterOnOpen({ type: "vehicle", id: vehicleId });
+                }}
+                onOpenFormsFilteredByRental={(rentalId) => {
+                  setActiveSection("forms");
+                  setFormsListContextFilterOnOpen({ type: "rental", id: rentalId });
+                }}
               />
               <ModuleHelpFab
                 moduleKey="warehouse"
@@ -5628,14 +5737,20 @@ export default function Home() {
                 onStartFormFromMachinTemplate={({ templateId, projectId }) => {
                   const template = formTemplates.find((x) => x.id === templateId);
                   if (!template) return;
-                  const instance = buildFormInstanceFromTemplate(template, projectId, {
+                  const projectName =
+                    (visibleProjects ?? []).find((p) => p.id === projectId)?.name ?? "";
+                  const instance = buildFormInstanceFromTemplate(
+                    template,
+                    { type: "project", id: projectId, name: projectName || null },
+                    {
                     currentUserEmployeeId: effectiveEmployeeId ?? "",
                     employees: activeEmployees.map((e) => ({ id: e.id, name: e.name })),
                     projects: (visibleProjects ?? []).map((p) => ({
                       id: p.id,
                       assignedEmployeeIds: p.assignedEmployeeIds,
                     })),
-                  });
+                  }
+                  );
                   setFormInstances((prev) => [...prev, instance]);
                   setFormsOpenFillInstanceId(instance.id);
                   setFormsListProjectFilterOnOpen(projectId);
@@ -5918,6 +6033,13 @@ export default function Home() {
                 timeZone={userTimeZone}
                 openFillInstanceId={formsOpenFillInstanceId}
                 listProjectFilterOnOpen={formsListProjectFilterOnOpen}
+                listContextFilterOnOpen={formsListContextFilterOnOpen}
+                onConsumeListContextFilter={() => setFormsListContextFilterOnOpen(null)}
+                openTemplatePickerToken={formsOpenTemplatePickerTk}
+                vehicles={(vehicles ?? []).map((v) => ({ id: v.id, plate: v.plate }))}
+                rentals={(rentals ?? [])
+                  .filter((r) => (r.returnDate ?? "") >= formatTodayYmdInTimeZone(userTimeZone))
+                  .map((r) => ({ id: r.id, name: r.name }))}
                 onConsumeOpenFillNavigation={consumeFormsOpenFillNavigation}
               />
               <ModuleHelpFab
@@ -6902,14 +7024,19 @@ export default function Home() {
                     (projects ?? [])[0]?.id ||
                     "";
                   if (!template || !pid) return;
-                  const instance = buildFormInstanceFromTemplate(template, pid, {
+                  const pname = (visibleProjects ?? []).find((p) => p.id === pid)?.name ?? "";
+                  const instance = buildFormInstanceFromTemplate(
+                    template,
+                    { type: "project", id: pid, name: pname || null },
+                    {
                     currentUserEmployeeId: effectiveEmployeeId ?? "",
                     employees: activeEmployees.map((e) => ({ id: e.id, name: e.name })),
                     projects: (visibleProjects ?? []).map((p) => ({
                       id: p.id,
                       assignedEmployeeIds: p.assignedEmployeeIds,
                     })),
-                  });
+                  }
+                  );
                   setFormInstances((prev) => [...prev, instance]);
                   setFormsOpenFillInstanceId(instance.id);
                   setFormsListProjectFilterOnOpen(pid);

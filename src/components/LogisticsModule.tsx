@@ -258,6 +258,11 @@ export interface LogisticsModuleProps {
   gpsMapCountryCode?: string;
   gpsProjectNameById?: Record<string, string>;
   vehiclesForGpsMap?: Vehicle[];
+  canViewForms?: boolean;
+  activeFormsTodayByVehicleId?: Record<string, number>;
+  activeFormsTodayByRentalId?: Record<string, number>;
+  onOpenFormsFilteredByVehicle?: (vehicleId: string) => void;
+  onOpenFormsFilteredByRental?: (rentalId: string) => void;
 }
 
 function daysUntilExpiry(expiryDate: string): number {
@@ -461,6 +466,11 @@ export function LogisticsModule({
   gpsMapCountryCode = "CA",
   gpsProjectNameById = {},
   vehiclesForGpsMap = [],
+  canViewForms = false,
+  activeFormsTodayByVehicleId = {},
+  activeFormsTodayByRentalId = {},
+  onOpenFormsFilteredByVehicle,
+  onOpenFormsFilteredByRental,
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
   const tlLabels = t as Record<string, string>;
@@ -1609,6 +1619,18 @@ export function LogisticsModule({
                       >
                         {v.plate}
                       </button>
+                      {canViewForms &&
+                      (activeFormsTodayByVehicleId[v.id] ?? 0) > 0 &&
+                      onOpenFormsFilteredByVehicle ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenFormsFilteredByVehicle(v.id)}
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-blue-100 px-2.5 text-xs font-bold text-blue-800 dark:bg-blue-950/60 dark:text-blue-200"
+                          aria-label={tlLabels.forms_card_title ?? "Forms"}
+                        >
+                          {activeFormsTodayByVehicleId[v.id]}
+                        </button>
+                      ) : null}
                     </div>
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${vehicleStatusBadgeClass(v.vehicleStatus)}`}>
                       {getStatusLabel((v.vehicleStatus ?? "available") === "available" ? "available" : (v.vehicleStatus ?? "available") === "in_use" ? "inUse" : (v.vehicleStatus ?? "available") === "maintenance" ? "maintenance" : "outOfService")}
@@ -1732,6 +1754,18 @@ export function LogisticsModule({
                         >
                           {v.plate}
                         </button>
+                        {canViewForms &&
+                        (activeFormsTodayByVehicleId[v.id] ?? 0) > 0 &&
+                        onOpenFormsFilteredByVehicle ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenFormsFilteredByVehicle(v.id)}
+                            className="mt-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-blue-100 px-2.5 text-xs font-bold text-blue-800 dark:bg-blue-950/60 dark:text-blue-200"
+                            aria-label={tlLabels.forms_card_title ?? "Forms"}
+                          >
+                            {activeFormsTodayByVehicleId[v.id]}
+                          </button>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{driver?.name ?? "—"}</td>
                       <td className="px-4 py-3">
@@ -1828,7 +1862,21 @@ export function LogisticsModule({
               return (
               <div key={r.id} className="flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                 <div>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{r.name}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{r.name}</p>
+                    {canViewForms &&
+                    (activeFormsTodayByRentalId[r.id] ?? 0) > 0 &&
+                    onOpenFormsFilteredByRental ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenFormsFilteredByRental(r.id)}
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-blue-100 px-2.5 text-xs font-bold text-blue-800 dark:bg-blue-950/60 dark:text-blue-200"
+                        aria-label={tlLabels.forms_card_title ?? "Forms"}
+                      >
+                        {activeFormsTodayByRentalId[r.id]}
+                      </button>
+                    ) : null}
+                  </div>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whSupplier}: {r.supplier}</p>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whReturnDate}: {r.returnDate} · {t.whRentalCost}: {rentalCur} {rentalAmount.toFixed(2)}</p>
                   <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium mt-1 ${projectAssignmentChipClass(!!r.projectId)}`}>

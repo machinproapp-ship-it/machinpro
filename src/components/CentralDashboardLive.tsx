@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Users,
   UserCheck,
@@ -17,6 +17,7 @@ import {
   ChevronUp,
   ChevronDown,
   Briefcase,
+  ClipboardList,
   KeyRound,
   ShieldAlert,
   Shield,
@@ -300,6 +301,7 @@ const WIDGET_LABEL_KEYS: Record<DashboardWidgetId, string> = {
   critical_inventory: "criticalInventory",
   labor_costing: "labor_costing",
   quick_access: "quickAccess",
+  forms_pending: "forms_pending_widget",
 };
 
 export interface CentralDashboardLiveProps {
@@ -381,6 +383,13 @@ export interface CentralDashboardLiveProps {
   /** Solo usuarios con permiso de seguridad ven el widget opcional. */
   canViewSecurityDashboard?: boolean;
   onOpenOperationsSecurity?: () => void;
+  canViewForms?: boolean;
+  formsActiveCount?: number;
+  /** Hasta 5 filas: formularios pendientes del día para el widget del panel. */
+  formsPendingTodayPreview?: { id: string; name: string; contextLine: string; status: string }[];
+  onNavigateToForms?: () => void;
+  /** Abre el módulo Formularios en la librería de plantillas (crear). */
+  onNavigateToFormsNew?: () => void;
 }
 
 type TimeRow = {
@@ -459,6 +468,11 @@ function CentralDashboardBody(
     complianceExpiredCertCount = 0,
     canViewSecurityDashboard = false,
     onOpenOperationsSecurity,
+    canViewForms = false,
+    formsActiveCount = 0,
+    formsPendingTodayPreview = [],
+    onNavigateToForms,
+    onNavigateToFormsNew,
   } = props;
 
   const labels = labelsProp;
@@ -481,6 +495,7 @@ function CentralDashboardBody(
   const formattedDate = formatDateLong(new Date(), dateLoc, timeZone);
 
   const [primaryReady, setPrimaryReady] = useState(false);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
   const [dailyLoading, setDailyLoading] = useState(true);
   const [empCountLoading, setEmpCountLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -560,12 +575,22 @@ function CentralDashboardBody(
   const [visitorsActiveNow, setVisitorsActiveNow] = useState(0);
   const [visitorsRecent, setVisitorsRecent] = useState<VisitorWidgetRow[]>([]);
 
+  const dashboardDataCacheRef = useRef<{
+    companyId: string;
+    audit?: { at: number; rows: AuditLogEntry[]; profiles: Record<string, AuditProfileSnippet> };
+    visitors?: { at: number; todayCount: number; activeNow: number; recent: VisitorWidgetRow[] };
+    hazards?: { at: number; hazardRows: Hazard[]; correctivePendingCount: number };
+    empCount?: { at: number; value: number | null };
+  }>({ companyId: "" });
+  const lastDashboardRefreshTkAppliedRef = useRef<number | null>(null);
+
   const showZone1 =
     canViewEmployees ||
     canManageEmployees ||
     canViewRoles ||
     canManageRoles ||
-    canViewProjectsManagement;
+    canViewProjectsManagement ||
+    canViewForms;
 
   const canShowWidget = useCallback(
     (id: DashboardWidgetId): boolean => {
@@ -617,6 +642,7 @@ function CentralDashboardBody(
       canViewLogistics,
       laborCostingEnabled,
       canViewLaborCosting,
+      canViewForms,
     ]
   );
 
@@ -695,14 +721,29 @@ function CentralDashboardBody(
 
   useEffect(() => {
     let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
     const pushErr = (e: unknown, label: string) => {
       if (cancelled) return;
       setLoadErrors((prev) => [...prev, `${label}: ${errMessage(e)}`]);
     };
 
+    const cref = dashboardDataCacheRef;
+    if (cref.current.companyId !== companyId) {
+      cref.current = { companyId };
+    }
+    const c = cref.current;
+    if (lastDashboardRefreshTkAppliedRef.current !== dashboardRefreshTk) {
+      lastDashboardRefreshTkAppliedRef.current = dashboardRefreshTk;
+      delete c.audit;
+      delete c.visitors;
+      delete c.hazards;
+      delete c.empCount;
+    }
+
     const run = async () => {
       setLoadErrors([]);
       setPrimaryReady(false);
+      setScheduleLoading(true);
       setDailyLoading(true);
       setEmpCountLoading(true);
       setActivityLoading(true);
@@ -713,6 +754,7 @@ function CentralDashboardBody(
       if (!sessionData?.session) {
         if (!cancelled) {
           setPrimaryReady(false);
+          setScheduleLoading(false);
           setDailyLoading(false);
           setEmpCountLoading(false);
           setActivityLoading(false);
@@ -722,76 +764,100 @@ function CentralDashboardBody(
         return;
       }
 
-      const epPromise = supabase
-        .from("employee_projects")
-        .select("project_id")
-        .eq("user_id", currentUserId)
-        .eq("company_id", companyId);
-
-      const myTimePromise = supabase
-        .from("time_entries")
-        .select("id, user_id, clock_in_at, clock_out_at")
-        .eq("company_id", companyId)
-        .eq("user_id", currentUserId)
-        .gte("clock_in_at", tStart)
-        .lte("clock_in_at", tEnd)
-        .order("clock_in_at", { ascending: false })
-        .limit(50);
-
-      const teamTimePromise = canViewTeamClock
-        ? supabase
+      const phase1Time = async () => {
+        try {
+          const { data, error } = await supabase
             .from("time_entries")
             .select("id, user_id, clock_in_at, clock_out_at")
             .eq("company_id", companyId)
             .gte("clock_in_at", tStart)
             .lte("clock_in_at", tEnd)
             .order("clock_in_at", { ascending: false })
-            .limit(50)
-        : Promise.resolve({ data: [] as TimeRow[], error: null });
+            .limit(20);
+          if (error) throw error;
+          if (cancelled) return;
+          const rows = (data ?? []) as TimeRow[];
+          setMyTimeRows(rows.filter((r) => String(r.user_id) === currentUserId));
+          setTeamTimeRows(canViewTeamClock ? rows : []);
+        } catch (e) {
+          pushErr(e, L("myClockIn"));
+          if (!cancelled) {
+            setMyTimeRows([]);
+            setTeamTimeRows([]);
+          }
+        }
+      };
 
-      const schedulePromise = supabase
-        .from("schedule_entries")
-        .select("id, employee_ids")
-        .eq("company_id", companyId)
-        .eq("date", todayIso)
-        .limit(50);
+      const phase1Emp = async () => {
+        try {
+          if (!canViewEmployees && !canManageEmployees) {
+            if (!cancelled) setEmpActiveCount(null);
+            return;
+          }
+          const now = Date.now();
+          const cached = c.empCount;
+          if (cached && now - cached.at < 300_000) {
+            if (!cancelled) setEmpActiveCount(cached.value);
+            return;
+          }
+          const { count, error } = await supabase
+            .from("user_profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId)
+            .eq("profile_status", "active");
+          if (error) throw error;
+          const value = count ?? 0;
+          c.empCount = { at: Date.now(), value };
+          if (!cancelled) setEmpActiveCount(value);
+        } catch (e) {
+          pushErr(e, "user_profiles");
+        } finally {
+          if (!cancelled) setEmpCountLoading(false);
+        }
+      };
 
-      const dataBatch = Promise.all([epPromise, myTimePromise, teamTimePromise, schedulePromise]);
-      const [batchResults] = await Promise.all([dataBatch, loadDashboardConfig()]);
-      const [epRes, myTRes, teamTRes, schRes] = batchResults;
+      await Promise.all([phase1Time(), loadDashboardConfig(), phase1Emp()]);
       if (cancelled) return;
+      setPrimaryReady(true);
 
-      let projectIdsForUser: string[] = [];
-      if (epRes.error) pushErr(epRes.error, "employee_projects");
-      else
-        projectIdsForUser = ((epRes.data ?? []) as { project_id: string }[]).map((r) => String(r.project_id));
-
-      if (myTRes.error) pushErr(myTRes.error, L("myClockIn"));
-      else if (!cancelled) setMyTimeRows((myTRes.data ?? []) as TimeRow[]);
-
-      if (!canViewTeamClock) {
-        if (!cancelled) setTeamTimeRows([]);
-      } else if (teamTRes.error) {
-        pushErr(teamTRes.error, L("dashboard_widget_team_timeclock"));
-      } else if (!cancelled) {
-        setTeamTimeRows((teamTRes.data ?? []) as TimeRow[]);
-      }
-
-      if (schRes.error) pushErr(schRes.error, "schedule");
-      else if (!cancelled) {
-        const rows = (schRes.data ?? []) as Record<string, unknown>[];
-        const mine = rows.filter((row) => {
-          const ids = row.employee_ids;
-          if (!Array.isArray(ids)) return false;
-          return ids.map(String).includes(currentUserId);
-        });
-        setScheduleToday(mine);
-      }
-
-      if (!cancelled) setPrimaryReady(true);
+      const loadSchedule = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("schedule_entries")
+            .select("id, employee_ids")
+            .eq("company_id", companyId)
+            .eq("date", todayIso)
+            .limit(50);
+          if (error) throw error;
+          if (!cancelled) {
+            const rows = (data ?? []) as Record<string, unknown>[];
+            const mine = rows.filter((row) => {
+              const ids = row.employee_ids;
+              if (!Array.isArray(ids)) return false;
+              return ids.map(String).includes(currentUserId);
+            });
+            setScheduleToday(mine);
+          }
+        } catch (e) {
+          pushErr(e, "schedule");
+        } finally {
+          if (!cancelled) setScheduleLoading(false);
+        }
+      };
 
       const loadDailyBundle = async () => {
         try {
+          const { data: epData, error: epErr } = await supabase
+            .from("employee_projects")
+            .select("project_id")
+            .eq("user_id", currentUserId)
+            .eq("company_id", companyId)
+            .limit(500);
+          if (epErr) throw epErr;
+          const projectIdsForUser = ((epData ?? []) as { project_id: string }[]).map((r) =>
+            String(r.project_id)
+          );
+
           const { data: drData, error: drErr } = await supabase
             .from("daily_reports")
             .select(
@@ -830,32 +896,21 @@ function CentralDashboardBody(
         }
       };
 
-      const fetchEmpCount = async () => {
-        try {
-          if (!canViewEmployees && !canManageEmployees) {
-            if (!cancelled) setEmpActiveCount(null);
-            return;
-          }
-          const { count, error } = await supabase
-            .from("user_profiles")
-            .select("id", { count: "exact", head: true })
-            .eq("company_id", companyId)
-            .eq("profile_status", "active");
-          if (error) throw error;
-          if (!cancelled) setEmpActiveCount(count ?? 0);
-        } catch (e) {
-          pushErr(e, "user_profiles");
-        } finally {
-          if (!cancelled) setEmpCountLoading(false);
-        }
-      };
-
       const auditPipeline = async () => {
         try {
           if (!canManageEmployees && !canViewAuditLog) {
             if (!cancelled) {
               setActivityRows([]);
               setAuditProfileByUserId({});
+            }
+            return;
+          }
+          const now = Date.now();
+          const cached = c.audit;
+          if (cached && now - cached.at < 60_000) {
+            if (!cancelled) {
+              setActivityRows(cached.rows);
+              setAuditProfileByUserId(cached.profiles);
             }
             return;
           }
@@ -876,7 +931,8 @@ function CentralDashboardBody(
               .from("user_profiles")
               .select("id, full_name, display_name, email")
               .in("id", ids)
-              .eq("company_id", companyId);
+              .eq("company_id", companyId)
+              .limit(50);
             if (pErr) throw pErr;
             for (const p of (profs ?? []) as {
               id: string;
@@ -895,6 +951,7 @@ function CentralDashboardBody(
               profileMap[idRaw.toLowerCase()] = snippet;
             }
           }
+          c.audit = { at: Date.now(), rows, profiles: profileMap };
           if (!cancelled) {
             setActivityRows(rows);
             setAuditProfileByUserId(profileMap);
@@ -916,32 +973,66 @@ function CentralDashboardBody(
             }
             return;
           }
-          const [todayRes, activeRes, recentRes] = await Promise.all([
-            supabase
-              .from("visitor_logs")
-              .select("id", { count: "exact", head: true })
-              .eq("company_id", companyId)
-              .gte("check_in", tStart)
-              .lte("check_in", tEnd),
-            supabase
-              .from("visitor_logs")
-              .select("id", { count: "exact", head: true })
-              .eq("company_id", companyId)
-              .eq("status", "checked_in"),
-            supabase
-              .from("visitor_logs")
-              .select("id, visitor_name, check_in, project_name, status")
-              .eq("company_id", companyId)
-              .order("check_in", { ascending: false })
-              .limit(3),
-          ]);
-          if (todayRes.error) throw todayRes.error;
-          if (activeRes.error) throw activeRes.error;
-          if (recentRes.error) throw recentRes.error;
+          const now = Date.now();
+          const cached = c.visitors;
+          if (cached && now - cached.at < 30_000) {
+            if (!cancelled) {
+              setVisitorsTodayCount(cached.todayCount);
+              setVisitorsActiveNow(cached.activeNow);
+              setVisitorsRecent(cached.recent);
+            }
+            return;
+          }
+
+          const orFilter = `status.eq.checked_in,and(check_in.gte."${tStart}",check_in.lte."${tEnd}")`;
+          const merged = await supabase
+            .from("visitor_logs")
+            .select("id, visitor_name, check_in, project_name, status")
+            .eq("company_id", companyId)
+            .or(orFilter)
+            .order("check_in", { ascending: false })
+            .limit(400);
+
+          if (merged.error) {
+            const [todayRes, activeRes, recentRes] = await Promise.all([
+              supabase
+                .from("visitor_logs")
+                .select("id", { count: "exact", head: true })
+                .eq("company_id", companyId)
+                .gte("check_in", tStart)
+                .lte("check_in", tEnd),
+              supabase
+                .from("visitor_logs")
+                .select("id", { count: "exact", head: true })
+                .eq("company_id", companyId)
+                .eq("status", "checked_in"),
+              supabase
+                .from("visitor_logs")
+                .select("id, visitor_name, check_in, project_name, status")
+                .eq("company_id", companyId)
+                .order("check_in", { ascending: false })
+                .limit(5),
+            ]);
+            if (todayRes.error) throw todayRes.error;
+            if (activeRes.error) throw activeRes.error;
+            if (recentRes.error) throw recentRes.error;
+            if (!cancelled) {
+              setVisitorsTodayCount(todayRes.count ?? 0);
+              setVisitorsActiveNow(activeRes.count ?? 0);
+              setVisitorsRecent((recentRes.data ?? []) as VisitorWidgetRow[]);
+            }
+            return;
+          }
+
+          const vrows = (merged.data ?? []) as VisitorWidgetRow[];
+          const todayCount = vrows.filter((r) => r.check_in >= tStart && r.check_in <= tEnd).length;
+          const activeNow = vrows.filter((r) => r.status === "checked_in").length;
+          const recent = vrows.slice(0, 5);
+          c.visitors = { at: Date.now(), todayCount, activeNow, recent };
           if (!cancelled) {
-            setVisitorsTodayCount(todayRes.count ?? 0);
-            setVisitorsActiveNow(activeRes.count ?? 0);
-            setVisitorsRecent((recentRes.data ?? []) as VisitorWidgetRow[]);
+            setVisitorsTodayCount(todayCount);
+            setVisitorsActiveNow(activeNow);
+            setVisitorsRecent(recent);
           }
         } catch (e) {
           pushErr(e, L("dashboard_widget_visitors"));
@@ -952,6 +1043,17 @@ function CentralDashboardBody(
 
       const fetchHazards = async () => {
         try {
+          const now = Date.now();
+          const hzCached = c.hazards;
+          if (hzCached && now - hzCached.at < 120_000) {
+            if (!cancelled) {
+              setHazardRows(hzCached.hazardRows);
+              setCorrectivePendingCount(hzCached.correctivePendingCount);
+            }
+            return;
+          }
+
+          let hazardRowsNext: Hazard[] = [];
           if (canAccessHazards && (canManageEmployees || canManageComplianceAlerts)) {
             const { data, error } = await supabase
               .from("hazards")
@@ -960,10 +1062,12 @@ function CentralDashboardBody(
               .in("status", ["open", "in_progress"])
               .limit(50);
             if (error) throw error;
-            if (!cancelled) setHazardRows((data ?? []) as Hazard[]);
+            hazardRowsNext = (data ?? []) as Hazard[];
+            if (!cancelled) setHazardRows(hazardRowsNext);
           } else if (!cancelled) {
             setHazardRows([]);
           }
+          let corrective = 0;
           if (
             canViewSecurityDashboard &&
             canAccessCorrective &&
@@ -975,10 +1079,16 @@ function CentralDashboardBody(
               .eq("company_id", companyId)
               .in("status", ["open", "in_progress"]);
             if (cErr) throw cErr;
-            if (!cancelled) setCorrectivePendingCount(count ?? 0);
+            corrective = count ?? 0;
+            if (!cancelled) setCorrectivePendingCount(corrective);
           } else if (!cancelled) {
             setCorrectivePendingCount(0);
           }
+          c.hazards = {
+            at: Date.now(),
+            hazardRows: hazardRowsNext,
+            correctivePendingCount: corrective,
+          };
         } catch (e) {
           pushErr(e, L("dashboard_widget_hazards"));
         } finally {
@@ -986,13 +1096,17 @@ function CentralDashboardBody(
         }
       };
 
-      await Promise.all([loadDailyBundle(), fetchEmpCount()]);
-      void Promise.all([auditPipeline(), fetchVisitors(), fetchHazards()]);
+      timers.push(setTimeout(() => void loadSchedule(), 400));
+      timers.push(setTimeout(() => void auditPipeline(), 500));
+      timers.push(setTimeout(() => void loadDailyBundle(), 600));
+      timers.push(setTimeout(() => void fetchVisitors(), 800));
+      timers.push(setTimeout(() => void fetchHazards(), 1000));
     };
 
     void run();
     return () => {
       cancelled = true;
+      for (const t of timers) clearTimeout(t);
     };
   }, [
     companyId,
@@ -1598,7 +1712,6 @@ function CentralDashboardBody(
           </>
         );
       case "my_tasks":
-        if (!primaryReady) return widgetSkeleton();
         return widgetChrome(
           id,
           <>
@@ -1607,9 +1720,16 @@ function CentralDashboardBody(
               {title}
             </h3>
             <p className="text-xs text-gray-500 mb-2">
-              {scheduleToday.length > 0
-                ? `${scheduleToday.length} ${L("schedule_pick_employees") ?? ""}`
-                : L("dashboard_trend_neutral")}
+              {scheduleLoading ? (
+                <span
+                  className="inline-block h-4 w-48 max-w-full rounded bg-gray-200 dark:bg-gray-600 animate-pulse"
+                  aria-hidden
+                />
+              ) : scheduleToday.length > 0 ? (
+                `${scheduleToday.length} ${L("schedule_pick_employees") ?? ""}`
+              ) : (
+                L("dashboard_trend_neutral")
+              )}
             </p>
             {dailyLoading ? (
               <WidgetSkeleton lines={3} />
@@ -1649,6 +1769,46 @@ function CentralDashboardBody(
                 ))
               )}
             </ul>
+          </>
+        );
+      case "forms_pending":
+        if (!canViewForms) return null;
+        return widgetChrome(
+          id,
+          <>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-blue-500" aria-hidden />
+              {title}
+            </h3>
+            {formsPendingTodayPreview.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">{L("dashboard_trend_neutral")}</p>
+            ) : (
+              <ul className="text-sm space-y-2 max-h-48 overflow-y-auto mb-3">
+                {formsPendingTodayPreview.map((row) => (
+                  <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2">
+                    <span className="font-medium block break-words">{row.name}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{row.contextLine}</span>
+                    <span className="text-xs text-amber-700 dark:text-amber-300">{row.status}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => onNavigateToForms?.()}
+                className="min-h-[44px] flex-1 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 py-2"
+              >
+                {L("viewAll") || L("forms")}
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateToFormsNew?.()}
+                className="min-h-[44px] flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-2"
+              >
+                {L("newForm") || "New form"}
+              </button>
+            </div>
           </>
         );
       case "critical_inventory":
@@ -1837,6 +1997,29 @@ function CentralDashboardBody(
                               onClick={() => {
                                 onProjectsManagementCardClick?.();
                               }}
+                            />
+                          ),
+                        },
+                      ]
+                    : []
+                )
+                .concat(
+                  canViewForms
+                    ? [
+                        {
+                          key: "mgmt-forms",
+                          node: (
+                            <UnifiedDashCard
+                              icon={<ClipboardList className="h-5 w-5 text-white" />}
+                              iconWrapClassName="bg-blue-500"
+                              label={L("forms_card_title") || L("forms")}
+                              value={formsActiveCount}
+                              subContent={
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                                  {L("forms_card_subtitle") || "formularios activos"}
+                                </span>
+                              }
+                              onClick={() => onNavigateToForms?.()}
                             />
                           ),
                         },

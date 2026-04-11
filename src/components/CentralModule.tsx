@@ -307,6 +307,11 @@ interface CentralModuleProps {
   complianceExpiredCertCount?: number;
   canViewSecurityDashboard?: boolean;
   onOpenOperationsSecurity?: () => void;
+  canViewForms?: boolean;
+  dashboardFormsActiveCount?: number;
+  dashboardFormsPendingPreview?: { id: string; name: string; contextLine: string; status: string }[];
+  onNavigateToForms?: () => void;
+  onNavigateToFormsNew?: () => void;
 }
 
 function computeComplianceRecordStatus(
@@ -456,6 +461,11 @@ export function CentralModule({
   complianceExpiredCertCount = 0,
   canViewSecurityDashboard = false,
   onOpenOperationsSecurity,
+  canViewForms = false,
+  dashboardFormsActiveCount = 0,
+  dashboardFormsPendingPreview = [],
+  onNavigateToForms,
+  onNavigateToFormsNew,
 }: CentralModuleProps) {
   const canViewProjects = canViewProjectsProp ?? canEdit;
   const canCreateProjects = canCreateProjectsProp ?? canEdit;
@@ -945,6 +955,11 @@ export function CentralModule({
                 complianceExpiredCertCount={complianceExpiredCertCount}
                 canViewSecurityDashboard={canViewSecurityDashboard}
                 onOpenOperationsSecurity={onOpenOperationsSecurity}
+                canViewForms={canViewForms}
+                formsActiveCount={dashboardFormsActiveCount}
+                formsPendingTodayPreview={dashboardFormsPendingPreview}
+                onNavigateToForms={onNavigateToForms}
+                onNavigateToFormsNew={onNavigateToFormsNew}
               />
               {((canOpenCompanyBinders && companyBindersPanel) || (canOpenCompanyTraining && companyTrainingPanel)) && (
                 <div className="flex flex-wrap gap-2 pt-2">

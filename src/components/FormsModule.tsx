@@ -17,6 +17,7 @@ import type {
   FormInstance,
   FormField,
   AttendeeRecord,
+  FormContextType,
 } from "@/types/forms";
 import { generateFormPDF } from "@/lib/generateFormPDF";
 import { BrandWordmark } from "@/components/BrandWordmark";
@@ -95,7 +96,216 @@ export interface FormsModuleProps {
   openFillInstanceId?: string | null;
   /** Optional project filter to apply when opening fill from navigation. */
   listProjectFilterOnOpen?: string | null;
+  /** Filtro por vehículo o alquiler al entrar desde Logística. */
+  listContextFilterOnOpen?: { type: "vehicle" | "rental"; id: string } | null;
+  onConsumeListContextFilter?: () => void;
+  /** Incrementar para abrir la vista de plantillas (crear formulario). */
+  openTemplatePickerToken?: number;
+  vehicles?: { id: string; plate: string }[];
+  rentals?: { id: string; name: string }[];
   onConsumeOpenFillNavigation?: () => void;
+}
+
+function formContextBadgeClass(ctx: FormContextType | undefined): string {
+  switch (ctx ?? "general") {
+    case "project":
+      return "bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-200";
+    case "vehicle":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200";
+    case "rental":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200";
+    default:
+      return "bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300";
+  }
+}
+
+function FormTemplatePickCard({
+  template,
+  projects,
+  vehicles,
+  rentals,
+  labels,
+  canCreateForms,
+  canManageFormTemplates,
+  l,
+  onPick,
+  onUpdateTemplate,
+  onDeleteTemplate,
+  onDuplicate,
+}: {
+  template: FormTemplate;
+  projects: ProjectBasic[];
+  vehicles: { id: string; plate: string }[];
+  rentals: { id: string; name: string }[];
+  labels: Record<string, string>;
+  canCreateForms: boolean;
+  canManageFormTemplates: boolean;
+  l: (k: string) => string;
+  onPick: (templateId: string, ctx: { type: FormContextType; id: string | null; name: string | null }) => void;
+  onUpdateTemplate: (tpl: FormTemplate) => void;
+  onDeleteTemplate: (id: string) => void;
+  onDuplicate: (tpl: FormTemplate) => void;
+}) {
+  const [ctxType, setCtxType] = useState<FormContextType>("project");
+  const [targetId, setTargetId] = useState("");
+
+  const canCreate =
+    canCreateForms &&
+    (ctxType === "general" ||
+      (ctxType === "project" && Boolean(targetId)) ||
+      (ctxType === "vehicle" && Boolean(targetId)) ||
+      (ctxType === "rental" && Boolean(targetId)));
+
+  const submit = () => {
+    if (!canCreate) return;
+    if (ctxType === "general") {
+      onPick(template.id, { type: "general", id: null, name: null });
+      return;
+    }
+    if (ctxType === "project") {
+      const p = projects.find((x) => x.id === targetId);
+      onPick(template.id, { type: "project", id: targetId, name: p?.name ?? null });
+      return;
+    }
+    if (ctxType === "vehicle") {
+      const v = vehicles.find((x) => x.id === targetId);
+      onPick(template.id, { type: "vehicle", id: targetId, name: v?.plate ?? null });
+      return;
+    }
+    const r = rentals.find((x) => x.id === targetId);
+    onPick(template.id, { type: "rental", id: targetId, name: r?.name ?? null });
+  };
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+            template.isBase
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+              : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+          }`}
+        >
+          {template.isBase ? (
+            <BrandWordmark tone="onLight" className="inline text-xs font-medium" />
+          ) : (
+            l("forms_company_badge")
+          )}
+        </span>
+      </div>
+      <h3 className="font-semibold text-zinc-900 dark:text-white">
+        {resolveFormLabel(template.name, labels)}
+      </h3>
+      {template.description && (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2">
+          {resolveFormLabel(template.description, labels)}
+        </p>
+      )}
+      <p className="text-xs text-zinc-400">
+        {template.region.join(", ")} · {resolveFormLabel(template.category, labels)}
+      </p>
+      <div className="space-y-2 pt-1">
+        <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          {l("forms_context_label")}
+        </label>
+        <select
+          value={ctxType}
+          onChange={(e) => {
+            setCtxType(e.target.value as FormContextType);
+            setTargetId("");
+          }}
+          className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+        >
+          <option value="project">{l("forms_context_project")}</option>
+          <option value="vehicle">{l("forms_context_vehicle")}</option>
+          <option value="rental">{l("forms_context_rental")}</option>
+          <option value="general">{l("forms_context_general")}</option>
+        </select>
+        {ctxType === "project" ? (
+          <select
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+          >
+            <option value="">{l("forms_select_placeholder")}</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {ctxType === "vehicle" ? (
+          <select
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+          >
+            <option value="">{l("forms_select_placeholder")}</option>
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.plate}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {ctxType === "rental" ? (
+          <select
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+          >
+            <option value="">{l("forms_select_placeholder")}</option>
+            {rentals.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2 mt-auto pt-2">
+        <button
+          type="button"
+          disabled={!canCreate}
+          onClick={submit}
+          className="rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] disabled:opacity-50 disabled:pointer-events-none hover:bg-amber-500"
+        >
+          {l("useTemplate")}
+        </button>
+        {canManageFormTemplates && !template.isBase && (
+          <>
+            <button
+              type="button"
+              onClick={() => onUpdateTemplate(template)}
+              className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title={labels.edit}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDeleteTemplate(template.id)}
+              className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title={l("forms_delete_template")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </>
+        )}
+        {canManageFormTemplates && (
+          <button
+            type="button"
+            onClick={() => onDuplicate(template)}
+            className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center text-sm"
+            title={l("forms_duplicate")}
+          >
+            {l("forms_duplicate")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function SignatureCanvas({
@@ -233,6 +443,11 @@ export function FormsModule({
   timeZone: timeZoneProp,
   openFillInstanceId: openFillInstanceIdProp = null,
   listProjectFilterOnOpen = null,
+  listContextFilterOnOpen = null,
+  onConsumeListContextFilter,
+  openTemplatePickerToken = 0,
+  vehicles: vehiclesProp = [],
+  rentals: rentalsProp = [],
   onConsumeOpenFillNavigation,
 }: FormsModuleProps) {
   void useMachinProDisplayPrefs();
@@ -278,6 +493,26 @@ export function FormsModule({
   const [filterAssigneeId, setFilterAssigneeId] = useState("");
   const [fillSectionIndex, setFillSectionIndex] = useState(0);
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState("");
+  const [listContextFilter, setListContextFilter] = useState<{ type: "vehicle" | "rental"; id: string } | null>(
+    null
+  );
+
+  const vehicles = vehiclesProp;
+  const rentals = rentalsProp;
+
+  const lastTemplatePickerTkRef = useRef(0);
+  useEffect(() => {
+    if (!openTemplatePickerToken || openTemplatePickerToken <= lastTemplatePickerTkRef.current) return;
+    lastTemplatePickerTkRef.current = openTemplatePickerToken;
+    setView("template");
+  }, [openTemplatePickerToken]);
+
+  useEffect(() => {
+    if (!listContextFilterOnOpen) return;
+    setSelectedProjectId("");
+    setListContextFilter(listContextFilterOnOpen);
+    onConsumeListContextFilter?.();
+  }, [listContextFilterOnOpen, onConsumeListContextFilter]);
 
   const libraryTemplates = useMemo(() => {
     if (!templateCategoryFilter) return templates;
@@ -304,6 +539,7 @@ export function FormsModule({
     const inst = instances.find((i) => i.id === openFillInstanceIdProp);
     if (!inst) return;
     consumedOpenFillIdRef.current = openFillInstanceIdProp;
+    setListContextFilter(null);
     if (listProjectFilterOnOpen) setSelectedProjectId(listProjectFilterOnOpen);
     setFillInstanceId(inst.id);
     setFillDraftValues(inst.fieldValues);
@@ -455,10 +691,20 @@ export function FormsModule({
     setFillDraftAttendees(updated.attendees);
   }, [visitorName, visitorCompany, visitorOrientation, fillInstanceId, instances, onUpdateInstance, clearVisitorSignCanvas]);
 
-  const filteredInstances =
-    selectedProjectId && view === "list"
-      ? instances.filter((i) => i.projectId === selectedProjectId)
-      : instances;
+  const filteredInstances = useMemo(() => {
+    let list = instances;
+    if (selectedProjectId && view === "list") {
+      list = list.filter((i) => i.projectId === selectedProjectId);
+    }
+    if (listContextFilter && view === "list") {
+      if (listContextFilter.type === "vehicle") {
+        list = list.filter((i) => i.contextType === "vehicle" && i.contextId === listContextFilter.id);
+      } else {
+        list = list.filter((i) => i.contextType === "rental" && i.contextId === listContextFilter.id);
+      }
+    }
+    return list;
+  }, [instances, selectedProjectId, view, listContextFilter]);
 
   const assigneeFilteredInstances =
     filterAssigneeId && view === "list"
@@ -484,11 +730,14 @@ export function FormsModule({
   const getTemplate = (id: string) => templates.find((x) => x.id === id);
   const getProject = (id: string) => projects.find((p) => p.id === id);
 
-  const handleUseTemplate = (templateId: string, projectId: string) => {
+  const handleUseTemplate = (
+    templateId: string,
+    ctx: { type: FormContextType; id: string | null; name: string | null }
+  ) => {
     if (!canCreateForms) return;
     const template = getTemplate(templateId);
     if (!template) return;
-    const instance = buildFormInstanceFromTemplate(template, projectId, {
+    const instance = buildFormInstanceFromTemplate(template, ctx, {
       currentUserEmployeeId,
       employees,
       projects,
@@ -558,7 +807,10 @@ export function FormsModule({
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedProjectId(e.target.value);
+                  setListContextFilter(null);
+                }}
                 className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
               >
                 <option value="">{l("allProjects")}</option>
@@ -580,6 +832,26 @@ export function FormsModule({
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">
                   <MapPinned className="h-3.5 w-3.5 shrink-0" />
                   {l("forms_filtering_by").replace("{name}", assigneeFilterName)}
+                </span>
+              ) : null}
+              {listContextFilter ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 text-xs font-medium text-blue-800 dark:text-blue-200">
+                  <MapPinned className="h-3.5 w-3.5 shrink-0" />
+                  {listContextFilter.type === "vehicle"
+                    ? `${l("forms_badge_vehicle")} · ${
+                        vehicles.find((v) => v.id === listContextFilter.id)?.plate ?? listContextFilter.id
+                      }`
+                    : `${l("forms_badge_rental")} · ${
+                        rentals.find((r) => r.id === listContextFilter.id)?.name ?? listContextFilter.id
+                      }`}
+                  <button
+                    type="button"
+                    className="ml-1 min-h-[44px] min-w-[44px] rounded-lg text-blue-600 dark:text-blue-300"
+                    onClick={() => setListContextFilter(null)}
+                    aria-label={l("common_close")}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </span>
               ) : null}
               {canCreateForms && (
@@ -638,6 +910,23 @@ export function FormsModule({
               listByTab.map((inst) => {
                 const template = getTemplate(inst.templateId);
                 const project = getProject(inst.projectId);
+                const ctxType: FormContextType = inst.contextType ?? (inst.projectId ? "project" : "general");
+                const contextBadgeText =
+                  ctxType === "project"
+                    ? l("forms_badge_project")
+                    : ctxType === "vehicle"
+                      ? l("forms_badge_vehicle")
+                      : ctxType === "rental"
+                        ? l("forms_badge_rental")
+                        : l("forms_badge_general");
+                const contextLine =
+                  ctxType === "project"
+                    ? (project?.name ?? inst.contextName ?? inst.projectId)
+                    : ctxType === "vehicle"
+                      ? (inst.contextName ?? inst.contextId ?? "—")
+                      : ctxType === "rental"
+                        ? (inst.contextName ?? inst.contextId ?? "—")
+                        : (l("forms_badge_general") ?? "—");
                 const signed = inst.attendees.filter((a) => a.signedAt).length;
                 const total = inst.attendees.length;
                 const statusColors: Record<string, string> = {
@@ -656,9 +945,14 @@ export function FormsModule({
                         {template?.name ?? inst.templateId}
                       </p>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        {project?.name ?? inst.projectId} · {inst.date}
+                        {contextLine} · {inst.date}
                       </p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${formContextBadgeClass(ctxType)}`}
+                        >
+                          {contextBadgeText}
+                        </span>
                         <span
                           className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${statusColors[inst.status] ?? ""}`}
                         >
@@ -759,81 +1053,21 @@ export function FormsModule({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {libraryTemplates.map((template) => (
-              <div
+              <FormTemplatePickCard
                 key={template.id}
-                className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col gap-3"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                      template.isBase
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                    }`}
-                  >
-                    {template.isBase ? (
-                      <BrandWordmark tone="onLight" className="inline text-xs font-medium" />
-                    ) : (
-                      l("forms_company_badge")
-                    )}
-                  </span>
-                </div>
-                <h3 className="font-semibold text-zinc-900 dark:text-white">
-                  {resolveFormLabel(template.name, t)}
-                </h3>
-                {template.description && (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2">
-                    {resolveFormLabel(template.description, t)}
-                  </p>
-                )}
-                <p className="text-xs text-zinc-400">
-                  {template.region.join(", ")} · {resolveFormLabel(template.category, t)}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-auto pt-2">
-                  <select
-                    className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-2 text-sm min-h-[44px]"
-                    onChange={(e) => {
-                      const pid = e.target.value;
-                      if (pid) handleUseTemplate(template.id, pid);
-                    }}
-                  >
-                    <option value="">{l("useTemplate")}</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  {canManageFormTemplates && !template.isBase && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onUpdateTemplate(template)}
-                        className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        title={t.edit}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteTemplate(template.id)}
-                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        title={l("forms_delete_template")}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
-                  {canManageFormTemplates && (
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicateTemplate(template)}
-                      className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center text-sm"
-                      title={l("forms_duplicate")}
-                    >
-                      {l("forms_duplicate")}
-                    </button>
-                  )}
-                </div>
-              </div>
+                template={template}
+                projects={projects}
+                vehicles={vehicles}
+                rentals={rentals}
+                labels={t}
+                canCreateForms={canCreateForms}
+                canManageFormTemplates={canManageFormTemplates}
+                l={l}
+                onPick={(tid, ctx) => handleUseTemplate(tid, ctx)}
+                onUpdateTemplate={onUpdateTemplate}
+                onDeleteTemplate={onDeleteTemplate}
+                onDuplicate={handleDuplicateTemplate}
+              />
             ))}
           </div>
         </>
@@ -1112,6 +1346,17 @@ export function FormsModule({
         const instance = instances.find((i) => i.id === detailInstanceId);
         const template = instance ? getTemplate(instance.templateId) : null;
         const project = instance ? getProject(instance.projectId) : null;
+        const dCtx: FormContextType =
+          instance?.contextType ?? (instance?.projectId ? "project" : "general");
+        const detailContextLine = instance
+          ? dCtx === "project"
+            ? (project?.name ?? instance.contextName ?? instance.projectId)
+            : dCtx === "vehicle"
+              ? (instance.contextName ?? instance.contextId ?? "—")
+              : dCtx === "rental"
+                ? (instance.contextName ?? instance.contextId ?? "—")
+                : (l("forms_badge_general") ?? "—")
+          : "—";
         if (!instance || !template) {
           return (
             <div className="flex items-center gap-3">
@@ -1138,8 +1383,19 @@ export function FormsModule({
                     {resolveFormLabel(template.name, t)}
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {project?.name ?? instance.projectId} · {instance.date}
+                    {detailContextLine} · {instance.date}
                   </p>
+                  <span
+                    className={`mt-1 inline-flex px-2 py-0.5 rounded text-xs font-medium ${formContextBadgeClass(dCtx)}`}
+                  >
+                    {dCtx === "project"
+                      ? l("forms_badge_project")
+                      : dCtx === "vehicle"
+                        ? l("forms_badge_vehicle")
+                        : dCtx === "rental"
+                          ? l("forms_badge_rental")
+                          : l("forms_badge_general")}
+                  </span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1165,7 +1421,7 @@ export function FormsModule({
                     const blob = await generateFormPDF(
                       instance,
                       template,
-                      project?.name ?? instance.projectId,
+                      detailContextLine,
                       "Machinpro",
                       undefined,
                       t.signedOnSupervisorDevice

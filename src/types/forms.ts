@@ -77,10 +77,16 @@ export interface AttendeeRecord {
   signedOnSupervisorDevice?: boolean;
 }
 
+export type FormContextType = "project" | "vehicle" | "rental" | "general";
+
 export interface FormInstance {
   id: string;
   templateId: string;
+  /** Proyecto cuando `contextType` es `project`; cadena vacía si no aplica. */
   projectId: string;
+  contextType?: FormContextType;
+  contextId?: string | null;
+  contextName?: string | null;
   createdBy: string;
   createdAt: string;
   date: string;

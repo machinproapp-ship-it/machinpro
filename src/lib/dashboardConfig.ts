@@ -14,6 +14,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "visitors",
   "my_tasks",
   "daily_report",
+  "forms_pending",
   "critical_inventory",
   "labor_costing",
   "quick_access",
