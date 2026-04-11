@@ -40,13 +40,16 @@ export function FormFieldInput({
   onChange,
   optionsEmployees,
   labels,
+  readOnly,
 }: {
   field: FormField;
   value: unknown;
   onChange: (v: unknown) => void;
   optionsEmployees?: EmployeeBasic[];
   labels: Record<string, string>;
+  readOnly?: boolean;
 }) {
+  const ro = readOnly === true;
   const L = (k: string) => labels[k] ?? k;
   const label = L(field.label);
   const required = field.required;
@@ -99,6 +102,7 @@ export function FormFieldInput({
           onChange={(e) => onChange(e.target.value)}
           className={common}
           placeholder={field.placeholder ? L(field.placeholder) : undefined}
+          disabled={ro}
         />
       </div>
     );
@@ -134,6 +138,7 @@ export function FormFieldInput({
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
           className={common}
+          disabled={ro}
         />
       </div>
     );
@@ -150,6 +155,7 @@ export function FormFieldInput({
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value || undefined)}
           className={common}
+          disabled={ro}
         />
       </div>
     );
@@ -184,6 +190,7 @@ export function FormFieldInput({
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value || undefined)}
           className={common}
+          disabled={ro}
         >
           <option value="">{L("forms_select_placeholder")}</option>
           {opts.map((o) => {
@@ -218,6 +225,7 @@ export function FormFieldInput({
                   else onChange(arr.filter((x) => x !== opt));
                 }}
                 className="rounded border-zinc-300 text-amber-600"
+                disabled={ro}
               />
               <span className="text-sm">{L(opt)}</span>
             </label>
@@ -310,6 +318,7 @@ export function FormFieldInput({
                             setCell(row.id, col.id, e.target.value)
                           }
                           className="w-full min-w-[120px] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm min-h-[44px]"
+                          disabled={ro}
                         />
                       </td>
                     );
@@ -325,6 +334,7 @@ export function FormFieldInput({
                           setCell(row.id, col.id, e.target.value)
                         }
                         className="w-full min-w-[100px] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm min-h-[44px]"
+                        disabled={ro}
                       >
                         <option value="">{L("forms_select_placeholder")}</option>
                         {selectOpts.map((o) => (
@@ -365,6 +375,8 @@ export function FormFieldInput({
           {label}
           {required && " *"}
         </label>
+        {!ro && (
+          <>
         <input
           ref={galleryRef}
           type="file"
@@ -387,59 +399,62 @@ export function FormFieldInput({
           className="hidden"
           onChange={(e) => void processFile(e.target.files?.[0])}
         />
-
-        {isMobileUi ? (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => galleryRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] min-w-[44px] text-zinc-800 dark:text-zinc-200"
-            >
-              <ImageIcon className="h-4 w-4" />
-              {L("forms_photo_gallery")}
-            </button>
-            <button
-              type="button"
-              onClick={() => cameraRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] min-w-[44px] text-zinc-800 dark:text-zinc-200"
-            >
-              <Upload className="h-4 w-4" />
-              {L("forms_photo_camera")}
-            </button>
-          </div>
-        ) : (
-          <div
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") desktopRef.current?.click();
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const f = e.dataTransfer.files?.[0];
-              void processFile(f);
-            }}
-            onClick={() => desktopRef.current?.click()}
-            className={`mt-1 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center text-sm cursor-pointer transition-colors min-h-[120px] ${
-              dragOver
-                ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20"
-                : "border-zinc-300 dark:border-zinc-600 hover:border-amber-400 dark:hover:border-amber-500"
-            }`}
-          >
-            <Upload className="h-8 w-8 text-zinc-400" />
-            <span className="text-zinc-600 dark:text-zinc-400">
-              {L("forms_photo_drop_hint")}
-            </span>
-          </div>
+          </>
         )}
+
+        {!ro &&
+          (isMobileUi ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => galleryRef.current?.click()}
+                disabled={uploading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] min-w-[44px] text-zinc-800 dark:text-zinc-200"
+              >
+                <ImageIcon className="h-4 w-4" />
+                {L("forms_photo_gallery")}
+              </button>
+              <button
+                type="button"
+                onClick={() => cameraRef.current?.click()}
+                disabled={uploading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] min-w-[44px] text-zinc-800 dark:text-zinc-200"
+              >
+                <Upload className="h-4 w-4" />
+                {L("forms_photo_camera")}
+              </button>
+            </div>
+          ) : (
+            <div
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") desktopRef.current?.click();
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const f = e.dataTransfer.files?.[0];
+                void processFile(f);
+              }}
+              onClick={() => desktopRef.current?.click()}
+              className={`mt-1 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center text-sm cursor-pointer transition-colors min-h-[120px] ${
+                dragOver
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20"
+                  : "border-zinc-300 dark:border-zinc-600 hover:border-amber-400 dark:hover:border-amber-500"
+              }`}
+            >
+              <Upload className="h-8 w-8 text-zinc-400" />
+              <span className="text-zinc-600 dark:text-zinc-400">
+                {L("forms_photo_drop_hint")}
+              </span>
+            </div>
+          ))}
 
         {uploading && (
           <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
@@ -460,6 +475,7 @@ export function FormFieldInput({
                   alt=""
                   className="max-h-48 rounded-lg border border-zinc-200 dark:border-zinc-700"
                 />
+                {!ro && (
                 <button
                   type="button"
                   onClick={() => {
@@ -471,6 +487,7 @@ export function FormFieldInput({
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+                )}
               </div>
             ))}
           </div>
@@ -483,6 +500,7 @@ export function FormFieldInput({
                 alt=""
                 className="max-h-48 rounded-lg border border-zinc-200 dark:border-zinc-700"
               />
+              {!ro && (
               <button
                 type="button"
                 onClick={() => onChange(undefined)}
@@ -491,6 +509,7 @@ export function FormFieldInput({
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+              )}
             </div>
           )
         )}

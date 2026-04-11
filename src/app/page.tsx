@@ -12,6 +12,7 @@ import {
   type InventoryMovement,
   type Vehicle,
   type Rental,
+  type RentalEquipmentType,
   type Supplier,
   type SupplierContact,
   type Employee as LogisticsEmployee,
@@ -140,6 +141,7 @@ import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
 import { useSubscription } from "@/lib/useSubscription";
 import { applyPlanToModulePermissions } from "@/lib/planPermissions";
+import { getCurrencyForCountry } from "@/lib/geoTier";
 
 type ResourceRequestStatus =
   | "pending"
@@ -630,8 +632,85 @@ const INITIAL_VEHICLES: Vehicle[] = [
 ];
 
 const INITIAL_RENTALS: Rental[] = [
-  { id: "r1", name: "Andamio 3m", supplier: "Equipos Quebec", returnDate: "2026-04-30", costCAD: 450 },
+  {
+    id: "r1",
+    name: "Andamio 3m",
+    supplier: "Equipos Quebec",
+    returnDate: "2026-04-30",
+    cost: 450,
+    currency: "CAD",
+  },
 ];
+
+function normalizeStoredRentalEntry(raw: unknown): Rental | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id : null;
+  if (!id) return null;
+  let cost = 0;
+  if (typeof r.cost === "number" && Number.isFinite(r.cost)) cost = r.cost;
+  else if (typeof r.costCAD === "number" && Number.isFinite(r.costCAD)) cost = r.costCAD;
+  const currency =
+    typeof r.currency === "string" && r.currency.trim() ? r.currency.trim() : "CAD";
+  const et = r.equipmentType;
+  const equipmentType: RentalEquipmentType | undefined =
+    et === "vehicle" || et === "forklift" || et === "scaffold" || et === "tool" || et === "other"
+      ? et
+      : undefined;
+  return {
+    id,
+    name: typeof r.name === "string" ? r.name : "",
+    supplier: typeof r.supplier === "string" ? r.supplier : "",
+    returnDate: typeof r.returnDate === "string" ? r.returnDate : "",
+    cost,
+    currency,
+    contractLink: typeof r.contractLink === "string" ? r.contractLink : undefined,
+    projectId: typeof r.projectId === "string" ? r.projectId : undefined,
+    equipmentType,
+    equipmentId: typeof r.equipmentId === "string" ? r.equipmentId : undefined,
+  };
+}
+
+function rentalFromSupabaseRow(row: Record<string, unknown>): Rental {
+  const et = row.equipment_type;
+  const equipmentType: RentalEquipmentType | undefined =
+    et === "vehicle" || et === "forklift" || et === "scaffold" || et === "tool" || et === "other"
+      ? et
+      : undefined;
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    supplier: row.supplier != null ? String(row.supplier) : "",
+    returnDate: row.return_date != null ? String(row.return_date).slice(0, 10) : "",
+    cost: row.cost != null ? Number(row.cost) || 0 : 0,
+    currency: row.currency != null ? String(row.currency) : "CAD",
+    contractLink: row.contract_url != null ? String(row.contract_url) : undefined,
+    projectId: row.project_id != null ? String(row.project_id) : undefined,
+    equipmentType,
+    equipmentId: row.equipment_id != null ? String(row.equipment_id) : undefined,
+  };
+}
+
+function isUuidString(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
+function inspectionTemplateIdForRentalEquipmentType(
+  equipmentType: RentalEquipmentType | undefined
+): string {
+  switch (equipmentType) {
+    case "vehicle":
+      return "tpl-rental-vehicle-001";
+    case "forklift":
+      return "tpl-forklift-001";
+    case "scaffold":
+      return "tpl-scaffold-001";
+    case "tool":
+      return "tpl-electric-tool-001";
+    default:
+      return "tpl-equipment-001";
+  }
+}
 
 const INITIAL_SUPPLIERS: Supplier[] = [
   { id: "s1", name: "Materiales Norte", phone: "+1 514 555 0200", email: "ventas@materialesnorte.com", webLink: "", address: "Montreal, QC" },
@@ -698,6 +777,12 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canManageProjectBlueprints: true,
       canViewProjectForms: true,
       canManageProjectForms: true,
+      canViewForms: true,
+      canCreateForms: true,
+      canFillForms: true,
+      canManageFormTemplates: true,
+      canApproveForms: true,
+      canExportForms: true,
       canManageDailyReports: true,
       canViewProjectVisitors: true,
       canViewProjectRFI: true,
@@ -728,6 +813,8 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewProjectGallery: true,
       canUploadPhotos: true,
       canViewProjectForms: true,
+      canViewForms: true,
+      canFillForms: true,
       canViewSettings: true,
       canViewBinders: true,
       canViewTimeclock: true,
@@ -786,7 +873,7 @@ function permissionsToModule(p: RolePermissions): ModulePermissions {
     warehouse: p.canViewLogistics,
     site: p.canViewProjects || p.canViewSubcontractors,
     worker: false,
-    forms: p.canViewProjectForms,
+    forms: p.canViewForms || p.canViewProjectForms,
     canSeeOnlyAssignedProjects: p.canViewOnlyAssignedProjects,
     canAccessSchedule: p.canViewSchedule,
     canCreateShifts: p.canCreateShifts,
@@ -1480,10 +1567,13 @@ export default function Home() {
     try {
       const raw = localStorage.getItem("machinpro_rentals");
       if (!raw) return INITIAL_RENTALS;
-      const parsed = JSON.parse(raw) as Rental[];
+      const parsed = JSON.parse(raw) as unknown[];
       if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_RENTALS;
-      return parsed;
-    } catch { return INITIAL_RENTALS; }
+      const mapped = parsed.map(normalizeStoredRentalEntry).filter((x): x is Rental => x != null);
+      return mapped.length ? mapped : INITIAL_RENTALS;
+    } catch {
+      return INITIAL_RENTALS;
+    }
   });
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     if (typeof window === "undefined") return INITIAL_SUPPLIERS;
@@ -2529,6 +2619,12 @@ export default function Home() {
   const [rentalFormOpen, setRentalFormOpen] = useState(false);
   const [editingRentalId, setEditingRentalId] = useState<string | null>(null);
   const [rentalDraft, setRentalDraft] = useState<Partial<Rental>>({});
+  const [rentalInspectionSuggestion, setRentalInspectionSuggestion] = useState<{
+    rentalId: string;
+    rentalName: string;
+    templateId: string;
+    projectId?: string;
+  } | null>(null);
 
   // Proveedores: formulario
   const [supplierFormOpen, setSupplierFormOpen] = useState(false);
@@ -2562,6 +2658,7 @@ export default function Home() {
   const [projectFormLng, setProjectFormLng] = useState("");
 
   const countryConfig = useMemo(() => getCountryConfig(companyCountry), [companyCountry]);
+  const rentalFormCurrency = useMemo(() => getCurrencyForCountry(companyCountry), [companyCountry]);
   const activeCustomRole = useMemo(() => {
     if (!customRoles.length) {
       const fallbackLegacyId =
@@ -2635,6 +2732,35 @@ export default function Home() {
             (p.assignedEmployeeIds ?? []).includes(effectiveEmployeeId ?? "")
           )
         : (projects ?? []);
+
+  useEffect(() => {
+    if (!supabase || !session || !companyId) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("rentals")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        console.error("[page] rentals load", error);
+        return;
+      }
+      if (!data?.length) return;
+      const mapped = data.map((row: Record<string, unknown>) => rentalFromSupabaseRow(row));
+      setRentals(mapped);
+      try {
+        localStorage.setItem("machinpro_rentals", JSON.stringify(mapped));
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, session, companyId]);
 
   const canViewProjectsTab =
     rolePerms.canViewProjects || rolePerms.canViewOnlyAssignedProjects;
@@ -3882,13 +4008,161 @@ export default function Home() {
     setEditingRentalId(null);
     setRentalDraft({});
   }
-  function saveRental() {
-    if (editingRentalId) {
-      setRentals((prev) => prev.map((r) => r.id === editingRentalId ? { ...r, ...rentalDraft } as Rental : r));
-    } else {
-      const id = "r" + Date.now();
-      setRentals((prev) => [...prev, { id, name: rentalDraft.name ?? "", supplier: rentalDraft.supplier ?? "", returnDate: rentalDraft.returnDate ?? "", costCAD: rentalDraft.costCAD ?? 0, contractLink: rentalDraft.contractLink, projectId: rentalDraft.projectId } as Rental]);
+
+  function persistRentalsLocal(next: Rental[]) {
+    try {
+      localStorage.setItem("machinpro_rentals", JSON.stringify(next));
+    } catch {
+      /* ignore */
     }
+  }
+
+  function saveRental() {
+    const costVal =
+      typeof rentalDraft.cost === "number" && Number.isFinite(rentalDraft.cost)
+        ? rentalDraft.cost
+        : typeof rentalDraft.costCAD === "number" && Number.isFinite(rentalDraft.costCAD)
+          ? rentalDraft.costCAD
+          : Number.parseFloat(String(rentalDraft.cost ?? rentalDraft.costCAD ?? 0)) || 0;
+    const cur = (rentalDraft.currency ?? rentalFormCurrency).trim() || "CAD";
+    const equipType: RentalEquipmentType =
+      rentalDraft.equipmentType === "vehicle" ||
+      rentalDraft.equipmentType === "forklift" ||
+      rentalDraft.equipmentType === "scaffold" ||
+      rentalDraft.equipmentType === "tool" ||
+      rentalDraft.equipmentType === "other"
+        ? rentalDraft.equipmentType
+        : "other";
+    const equipmentIdStr = rentalDraft.equipmentId?.trim() || undefined;
+
+    if (editingRentalId) {
+      const prev = rentals.find((r) => r.id === editingRentalId);
+      const merged: Rental = {
+        ...(prev ?? {
+          id: editingRentalId,
+          name: "",
+          supplier: "",
+          returnDate: "",
+          cost: 0,
+          currency: cur,
+        }),
+        ...rentalDraft,
+        id: editingRentalId,
+        name: rentalDraft.name ?? prev?.name ?? "",
+        supplier: rentalDraft.supplier ?? prev?.supplier ?? "",
+        returnDate: rentalDraft.returnDate ?? prev?.returnDate ?? "",
+        cost: costVal,
+        currency: cur,
+        contractLink: rentalDraft.contractLink ?? prev?.contractLink,
+        projectId: rentalDraft.projectId ?? prev?.projectId,
+        equipmentType: equipType,
+        equipmentId: equipmentIdStr,
+      };
+
+      setRentals((prevList) => {
+        const next = prevList.map((r) => (r.id === editingRentalId ? merged : r));
+        persistRentalsLocal(next);
+        return next;
+      });
+
+      if (supabase && companyId && isUuidString(merged.id)) {
+        void (async () => {
+          const { error } = await supabase.from("rentals").upsert({
+            id: merged.id,
+            company_id: companyId,
+            name: merged.name,
+            supplier: merged.supplier || null,
+            return_date: merged.returnDate || null,
+            cost: merged.cost,
+            currency: merged.currency,
+            contract_url: merged.contractLink || null,
+            project_id: merged.projectId || null,
+            equipment_type: merged.equipmentType ?? "other",
+            equipment_id: merged.equipmentId || null,
+            status: "active",
+            deleted_at: null,
+            updated_at: new Date().toISOString(),
+          });
+          if (error) console.error("[page] rental upsert", error);
+        })();
+      }
+
+      void logAuditEvent({
+        company_id: companyId ?? "",
+        user_id: user?.id ?? "",
+        user_name: profile?.fullName ?? profile?.email ?? "admin",
+        action: "rental_updated",
+        entity_type: "rental",
+        entity_id: merged.id,
+        entity_name: merged.name,
+        new_value: { supplier: merged.supplier, cost: merged.cost, currency: merged.currency },
+      });
+
+      closeRentalForm();
+      return;
+    }
+
+    const newId =
+      supabase && companyId && typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : "r" + Date.now();
+    const newRental: Rental = {
+      id: newId,
+      name: rentalDraft.name ?? "",
+      supplier: rentalDraft.supplier ?? "",
+      returnDate: rentalDraft.returnDate ?? "",
+      cost: costVal,
+      currency: cur,
+      contractLink: rentalDraft.contractLink,
+      projectId: rentalDraft.projectId,
+      equipmentType: equipType,
+      equipmentId: equipmentIdStr,
+    };
+
+    setRentals((prev) => {
+      const next = [...prev, newRental];
+      persistRentalsLocal(next);
+      return next;
+    });
+
+    if (supabase && companyId && isUuidString(newRental.id)) {
+      void (async () => {
+        const { error } = await supabase.from("rentals").insert({
+          id: newRental.id,
+          company_id: companyId,
+          name: newRental.name,
+          supplier: newRental.supplier || null,
+          return_date: newRental.returnDate || null,
+          cost: newRental.cost,
+          currency: newRental.currency,
+          contract_url: newRental.contractLink || null,
+          project_id: newRental.projectId || null,
+          equipment_type: newRental.equipmentType ?? "other",
+          equipment_id: newRental.equipmentId || null,
+          status: "active",
+        });
+        if (error) console.error("[page] rental insert", error);
+      })();
+    }
+
+    void logAuditEvent({
+      company_id: companyId ?? "",
+      user_id: user?.id ?? "",
+      user_name: profile?.fullName ?? profile?.email ?? "admin",
+      action: "rental_created",
+      entity_type: "rental",
+      entity_id: newRental.id,
+      entity_name: newRental.name,
+      new_value: { cost: newRental.cost, currency: newRental.currency },
+    });
+
+    setRentalInspectionSuggestion({
+      rentalId: newRental.id,
+      rentalName: newRental.name,
+      templateId: inspectionTemplateIdForRentalEquipmentType(newRental.equipmentType),
+      projectId: newRental.projectId,
+    });
+
     closeRentalForm();
   }
 
@@ -4789,12 +5063,49 @@ export default function Home() {
                   if (typeof window !== "undefined" && window.confirm(msg))
                     setVehicles((prev) => prev.filter((v) => v.id !== id));
                 }}
-                onAddRental={() => { setRentalFormOpen(true); setEditingRentalId(null); setRentalDraft({}); }}
-                onEditRental={(r) => { setEditingRentalId(r.id); setRentalDraft({ ...r }); setRentalFormOpen(true); }}
+                onAddRental={() => {
+                  setRentalFormOpen(true);
+                  setEditingRentalId(null);
+                  setRentalDraft({
+                    equipmentType: "other",
+                    currency: rentalFormCurrency,
+                  });
+                }}
+                onEditRental={(r) => {
+                  setEditingRentalId(r.id);
+                  setRentalDraft({
+                    ...r,
+                    cost: r.cost ?? r.costCAD ?? 0,
+                    currency: r.currency ?? rentalFormCurrency,
+                  });
+                  setRentalFormOpen(true);
+                }}
                 onDeleteRental={(id) => {
                   const msg = (t as Record<string, string>).common_confirm_delete ?? "";
-                  if (typeof window !== "undefined" && window.confirm(msg))
-                    setRentals((prev) => prev.filter((r) => r.id !== id));
+                  if (typeof window !== "undefined" && window.confirm(msg)) {
+                    const deleted = rentals.find((x) => x.id === id);
+                    setRentals((prev) => {
+                      const next = prev.filter((r) => r.id !== id);
+                      persistRentalsLocal(next);
+                      return next;
+                    });
+                    void logAuditEvent({
+                      company_id: companyId ?? "",
+                      user_id: user?.id ?? "",
+                      user_name: profile?.fullName ?? profile?.email ?? "admin",
+                      action: "rental_deleted",
+                      entity_type: "rental",
+                      entity_id: id,
+                      entity_name: deleted?.name,
+                    });
+                    if (supabase && companyId && isUuidString(id)) {
+                      void supabase
+                        .from("rentals")
+                        .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                        .eq("id", id)
+                        .eq("company_id", companyId);
+                    }
+                  }
                 }}
                 onAddSupplier={() => { setSupplierFormOpen(true); setEditingSupplierId(null); setSupplierDraft({}); }}
                 onEditSupplier={(s) => { setEditingSupplierId(s.id); setSupplierDraft({ ...s }); setSupplierFormOpen(true); }}
@@ -5312,6 +5623,8 @@ export default function Home() {
                   });
                 }}
                 formTemplates={formTemplates}
+                canCreateMachinFormFromProject={!!rolePerms.canCreateForms}
+                canDeleteProjectFormEntry={!!rolePerms.canManageProjectForms}
                 onStartFormFromMachinTemplate={({ templateId, projectId }) => {
                   const template = formTemplates.find((x) => x.id === templateId);
                   if (!template) return;
@@ -5585,6 +5898,11 @@ export default function Home() {
                 currentUserEmployeeId={effectiveEmployeeId ?? ""}
                 currentUserName={employees.find((e) => e.id === effectiveEmployeeId)?.name ?? "Admin"}
                 canManage={!!rolePerms.canManageProjectForms}
+                canCreateForms={!!rolePerms.canCreateForms}
+                canManageFormTemplates={!!rolePerms.canManageFormTemplates}
+                canFillForms={!!rolePerms.canFillForms}
+                canApproveForms={!!rolePerms.canApproveForms}
+                canExportForms={!!rolePerms.canExportForms}
                 onCreateInstance={(instance) => setFormInstances((prev) => [...prev, instance])}
                 onUpdateInstance={(instance) => {
                   setFormInstances((prev) => prev.map((i) => (i.id === instance.id ? instance : i)));
@@ -6408,24 +6726,200 @@ export default function Home() {
         <>
           <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeRentalForm} />
           <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{editingRentalId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")} alquiler</h3>
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+              {editingRentalId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")}{" "}
+              {(t as Record<string, string>).rental_title ?? "alquiler"}
+            </h3>
             <div className="space-y-3">
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nombre del equipo</label><input type="text" value={rentalDraft.name ?? ""} onChange={(e) => setRentalDraft((d) => ({ ...d, name: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Proveedor</label><input type="text" value={rentalDraft.supplier ?? ""} onChange={(e) => setRentalDraft((d) => ({ ...d, supplier: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Fecha de devolución</label><input type="date" value={rentalDraft.returnDate ?? ""} onChange={(e) => setRentalDraft((d) => ({ ...d, returnDate: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Coste (CAD)</label><input type="number" min={0} step={0.01} value={rentalDraft.costCAD ?? ""} onChange={(e) => setRentalDraft((d) => ({ ...d, costCAD: parseFloat(e.target.value) || 0 }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Link contrato (URL)</label><input type="url" value={rentalDraft.contractLink ?? ""} onChange={(e) => setRentalDraft((d) => ({ ...d, contractLink: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="https://" /></div>
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.assignedProject ?? "Proyecto asignado"}</label>
-                <select value={rentalDraft.projectId ?? ""} onChange={(e) => setRentalDraft((d) => ({ ...d, projectId: e.target.value || undefined }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).rental_field_name ?? "Nombre del equipo"}
+                </label>
+                <input
+                  type="text"
+                  value={rentalDraft.name ?? ""}
+                  onChange={(e) => setRentalDraft((d) => ({ ...d, name: e.target.value }))}
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).rental_field_supplier ?? "Proveedor"}
+                </label>
+                <input
+                  type="text"
+                  value={rentalDraft.supplier ?? ""}
+                  onChange={(e) => setRentalDraft((d) => ({ ...d, supplier: e.target.value }))}
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).rental_field_return_date ?? "Fecha de devolución"}
+                </label>
+                <input
+                  type="date"
+                  value={rentalDraft.returnDate ?? ""}
+                  onChange={(e) => setRentalDraft((d) => ({ ...d, returnDate: e.target.value }))}
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).rental_field_equipment_type ?? "Tipo de equipo"}
+                </label>
+                <select
+                  value={rentalDraft.equipmentType ?? "other"}
+                  onChange={(e) =>
+                    setRentalDraft((d) => ({
+                      ...d,
+                      equipmentType: e.target.value as RentalEquipmentType,
+                    }))
+                  }
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="vehicle">{(t as Record<string, string>).rental_type_vehicle ?? "Vehículo"}</option>
+                  <option value="forklift">
+                    {(t as Record<string, string>).rental_type_forklift ?? "Carretilla elevadora"}
+                  </option>
+                  <option value="scaffold">{(t as Record<string, string>).rental_type_scaffold ?? "Andamio"}</option>
+                  <option value="tool">{(t as Record<string, string>).rental_type_tool ?? "Herramienta"}</option>
+                  <option value="other">{(t as Record<string, string>).rental_type_other ?? "Otro"}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).rental_field_equipment_id ?? "Matrícula / ID del equipo"}
+                </label>
+                <input
+                  type="text"
+                  value={rentalDraft.equipmentId ?? ""}
+                  onChange={(e) => setRentalDraft((d) => ({ ...d, equipmentId: e.target.value }))}
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).rental_field_cost ?? "Coste"}{" "}
+                  <span className="text-zinc-500">({rentalFormCurrency})</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={rentalDraft.cost ?? rentalDraft.costCAD ?? ""}
+                  onChange={(e) =>
+                    setRentalDraft((d) => ({
+                      ...d,
+                      cost: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).rental_field_contract ?? "Contrato (URL)"}
+                </label>
+                <input
+                  type="url"
+                  value={rentalDraft.contractLink ?? ""}
+                  onChange={(e) => setRentalDraft((d) => ({ ...d, contractLink: e.target.value }))}
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                  placeholder="https://"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {t.assignedProject ?? "Proyecto asignado"}
+                </label>
+                <select
+                  value={rentalDraft.projectId ?? ""}
+                  onChange={(e) => setRentalDraft((d) => ({ ...d, projectId: e.target.value || undefined }))}
+                  className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                >
                   <option value="">{t.noProject ?? "Sin proyecto"}</option>
                   {(projects ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={closeRentalForm} className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">{t.cancel ?? "Cancelar"}</button><button type="button" onClick={saveRental} className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]">{t.save ?? "Guardar"}</button></div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeRentalForm}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
+              >
+                {t.cancel ?? "Cancelar"}
+              </button>
+              <button
+                type="button"
+                onClick={saveRental}
+                className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
+              >
+                {t.save ?? "Guardar"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {rentalInspectionSuggestion && (
+        <>
+          <div
+            className="fixed inset-0 z-[55] bg-black/50 touch-none"
+            aria-hidden
+            onClick={() => setRentalInspectionSuggestion(null)}
+          />
+          <div className="fixed left-1/2 top-1/2 z-[56] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
+            <p className="text-sm text-zinc-800 dark:text-zinc-100 mb-6">
+              {((t as Record<string, string>).rental_inspection_suggestion ?? "¿Crear inspección para {name}?").replace(
+                "{name}",
+                rentalInspectionSuggestion.rentalName
+              )}
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRentalInspectionSuggestion(null)}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
+              >
+                {(t as Record<string, string>).rental_inspection_suggestion_no ?? "Ahora no"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const sug = rentalInspectionSuggestion;
+                  setRentalInspectionSuggestion(null);
+                  if (!sug) return;
+                  const template = formTemplates.find((x) => x.id === sug.templateId);
+                  const pid =
+                    sug.projectId ||
+                    visibleProjects[0]?.id ||
+                    (projects ?? [])[0]?.id ||
+                    "";
+                  if (!template || !pid) return;
+                  const instance = buildFormInstanceFromTemplate(template, pid, {
+                    currentUserEmployeeId: effectiveEmployeeId ?? "",
+                    employees: activeEmployees.map((e) => ({ id: e.id, name: e.name })),
+                    projects: (visibleProjects ?? []).map((p) => ({
+                      id: p.id,
+                      assignedEmployeeIds: p.assignedEmployeeIds,
+                    })),
+                  });
+                  setFormInstances((prev) => [...prev, instance]);
+                  setFormsOpenFillInstanceId(instance.id);
+                  setFormsListProjectFilterOnOpen(pid);
+                  setActiveSection("forms");
+                }}
+                className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
+              >
+                {(t as Record<string, string>).rental_inspection_suggestion_yes ?? "Sí, crear inspección"}
+              </button>
+            </div>
           </div>
         </>
       )}

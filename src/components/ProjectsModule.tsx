@@ -336,6 +336,10 @@ export interface ProjectsModuleProps {
   onUpdateProjectSafetyRequirements?: (projectId: string, rows: ProjectSafetyRequirementRow[]) => void;
   /** Nombres de proyecto para leyendas en mapa GPS. */
   projectNameByIdForGps?: Record<string, string>;
+  /** Crear instancia desde plantilla MachinPro (pestaña Formularios del proyecto). */
+  canCreateMachinFormFromProject?: boolean;
+  /** Eliminar entradas de la lista de formularios del proyecto. */
+  canDeleteProjectFormEntry?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -590,6 +594,8 @@ export function ProjectsModule({
   onConsumeDailyReportNav,
   onUpdateProjectSafetyRequirements,
   projectNameByIdForGps = {},
+  canCreateMachinFormFromProject,
+  canDeleteProjectFormEntry,
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -724,8 +730,12 @@ export function ProjectsModule({
   const projectForms_filtered = (projectForms ?? []).filter(
     (f) => f.projectId === selectedProjectId
   );
-  const canManageForms =
-    currentUserRole === "admin" || currentUserRole === "supervisor";
+  const canCreateMachinFormFromProjectResolved =
+    canCreateMachinFormFromProject ??
+    (currentUserRole === "admin" || currentUserRole === "supervisor");
+  const canDeleteProjectFormEntryResolved =
+    canDeleteProjectFormEntry ??
+    (currentUserRole === "admin" || currentUserRole === "supervisor");
 
   useEffect(() => {
     if (!showProjectVisitorsTab && activeTab === "visitantes") {
@@ -2861,7 +2871,7 @@ export function ProjectsModule({
               )}
             </section>
 
-            {canManageForms && (
+            {canCreateMachinFormFromProjectResolved && (
               <button
                 type="button"
                 onClick={() => setShowCreateForm(true)}
@@ -2954,7 +2964,7 @@ export function ProjectsModule({
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
                             {statusLabel}
                           </span>
-                          {canManageForms && (
+                          {canDeleteProjectFormEntryResolved && (
                             <button
                               type="button"
                               onClick={(e) => {

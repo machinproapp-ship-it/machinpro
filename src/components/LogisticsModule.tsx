@@ -105,14 +105,22 @@ export interface AssetUsageLog {
   returnCondition?: "good" | "damaged" | "maintenance";
 }
 
+export type RentalEquipmentType = "vehicle" | "forklift" | "scaffold" | "tool" | "other";
+
 export interface Rental {
   id: string;
   name: string;
   supplier: string;
   returnDate: string;
-  costCAD: number;
+  /** Monto numérico (independiente de la divisa mostrada). */
+  cost: number;
+  currency: string;
+  /** Compatibilidad datos antiguos / demo. */
+  costCAD?: number;
   contractLink?: string;
   projectId?: string;
+  equipmentType?: RentalEquipmentType;
+  equipmentId?: string;
 }
 
 export type SupplierContactRole = "sales" | "accounting" | "technical" | "other";
@@ -1814,12 +1822,15 @@ export function LogisticsModule({
           </div>
           )}
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 divide-y divide-zinc-200 dark:divide-slate-700">
-            {(rentals ?? []).map((r) => (
+            {(rentals ?? []).map((r) => {
+              const rentalAmount = r.cost ?? r.costCAD ?? 0;
+              const rentalCur = (r.currency ?? "CAD").trim() || "CAD";
+              return (
               <div key={r.id} className="flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                 <div>
                   <p className="font-medium text-zinc-900 dark:text-zinc-100">{r.name}</p>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whSupplier}: {r.supplier}</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whReturnDate}: {r.returnDate} · {t.whRentalCost}: ${r.costCAD.toFixed(2)}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whReturnDate}: {r.returnDate} · {t.whRentalCost}: {rentalCur} {rentalAmount.toFixed(2)}</p>
                   <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium mt-1 ${projectAssignmentChipClass(!!r.projectId)}`}>
                     {getProjectName(r.projectId)}
                   </span>
@@ -1831,7 +1842,8 @@ export function LogisticsModule({
                 </div>
                 )}
               </div>
-            ))}
+            );
+            })}
             {(rentals ?? []).length === 0 && (
               <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
                 {tlLabels.wh_rentals_empty ?? "No rentals recorded yet."}

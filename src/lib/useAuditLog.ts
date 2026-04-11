@@ -45,7 +45,10 @@ export type AuditAction =
   | "photo_downloaded"
   | "photos_bulk_downloaded"
   | "manual_clock_in"
-  | "manual_clock_out";
+  | "manual_clock_out"
+  | "rental_created"
+  | "rental_updated"
+  | "rental_deleted";
 
 export type AuditEntityType =
   | "photo"
@@ -62,7 +65,8 @@ export type AuditEntityType =
   | "corrective_action"
   | "blueprint"
   | "rfi"
-  | "clock_entry";
+  | "clock_entry"
+  | "rental";
 
 export interface AuditEntry {
   company_id: string;

@@ -51,10 +51,19 @@ function applyLegacyPermissionFields(
     acc.canViewProjectBlueprints = true;
     acc.canManageProjectBlueprints = true;
   }
-  if (L("canViewForms")) acc.canViewProjectForms = true;
+  if (L("canViewForms")) {
+    acc.canViewProjectForms = true;
+    acc.canViewForms = true;
+  }
   if (L("canManageForms")) {
     acc.canViewProjectForms = true;
     acc.canManageProjectForms = true;
+    acc.canViewForms = true;
+    acc.canCreateForms = true;
+    acc.canFillForms = true;
+    acc.canManageFormTemplates = true;
+    acc.canApproveForms = true;
+    acc.canExportForms = true;
     acc.canManageDailyReports = true;
   }
   if (L("canEditSettings")) {
@@ -110,6 +119,19 @@ export function mergeRolePermissions(raw: unknown): RolePermissions {
   if (!Object.prototype.hasOwnProperty.call(o, "canViewLaborCosting")) {
     acc.canViewLaborCosting = acc.canViewTimesheets === true;
   }
+
+  const hasOwn = (k: string) => Object.prototype.hasOwnProperty.call(o, k);
+  if (acc.canViewProjectForms && !hasOwn("canViewForms")) acc.canViewForms = true;
+  if (acc.canViewProjectForms && !hasOwn("canFillForms")) acc.canFillForms = true;
+  if (acc.canManageProjectForms) {
+    if (!hasOwn("canViewForms")) acc.canViewForms = true;
+    if (!hasOwn("canCreateForms")) acc.canCreateForms = true;
+    if (!hasOwn("canFillForms")) acc.canFillForms = true;
+    if (!hasOwn("canManageFormTemplates")) acc.canManageFormTemplates = true;
+    if (!hasOwn("canApproveForms")) acc.canApproveForms = true;
+    if (!hasOwn("canExportForms")) acc.canExportForms = true;
+  }
+
   return acc as RolePermissions;
 }
 

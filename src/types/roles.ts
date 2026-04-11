@@ -38,6 +38,13 @@ export interface RolePermissions {
   canManageProjectBlueprints: boolean;
   canManageProjectRFI: boolean;
   canManageProjectVisitors: boolean;
+  /** Módulo Formularios (empresa): ver instancias y plantillas. */
+  canViewForms: boolean;
+  canCreateForms: boolean;
+  canFillForms: boolean;
+  canManageFormTemplates: boolean;
+  canApproveForms: boolean;
+  canExportForms: boolean;
 
   // ─── Horario ─────────────────────────────────────────────
   canViewSchedule: boolean;
@@ -131,6 +138,12 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canManageProjectBlueprints",
   "canManageProjectRFI",
   "canManageProjectVisitors",
+  "canViewForms",
+  "canCreateForms",
+  "canFillForms",
+  "canManageFormTemplates",
+  "canApproveForms",
+  "canExportForms",
   "canViewSchedule",
   "canCreateShifts",
   "canManageVacations",
@@ -315,6 +328,12 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageProjectBlueprints: "Gestionar planos",
   canManageProjectRFI: "Gestionar RFI",
   canManageProjectVisitors: "Gestionar visitantes y QR",
+  canViewForms: "Ver formularios",
+  canCreateForms: "Crear formularios",
+  canFillForms: "Rellenar formularios asignados",
+  canManageFormTemplates: "Gestionar plantillas de formularios",
+  canApproveForms: "Aprobar formularios completados",
+  canExportForms: "Exportar formularios (PDF)",
   canViewSchedule: "Ver horario",
   canCreateShifts: "Crear turnos y eventos",
   canViewTeamAvailability: "Ver disponibilidad del equipo",

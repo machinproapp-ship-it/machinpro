@@ -77,6 +77,12 @@ export interface FormsModuleProps {
   currentUserEmployeeId: string;
   currentUserName: string;
   canManage: boolean;
+  /** Si no se pasan, se derivan de `canManage` / true para relleno (compat). */
+  canCreateForms?: boolean;
+  canManageFormTemplates?: boolean;
+  canFillForms?: boolean;
+  canApproveForms?: boolean;
+  canExportForms?: boolean;
   onCreateInstance: (instance: FormInstance) => void;
   onUpdateInstance: (instance: FormInstance) => void;
   onAddTemplate: (tpl: FormTemplate) => void;
@@ -181,7 +187,7 @@ function SignatureCanvas({
         ref={canvasRef}
         width={400}
         height={120}
-        className="border border-zinc-300 dark:border-zinc-600 rounded-lg w-full touch-none bg-white dark:bg-slate-800"
+        className={`border border-zinc-300 dark:border-zinc-600 rounded-lg w-full touch-none bg-white dark:bg-slate-800${disabled ? " opacity-70 pointer-events-none" : ""}`}
         style={{ maxWidth: "100%", height: "auto" }}
         onMouseDown={start}
         onMouseMove={move}
@@ -191,6 +197,7 @@ function SignatureCanvas({
         onTouchMove={move}
         onTouchEnd={end}
       />
+      {!disabled && (
       <button
         type="button"
         onClick={clear}
@@ -198,6 +205,7 @@ function SignatureCanvas({
       >
         {clearLabel}
       </button>
+      )}
     </div>
   );
 }
@@ -210,6 +218,11 @@ export function FormsModule({
   currentUserEmployeeId,
   currentUserName,
   canManage,
+  canCreateForms: canCreateFormsProp,
+  canManageFormTemplates: canManageFormTemplatesProp,
+  canFillForms: canFillFormsProp,
+  canApproveForms: canApproveFormsProp,
+  canExportForms: canExportFormsProp,
   onCreateInstance,
   onUpdateInstance,
   onAddTemplate,
@@ -226,6 +239,12 @@ export function FormsModule({
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
   const t = { ...PM_EN, ...labelsProp } as Record<string, string>;
   const l = (k: string) => t[k] ?? PM_EN[k] ?? k;
+  const canCreateForms = canCreateFormsProp ?? canManage;
+  const canManageFormTemplates = canManageFormTemplatesProp ?? canManage;
+  const canFillForms = canFillFormsProp ?? true;
+  const canApproveForms = canApproveFormsProp ?? canManage;
+  const canExportForms = canExportFormsProp ?? canManage;
+  const fillReadOnly = !canFillForms;
   const [view, setView] = useState<FormsView>("list");
   const [listTab, setListTab] = useState<ListTab>("all");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -466,6 +485,7 @@ export function FormsModule({
   const getProject = (id: string) => projects.find((p) => p.id === id);
 
   const handleUseTemplate = (templateId: string, projectId: string) => {
+    if (!canCreateForms) return;
     const template = getTemplate(templateId);
     if (!template) return;
     const instance = buildFormInstanceFromTemplate(template, projectId, {
@@ -562,6 +582,7 @@ export function FormsModule({
                   {l("forms_filtering_by").replace("{name}", assigneeFilterName)}
                 </span>
               ) : null}
+              {canCreateForms && (
               <button
                 type="button"
                 onClick={() => setView("template")}
@@ -570,7 +591,8 @@ export function FormsModule({
                 <Plus className="h-4 w-4" />
                 {t.newForm}
               </button>
-              {canManage && (
+              )}
+              {canManageFormTemplates && (
                 <button
                   type="button"
                   onClick={() => setView("builder")}
@@ -667,12 +689,15 @@ export function FormsModule({
                             setFillInstanceId(inst.id);
                             setFillDraftValues(inst.fieldValues);
                             setFillDraftAttendees(inst.attendees);
-                            const tpl = getTemplate(inst.templateId);
                             setView("fill");
                           }}
-                          className="rounded-lg bg-amber-600 text-white px-3 py-2 text-sm font-medium min-h-[44px]"
+                          className={`rounded-lg px-3 py-2 text-sm font-medium min-h-[44px] ${
+                            canFillForms
+                              ? "bg-amber-600 text-white"
+                              : "border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+                          }`}
                         >
-                          {l("forms_continue")}
+                          {canFillForms ? l("forms_continue") : l("forms_view")}
                         </button>
                       )}
                     </div>
@@ -685,7 +710,7 @@ export function FormsModule({
       )}
 
       {/* ---------- TEMPLATE VIEW (library) ---------- */}
-      {view === "builder" && canManage && (
+      {view === "builder" && canManageFormTemplates && (
         <FormTemplateBuilder
           labels={t}
           currentUserEmployeeId={currentUserEmployeeId}
@@ -777,7 +802,7 @@ export function FormsModule({
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
-                  {canManage && !template.isBase && (
+                  {canManageFormTemplates && !template.isBase && (
                     <>
                       <button
                         type="button"
@@ -797,14 +822,16 @@ export function FormsModule({
                       </button>
                     </>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => handleDuplicateTemplate(template)}
-                    className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center text-sm"
-                    title={l("forms_duplicate")}
-                  >
-                    {l("forms_duplicate")}
-                  </button>
+                  {canManageFormTemplates && (
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicateTemplate(template)}
+                      className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center text-sm"
+                      title={l("forms_duplicate")}
+                    >
+                      {l("forms_duplicate")}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -883,7 +910,7 @@ export function FormsModule({
                           )}
                         </div>
                       </div>
-                      {!att.signedAt && (
+                      {!att.signedAt && !fillReadOnly && (
                         <button
                           type="button"
                           onClick={() => openDirectSignModal(att, instance)}
@@ -896,6 +923,7 @@ export function FormsModule({
                     </div>
                   ))}
                 </div>
+                {!fillReadOnly && (
                 <div className="mt-3">
                   <button
                     type="button"
@@ -906,6 +934,8 @@ export function FormsModule({
                     {l("addVisitor")}
                   </button>
                 </div>
+                )}
+                {!fillReadOnly && (
                 <button
                   type="button"
                   onClick={() => handleGenerateQR(instance, template)}
@@ -913,6 +943,7 @@ export function FormsModule({
                 >
                   {l("generateQR")}
                 </button>
+                )}
               </div>
             );
           }
@@ -925,6 +956,7 @@ export function FormsModule({
                 value={values[field.id] as string | undefined}
                 onChange={(v) => updateVal(field.id, v)}
                 onClear={() => updateVal(field.id, undefined)}
+                disabled={fillReadOnly}
               />
             );
           }
@@ -934,6 +966,7 @@ export function FormsModule({
               field={field}
               value={values[field.id]}
               onChange={(v) => updateVal(field.id, v)}
+              readOnly={fillReadOnly}
               optionsEmployees={
                 field.type === "select" &&
                 (!field.options || field.options.length === 0)
@@ -1032,6 +1065,8 @@ export function FormsModule({
                   {l("next")}
                 </button>
                 <div className="flex-1 min-w-[8px]" />
+                {canFillForms && (
+                  <>
                 <button
                   type="button"
                   onClick={() => {
@@ -1064,6 +1099,8 @@ export function FormsModule({
                 >
                   {l("forms_submit")}
                 </button>
+                  </>
+                )}
               </div>
             </footer>
           </div>
@@ -1105,29 +1142,48 @@ export function FormsModule({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  const blob = await generateFormPDF(
-                    instance,
-                    template,
-                    project?.name ?? instance.projectId,
-                    "Machinpro",
-                    undefined,
-                    t.signedOnSupervisorDevice
-                  );
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `${template.name}-${instance.date}.pdf`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                className="flex items-center gap-2 rounded-xl bg-zinc-800 dark:bg-zinc-700 text-white px-4 py-2.5 text-sm font-medium min-h-[44px]"
-              >
-                <FileText className="h-4 w-4" />
-                {t.exportPDF}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                {canApproveForms &&
+                  instance.status !== "approved" &&
+                  (instance.status === "completed" || instance.status === "in_progress") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateInstance({ ...instance, status: "approved" });
+                        setView("list");
+                        setDetailInstanceId(null);
+                      }}
+                      className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px]"
+                    >
+                      {l("forms_approve")}
+                    </button>
+                  )}
+                {canExportForms && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const blob = await generateFormPDF(
+                      instance,
+                      template,
+                      project?.name ?? instance.projectId,
+                      "Machinpro",
+                      undefined,
+                      t.signedOnSupervisorDevice
+                    );
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${template.name}-${instance.date}.pdf`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-zinc-800 dark:bg-zinc-700 text-white px-4 py-2.5 text-sm font-medium min-h-[44px]"
+                >
+                  <FileText className="h-4 w-4" />
+                  {t.exportPDF}
+                </button>
+                )}
+              </div>
             </div>
 
             <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 space-y-6">
