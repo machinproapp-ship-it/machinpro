@@ -12,6 +12,7 @@ import {
   Globe,
   CreditCard,
   Shield,
+  Factory,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
@@ -30,6 +31,8 @@ import { REGIONAL_COUNTRY_DEFAULTS as COUNTRY_DEFAULTS, REGIONAL_COUNTRIES as CO
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { supabase } from "@/lib/supabase";
 import type { Factor } from "@supabase/supabase-js";
+import type { CatalogItem } from "@/lib/productionCatalog";
+import { ProductionCatalogSettingsSection } from "@/components/ProductionCatalogSettingsSection";
 
 const SETTINGS_SUPPORT_EMAIL = "support@machin.pro";
 
@@ -96,6 +99,11 @@ export interface SettingsModuleProps {
   showMfaSecuritySection?: boolean;
   /** Notificaciones push y preferencias (canManageNotifications). */
   canManageNotifications?: boolean;
+  /** Catálogo de producción (piecework). */
+  canManageProductionCatalog?: boolean;
+  productionCatalogItems?: CatalogItem[];
+  onRefreshProductionCatalog?: () => void;
+  productionCatalogCurrencyDefault?: string;
 }
 
 export function SettingsModule({
@@ -152,6 +160,10 @@ export function SettingsModule({
   onDarkModeChange,
   showMfaSecuritySection = false,
   canManageNotifications = false,
+  canManageProductionCatalog = false,
+  productionCatalogItems = [],
+  onRefreshProductionCatalog,
+  productionCatalogCurrencyDefault = "CAD",
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -197,6 +209,7 @@ export function SettingsModule({
     | "company"
     | "notifications"
     | "regional"
+    | "production"
     | "billing"
     | "help";
 
@@ -206,6 +219,7 @@ export function SettingsModule({
     company: Building2,
     notifications: Bell,
     regional: Globe,
+    production: Factory,
     billing: CreditCard,
     help: HelpCircle,
   };
@@ -220,6 +234,7 @@ export function SettingsModule({
       ["company", tl.settingsCompany ?? ""] as const,
       ["notifications", tl.settingsNotifications ?? ""] as const,
       ["regional", tl.settings_regional_title ?? tl.settingsRegional ?? ""] as const,
+      ["production", tl.production_catalog_title ?? ""] as const,
       ["billing", tl.settingsBilling ?? ""] as const,
       ["help", tl.helpAndTutorials ?? ""] as const,
     ] as const;
@@ -228,6 +243,8 @@ export function SettingsModule({
       if (id === "notifications")
         return !!(session?.access_token && companyId && canManageNotifications);
       if (id === "regional") return canManageRegionalConfig || canEditCompanyProfile;
+      if (id === "production")
+        return !!(canManageProductionCatalog && companyId && onRefreshProductionCatalog);
       if (id === "billing") return showBillingSection && !!billingSection;
       return true;
     });
@@ -241,6 +258,9 @@ export function SettingsModule({
     showBillingSection,
     billingSection,
     canManageNotifications,
+    canManageProductionCatalog,
+    companyId,
+    onRefreshProductionCatalog,
   ]);
 
   const persistPushPref = useCallback((key: "hazard" | "action" | "visitor", on: boolean) => {
@@ -1187,6 +1207,25 @@ export function SettingsModule({
               ) : null}
             </div>
           ) : null}
+
+          {activeSettingsSection === "production" &&
+            canManageProductionCatalog &&
+            companyId &&
+            onRefreshProductionCatalog && (
+              <div className="space-y-4">
+                <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                  <Factory className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                  {tl.production_catalog_title ?? ""}
+                </h3>
+                <ProductionCatalogSettingsSection
+                  labels={tl}
+                  companyId={companyId}
+                  currencyDefault={productionCatalogCurrencyDefault}
+                  items={productionCatalogItems}
+                  onRefresh={onRefreshProductionCatalog}
+                />
+              </div>
+            )}
 
           {activeSettingsSection === "billing" && showBillingSection && billingSection && (
             <div className="space-y-4">

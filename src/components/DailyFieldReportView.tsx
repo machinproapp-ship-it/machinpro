@@ -65,6 +65,20 @@ function ppeLabel(key: DailyReportPpeKey, tl: Record<string, string>): string {
   return m[key] ?? key;
 }
 
+export type DailyReportWorkOrderLine = {
+  overrideId: string;
+  catalogItemId: string;
+  taskName: string;
+  unit: string;
+  sellPrice: number;
+  costPrice: number;
+  baseSell: number;
+  baseCost: number;
+  currency: string;
+  hasSellOverride?: boolean;
+  hasCostOverride?: boolean;
+};
+
 function todayYmd(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -135,6 +149,9 @@ export type DailyFieldReportViewProps = {
   onReportPublished?: (report: DailyFieldReport) => void;
   /** Supervisor puede cerrar el parte como aprobado. */
   canApproveReport?: boolean;
+  /** Work order del proyecto (piecework). */
+  workOrderLines?: DailyReportWorkOrderLine[];
+  showProductionSection?: boolean;
 };
 
 export function DailyFieldReportView({
@@ -163,6 +180,8 @@ export function DailyFieldReportView({
   onReportCreated,
   onReportPublished,
   canApproveReport = false,
+  workOrderLines = [],
+  showProductionSection = false,
 }: DailyFieldReportViewProps) {
   void useMachinProDisplayPrefs();
   const tl = rawLabels as Record<string, string>;
@@ -193,6 +212,105 @@ export function DailyFieldReportView({
   const [tapNamedInput, setTapNamedInput] = useState("");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
+  const [prodUnits, setProdUnits] = useState<Record<string, string>>({});
+  const [prodOpen, setProdOpen] = useState(true);
+
+  useEffect(() => {
+    if (!showProductionSection) return;
+    setProdUnits({});
+  }, [showProductionSection, projectId, workOrderLines]);
+
+  const productionTotals = useMemo(() => {
+    let units = 0;
+    let sell = 0;
+    for (const line of workOrderLines) {
+      const raw = (prodUnits[line.overrideId] ?? "").trim();
+      const n = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+      const u = Number.isFinite(n) ? n : 0;
+      units += u;
+      sell += u * line.sellPrice;
+    }
+    return { units, sell };
+  }, [workOrderLines, prodUnits]);
+
+  const syncProductionReport = useCallback(
+    async (reportDate: string) => {
+      if (!supabase || !showProductionSection || workOrderLines.length === 0) return;
+      const entries = workOrderLines
+        .map((line) => {
+          const raw = (prodUnits[line.overrideId] ?? "").trim();
+          const n = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+          const unitsCompleted = Number.isFinite(n) ? n : 0;
+          if (unitsCompleted <= 0) return null;
+          const totalCost = unitsCompleted * line.costPrice;
+          const totalSell = unitsCompleted * line.sellPrice;
+          return {
+            id: crypto.randomUUID(),
+            catalogItemId: line.catalogItemId,
+            taskName: line.taskName,
+            unit: line.unit,
+            unitsCompleted,
+            costPrice: line.costPrice,
+            sellPrice: line.sellPrice,
+            totalCost,
+            totalSell,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x != null);
+      const totalUnits = entries.reduce((s, e) => s + e.unitsCompleted, 0);
+      const totalCost = entries.reduce((s, e) => s + e.totalCost, 0);
+      const totalSell = entries.reduce((s, e) => s + e.totalSell, 0);
+      const { data: prev } = await supabase
+        .from("production_reports")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("employee_id", currentUserProfileId)
+        .eq("project_id", projectId)
+        .eq("report_date", reportDate)
+        .is("deleted_at", null)
+        .maybeSingle();
+      const prevId = prev && typeof (prev as { id?: string }).id === "string" ? (prev as { id: string }).id : null;
+      if (entries.length === 0) {
+        if (prevId) {
+          await supabase
+            .from("production_reports")
+            .update({
+              entries: [],
+              total_units: 0,
+              total_cost: 0,
+              total_sell: 0,
+            })
+            .eq("id", prevId);
+        }
+        return;
+      }
+      const row = {
+        company_id: companyId,
+        employee_id: currentUserProfileId,
+        project_id: projectId,
+        report_date: reportDate,
+        entries,
+        total_units: totalUnits,
+        total_cost: totalCost,
+        total_sell: totalSell,
+        status: "draft" as const,
+      };
+      if (prevId) {
+        await supabase.from("production_reports").update(row).eq("id", prevId);
+      } else {
+        await supabase.from("production_reports").insert(row);
+      }
+    },
+    [
+      supabase,
+      showProductionSection,
+      workOrderLines,
+      prodUnits,
+      companyId,
+      currentUserProfileId,
+      projectId,
+    ]
+  );
 
   const supervisorFormLocked =
     !isEmployeeView && (draft.status === "published" || draft.status === "approved");
@@ -413,6 +531,7 @@ export function DailyFieldReportView({
       }
       if (next.status === "published" && prevStatus !== "published") {
         onReportPublished?.(next);
+        void syncProductionReport(next.date);
       }
       if (report?.id) {
         const fresh = await fetchDailyReportsForCompany(supabase, companyId);
@@ -423,7 +542,16 @@ export function DailyFieldReportView({
       }
       onRefreshList?.();
     },
-    [companyId, draft.status, onRefreshList, onReportCreated, onReportPublished, report?.id, tl.dailyReportOffline]
+    [
+      companyId,
+      draft.status,
+      onRefreshList,
+      onReportCreated,
+      onReportPublished,
+      report?.id,
+      tl.dailyReportOffline,
+      syncProductionReport,
+    ]
   );
 
   const handleSaveDraft = useCallback(() => {
@@ -772,6 +900,58 @@ export function DailyFieldReportView({
               </ul>
             )}
           </section>
+          {showProductionSection && workOrderLines.length > 0 ? (
+            <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-slate-900">
+              <h2 className="mb-3 font-semibold text-zinc-900 dark:text-white">
+                {tl.production_report_title ?? "Daily production"}
+              </h2>
+              <ul className="space-y-3">
+                {workOrderLines.map((line) => {
+                  const raw = (prodUnits[line.overrideId] ?? "").trim();
+                  const u = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+                  const units = Number.isFinite(u) ? u : 0;
+                  const lineSell = units * line.sellPrice;
+                  const uLbl =
+                    (tl[`production_unit_${line.unit}` as keyof typeof tl] as string) || line.unit;
+                  return (
+                    <li
+                      key={line.overrideId}
+                      className="rounded-lg border border-zinc-100 p-3 dark:border-zinc-700"
+                    >
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                        {line.taskName}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">{uLbl}</p>
+                      <label className="mt-2 block text-sm">
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                          {tl.production_report_units ?? "Units completed"}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          value={prodUnits[line.overrideId] ?? ""}
+                          onChange={(e) =>
+                            setProdUnits((p) => ({ ...p, [line.overrideId]: e.target.value }))
+                          }
+                          disabled={busy || draft.status !== "draft"}
+                          className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-slate-800"
+                        />
+                      </label>
+                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300 tabular-nums">
+                        {line.currency} {lineSell.toFixed(2)}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-3 text-sm font-semibold text-zinc-900 dark:text-white tabular-nums">
+                {tl.production_report_total ?? "Total production"}:{" "}
+                {workOrderLines[0]?.currency ?? "CAD"} {productionTotals.sell.toFixed(2)}
+              </p>
+            </section>
+          ) : null}
           <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-slate-900">
             {alreadySigned ? (
               <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -1084,6 +1264,71 @@ export function DailyFieldReportView({
             </div>
           )}
         </section>
+
+        {showProductionSection && workOrderLines.length > 0 ? (
+          <section className="mb-6 rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-slate-900">
+            <button
+              type="button"
+              onClick={() => setProdOpen((o) => !o)}
+              className="flex w-full min-h-[44px] items-center justify-between px-4 py-3 text-left font-medium text-zinc-900 dark:text-white"
+            >
+              {tl.production_report_title ?? "Daily production"}
+              {prodOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </button>
+            {prodOpen && (
+              <div className="border-t border-zinc-100 px-4 py-4 dark:border-zinc-800 space-y-3">
+                <ul className="space-y-3">
+                  {workOrderLines.map((line) => {
+                    const raw = (prodUnits[line.overrideId] ?? "").trim();
+                    const u = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+                    const units = Number.isFinite(u) ? u : 0;
+                    const lineSell = units * line.sellPrice;
+                    const uLbl =
+                      (tl[`production_unit_${line.unit}` as keyof typeof tl] as string) || line.unit;
+                    return (
+                      <li
+                        key={line.overrideId}
+                        className="flex flex-col gap-2 rounded-lg border border-zinc-100 p-3 dark:border-zinc-700 sm:flex-row sm:items-end"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                            {line.taskName}
+                          </p>
+                          <p className="text-xs text-zinc-500">{uLbl}</p>
+                        </div>
+                        <label className="block w-full sm:w-36">
+                          <span className="text-xs text-zinc-500">
+                            {tl.production_report_units ?? "Units"}
+                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            inputMode="decimal"
+                            value={prodUnits[line.overrideId] ?? ""}
+                            onChange={(e) =>
+                              setProdUnits((p) => ({ ...p, [line.overrideId]: e.target.value }))
+                            }
+                            readOnly={readOnly}
+                            disabled={busy || readOnly}
+                            className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 px-2 text-sm dark:border-zinc-600 dark:bg-slate-800"
+                          />
+                        </label>
+                        <p className="text-sm font-medium tabular-nums text-zinc-800 dark:text-zinc-200 sm:w-28 sm:text-right">
+                          {line.currency} {lineSell.toFixed(2)}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white tabular-nums">
+                  {tl.production_report_total ?? "Total production"}:{" "}
+                  {workOrderLines[0]?.currency ?? "CAD"} {productionTotals.sell.toFixed(2)}
+                </p>
+              </div>
+            )}
+          </section>
+        ) : null}
 
         {/* Asistencia */}
         <section className="mb-6 rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-slate-900">

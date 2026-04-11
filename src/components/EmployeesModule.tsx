@@ -451,7 +451,7 @@ export function EmployeesModule({
     emergencyName: "",
     emergencyPhone: "",
     emergencyRelation: "",
-    payType: "unspecified" as "unspecified" | "fixed" | "hourly",
+    payType: "unspecified" as "unspecified" | "fixed" | "hourly" | "production",
     payAmount: "",
     payCurrency: "CAD",
     payPeriod: "monthly" as "monthly" | "biweekly" | "weekly",
@@ -628,7 +628,7 @@ export function EmployeesModule({
           : selected.custom_permissions == null;
       let pt = (selected.pay_type ?? "").trim().toLowerCase();
       if (pt === "salary") pt = "fixed";
-      if (pt !== "fixed" && pt !== "hourly") pt = "";
+      if (pt !== "fixed" && pt !== "hourly" && pt !== "production") pt = "";
       const payAmt = coercePayAmount(selected.pay_amount);
       const laborHr = coercePayAmount(selected.hourly_rate);
       const rawVac = selected.vacation_days_allowed;
@@ -856,12 +856,21 @@ export function EmployeesModule({
       profile_status: draft.profile_status ?? "active",
       pay_type: payType === "unspecified" ? null : payType,
       pay_amount:
-        payType === "unspecified" || payAmount == null || Number.isNaN(payAmount as number) ? null : payAmount,
+        payType === "unspecified" ||
+        payType === "production" ||
+        payAmount == null ||
+        Number.isNaN(payAmount as number)
+          ? null
+          : payAmount,
       pay_currency:
-        payType === "unspecified" ? null : (draft.pay_currency ?? selected.pay_currency ?? "CAD") || null,
+        payType === "unspecified" || payType === "production"
+          ? null
+          : (draft.pay_currency ?? selected.pay_currency ?? "CAD") || null,
       pay_period:
-        payType === "unspecified" ? null : (draft.pay_period ?? selected.pay_period ?? "monthly") || null,
-      hourly_rate: coercePayAmount(draft.hourly_rate),
+        payType === "unspecified" || payType === "production"
+          ? null
+          : (draft.pay_period ?? selected.pay_period ?? "monthly") || null,
+      hourly_rate: payType === "production" ? null : coercePayAmount(draft.hourly_rate),
     };
     const { error } = await supabase.from("user_profiles").update(payload).eq("id", selected.id);
     setSaving(false);
@@ -1228,6 +1237,8 @@ export function EmployeesModule({
         return `${tl.employees_fixed_salary ?? ""}: ${amt} ${cur}${per ? ` · ${per}` : ""}`;
       if (pt === "hourly")
         return `${tl.employees_hourly_rate ?? ""}: ${amt} ${cur}${per ? ` · ${per}` : ""}`;
+      if (pt === "production")
+        return tl.production_pay_production ?? tl.employees_pay_production_note ?? "";
       return tl.common_dash ?? "";
     };
 
@@ -1768,17 +1779,28 @@ export function EmployeesModule({
                       ...d,
                       pay_type: e.target.value,
                       pay_amount:
-                        e.target.value === "unspecified" ? null : d.pay_amount ?? selected.pay_amount ?? null,
+                        e.target.value === "unspecified" || e.target.value === "production"
+                          ? null
+                          : d.pay_amount ?? selected.pay_amount ?? null,
+                      hourly_rate: e.target.value === "production" ? null : d.hourly_rate,
                     }))
                   }
                   className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
                 >
                   <option value="unspecified">{tl.employees_pay_type_unspecified ?? ""}</option>
-                  <option value="fixed">{tl.employees_fixed_salary ?? ""}</option>
-                  <option value="hourly">{tl.employees_hourly_rate ?? ""}</option>
+                  <option value="fixed">{tl.production_pay_fixed ?? tl.employees_fixed_salary ?? ""}</option>
+                  <option value="hourly">{tl.production_pay_hourly ?? tl.employees_hourly_rate ?? ""}</option>
+                  <option value="production">{tl.production_pay_production ?? ""}</option>
                 </select>
               </label>
-              {(draft.pay_type ?? "") !== "" && draft.pay_type !== "unspecified" ? (
+              {draft.pay_type === "production" ? (
+                <p className="text-sm text-zinc-600 dark:text-zinc-300 sm:col-span-2">
+                  {tl.employees_pay_production_note ?? ""}
+                </p>
+              ) : null}
+              {(draft.pay_type ?? "") !== "" &&
+              draft.pay_type !== "unspecified" &&
+              draft.pay_type !== "production" ? (
                 <>
                   <label className="block text-sm">
                     <span className="text-zinc-500">
@@ -1837,7 +1859,7 @@ export function EmployeesModule({
           ) : null}
         </section>
 
-        {canManageEmployees && !workerSelf ? (
+        {canManageEmployees && !workerSelf && (draft.pay_type ?? "") !== "production" ? (
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
             <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{tl.labor_costing ?? ""}</h3>
             <label className="block text-sm max-w-md">
@@ -2883,11 +2905,17 @@ export function EmployeesModule({
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
               >
                 <option value="unspecified">{tl.employees_pay_type_unspecified ?? ""}</option>
-                <option value="fixed">{tl.employees_fixed_salary ?? ""}</option>
-                <option value="hourly">{tl.employees_hourly_rate ?? ""}</option>
+                <option value="fixed">{tl.production_pay_fixed ?? tl.employees_fixed_salary ?? ""}</option>
+                <option value="hourly">{tl.production_pay_hourly ?? tl.employees_hourly_rate ?? ""}</option>
+                <option value="production">{tl.production_pay_production ?? ""}</option>
               </select>
             </label>
-            {createForm.payType !== "unspecified" ? (
+            {createForm.payType === "production" ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                {tl.employees_pay_production_note ?? ""}
+              </p>
+            ) : null}
+            {createForm.payType !== "unspecified" && createForm.payType !== "production" ? (
               <>
                 <label className="block text-sm">
                   <span className="text-zinc-500">

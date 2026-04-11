@@ -3,7 +3,7 @@
 export type LaborEmployeeInput = {
   id: string;
   laborHourlyRate?: number | null;
-  payType?: "hourly" | "salary";
+  payType?: "hourly" | "salary" | "production";
   hourlyRate?: number;
 };
 

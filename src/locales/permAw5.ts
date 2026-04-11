@@ -154,6 +154,11 @@ const BODY_EN: Record<keyof RolePermissions, string> = {
   canViewBinders: "View binders",
   canManageBinders: "Manage binders",
   canViewAttendance: "View attendance panel on project",
+  canViewProductionCatalog: "View production catalog",
+  canManageProductionCatalog: "Manage production catalog",
+  canViewWorkOrders: "View work orders",
+  canManageWorkOrders: "Manage work orders",
+  canReportProduction: "Report daily production",
 };
 
 /** FR (sprint AW-5 + coherencia con ES) */
@@ -236,6 +241,11 @@ const BODY_FR: Record<keyof RolePermissions, string> = {
   canViewBinders: "Voir les classeurs",
   canManageBinders: "Gérer les classeurs",
   canViewAttendance: "Voir la présence sur le chantier",
+  canViewProductionCatalog: "Voir le catalogue de production",
+  canManageProductionCatalog: "Gérer le catalogue de production",
+  canViewWorkOrders: "Voir les bons de travail",
+  canManageWorkOrders: "Gérer les bons de travail",
+  canReportProduction: "Déclarer la production journalière",
 };
 
 const BODY_DE: Record<keyof RolePermissions, string> = {
@@ -317,6 +327,11 @@ const BODY_DE: Record<keyof RolePermissions, string> = {
   canViewBinders: "Ordner anzeigen",
   canManageBinders: "Ordner verwalten",
   canViewAttendance: "Anwesenheit auf der Baustelle anzeigen",
+  canViewProductionCatalog: "Produktionskatalog anzeigen",
+  canManageProductionCatalog: "Produktionskatalog verwalten",
+  canViewWorkOrders: "Arbeitsaufträge anzeigen",
+  canManageWorkOrders: "Arbeitsaufträge verwalten",
+  canReportProduction: "Tagesproduktion melden",
 };
 
 const BODY_IT: Record<keyof RolePermissions, string> = {
@@ -398,6 +413,11 @@ const BODY_IT: Record<keyof RolePermissions, string> = {
   canViewBinders: "Visualizza raccoglitori",
   canManageBinders: "Gestisci raccoglitori",
   canViewAttendance: "Visualizza presenze in cantiere",
+  canViewProductionCatalog: "Visualizza catalogo produzione",
+  canManageProductionCatalog: "Gestisci catalogo produzione",
+  canViewWorkOrders: "Visualizza ordini di lavoro",
+  canManageWorkOrders: "Gestisci ordini di lavoro",
+  canReportProduction: "Segnala produzione giornaliera",
 };
 
 const BODY_PT: Record<keyof RolePermissions, string> = {
@@ -479,6 +499,11 @@ const BODY_PT: Record<keyof RolePermissions, string> = {
   canViewBinders: "Ver pastas",
   canManageBinders: "Gerir pastas",
   canViewAttendance: "Ver presenças na obra",
+  canViewProductionCatalog: "Ver catálogo de produção",
+  canManageProductionCatalog: "Gerir catálogo de produção",
+  canViewWorkOrders: "Ver ordens de trabalho",
+  canManageWorkOrders: "Gerir ordens de trabalho",
+  canReportProduction: "Reportar produção diária",
 };
 
 export const PERMISSION_LABELS_ES = flatFromRole(GROUPS_ES, ROLE_PERMISSION_LABELS);

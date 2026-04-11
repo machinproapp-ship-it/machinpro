@@ -115,7 +115,10 @@ export async function POST(req: NextRequest) {
   const emergencyRelation =
     typeof body.emergencyContactRelation === "string" ? body.emergencyContactRelation.trim() || null : null;
   const rawPayType = typeof body.payType === "string" ? body.payType.trim() : "";
-  const payType = rawPayType === "fixed" || rawPayType === "hourly" ? rawPayType : null;
+  const payType =
+    rawPayType === "fixed" || rawPayType === "hourly" || rawPayType === "production"
+      ? rawPayType
+      : null;
   const payAmount =
     typeof body.payAmount === "number" && !Number.isNaN(body.payAmount) ? body.payAmount : null;
   const payCurrency =
@@ -173,6 +176,8 @@ export async function POST(req: NextRequest) {
     );
 
     const effectivePayType = payType;
+    const payAmountForRow =
+      effectivePayType === "production" ? null : effectivePayType ? payAmount : null;
     /** Columnas user_profiles: pay_*, vacation_policy_enabled, vacation_days_allowed (no usar payment_*). */
     const { error: profErr } = await admin.from("user_profiles").upsert(
       {
@@ -191,8 +196,9 @@ export async function POST(req: NextRequest) {
         emergency_contact_phone: emergencyPhone,
         emergency_contact_relation: emergencyRelation,
         pay_type: effectivePayType,
-        pay_amount: effectivePayType ? payAmount : null,
-        pay_currency: effectivePayType ? payCurrency : null,
+        pay_amount: payAmountForRow,
+        pay_currency:
+          effectivePayType && effectivePayType !== "production" ? payCurrency : null,
         pay_period: effectivePayType === "fixed" ? payPeriod : null,
         vacation_policy_enabled: vacationPolicyEnabled,
         vacation_days_allowed: vacationPolicyEnabled ? vacationDaysAnnual : null,

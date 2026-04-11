@@ -37,7 +37,9 @@ import {
 import { hoursWorkedFromClockFields, laborCostForHours } from "@/lib/laborCosting";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { PayrollSchedulePanel } from "@/components/PayrollSchedulePanel";
+import { ProductionPayrollSchedulePanel } from "@/components/ProductionPayrollSchedulePanel";
 import type { ClockEntryForSchedule } from "@/types/homePage";
+import type { ProductionReport } from "@/lib/productionCatalog";
 
 export interface SchedEmployee {
   id: string;
@@ -340,6 +342,7 @@ export interface ScheduleModuleProps {
   canManagePayroll?: boolean;
   canExportPayroll?: boolean;
   companyCountryForPayroll?: string;
+  productionReports?: ProductionReport[];
 }
 
 function startOfWeek(date: Date): Date {
@@ -1505,6 +1508,7 @@ export default function ScheduleModule({
   canManagePayroll = false,
   canExportPayroll = false,
   companyCountryForPayroll = "CA",
+  productionReports = [],
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
@@ -1531,6 +1535,7 @@ export default function ScheduleModule({
     !!canViewTimeclock && (Boolean(canClockIn) || Boolean(canManageEmployees));
   const showTimesheetsTab = canViewTimesheets;
   const showPayrollTab = !!canViewPayroll;
+  const [payrollPayMode, setPayrollPayMode] = useState<"hours" | "production">("hours");
   const [scheduleSubTab, setScheduleSubTab] = useState<
     "calendar" | "clock" | "timesheets" | "payroll" | "vacations"
   >("calendar");
@@ -3017,24 +3022,65 @@ export default function ScheduleModule({
       )}
 
       {showPayrollTab && scheduleSubTab === "payroll" && (
-        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <PayrollSchedulePanel
-            labels={lx}
-            companyName={companyName}
-            companyId={companyId}
-            timeZone={scheduleTz}
-            dateLocale={dateLocale}
-            countryCode={companyCountryForPayroll}
-            currency={timesheetCostCurrency}
-            employees={employees.map((e) => ({ id: e.id, name: e.name }))}
-            clockEntries={clockEntries}
-            employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
-            profileToLegacyEmployeeId={profileToLegacyEmployeeId}
-            currentUserProfileId={currentUserProfileId}
-            viewAllPayroll={viewAll || canManagePayroll}
-            canManagePayroll={canManagePayroll}
-            canExportPayroll={canExportPayroll}
-          />
+        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
+          <div className="flex flex-wrap gap-2" role="group" aria-label={lx.payroll_title ?? "Payroll"}>
+            <button
+              type="button"
+              onClick={() => setPayrollPayMode("hours")}
+              className={`min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                payrollPayMode === "hours"
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                  : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+              }`}
+            >
+              {lx.payroll_pay_toggle_hours ?? "Hours"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPayrollPayMode("production")}
+              className={`min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                payrollPayMode === "production"
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
+                  : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
+              }`}
+            >
+              {lx.payroll_pay_toggle_production ?? "Production"}
+            </button>
+          </div>
+          {payrollPayMode === "hours" ? (
+            <PayrollSchedulePanel
+              labels={lx}
+              companyName={companyName}
+              companyId={companyId}
+              timeZone={scheduleTz}
+              dateLocale={dateLocale}
+              countryCode={companyCountryForPayroll}
+              currency={timesheetCostCurrency}
+              employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+              clockEntries={clockEntries}
+              employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
+              profileToLegacyEmployeeId={profileToLegacyEmployeeId}
+              currentUserProfileId={currentUserProfileId}
+              viewAllPayroll={viewAll || canManagePayroll}
+              canManagePayroll={canManagePayroll}
+              canExportPayroll={canExportPayroll}
+            />
+          ) : (
+            <ProductionPayrollSchedulePanel
+              labels={lx}
+              companyName={companyName}
+              companyId={companyId}
+              timeZone={scheduleTz}
+              dateLocale={dateLocale}
+              currency={timesheetCostCurrency}
+              employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+              productionReports={productionReports}
+              profileToLegacyEmployeeId={profileToLegacyEmployeeId}
+              currentUserProfileId={currentUserProfileId}
+              viewAll={viewAll || canManagePayroll}
+              canExportPayroll={canExportPayroll}
+            />
+          )}
         </div>
       )}
 

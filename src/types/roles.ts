@@ -100,6 +100,15 @@ export interface RolePermissions {
 
   /** Panel asistencia / GPS en ficha de proyecto. */
   canViewAttendance: boolean;
+
+  /** Catálogo de producción (piecework) en Ajustes. */
+  canViewProductionCatalog: boolean;
+  canManageProductionCatalog: boolean;
+  /** Work order por proyecto (tareas del catálogo + overrides). */
+  canViewWorkOrders: boolean;
+  canManageWorkOrders: boolean;
+  /** Reportar unidades en parte diario (producción). */
+  canReportProduction: boolean;
 }
 
 export interface CustomRole {
@@ -190,6 +199,11 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewBinders",
   "canManageBinders",
   "canViewAttendance",
+  "canViewProductionCatalog",
+  "canManageProductionCatalog",
+  "canViewWorkOrders",
+  "canManageWorkOrders",
+  "canReportProduction",
 ];
 
 /** Clave i18n: `perm` + clave con primera letra en mayúscula (permCanViewCentral). */
@@ -248,6 +262,9 @@ export const ROLE_PERMISSION_GROUPS: {
       "canViewProjectCosts",
       "canManageProjectCosts",
       "canExportProjectCosts",
+      "canViewWorkOrders",
+      "canManageWorkOrders",
+      "canReportProduction",
     ],
   },
   {
@@ -306,6 +323,8 @@ export const ROLE_PERMISSION_GROUPS: {
       "canViewBilling",
       "canManageNotifications",
       "canManageRegionalConfig",
+      "canViewProductionCatalog",
+      "canManageProductionCatalog",
     ],
   },
   {
@@ -394,6 +413,11 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewBinders: "Ver documentos (carpetas)",
   canManageBinders: "Gestionar documentos (carpetas)",
   canViewAttendance: "Ver panel asistencia en proyecto",
+  canViewProductionCatalog: "Ver catálogo de producción",
+  canManageProductionCatalog: "Gestionar catálogo de producción",
+  canViewWorkOrders: "Ver work orders",
+  canManageWorkOrders: "Gestionar work orders",
+  canReportProduction: "Reportar producción diaria",
 };
 
 const BASE_ROLE_IDS = ["role-admin", "role-supervisor", "role-worker", "role-logistic"];

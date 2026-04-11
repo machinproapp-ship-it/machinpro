@@ -17,6 +17,19 @@ import { useToast } from "@/components/Toast";
 
 type RowStatus = "draft" | "approved" | "paid";
 
+function buildEmployeeNameByClockId(
+  employees: { id: string; name: string }[],
+  profileToLegacyEmployeeId: Record<string, string>
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const e of employees) {
+    m.set(e.id, e.name);
+    const leg = profileToLegacyEmployeeId[e.id];
+    if (leg) m.set(leg, e.name);
+  }
+  return m;
+}
+
 export type PayrollSchedulePanelProps = {
   labels: Record<string, string>;
   companyName: string;
@@ -128,7 +141,7 @@ export function PayrollSchedulePanel({
       hoursByEmp.set(e.employeeId, (hoursByEmp.get(e.employeeId) ?? 0) + h);
     }
 
-    const nameById = new Map(employees.map((e) => [e.id, e.name]));
+    const nameById = buildEmployeeNameByClockId(employees, profileToLegacyEmployeeId);
     const ids = viewAllPayroll
       ? [...new Set([...hoursByEmp.keys(), ...employees.map((e) => e.id)])]
       : currentUserProfileId
@@ -161,6 +174,7 @@ export function PayrollSchedulePanel({
     clockEntries,
     periodBounds,
     employees,
+    profileToLegacyEmployeeId,
     viewAllPayroll,
     currentUserProfileId,
     countryCode,
@@ -171,11 +185,11 @@ export function PayrollSchedulePanel({
 
   const exportCsv = () => {
     if (!canExportPayroll) return;
-    const hName = L("personnel", "Name");
-    const hHours = L("labor_hours_worked", "Hours");
-    const hGross = L("payroll_gross", "Gross");
-    const hNet = L("payroll_net", "Net");
-    const hSt = L("category", "Status");
+    const hName = L("employees", "Empleados");
+    const hHours = L("timesheet_hours", L("labor_hours_worked", "Horas trabajadas"));
+    const hGross = L("payroll_gross", "Bruto");
+    const hNet = L("payroll_net", "Neto");
+    const hSt = L("common_status", "Estado");
     const lines = [
       [hName, hHours, hGross, hNet, hSt].map((c) => csvCell(c)).join(","),
     ];
@@ -200,15 +214,17 @@ export function PayrollSchedulePanel({
     <div className="space-y-4 min-w-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{L("payroll_title", "Payroll")}</label>
+          <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            {L("payroll_title", "Nóminas")}
+          </label>
           <select
             value={periodType}
             onChange={(e) => setPeriodType(e.target.value as PayrollPeriod)}
             className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px] min-w-[160px]"
           >
-            <option value="weekly">{L("payroll_period_weekly", "Weekly")}</option>
-            <option value="biweekly">{L("payroll_period_biweekly", "Biweekly")}</option>
-            <option value="monthly">{L("payroll_period_monthly", "Monthly")}</option>
+            <option value="weekly">{L("payroll_period_weekly", "Semanal")}</option>
+            <option value="biweekly">{L("payroll_period_biweekly", "Quincenal")}</option>
+            <option value="monthly">{L("payroll_period_monthly", "Mensual")}</option>
           </select>
         </div>
         {periodType === "monthly" ? (
@@ -265,25 +281,34 @@ export function PayrollSchedulePanel({
             className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
           >
             <Download className="h-4 w-4" />
-            {L("payroll_export_csv", "Export CSV")}
+            {L("payroll_export_csv", "Exportar CSV")}
           </button>
         ) : null}
       </div>
 
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">{L("payroll_orientative_note", "")}</p>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {L(
+          "payroll_orientative_note",
+          "Las deducciones son orientativas. Consulte a su asesor fiscal."
+        )}
+      </p>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-zinc-50 dark:bg-slate-800/80 text-left text-zinc-600 dark:text-zinc-400">
             <tr>
               <th className="px-3 py-3 font-medium w-10" />
-              <th className="px-3 py-3 font-medium">{L("personnel", "Name")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("labor_hours_worked", "Hours")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("payroll_gross", "Gross")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("payroll_deductions", "Deductions")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("payroll_net", "Net")}</th>
-              <th className="px-3 py-3 font-medium">{L("category", "Status")}</th>
-              {canManagePayroll ? <th className="px-3 py-3 font-medium">{L("actions", "Actions")}</th> : null}
+              <th className="px-3 py-3 font-medium">{L("employees", "Empleados")}</th>
+              <th className="px-3 py-3 font-medium text-right">
+                {L("timesheet_hours", L("labor_hours_worked", "Horas trabajadas"))}
+              </th>
+              <th className="px-3 py-3 font-medium text-right">{L("payroll_gross", "Bruto")}</th>
+              <th className="px-3 py-3 font-medium text-right">{L("payroll_deductions", "Deducciones")}</th>
+              <th className="px-3 py-3 font-medium text-right">{L("payroll_net", "Neto")}</th>
+              <th className="px-3 py-3 font-medium">{L("common_status", "Estado")}</th>
+              {canManagePayroll ? (
+                <th className="px-3 py-3 font-medium">{L("common_actions", "Acciones")}</th>
+              ) : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-slate-800">
@@ -305,17 +330,19 @@ export function PayrollSchedulePanel({
                     <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">{r.name}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.hours.toFixed(1)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {r.rate == null ? L("payroll_no_rate", "—") : `${currency} ${r.gross.toFixed(2)}`}
+                      {r.rate == null
+                        ? L("payroll_no_rate", "—")
+                        : `${currency} ${r.gross.toFixed(2)}`}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.totalDeductions.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">{r.net.toFixed(2)}</td>
                     <td className="px-3 py-2">
                       <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs capitalize">
                         {r.status === "draft"
-                          ? L("payroll_status_draft", "draft")
+                          ? L("payroll_status_draft", "Borrador")
                           : r.status === "approved"
-                            ? L("payroll_status_approved", "approved")
-                            : L("payroll_status_paid", "paid")}
+                            ? L("payroll_status_approved", "Aprobado")
+                            : L("payroll_status_paid", "Pagado")}
                       </span>
                     </td>
                     {canManagePayroll ? (
@@ -326,21 +353,21 @@ export function PayrollSchedulePanel({
                             className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-xs min-h-[44px]"
                             onClick={() => setStatus(r.employeeId, "approved")}
                           >
-                            {L("payroll_approve", "Approve")}
+                            {L("payroll_approve", "Aprobar")}
                           </button>
                           <button
                             type="button"
                             className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-xs min-h-[44px]"
                             onClick={() => setStatus(r.employeeId, "paid")}
                           >
-                            {L("payroll_mark_paid", "Paid")}
+                            {L("payroll_mark_paid", "Marcar pagado")}
                           </button>
                           <button
                             type="button"
                             className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-xs min-h-[44px]"
                             onClick={() => setStatus(r.employeeId, "draft")}
                           >
-                            {L("payroll_status_draft", "Draft")}
+                            {L("payroll_status_draft", "Borrador")}
                           </button>
                         </div>
                       </td>
@@ -352,7 +379,10 @@ export function PayrollSchedulePanel({
                         <ul className="space-y-1">
                           {(r.deductions as PayrollDeduction[]).map((d, i) => (
                             <li key={i} className="flex justify-between gap-4">
-                              <span>{L(d.nameKey, d.name)} {d.isEmployer ? "(employer)" : ""}</span>
+                              <span>
+                                {L(d.nameKey, d.name)}{" "}
+                                {d.isEmployer ? L("payroll_deduction_employer_tag", "(empresa)") : ""}
+                              </span>
                               <span className="tabular-nums">
                                 {(d.rate * 100).toFixed(2)}% → {d.amount.toFixed(2)}
                               </span>
@@ -361,7 +391,8 @@ export function PayrollSchedulePanel({
                         </ul>
                         {r.employerCost > 0 ? (
                           <p className="mt-2 font-medium">
-                            {L("payroll_employer_cost", "Employer")}: {currency} {r.employerCost.toFixed(2)}
+                            {L("payroll_employer_cost", "Coste empresa")}: {currency}{" "}
+                            {r.employerCost.toFixed(2)}
                           </p>
                         ) : null}
                       </td>

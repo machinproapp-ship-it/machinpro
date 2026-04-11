@@ -45,6 +45,8 @@ interface UserProfile {
   avatarUrl?: string | null;
   /** AH-20: periodic GPS during active shift (default true if column missing). */
   locationSharingEnabled?: boolean;
+  /** `user_profiles.pay_type` (fixed = salario fijo). */
+  payType?: "fixed" | "hourly" | "production" | null;
 }
 
 interface AuthContextValue {
@@ -90,6 +92,11 @@ function mapRowToProfile(data: ProfileSelectRow, email: string | null): UserProf
   const avatarRaw = row.avatar_url;
   const locShareRaw = row.location_sharing_enabled;
   const locationSharingEnabled = locShareRaw !== false;
+  const payRaw = String(row.pay_type ?? "").toLowerCase().trim();
+  let payType: UserProfile["payType"] = null;
+  if (payRaw === "hourly") payType = "hourly";
+  else if (payRaw === "production") payType = "production";
+  else if (payRaw === "fixed" || payRaw === "salary") payType = "fixed";
   const companies = data.companies as { name: string } | null | undefined;
   return {
     id: data.id,
@@ -106,6 +113,7 @@ function mapRowToProfile(data: ProfileSelectRow, email: string | null): UserProf
     phone: typeof phoneRaw === "string" && phoneRaw.trim() ? phoneRaw.trim() : null,
     avatarUrl: typeof avatarRaw === "string" && avatarRaw.trim() ? avatarRaw.trim() : null,
     locationSharingEnabled,
+    payType,
   };
 }
 

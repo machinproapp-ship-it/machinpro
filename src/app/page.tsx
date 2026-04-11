@@ -140,6 +140,14 @@ import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
 import { resolveFormLabel } from "@/lib/formTemplateDisplay";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
+import {
+  type CatalogItem,
+  type ProjectTaskOverride,
+  type ProductionReport,
+  mapCatalogRow,
+  mapOverrideRow,
+  mapProductionReportRow,
+} from "@/lib/productionCatalog";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
 import { useSubscription } from "@/lib/useSubscription";
 import { applyPlanToModulePermissions } from "@/lib/planPermissions";
@@ -315,7 +323,7 @@ export interface Employee {
   email?: string;
   hoursLog?: { date: string; hours: number }[];
   certificates: Certificate[];
-  payType?: "hourly" | "salary";
+  payType?: "hourly" | "salary" | "production";
   hourlyRate?: number;
   monthlySalary?: number;
   customRoleId?: string;
@@ -1414,6 +1422,9 @@ export default function Home() {
     teamProfiles: { id: string; employeeId: string | null; name: string; email?: string }[];
     auditLogs: AuditLogEntry[];
     projectExpenses: ProjectExpenseRow[];
+    productionCatalogItems: CatalogItem[];
+    projectTaskOverrides: ProjectTaskOverride[];
+    productionReports: ProductionReport[];
     companyName: string;
     logoUrl: string;
     companyAddress: string;
@@ -1957,6 +1968,9 @@ export default function Home() {
 
   const [dailyReports, setDailyReports] = useState<DailyFieldReport[]>([]);
   const [projectExpenses, setProjectExpenses] = useState<ProjectExpenseRow[]>([]);
+  const [productionCatalogItems, setProductionCatalogItems] = useState<CatalogItem[]>([]);
+  const [projectTaskOverrides, setProjectTaskOverrides] = useState<ProjectTaskOverride[]>([]);
+  const [productionReports, setProductionReports] = useState<ProductionReport[]>([]);
   const [teamProfiles, setTeamProfiles] = useState<
     { id: string; employeeId: string | null; name: string; email?: string }[]
   >([]);
@@ -1975,6 +1989,9 @@ export default function Home() {
       setTeamProfiles([]);
       setSubcontractorsForWatchdog([]);
       setProjectExpenses([]);
+      setProductionCatalogItems([]);
+      setProjectTaskOverrides([]);
+      setProductionReports([]);
       return;
     }
     const cid = companyId;
@@ -1993,6 +2010,9 @@ export default function Home() {
       setTeamProfiles(cached.teamProfiles);
       setAuditLogs(cached.auditLogs);
       setProjectExpenses(cached.projectExpenses ?? []);
+      setProductionCatalogItems(cached.productionCatalogItems ?? []);
+      setProjectTaskOverrides(cached.projectTaskOverrides ?? []);
+      setProductionReports(cached.productionReports ?? []);
       if (cached.companyName) setCompanyName(cached.companyName);
       if (cached.logoUrl) setLogoUrl(cached.logoUrl);
       setCompanyAddress(cached.companyAddress ?? "");
@@ -2026,6 +2046,9 @@ export default function Home() {
       let mappedCompanyWebsite = "";
       let mappedAuditLogs: AuditLogEntry[] = [];
       let mappedProjectExpenses: ProjectExpenseRow[] = [];
+      let mappedProductionCatalog: CatalogItem[] = [];
+      let mappedProjectOverrides: ProjectTaskOverride[] = [];
+      let mappedProductionReports: ProductionReport[] = [];
 
       const [profilesResult, projectsResult, rolesResult, companyResult] = await Promise.all([
         supabase
@@ -2082,6 +2105,7 @@ export default function Home() {
             let payType: Employee["payType"] | undefined;
             const pt = String(row.pay_type ?? "").toLowerCase();
             if (pt === "hourly") payType = "hourly";
+            else if (pt === "production") payType = "production";
             else if (pt === "fixed" || pt === "salary") payType = "salary";
             let hourlyRate: number | undefined;
             let monthlySalary: number | undefined;
@@ -2234,6 +2258,9 @@ export default function Home() {
             subRowsResult,
             subDocsResult,
             projectExpensesResult,
+            productionCatalogResult,
+            projectOverridesResult,
+            productionReportsResult,
           ] = await Promise.all([
             supabase
               .from("time_entries")
@@ -2262,6 +2289,26 @@ export default function Home() {
               .eq("company_id", cid)
               .is("deleted_at", null)
               .order("expense_date", { ascending: false })
+              .limit(2000),
+            supabase
+              .from("production_catalog")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("created_at", { ascending: false })
+              .limit(5000),
+            supabase
+              .from("project_task_overrides")
+              .select("*")
+              .eq("company_id", cid)
+              .order("created_at", { ascending: false })
+              .limit(5000),
+            supabase
+              .from("production_reports")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("report_date", { ascending: false })
               .limit(2000),
           ]);
 
@@ -2391,6 +2438,39 @@ export default function Home() {
           }
           if (!cancelled) setProjectExpenses(mappedProjectExpenses);
 
+          const { data: pcData, error: pcErr } = productionCatalogResult;
+          if (pcErr) {
+            console.error("[page] production_catalog load", pcErr);
+            mappedProductionCatalog = [];
+          } else {
+            mappedProductionCatalog = (pcData ?? [])
+              .map((row: Record<string, unknown>) => mapCatalogRow(row))
+              .filter((x: CatalogItem | null): x is CatalogItem => x != null);
+          }
+          if (!cancelled) setProductionCatalogItems(mappedProductionCatalog);
+
+          const { data: ovData, error: ovErr } = projectOverridesResult;
+          if (ovErr) {
+            console.error("[page] project_task_overrides load", ovErr);
+            mappedProjectOverrides = [];
+          } else {
+            mappedProjectOverrides = (ovData ?? [])
+              .map((row: Record<string, unknown>) => mapOverrideRow(row))
+              .filter((x: ProjectTaskOverride | null): x is ProjectTaskOverride => x != null);
+          }
+          if (!cancelled) setProjectTaskOverrides(mappedProjectOverrides);
+
+          const { data: prData, error: prErr } = productionReportsResult;
+          if (prErr) {
+            console.error("[page] production_reports load", prErr);
+            mappedProductionReports = [];
+          } else {
+            mappedProductionReports = (prData ?? [])
+              .map((row: Record<string, unknown>) => mapProductionReportRow(row))
+              .filter((x: ProductionReport | null): x is ProductionReport => x != null);
+          }
+          if (!cancelled) setProductionReports(mappedProductionReports);
+
           const { data: subRowsRaw, error: subRowsErr } = subRowsResult;
           const { data: subDocsRaw, error: subDocsErr } = subDocsResult;
           if (!cancelled && !subRowsErr && !subDocsErr) {
@@ -2446,6 +2526,9 @@ export default function Home() {
               teamProfiles: mappedTeamProfiles,
               auditLogs: mappedAuditLogs,
               projectExpenses: mappedProjectExpenses,
+              productionCatalogItems: mappedProductionCatalog,
+              projectTaskOverrides: mappedProjectOverrides,
+              productionReports: mappedProductionReports,
               companyName: mappedCompanyName,
               logoUrl: mappedLogoUrl,
               companyAddress: mappedCompanyAddress,
@@ -2473,6 +2556,63 @@ export default function Home() {
     const rows = await fetchDailyReportsForCompany(supabase, companyId);
     setDailyReports(rows);
   }, [companyId]);
+
+  const reloadProductionData = useCallback(async () => {
+    if (!supabase || !companyId) {
+      setProductionCatalogItems([]);
+      setProjectTaskOverrides([]);
+      setProductionReports([]);
+      return;
+    }
+    const cid = companyId;
+    const [pcRes, ovRes, repRes] = await Promise.all([
+      supabase
+        .from("production_catalog")
+        .select("*")
+        .eq("company_id", cid)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(5000),
+      supabase
+        .from("project_task_overrides")
+        .select("*")
+        .eq("company_id", cid)
+        .order("created_at", { ascending: false })
+        .limit(5000),
+      supabase
+        .from("production_reports")
+        .select("*")
+        .eq("company_id", cid)
+        .is("deleted_at", null)
+        .order("report_date", { ascending: false })
+        .limit(2000),
+    ]);
+    if (pcRes.error) console.error("[page] production_catalog reload", pcRes.error);
+    else {
+      setProductionCatalogItems(
+        (pcRes.data ?? [])
+          .map((row: Record<string, unknown>) => mapCatalogRow(row))
+          .filter((x: CatalogItem | null): x is CatalogItem => x != null)
+      );
+    }
+    if (ovRes.error) console.error("[page] project_task_overrides reload", ovRes.error);
+    else {
+      setProjectTaskOverrides(
+        (ovRes.data ?? [])
+          .map((row: Record<string, unknown>) => mapOverrideRow(row))
+          .filter((x: ProjectTaskOverride | null): x is ProjectTaskOverride => x != null)
+      );
+    }
+    if (repRes.error) console.error("[page] production_reports reload", repRes.error);
+    else {
+      setProductionReports(
+        (repRes.data ?? [])
+          .map((row: Record<string, unknown>) => mapProductionReportRow(row))
+          .filter((x: ProductionReport | null): x is ProductionReport => x != null)
+      );
+    }
+    invalidateDashboardCache();
+  }, [companyId, invalidateDashboardCache]);
 
   useEffect(() => {
     void reloadDailyReports();
@@ -2867,7 +3007,7 @@ export default function Home() {
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [newEmployeeRole, setNewEmployeeRole] = useState("worker");
   const [newEmployeeHours, setNewEmployeeHours] = useState("");
-  const [newEmployeePayType, setNewEmployeePayType] = useState<"hourly" | "salary">("hourly");
+  const [newEmployeePayType, setNewEmployeePayType] = useState<"hourly" | "salary" | "production">("hourly");
   const [newEmployeeHourlyRate, setNewEmployeeHourlyRate] = useState("");
   const [newEmployeeMonthlySalary, setNewEmployeeMonthlySalary] = useState("");
   const [newEmployeeCustomRoleId, setNewEmployeeCustomRoleId] = useState("");
@@ -4467,8 +4607,14 @@ export default function Home() {
         hours: parseInt(newEmployeeHours, 10) || 0,
         certificates: [],
         payType: newEmployeePayType,
-        hourlyRate: newEmployeePayType === "hourly" && newEmployeeHourlyRate ? parseFloat(newEmployeeHourlyRate) : undefined,
-        monthlySalary: newEmployeePayType === "salary" && newEmployeeMonthlySalary ? parseFloat(newEmployeeMonthlySalary) : undefined,
+        hourlyRate:
+          newEmployeePayType === "hourly" && newEmployeeHourlyRate
+            ? parseFloat(newEmployeeHourlyRate)
+            : undefined,
+        monthlySalary:
+          newEmployeePayType === "salary" && newEmployeeMonthlySalary
+            ? parseFloat(newEmployeeMonthlySalary)
+            : undefined,
         customRoleId: newEmployeeRoleMode === "list" && newEmployeeCustomRoleId ? newEmployeeCustomRoleId : undefined,
         useRolePermissions: true,
       };
@@ -4495,8 +4641,14 @@ export default function Home() {
                 role: roleName,
                 hours: parseInt(newEmployeeHours, 10) ?? e.hours,
                 payType: newEmployeePayType,
-                hourlyRate: newEmployeePayType === "hourly" && newEmployeeHourlyRate ? parseFloat(newEmployeeHourlyRate) : undefined,
-                monthlySalary: newEmployeePayType === "salary" && newEmployeeMonthlySalary ? parseFloat(newEmployeeMonthlySalary) : undefined,
+                hourlyRate:
+                  newEmployeePayType === "hourly" && newEmployeeHourlyRate
+                    ? parseFloat(newEmployeeHourlyRate)
+                    : undefined,
+                monthlySalary:
+                  newEmployeePayType === "salary" && newEmployeeMonthlySalary
+                    ? parseFloat(newEmployeeMonthlySalary)
+                    : undefined,
                 customRoleId: newEmployeeRoleMode === "list" && newEmployeeCustomRoleId ? newEmployeeCustomRoleId : undefined,
               }
             : e
@@ -5917,6 +6069,14 @@ export default function Home() {
                     return prev.filter((x) => x.id !== formId);
                   });
                 }}
+                productionCatalogItems={productionCatalogItems}
+                projectTaskOverrides={projectTaskOverrides}
+                canViewWorkOrders={!!rolePerms.canViewWorkOrders}
+                canManageWorkOrders={!!rolePerms.canManageWorkOrders}
+                showProductionInDailyReport={
+                  profile?.payType === "production" || !!rolePerms.canReportProduction
+                }
+                onRefreshProductionData={() => void reloadProductionData()}
               />
                 )}
               <ModuleHelpFab
@@ -6141,6 +6301,7 @@ export default function Home() {
                 canManagePayroll={!!rolePerms.canManagePayroll}
                 canExportPayroll={!!rolePerms.canExportPayroll}
                 companyCountryForPayroll={companyCountry ?? "CA"}
+                productionReports={productionReports}
               />
               <ModuleHelpFab
                 moduleKey="schedule"
@@ -6400,6 +6561,10 @@ export default function Home() {
                 onDarkModeChange={(next) => setDarkMode(next)}
                 showMfaSecuritySection={effectiveRole === "admin" || effectiveRole === "supervisor"}
                 canManageNotifications={!!rolePerms.canManageNotifications}
+                canManageProductionCatalog={!!rolePerms.canManageProductionCatalog}
+                productionCatalogItems={productionCatalogItems}
+                onRefreshProductionCatalog={() => void reloadProductionData()}
+                productionCatalogCurrencyDefault={currency}
               />
               <ModuleHelpFab
                 moduleKey="settings"
@@ -7410,12 +7575,33 @@ export default function Home() {
                 <input type="number" min={0} value={newEmployeeHours} onChange={(e) => setNewEmployeeHours(e.target.value)} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Tipo de pago</label>
-                <select value={newEmployeePayType} onChange={(e) => setNewEmployeePayType(e.target.value as "hourly" | "salary")} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
-                  <option value="hourly">Por horas</option>
-                  <option value="salary">Salario fijo</option>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).production_pay_type ?? "Tipo de pago"}
+                </label>
+                <select
+                  value={newEmployeePayType}
+                  onChange={(e) =>
+                    setNewEmployeePayType(e.target.value as "hourly" | "salary" | "production")
+                  }
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="salary">
+                    {(t as Record<string, string>).production_pay_fixed ?? "Salario fijo"}
+                  </option>
+                  <option value="hourly">
+                    {(t as Record<string, string>).production_pay_hourly ?? "Por hora"}
+                  </option>
+                  <option value="production">
+                    {(t as Record<string, string>).production_pay_production ?? "Por producción"}
+                  </option>
                 </select>
               </div>
+              {newEmployeePayType === "production" && (
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {(t as Record<string, string>).employees_pay_production_note ??
+                    "El pago se calcula por unidades producidas."}
+                </p>
+              )}
               {newEmployeePayType === "hourly" && (
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Tarifa/hora (CAD)</label>

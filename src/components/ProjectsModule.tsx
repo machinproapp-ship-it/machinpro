@@ -42,6 +42,7 @@ import {
   ChevronDown,
   Download,
   Shield,
+  Factory,
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
@@ -87,6 +88,11 @@ import { VisitorModule } from "@/components/VisitorModule";
 import { ProjectEpiSafetyTab } from "@/components/ProjectEpiSafetyTab";
 import { useToast } from "@/components/Toast";
 import { supabase } from "@/lib/supabase";
+import {
+  type CatalogItem,
+  type ProjectTaskOverride,
+  effectivePrices,
+} from "@/lib/productionCatalog";
 import {
   formatTodayYmdInTimeZone,
   zonedYmdHmToUtcIso,
@@ -372,6 +378,13 @@ export interface ProjectsModuleProps {
   canCreateMachinFormFromProject?: boolean;
   /** Eliminar entradas de la lista de formularios del proyecto. */
   canDeleteProjectFormEntry?: boolean;
+  productionCatalogItems?: CatalogItem[];
+  projectTaskOverrides?: ProjectTaskOverride[];
+  canViewWorkOrders?: boolean;
+  canManageWorkOrders?: boolean;
+  /** Parte diario: sección producción (payType o permiso). */
+  showProductionInDailyReport?: boolean;
+  onRefreshProductionData?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -507,6 +520,7 @@ type TabId =
   | "seguridad"
   | "project_epi"
   | "costes"
+  | "work_order"
   | "mapa";
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
@@ -521,6 +535,7 @@ const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "seguridad", icon: <Shield className="h-4 w-4" /> },
   { id: "project_epi", icon: <HardHat className="h-4 w-4" /> },
   { id: "costes", icon: <DollarSign className="h-4 w-4" /> },
+  { id: "work_order", icon: <Factory className="h-4 w-4" /> },
   { id: "mapa", icon: <MapPin className="h-4 w-4" /> },
 ];
 
@@ -647,6 +662,12 @@ export function ProjectsModule({
   projectNameByIdForGps = {},
   canCreateMachinFormFromProject,
   canDeleteProjectFormEntry,
+  productionCatalogItems = [],
+  projectTaskOverrides = [],
+  canViewWorkOrders = false,
+  canManageWorkOrders = false,
+  showProductionInDailyReport = false,
+  onRefreshProductionData,
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -702,11 +723,65 @@ export function ProjectsModule({
   const [costFormDate, setCostFormDate] = useState(() => todayYmdLocal());
   const [costFormNotes, setCostFormNotes] = useState("");
   const [costFormBusy, setCostFormBusy] = useState(false);
+  const [workOrderImportOpen, setWorkOrderImportOpen] = useState(false);
+  const [workOrderImportPick, setWorkOrderImportPick] = useState<Record<string, boolean>>({});
 
   const projectExpensesForProject = useMemo(() => {
     if (!selectedProjectId) return [];
     return (projectExpenses ?? []).filter((e) => e.projectId === selectedProjectId);
   }, [projectExpenses, selectedProjectId]);
+
+  const productionCatalogById = useMemo(
+    () => new Map(productionCatalogItems.map((i) => [i.id, i])),
+    [productionCatalogItems]
+  );
+
+  const workOrderOverridesForProject = useMemo(() => {
+    if (!selectedProjectId) return [];
+    return projectTaskOverrides.filter((o) => o.projectId === selectedProjectId && o.isActive);
+  }, [projectTaskOverrides, selectedProjectId]);
+
+  const workOrderLines = useMemo(() => {
+    const lines: {
+      override: ProjectTaskOverride;
+      catalog: CatalogItem;
+      eff: { cost: number; sell: number };
+    }[] = [];
+    for (const o of workOrderOverridesForProject) {
+      const cat = productionCatalogById.get(o.catalogItemId);
+      if (!cat || !cat.isActive) continue;
+      lines.push({ override: o, catalog: cat, eff: effectivePrices(cat, o) });
+    }
+    return lines;
+  }, [workOrderOverridesForProject, productionCatalogById]);
+
+  const workOrderEstimatedTotal = useMemo(
+    () => workOrderLines.reduce((s, x) => s + x.eff.sell, 0),
+    [workOrderLines]
+  );
+
+  const dailyReportWorkOrderLines = useMemo(
+    () =>
+      workOrderLines.map(({ override: o, catalog: cat, eff }) => ({
+        overrideId: o.id,
+        catalogItemId: cat.id,
+        taskName: cat.name,
+        unit: cat.unit,
+        sellPrice: eff.sell,
+        costPrice: eff.cost,
+        baseSell: cat.sellPrice,
+        baseCost: cat.costPrice,
+        currency: cat.currency,
+        hasSellOverride: o.customSellPrice != null,
+        hasCostOverride: o.customCostPrice != null,
+      })),
+    [workOrderLines]
+  );
+
+  const importCatalogIdsExisting = useMemo(
+    () => new Set(workOrderOverridesForProject.map((o) => o.catalogItemId)),
+    [workOrderOverridesForProject]
+  );
 
   const filteredMachinTemplates = useMemo(
     () => filterFormTemplatesByProjectCategory(formTemplates, newFormType),
@@ -825,6 +900,8 @@ export function ProjectsModule({
           return showProjectEpiTab;
         case "costes":
           return showProjectCostsTab;
+        case "work_order":
+          return canViewWorkOrders && !!companyId;
         case "mapa":
           return showProjectMapTab && !!companyId;
         default:
@@ -843,6 +920,7 @@ export function ProjectsModule({
       showProjectSecurityTab,
       showProjectEpiTab,
       showProjectCostsTab,
+      canViewWorkOrders,
       showProjectMapTab,
       companyId,
     ]
@@ -1559,6 +1637,8 @@ export function ProjectsModule({
                     ? (t as Record<string, string>).project_safety_title ?? PM_EN.project_safety_title
                   : tab.id === "costes"
                     ? (t as Record<string, string>).project_costs_title ?? PM_EN.project_costs_title
+                  : tab.id === "work_order"
+                    ? (t as Record<string, string>).work_order_title ?? "Work Order"
                   : tab.id === "mapa"
                     ? (t as Record<string, string>).tab_map ?? PM_EN.tab_map
                   : "";
@@ -3654,6 +3734,8 @@ export function ProjectsModule({
                   onReportCreated={(id) => setOpenDailyReportKey(id)}
                   onReportPublished={onDailyReportPublished}
                   canApproveReport={canManageDailyReports}
+                  showProductionSection={showProductionInDailyReport}
+                  workOrderLines={dailyReportWorkOrderLines}
                 />
               </div>
             )}
@@ -4066,6 +4148,240 @@ export function ProjectsModule({
                 </>
               );
             })()}
+          </div>
+        ) : null}
+
+        {activeTab === "work_order" && selectedProject && canViewWorkOrders && companyId ? (
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).work_order_title ?? "Work Order"}
+              </h3>
+              {canManageWorkOrders ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkOrderImportPick({});
+                    setWorkOrderImportOpen(true);
+                  }}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-amber-500/80 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 dark:border-amber-600/60 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                  <Plus className="h-4 w-4" />
+                  {(t as Record<string, string>).work_order_import ?? "Import from catalog"}
+                </button>
+              ) : null}
+            </div>
+            {workOrderLines.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {(t as Record<string, string>).work_order_empty ?? "No tasks assigned"}
+              </p>
+            ) : (
+              <>
+                <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead className="bg-zinc-50 dark:bg-slate-800/80 text-left text-zinc-600 dark:text-zinc-400">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">
+                          {(t as Record<string, string>).production_catalog_name ?? "Task"}
+                        </th>
+                        <th className="px-3 py-2 font-medium">
+                          {(t as Record<string, string>).production_catalog_unit ?? "Unit"}
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          {(t as Record<string, string>).production_catalog_cost_price ?? "Cost"}
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          {(t as Record<string, string>).production_catalog_sell_price ?? "Sell"}
+                        </th>
+                        {canManageWorkOrders ? <th className="px-3 py-2 w-28" /> : null}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-slate-800">
+                      {workOrderLines.map(({ override: o, catalog: cat, eff }) => {
+                        const ukey = cat.unit;
+                        const uLbl =
+                          (tl[`production_unit_${ukey}` as keyof typeof tl] as string) || ukey;
+                        return (
+                          <tr key={o.id}>
+                            <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                              {cat.name}
+                            </td>
+                            <td className="px-3 py-2">{uLbl}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              {o.customCostPrice != null ? (
+                                <>
+                                  <span className="line-through opacity-60">
+                                    {cat.currency} {cat.costPrice.toFixed(4)}
+                                  </span>{" "}
+                                  <span className="font-medium">
+                                    {cat.currency} {eff.cost.toFixed(4)}
+                                  </span>
+                                </>
+                              ) : (
+                                `${cat.currency} ${eff.cost.toFixed(4)}`
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              {o.customSellPrice != null ? (
+                                <>
+                                  <span className="line-through opacity-60">
+                                    {cat.currency} {cat.sellPrice.toFixed(4)}
+                                  </span>{" "}
+                                  <span className="font-medium">
+                                    {cat.currency} {eff.sell.toFixed(4)}
+                                  </span>
+                                </>
+                              ) : (
+                                `${cat.currency} ${eff.sell.toFixed(4)}`
+                              )}
+                            </td>
+                            {canManageWorkOrders ? (
+                              <td className="px-3 py-2">
+                                <div className="flex flex-wrap gap-2">
+                                  <label className="block min-w-[100px]">
+                                    <span className="sr-only">
+                                      {(t as Record<string, string>).work_order_override_price ?? ""}
+                                    </span>
+                                    <input
+                                      key={`sell-${o.id}-${o.customSellPrice ?? "n"}`}
+                                      type="number"
+                                      step="0.0001"
+                                      min={0}
+                                      placeholder={(t as Record<string, string>).work_order_override_price ?? ""}
+                                      defaultValue={o.customSellPrice ?? ""}
+                                      onBlur={(e) => {
+                                        const raw = e.target.value.trim();
+                                        const v =
+                                          raw === "" ? null : parseFloat(raw.replace(",", "."));
+                                        if (v != null && !Number.isFinite(v)) return;
+                                        void (async () => {
+                                          if (!supabase) return;
+                                          const { error } = await supabase
+                                            .from("project_task_overrides")
+                                            .update({ custom_sell_price: v })
+                                            .eq("id", o.id)
+                                            .eq("company_id", companyId);
+                                          if (error) showToast("error", error.message);
+                                          else {
+                                            showToast(
+                                              "success",
+                                              (t as Record<string, string>).toast_saved ??
+                                                PM_EN.export_success
+                                            );
+                                            onRefreshProductionData?.();
+                                          }
+                                        })();
+                                      }}
+                                      className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs tabular-nums"
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void (async () => {
+                                        if (!supabase) return;
+                                        const { error } = await supabase
+                                          .from("project_task_overrides")
+                                          .update({ is_active: false })
+                                          .eq("id", o.id)
+                                          .eq("company_id", companyId);
+                                        if (error) showToast("error", error.message);
+                                        else onRefreshProductionData?.();
+                                      })();
+                                    }}
+                                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border border-red-300 text-red-600 dark:border-red-800"
+                                    aria-label={(t as Record<string, string>).work_order_remove ?? "Remove"}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            ) : null}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  {(t as Record<string, string>).work_order_total ?? "Estimated total"}:{" "}
+                  <span className="tabular-nums">
+                    {workOrderLines[0]?.catalog.currency ?? companyCurrency}{" "}
+                    {workOrderEstimatedTotal.toFixed(4)}
+                  </span>
+                </p>
+              </>
+            )}
+            {workOrderImportOpen ? (
+              <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+                <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                  <h4 className="text-lg font-semibold text-zinc-900 dark:text-white mb-3">
+                    {(t as Record<string, string>).work_order_import ?? ""}
+                  </h4>
+                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto mb-4">
+                    {productionCatalogItems
+                      .filter((c) => c.isActive && !importCatalogIdsExisting.has(c.id))
+                      .map((c) => (
+                        <li key={c.id}>
+                          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-600 px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={!!workOrderImportPick[c.id]}
+                              onChange={(e) =>
+                                setWorkOrderImportPick((p) => ({ ...p, [c.id]: e.target.checked }))
+                              }
+                              className="h-5 w-5"
+                            />
+                            <span className="text-sm text-zinc-800 dark:text-zinc-200">{c.name}</span>
+                          </label>
+                        </li>
+                      ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void (async () => {
+                        if (!supabase || !selectedProjectId) return;
+                        const ids = Object.entries(workOrderImportPick)
+                          .filter(([, v]) => v)
+                          .map(([k]) => k);
+                        for (const catalogItemId of ids) {
+                          const { error } = await supabase.from("project_task_overrides").insert({
+                            company_id: companyId,
+                            project_id: selectedProjectId,
+                            catalog_item_id: catalogItemId,
+                            custom_cost_price: null,
+                            custom_sell_price: null,
+                            is_active: true,
+                          });
+                          if (error) {
+                            showToast("error", error.message);
+                            return;
+                          }
+                        }
+                        setWorkOrderImportOpen(false);
+                        setWorkOrderImportPick({});
+                        showToast(
+                          "success",
+                          (t as Record<string, string>).toast_saved ?? PM_EN.export_success
+                        );
+                        onRefreshProductionData?.();
+                      })()}
+                      className="min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white"
+                    >
+                      {(t as Record<string, string>).save ?? "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkOrderImportOpen(false)}
+                      className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600"
+                    >
+                      {(t as Record<string, string>).cancel ?? "Cancel"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

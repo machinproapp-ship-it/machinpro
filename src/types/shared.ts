@@ -88,7 +88,7 @@ export interface CentralEmployee {
   /** Mirrors `user_profiles.profile_status` (e.g. active / inactive / invited). */
   profileStatus?: string | null;
   certificates?: { id: string; name: string; expiryDate?: string }[];
-  payType?: "hourly" | "salary";
+  payType?: "hourly" | "salary" | "production";
   hourlyRate?: number;
   monthlySalary?: number;
   customRoleId?: string;
