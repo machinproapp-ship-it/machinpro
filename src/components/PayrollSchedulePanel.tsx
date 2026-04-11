@@ -12,6 +12,7 @@ import {
 } from "@/lib/payroll";
 import { hoursWorkedFromClockFields } from "@/lib/laborCosting";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
+import { generatePayrollPdf } from "@/lib/generatePayrollPdf";
 import { formatTodayYmdInTimeZone } from "@/lib/dateUtils";
 import { useToast } from "@/components/Toast";
 
@@ -47,6 +48,7 @@ export type PayrollSchedulePanelProps = {
   viewAllPayroll: boolean;
   canManagePayroll: boolean;
   canExportPayroll: boolean;
+  companyLogoUrl?: string;
 };
 
 function startOfMonth(y: number, m0: number): Date {
@@ -86,6 +88,7 @@ export function PayrollSchedulePanel({
   viewAllPayroll,
   canManagePayroll,
   canExportPayroll,
+  companyLogoUrl,
 }: PayrollSchedulePanelProps) {
   const { showToast } = useToast();
   const L = (k: string, fb: string) => (lx[k] as string | undefined) || fb;
@@ -205,6 +208,41 @@ export function PayrollSchedulePanel({
     showToast("success", L("export_success", "Export completed"));
   };
 
+  const exportPdf = () => {
+    if (!canExportPayroll) return;
+    void (async () => {
+      try {
+        const { blob, filename } = await generatePayrollPdf({
+          labels: lx,
+          companyName,
+          companyId,
+          companyLogoUrl: companyLogoUrl?.trim() || undefined,
+          periodStart: periodBounds.start,
+          periodEnd: periodBounds.end,
+          currency,
+          rows: rows.map((r) => ({
+            employeeName: r.name,
+            hours: r.hours,
+            gross: r.gross,
+            totalDeductions: r.totalDeductions,
+            net: r.net,
+            employerCost: r.employerCost,
+            deductions: r.deductions,
+          })),
+        });
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = href;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(href);
+        showToast("success", L("export_success", "Export completed"));
+      } catch (e) {
+        showToast("error", (e as Error)?.message ?? L("export_error", "Export error"));
+      }
+    })();
+  };
+
   const setStatus = (empId: string, st: RowStatus) => {
     if (!canManagePayroll) return;
     setStatusByEmp((prev) => ({ ...prev, [empId]: st }));
@@ -275,14 +313,24 @@ export function PayrollSchedulePanel({
           </div>
         )}
         {canExportPayroll ? (
-          <button
-            type="button"
-            onClick={() => exportCsv()}
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
-          >
-            <Download className="h-4 w-4" />
-            {L("payroll_export_csv", "Exportar CSV")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => exportCsv()}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
+            >
+              <Download className="h-4 w-4" />
+              {L("payroll_export_csv", "Exportar CSV")}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportPdf()}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
+            >
+              <Download className="h-4 w-4" />
+              {L("payroll_export_pdf_btn", L("payroll_export_pdf", "Exportar PDF"))}
+            </button>
+          </div>
         ) : null}
       </div>
 

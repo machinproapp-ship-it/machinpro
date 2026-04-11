@@ -328,6 +328,8 @@ export interface ScheduleModuleProps {
   timeZone?: string;
   /** Nombre empresa para archivos CSV (hojas de horas). */
   companyName?: string;
+  /** Logo empresa (PDF nómina / informes). */
+  companyLogoUrl?: string;
   /** Fallback slug si no hay nombre de empresa. */
   companyId?: string;
   /** Usuario autenticado (Supabase auth id) — vacaciones y filtros “solo mis solicitudes”. */
@@ -1498,6 +1500,7 @@ export default function ScheduleModule({
   dateLocale = "es-ES",
   timeZone: scheduleTimeZoneProp,
   companyName = "",
+  companyLogoUrl,
   companyId = "",
   currentUserId = "",
   canViewTimesheetCosts = false,
@@ -3052,6 +3055,7 @@ export default function ScheduleModule({
               labels={lx}
               companyName={companyName}
               companyId={companyId}
+              companyLogoUrl={companyLogoUrl}
               timeZone={scheduleTz}
               dateLocale={dateLocale}
               countryCode={companyCountryForPayroll}

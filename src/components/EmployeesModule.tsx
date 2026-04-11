@@ -91,6 +91,8 @@ export interface EmployeesModuleProps {
   showNewEmployeeButton?: boolean;
   /** Solo administrador ve el pasaporte de otros; el empleado ve el suyo. */
   viewerIsAdmin?: boolean;
+  /** Ver datos salariales de otros (además de admin / gestión). */
+  canViewLaborCosting?: boolean;
   /** Pestaña ruta GPS en ficha (canViewAttendance). */
   canViewEmployeeGpsRoute?: boolean;
   /** Mini calendario de turnos de la semana en ficha (canViewTeamAvailability). */
@@ -404,6 +406,7 @@ export function EmployeesModule({
   canDeleteEmployee: canDeleteEmployeeProp,
   showNewEmployeeButton = false,
   viewerIsAdmin = false,
+  canViewLaborCosting = false,
   canViewEmployeeGpsRoute = false,
   canViewTeamAvailabilityInProfile = false,
   currentUserProfileId = null,
@@ -1219,28 +1222,57 @@ export function EmployeesModule({
     const complianceFieldLabel = (field: ComplianceField): string =>
       employeeComplianceFieldLabel(field, tl);
 
-    const formatPayReadOnly = (sel: ProfileRow): string => {
+    const renderStructuredSalary = (sel: ProfileRow) => {
       const pt = (sel.pay_type ?? "unspecified").trim().toLowerCase();
-      if (!pt || pt === "unspecified") return tl.employees_pay_type_unspecified ?? "";
-      const cur = sel.pay_currency ?? "";
-      const amtNum = coercePayAmount(sel.pay_amount);
-      const amt = amtNum != null ? String(amtNum) : tl.common_dash ?? "";
+      if (!pt || pt === "unspecified") {
+        return <p className="text-zinc-600 dark:text-zinc-400">{tl.employees_pay_type_unspecified ?? ""}</p>;
+      }
+      if (pt === "production") {
+        return (
+          <p>
+            {tl.salary_production_note ??
+              tl.employees_pay_production_note ??
+              tl.production_pay_production ??
+              ""}
+          </p>
+        );
+      }
+      const typeLabel =
+        pt === "fixed"
+          ? tl.production_pay_fixed ?? tl.employees_fixed_salary ?? ""
+          : tl.production_pay_hourly ?? tl.employees_hourly_rate ?? "";
+      const cur = (sel.pay_currency ?? defaultPayCurrency ?? "").trim() || "CAD";
+      const amt = coercePayAmount(sel.pay_amount);
       const per =
-        sel.pay_period === "monthly"
-          ? tl.pay_period_monthly ?? ""
-          : sel.pay_period === "biweekly"
-            ? tl.pay_period_biweekly ?? ""
-            : sel.pay_period === "weekly"
-              ? tl.pay_period_weekly ?? ""
-              : "";
-      if (pt === "fixed")
-        return `${tl.employees_fixed_salary ?? ""}: ${amt} ${cur}${per ? ` · ${per}` : ""}`;
-      if (pt === "hourly")
-        return `${tl.employees_hourly_rate ?? ""}: ${amt} ${cur}${per ? ` · ${per}` : ""}`;
-      if (pt === "production")
-        return tl.production_pay_production ?? tl.employees_pay_production_note ?? "";
-      return tl.common_dash ?? "";
+        pt === "fixed"
+          ? sel.pay_period === "monthly"
+            ? tl.pay_period_monthly ?? ""
+            : sel.pay_period === "biweekly"
+              ? tl.pay_period_biweekly ?? ""
+              : sel.pay_period === "weekly"
+                ? tl.pay_period_weekly ?? ""
+                : ""
+          : "";
+      return (
+        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-zinc-500">{tl.salary_type_label ?? tl.employees_payment_type ?? ""}</dt>
+            <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{typeLabel}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-zinc-500">{tl.salary_amount_label ?? ""}</dt>
+            <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+              {amt != null ? `${amt} ${cur}` : tl.common_dash ?? "—"}
+              {per ? ` · ${per}` : ""}
+            </dd>
+          </div>
+        </dl>
+      );
     };
+
+    const showPayrollReadOnlyOthers =
+      !workerSelf && !canManageEmployees && (viewerIsAdmin === true || canViewLaborCosting === true);
+    const showSalarySection = workerSelf || (canManageEmployees && !workerSelf) || showPayrollReadOnlyOthers;
 
     const hasAnyShiftThisWeek =
       scheduleShiftsByWeekDay != null &&
@@ -1763,11 +1795,13 @@ export function EmployeesModule({
           </section>
         ) : null}
 
+        {showSalarySection ? (
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{tl.employees_payment_section ?? ""}</h3>
-          {workerSelf ? (
-            <p className="text-sm text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap">{formatPayReadOnly(selected)}</p>
-          ) : null}
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            {tl.salary_view_title ?? tl.employees_payment_section ?? ""}
+          </h3>
+          {workerSelf ? <div className="text-sm">{renderStructuredSalary(selected)}</div> : null}
+          {showPayrollReadOnlyOthers ? <div className="text-sm">{renderStructuredSalary(selected)}</div> : null}
           {canManageEmployees && !workerSelf ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
               <label className="block text-sm sm:col-span-2">
@@ -1795,7 +1829,7 @@ export function EmployeesModule({
               </label>
               {draft.pay_type === "production" ? (
                 <p className="text-sm text-zinc-600 dark:text-zinc-300 sm:col-span-2">
-                  {tl.employees_pay_production_note ?? ""}
+                  {tl.salary_production_note ?? tl.employees_pay_production_note ?? ""}
                 </p>
               ) : null}
               {(draft.pay_type ?? "") !== "" &&
@@ -1858,6 +1892,7 @@ export function EmployeesModule({
             </div>
           ) : null}
         </section>
+        ) : null}
 
         {canManageEmployees && !workerSelf && (draft.pay_type ?? "") !== "production" ? (
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">

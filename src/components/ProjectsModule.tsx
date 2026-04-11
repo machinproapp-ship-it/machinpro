@@ -93,6 +93,8 @@ import {
   type ProjectTaskOverride,
   effectivePrices,
 } from "@/lib/productionCatalog";
+import { generateWorkOrderPdf } from "@/lib/generateWorkOrderPdf";
+import { fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import {
   formatTodayYmdInTimeZone,
   zonedYmdHmToUtcIso,
@@ -4310,6 +4312,59 @@ export function ProjectsModule({
                     {workOrderEstimatedTotal.toFixed(4)}
                   </span>
                 </p>
+                {canExportProjectCosts ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void (async () => {
+                        if (!selectedProject) return;
+                        try {
+                          const lines = workOrderLines.map(({ override: o, catalog: cat, eff }) => {
+                            const ukey = cat.unit;
+                            const uLbl =
+                              (tl[`production_unit_${ukey}` as keyof typeof tl] as string) || ukey;
+                            return {
+                              taskName: cat.name,
+                              unitLabel: uLbl,
+                              currency: cat.currency,
+                              catalogCost: cat.costPrice,
+                              catalogSell: cat.sellPrice,
+                              effCost: eff.cost,
+                              effSell: eff.sell,
+                              hasCostOverride: o.customCostPrice != null,
+                              hasSellOverride: o.customSellPrice != null,
+                            };
+                          });
+                          const blob = await generateWorkOrderPdf({
+                            labels: tl,
+                            companyName: companyName || "MachinPro",
+                            companyLogoUrl: companyLogoUrl?.trim() || undefined,
+                            companyAddress: companyAddress?.trim() || undefined,
+                            projectName: selectedProject.name,
+                            projectAddress: selectedProject.location?.trim() || undefined,
+                            reportDate: todayYmdLocal(),
+                            lines,
+                            totalSell: workOrderEstimatedTotal,
+                          });
+                          const slug = fileSlugCompany(companyName || "MachinPro", companyId || "co");
+                          const href = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = href;
+                          a.download = `work_order_${slug}_${filenameDateYmd()}.pdf`;
+                          a.click();
+                          URL.revokeObjectURL(href);
+                          showToast("success", tl.toast_saved ?? PM_EN.export_success);
+                        } catch (err) {
+                          showToast("error", (err as Error)?.message ?? (tl.export_error ?? PM_EN.export_error));
+                        }
+                      })()
+                    }
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-slate-700"
+                  >
+                    <FileDown className="h-4 w-4 shrink-0" aria-hidden />
+                    {(t as Record<string, string>).work_order_export_pdf ?? "Export Work Order PDF"}
+                  </button>
+                ) : null}
               </>
             )}
             {workOrderImportOpen ? (

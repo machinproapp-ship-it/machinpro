@@ -4250,6 +4250,19 @@ export default function Home() {
     return o;
   }, [projects]);
 
+  const projectNameByIdForForms = useMemo(() => {
+    const o: Record<string, string> = {};
+    for (const p of projects ?? []) o[p.id] = p.name;
+    for (const fi of formInstances) {
+      if (fi.contextType !== "project" || !fi.projectId) continue;
+      const pid = fi.projectId;
+      const cn = fi.contextName?.trim();
+      if (!cn) continue;
+      if (!o[pid]) o[pid] = cn;
+    }
+    return o;
+  }, [projects, formInstances]);
+
   const siteInventoryItems: ProjectInventoryItem[] = (inventoryItems ?? []).map((i) => ({
     id: i.id,
     name: i.name,
@@ -5616,6 +5629,7 @@ export default function Home() {
                 }
                 onManualClockIn={handleManualClockIn}
                 onManualClockOut={handleManualClockOut}
+                canViewLaborCosting={!!rolePerms.canViewLaborCosting}
               />
               <ModuleHelpFab
                 moduleKey="employees"
@@ -6292,6 +6306,7 @@ export default function Home() {
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
                 companyName={profile?.companyName ?? companyName ?? ""}
+                companyLogoUrl={logoUrl?.trim() || undefined}
                 companyId={companyId ?? ""}
                 canViewTimesheetCosts={!!rolePerms.canViewLaborCosting}
                 canViewLaborCosting={!!rolePerms.canViewLaborCosting}
@@ -6427,7 +6442,7 @@ export default function Home() {
                   .filter((r) => (r.returnDate ?? "") >= formatTodayYmdInTimeZone(userTimeZone))
                   .map((r) => ({ id: r.id, name: r.name }))}
                 onConsumeOpenFillNavigation={consumeFormsOpenFillNavigation}
-                projectNameById={Object.fromEntries((projects ?? []).map((p) => [p.id, p.name]))}
+                projectNameById={projectNameByIdForForms}
               />
               <ModuleHelpFab
                 moduleKey="forms"

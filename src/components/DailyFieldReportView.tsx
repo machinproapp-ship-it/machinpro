@@ -24,6 +24,7 @@ import type {
 } from "@/types/dailyFieldReport";
 import { DAILY_REPORT_PPE_KEYS } from "@/types/dailyFieldReport";
 import { generateDailyFieldReportPdf } from "@/lib/generateDailyFieldReportPdf";
+import { generateDailyProductionPdf } from "@/lib/generateDailyProductionPdf";
 import { formatReportDate, formatReportDateTime } from "@/lib/dailyReportFormat";
 import {
   fetchDailyReportsForCompany,
@@ -33,6 +34,7 @@ import {
 } from "@/lib/dailyReportsDb";
 import { supabase } from "@/lib/supabase";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
+import { useToast } from "@/components/Toast";
 
 const WEATHER_OPTIONS: { value: DailyReportWeather; Icon: typeof Sun }[] = [
   { value: "sunny", Icon: Sun },
@@ -184,6 +186,7 @@ export function DailyFieldReportView({
   showProductionSection = false,
 }: DailyFieldReportViewProps) {
   void useMachinProDisplayPrefs();
+  const { showToast } = useToast();
   const tl = rawLabels as Record<string, string>;
   const isEmployeeView = variant === "employee";
   const [draft, setDraft] = useState<DailyFieldReport>(() =>
@@ -223,15 +226,74 @@ export function DailyFieldReportView({
   const productionTotals = useMemo(() => {
     let units = 0;
     let sell = 0;
+    let cost = 0;
     for (const line of workOrderLines) {
       const raw = (prodUnits[line.overrideId] ?? "").trim();
       const n = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
       const u = Number.isFinite(n) ? n : 0;
       units += u;
       sell += u * line.sellPrice;
+      cost += u * line.costPrice;
     }
-    return { units, sell };
+    return { units, sell, cost };
   }, [workOrderLines, prodUnits]);
+
+  const handleExportProductionPdf = useCallback(async () => {
+    if (!showProductionSection || workOrderLines.length === 0) return;
+    try {
+      const lines = workOrderLines.map((line) => {
+        const raw = (prodUnits[line.overrideId] ?? "").trim();
+        const n = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+        const units = Number.isFinite(n) ? n : 0;
+        const uLbl = (tl[`production_unit_${line.unit}` as keyof typeof tl] as string) || line.unit;
+        return {
+          taskName: line.taskName,
+          unitLabel: uLbl,
+          unitsCompleted: units,
+          unitSellPrice: line.sellPrice,
+          unitCostPrice: line.costPrice,
+          lineSell: units * line.sellPrice,
+          lineCost: units * line.costPrice,
+          currency: line.currency,
+        };
+      });
+      const blob = await generateDailyProductionPdf({
+        labels: tl,
+        companyName,
+        companyLogoUrl: companyLogoUrl?.trim() || undefined,
+        employeeName: currentUserName,
+        projectName,
+        reportDate: draft.date,
+        lines,
+        totalCost: productionTotals.cost,
+        totalSell: productionTotals.sell,
+        currency: workOrderLines[0]?.currency ?? "CAD",
+      });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `production_${companyId}_${draft.date}.pdf`;
+      a.click();
+      URL.revokeObjectURL(href);
+      showToast("success", tl.export_success ?? "");
+    } catch (e) {
+      showToast("error", (e as Error)?.message ?? tl.export_error ?? "");
+    }
+  }, [
+    showProductionSection,
+    workOrderLines,
+    prodUnits,
+    tl,
+    companyName,
+    companyLogoUrl,
+    currentUserName,
+    projectName,
+    draft.date,
+    productionTotals.cost,
+    productionTotals.sell,
+    companyId,
+    showToast,
+  ]);
 
   const syncProductionReport = useCallback(
     async (reportDate: string) => {
@@ -950,6 +1012,18 @@ export function DailyFieldReportView({
                 {tl.production_report_total ?? "Total production"}:{" "}
                 {workOrderLines[0]?.currency ?? "CAD"} {productionTotals.sell.toFixed(2)}
               </p>
+              <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">
+                {(tl as Record<string, string>).production_pdf_total_cost ?? "Total cost"}:{" "}
+                {workOrderLines[0]?.currency ?? "CAD"} {productionTotals.cost.toFixed(2)}
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleExportProductionPdf()}
+                className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100"
+              >
+                <FileDown className="h-4 w-4 shrink-0" aria-hidden />
+                {(tl as Record<string, string>).production_report_export_pdf ?? "Export production report PDF"}
+              </button>
             </section>
           ) : null}
           <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-slate-900">
@@ -1325,6 +1399,18 @@ export function DailyFieldReportView({
                   {tl.production_report_total ?? "Total production"}:{" "}
                   {workOrderLines[0]?.currency ?? "CAD"} {productionTotals.sell.toFixed(2)}
                 </p>
+                <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">
+                  {(tl as Record<string, string>).production_pdf_total_cost ?? "Total cost"}:{" "}
+                  {workOrderLines[0]?.currency ?? "CAD"} {productionTotals.cost.toFixed(2)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleExportProductionPdf()}
+                  className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100"
+                >
+                  <FileDown className="h-4 w-4 shrink-0" aria-hidden />
+                  {(tl as Record<string, string>).production_report_export_pdf ?? "Export production report PDF"}
+                </button>
               </div>
             )}
           </section>
