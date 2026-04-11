@@ -54,6 +54,7 @@ export interface CorrectiveActionsModuleProps {
   lockedProjectId?: string | null;
   dateLocale: string;
   timeZone: string;
+  manageCorrectiveActions?: boolean;
 }
 
 type AuditRow = {
@@ -125,9 +126,13 @@ export function CorrectiveActionsModule({
   lockedProjectId = null,
   dateLocale,
   timeZone,
+  manageCorrectiveActions,
 }: CorrectiveActionsModuleProps) {
   void useMachinProDisplayPrefs();
-  const readOnly = userRole === "worker";
+  const readOnly =
+    manageCorrectiveActions === undefined
+      ? userRole === "worker"
+      : !manageCorrectiveActions;
   const { showToast } = useToast();
   const lastCreateSig = useRef(0);
   const [rows, setRows] = useState<CorrectiveAction[]>([]);

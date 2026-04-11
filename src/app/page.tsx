@@ -152,6 +152,8 @@ import type {
   ComplianceField,
   ComplianceRecord,
   EmployeeDocument,
+  ProjectExpenseRow,
+  ProjectExpenseCategory,
 } from "@/types/homePage";
 
 export type {
@@ -862,7 +864,7 @@ function permissionsToModule(p: RolePermissions): ModulePermissions {
       p.canExportForms,
     formsNav: p.canViewForms,
     canSeeOnlyAssignedProjects: p.canViewOnlyAssignedProjects,
-    canAccessSchedule: p.canViewSchedule || p.canViewTimeclock,
+    canAccessSchedule: p.canViewSchedule || p.canViewTimeclock || p.canViewPayroll,
     canCreateShifts: p.canCreateShifts,
     canEditCompanyProfile: p.canEditCompanyProfile,
     canViewBinders: p.canViewBinders,
@@ -1028,6 +1030,30 @@ function getDefaultComplianceFields(country: string): ComplianceField[] {
       createdAt: now,
     },
   ];
+}
+
+function mapDbProjectExpense(row: Record<string, unknown>): ProjectExpenseRow | null {
+  const id = row.id != null ? String(row.id) : "";
+  const projectId = row.project_id != null ? String(row.project_id) : "";
+  if (!id || !projectId) return null;
+  const rawCat = String(row.category ?? "other");
+  const allowed: ProjectExpenseCategory[] = ["personnel", "material", "tool", "rental", "other"];
+  const category = allowed.includes(rawCat as ProjectExpenseCategory)
+    ? (rawCat as ProjectExpenseCategory)
+    : "other";
+  return {
+    id,
+    projectId,
+    name: String(row.name ?? ""),
+    amount: Number(row.amount ?? 0),
+    currency: String(row.currency ?? "CAD"),
+    category,
+    expenseDate:
+      row.expense_date != null && String(row.expense_date).trim()
+        ? String(row.expense_date).slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
+    notes: row.notes != null && String(row.notes).trim() ? String(row.notes) : null,
+  };
 }
 
 // ─── Estado global y layout ────────────────────────────────────────────────────
@@ -1387,6 +1413,7 @@ export default function Home() {
     customRoles: CustomRole[];
     teamProfiles: { id: string; employeeId: string | null; name: string; email?: string }[];
     auditLogs: AuditLogEntry[];
+    projectExpenses: ProjectExpenseRow[];
     companyName: string;
     logoUrl: string;
     companyAddress: string;
@@ -1399,6 +1426,66 @@ export default function Home() {
   const invalidateDashboardCache = useCallback(() => {
     dashboardCacheRef.current = null;
   }, []);
+
+  const handleAddProjectExpense = useCallback(
+    async (row: {
+      projectId: string;
+      name: string;
+      amount: number;
+      currency: string;
+      category: ProjectExpenseCategory;
+      expenseDate: string;
+      notes: string | null;
+    }) => {
+      if (!supabase || !companyId) {
+        return { ok: false as const, error: "Supabase unavailable" };
+      }
+      const { data, error } = await supabase
+        .from("project_expenses")
+        .insert({
+          company_id: companyId,
+          project_id: row.projectId,
+          name: row.name,
+          amount: row.amount,
+          currency: row.currency,
+          category: row.category,
+          expense_date: row.expenseDate,
+          notes: row.notes,
+        })
+        .select("*")
+        .maybeSingle();
+      if (error) {
+        console.error("[page] project_expenses insert", error);
+        return { ok: false as const, error: error.message };
+      }
+      const mapped = data ? mapDbProjectExpense(data as Record<string, unknown>) : null;
+      if (mapped) setProjectExpenses((prev) => [mapped, ...prev.filter((e) => e.id !== mapped.id)]);
+      invalidateDashboardCache();
+      return { ok: true as const };
+    },
+    [supabase, companyId, invalidateDashboardCache]
+  );
+
+  const handleDeleteProjectExpense = useCallback(
+    async (id: string) => {
+      if (!supabase || !companyId) {
+        return { ok: false as const, error: "Supabase unavailable" };
+      }
+      const { error } = await supabase
+        .from("project_expenses")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("company_id", companyId);
+      if (error) {
+        console.error("[page] project_expenses soft-delete", error);
+        return { ok: false as const, error: error.message };
+      }
+      setProjectExpenses((prev) => prev.filter((e) => e.id !== id));
+      invalidateDashboardCache();
+      return { ok: true as const };
+    },
+    [supabase, companyId, invalidateDashboardCache]
+  );
 
   const handleUpdateProjectSafetyRequirements = useCallback(
     async (projectId: string, rows: ProjectSafetyRequirementRow[]) => {
@@ -1869,6 +1956,7 @@ export default function Home() {
   });
 
   const [dailyReports, setDailyReports] = useState<DailyFieldReport[]>([]);
+  const [projectExpenses, setProjectExpenses] = useState<ProjectExpenseRow[]>([]);
   const [teamProfiles, setTeamProfiles] = useState<
     { id: string; employeeId: string | null; name: string; email?: string }[]
   >([]);
@@ -1886,6 +1974,7 @@ export default function Home() {
       userIdToEmployeeIdRef.current = new Map();
       setTeamProfiles([]);
       setSubcontractorsForWatchdog([]);
+      setProjectExpenses([]);
       return;
     }
     const cid = companyId;
@@ -1903,6 +1992,7 @@ export default function Home() {
       setCustomRoles(cached.customRoles);
       setTeamProfiles(cached.teamProfiles);
       setAuditLogs(cached.auditLogs);
+      setProjectExpenses(cached.projectExpenses ?? []);
       if (cached.companyName) setCompanyName(cached.companyName);
       if (cached.logoUrl) setLogoUrl(cached.logoUrl);
       setCompanyAddress(cached.companyAddress ?? "");
@@ -1935,6 +2025,7 @@ export default function Home() {
       let mappedCompanyEmail = "";
       let mappedCompanyWebsite = "";
       let mappedAuditLogs: AuditLogEntry[] = [];
+      let mappedProjectExpenses: ProjectExpenseRow[] = [];
 
       const [profilesResult, projectsResult, rolesResult, companyResult] = await Promise.all([
         supabase
@@ -2135,8 +2226,15 @@ export default function Home() {
 
       if (!cancelled) {
         void (async () => {
-          const [timeEntriesResult, vacationsResult, scheduleResult, auditResult, subRowsResult, subDocsResult] =
-            await Promise.all([
+          const [
+            timeEntriesResult,
+            vacationsResult,
+            scheduleResult,
+            auditResult,
+            subRowsResult,
+            subDocsResult,
+            projectExpensesResult,
+          ] = await Promise.all([
             supabase
               .from("time_entries")
               .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
@@ -2158,6 +2256,13 @@ export default function Home() {
               .limit(50),
             supabase.from("subcontractors").select("id, name").eq("company_id", cid),
             supabase.from("subcontractor_documents").select("*").eq("company_id", cid),
+            supabase
+              .from("project_expenses")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("expense_date", { ascending: false })
+              .limit(2000),
           ]);
 
           if (cancelled) return;
@@ -2275,6 +2380,17 @@ export default function Home() {
             setAuditLogs(mappedAuditLogs);
           }
 
+          const { data: expData, error: expErr } = projectExpensesResult;
+          if (expErr) {
+            console.error("[page] project_expenses load", expErr);
+            mappedProjectExpenses = [];
+          } else {
+            mappedProjectExpenses = (expData ?? [])
+              .map((row: Record<string, unknown>) => mapDbProjectExpense(row))
+              .filter((x: ProjectExpenseRow | null): x is ProjectExpenseRow => x != null);
+          }
+          if (!cancelled) setProjectExpenses(mappedProjectExpenses);
+
           const { data: subRowsRaw, error: subRowsErr } = subRowsResult;
           const { data: subDocsRaw, error: subDocsErr } = subDocsResult;
           if (!cancelled && !subRowsErr && !subDocsErr) {
@@ -2329,6 +2445,7 @@ export default function Home() {
               customRoles: mappedCustomRoles,
               teamProfiles: mappedTeamProfiles,
               auditLogs: mappedAuditLogs,
+              projectExpenses: mappedProjectExpenses,
               companyName: mappedCompanyName,
               logoUrl: mappedLogoUrl,
               companyAddress: mappedCompanyAddress,
@@ -5223,15 +5340,14 @@ export default function Home() {
                   if (typeof window !== "undefined" && window.confirm(msg))
                     setSuppliers((prev) => prev.filter((s) => s.id !== id));
                 }}
-                canEdit={
-                  !!(
-                    rolePerms.canManageInventory ||
-                    rolePerms.canManageFleet ||
-                    rolePerms.canManageSuppliers ||
-                    rolePerms.canManageRentals ||
-                    rolePerms.canCreatePurchaseOrders
-                  )
-                }
+                canViewInventory={!!rolePerms.canViewInventory}
+                canManageInventory={!!rolePerms.canManageInventory}
+                canViewFleet={!!rolePerms.canViewFleet}
+                canManageFleet={!!rolePerms.canManageFleet}
+                canManageRentals={!!rolePerms.canManageRentals}
+                canViewSuppliers={!!rolePerms.canViewSuppliers}
+                canManageSuppliers={!!rolePerms.canManageSuppliers}
+                canCreatePurchaseOrders={!!rolePerms.canCreatePurchaseOrders}
                 onUpdateItemStatus={(id, status) => {
                   setInventoryItems((prev) => {
                     const next = prev.map((i) => i.id === id ? { ...i, toolStatus: status as ToolStatus } : i);
@@ -5687,6 +5803,18 @@ export default function Home() {
                 showProjectFormsTab={!!rolePerms.canViewProjectForms}
                 showProjectMapTab={!!rolePerms.canViewAttendance}
                 showProjectEpiTab={!!rolePerms.canViewSecurity}
+                showProjectCostsTab={
+                  !!(rolePerms.canViewProjectCosts || rolePerms.canManageProjectCosts)
+                }
+                projectExpenses={projectExpenses}
+                canManageProjectCosts={!!rolePerms.canManageProjectCosts}
+                canExportProjectCosts={!!rolePerms.canExportProjectCosts}
+                onAddProjectExpense={
+                  rolePerms.canManageProjectCosts ? handleAddProjectExpense : undefined
+                }
+                onDeleteProjectExpense={
+                  rolePerms.canManageProjectCosts ? handleDeleteProjectExpense : undefined
+                }
                 projectsSecurityTabSignal={projectsSecurityTabSig}
                 projectSecurityCompanyId={companyId}
                 projectSecurityCompanyName={profile?.companyName ?? companyName}
@@ -5710,6 +5838,8 @@ export default function Home() {
                 projectSecurityCanShowActions={
                   !!(rolePerms.canViewCorrectiveActions || rolePerms.canManageCorrectiveActions)
                 }
+                projectSecurityCanManageHazards={!!rolePerms.canManageHazards}
+                projectSecurityCanManageCorrectiveActions={!!rolePerms.canManageCorrectiveActions}
                 projectSecurityDateLocale={dateLocaleBcp47}
                 projectSecurityTimeZone={userTimeZone}
                 canManageProjectGallery={!!rolePerms.canManageProjectGallery}
@@ -6007,6 +6137,10 @@ export default function Home() {
                 canViewLaborCosting={!!rolePerms.canViewLaborCosting}
                 timesheetCostCurrency={currency}
                 employeeLaborRatesByEmployeeId={employeeLaborRateLookup}
+                canViewPayroll={!!rolePerms.canViewPayroll}
+                canManagePayroll={!!rolePerms.canManagePayroll}
+                canExportPayroll={!!rolePerms.canExportPayroll}
+                companyCountryForPayroll={companyCountry ?? "CA"}
               />
               <ModuleHelpFab
                 moduleKey="schedule"
@@ -6052,14 +6186,14 @@ export default function Home() {
                   }
                   auditLogs={auditLogs}
                   canManageRoles={!!rolePerms.canManageRoles}
-                  canShowHazards={!!(rolePerms.canViewHazards || rolePerms.canManageHazards)}
-                  canShowActions={
-                    !!(rolePerms.canViewCorrectiveActions || rolePerms.canManageCorrectiveActions)
-                  }
-                  canShowDocuments={
-                    !!(rolePerms.canViewSecurityDocs || rolePerms.canManageSecurityDocs)
-                  }
-                  canShowAudit={!!rolePerms.canViewSecurityAudit}
+                  canViewHazards={!!rolePerms.canViewHazards}
+                  canManageHazards={!!rolePerms.canManageHazards}
+                  canViewCorrectiveActions={!!rolePerms.canViewCorrectiveActions}
+                  canManageCorrectiveActions={!!rolePerms.canManageCorrectiveActions}
+                  canViewSecurityDocs={!!rolePerms.canViewSecurityDocs}
+                  canManageSecurityDocs={!!rolePerms.canManageSecurityDocs}
+                  canViewSecurityAudit={!!rolePerms.canViewSecurityAudit}
+                  canManageDailyReports={!!rolePerms.canManageDailyReports}
                   canShowTraining={!!rolePerms.canViewSecurity}
                   canManageTraining={effectiveRole === "admin"}
                   cloudinaryCloudName={
@@ -6132,6 +6266,7 @@ export default function Home() {
                   .filter((r) => (r.returnDate ?? "") >= formatTodayYmdInTimeZone(userTimeZone))
                   .map((r) => ({ id: r.id, name: r.name }))}
                 onConsumeOpenFillNavigation={consumeFormsOpenFillNavigation}
+                projectNameById={Object.fromEntries((projects ?? []).map((p) => [p.id, p.name]))}
               />
               <ModuleHelpFab
                 moduleKey="forms"

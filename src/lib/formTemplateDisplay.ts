@@ -1,11 +1,22 @@
 import type { FormField, InspectionTableValue } from "@/types/forms";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
+const EN_LABELS = ALL_TRANSLATIONS.en as Record<string, string>;
+
+/**
+ * Resolves template/field labels: `labels[key]` first, then English bundle for `form_*` keys,
+ * then the raw string (human-readable name stored as-is).
+ */
 export function resolveFormLabel(
   keyOrText: string,
   labels: Record<string, string>
 ): string {
   const v = labels[keyOrText];
   if (v !== undefined && v !== "") return v;
+  if (keyOrText.startsWith("form_")) {
+    const en = EN_LABELS[keyOrText];
+    if (en !== undefined && en !== "") return en;
+  }
   return keyOrText;
 }
 

@@ -72,3 +72,35 @@ export type EmployeeDocument = {
   uploadedBy: string;
   uploadedAt: string;
 };
+
+/** Fila de fichaje usada en calendario, hojas de horas y nómina (evita ciclo ScheduleModule ↔ PayrollSchedulePanel). */
+export interface ClockEntryForSchedule {
+  id: string;
+  employeeId: string;
+  date: string;
+  clockIn: string;
+  clockOut?: string;
+  clockInAtIso?: string;
+  clockOutAtIso?: string | null;
+  locationLat?: number;
+  locationLng?: number;
+  locationAlert?: boolean;
+  locationAlertMeters?: number;
+  hadPendingCerts?: boolean;
+  projectId?: string;
+  projectCode?: string;
+  projectName?: string;
+}
+
+export type ProjectExpenseCategory = "personnel" | "material" | "tool" | "rental" | "other";
+
+export interface ProjectExpenseRow {
+  id: string;
+  projectId: string;
+  name: string;
+  amount: number;
+  currency: string;
+  category: ProjectExpenseCategory;
+  expenseDate: string;
+  notes: string | null;
+}

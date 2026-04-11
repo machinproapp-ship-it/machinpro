@@ -69,6 +69,8 @@ export interface HazardModuleProps {
   lockedProjectId?: string | null;
   dateLocale: string;
   timeZone: string;
+  /** Si se define, sustituye la regla heredada `userRole === "worker"` para permitir edición. */
+  manageHazards?: boolean;
 }
 
 type SortKey = "date" | "score" | "severity" | "status";
@@ -137,8 +139,10 @@ export function HazardModule({
   lockedProjectId = null,
   dateLocale,
   timeZone,
+  manageHazards,
 }: HazardModuleProps) {
-  const readOnly = userRole === "worker";
+  const readOnly =
+    manageHazards === undefined ? userRole === "worker" : !manageHazards;
   const { showToast } = useToast();
   void useMachinProDisplayPrefs();
   const lastCreateSig = useRef(0);

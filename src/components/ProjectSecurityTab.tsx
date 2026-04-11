@@ -35,6 +35,8 @@ export interface ProjectSecurityTabProps {
   onSecurityInteraction?: () => void;
   canShowHazards: boolean;
   canShowActions: boolean;
+  canManageHazards: boolean;
+  canManageCorrectiveActions: boolean;
   dateLocale: string;
   timeZone: string;
 }
@@ -61,6 +63,8 @@ export function ProjectSecurityTab({
   onSecurityInteraction,
   canShowHazards,
   canShowActions,
+  canManageHazards,
+  canManageCorrectiveActions,
   dateLocale,
   timeZone,
 }: ProjectSecurityTabProps) {
@@ -116,11 +120,7 @@ export function ProjectSecurityTab({
   );
 
   if (!canShowHazards && !canShowActions) {
-    return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 py-6 text-center">
-        {L("perm_no_access", "No access")}
-      </p>
-    );
+    return null;
   }
 
   return (
@@ -192,6 +192,7 @@ export function ProjectSecurityTab({
               lockedProjectId={projectId}
               dateLocale={dateLocale}
               timeZone={timeZone}
+              manageHazards={canManageHazards}
             />
           </div>
         ) : null}
@@ -213,6 +214,7 @@ export function ProjectSecurityTab({
               lockedProjectId={projectId}
               dateLocale={dateLocale}
               timeZone={timeZone}
+              manageCorrectiveActions={canManageCorrectiveActions}
             />
           </div>
         ) : null}

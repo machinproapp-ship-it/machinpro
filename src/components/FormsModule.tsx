@@ -106,6 +106,8 @@ export interface FormsModuleProps {
   vehicles?: { id: string; plate: string }[];
   rentals?: { id: string; name: string }[];
   onConsumeOpenFillNavigation?: () => void;
+  /** Nombres de proyecto cuando `projects` no incluye el id (p. ej. instancias antiguas). */
+  projectNameById?: Record<string, string>;
 }
 
 function formContextBadgeClass(ctx: FormContextType | undefined): string {
@@ -452,6 +454,7 @@ export function FormsModule({
   vehicles: vehiclesProp = [],
   rentals: rentalsProp = [],
   onConsumeOpenFillNavigation,
+  projectNameById = {},
 }: FormsModuleProps) {
   void useMachinProDisplayPrefs();
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
@@ -733,6 +736,16 @@ export function FormsModule({
 
   const getTemplate = (id: string) => templates.find((x) => x.id === id);
   const getProject = (id: string) => projects.find((p) => p.id === id);
+  const resolveProjectLabel = (projectId: string | undefined | null, inst: FormInstance) => {
+    const pid = projectId ?? "";
+    if (!pid) return inst.contextName ?? "—";
+    return (
+      projectNameById[pid] ??
+      getProject(pid)?.name ??
+      inst.contextName ??
+      pid
+    );
+  };
 
   const handleUseTemplate = (
     templateId: string,
@@ -790,7 +803,7 @@ export function FormsModule({
     setQrModal({
       signToken: instance.signToken,
       link,
-      templateName: template.name,
+      templateName: resolveFormLabel(template.name, t),
       expiresInHours: template.expiresInHours,
       instance,
     });
@@ -925,7 +938,7 @@ export function FormsModule({
                         : l("forms_badge_general");
                 const contextLine =
                   ctxType === "project"
-                    ? (project?.name ?? inst.contextName ?? inst.projectId)
+                    ? resolveProjectLabel(inst.projectId, inst)
                     : ctxType === "vehicle"
                       ? (inst.contextName ?? inst.contextId ?? "—")
                       : ctxType === "rental"
@@ -946,7 +959,7 @@ export function FormsModule({
                   >
                     <div>
                       <p className="font-medium text-zinc-900 dark:text-white">
-                        {template?.name ?? inst.templateId}
+                        {template ? resolveFormLabel(template.name, t) : inst.templateId}
                       </p>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">
                         {contextLine} · {inst.date}
@@ -1349,12 +1362,11 @@ export function FormsModule({
       {view === "detail" && detailInstanceId && (() => {
         const instance = instances.find((i) => i.id === detailInstanceId);
         const template = instance ? getTemplate(instance.templateId) : null;
-        const project = instance ? getProject(instance.projectId) : null;
         const dCtx: FormContextType =
           instance?.contextType ?? (instance?.projectId ? "project" : "general");
         const detailContextLine = instance
           ? dCtx === "project"
-            ? (project?.name ?? instance.contextName ?? instance.projectId)
+            ? resolveProjectLabel(instance.projectId, instance)
             : dCtx === "vehicle"
               ? (instance.contextName ?? instance.contextId ?? "—")
               : dCtx === "rental"
@@ -1433,7 +1445,8 @@ export function FormsModule({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `${template.name}-${instance.date}.pdf`;
+                    const safeTpl = resolveFormLabel(template.name, t).replace(/[^a-zA-Z0-9._-]+/g, "_");
+                    a.download = `${safeTpl}-${instance.date}.pdf`;
                     a.click();
                     URL.revokeObjectURL(url);
                   }}

@@ -234,7 +234,14 @@ export interface LogisticsModuleProps {
   onAddSupplier: () => void;
   onEditSupplier: (s: Supplier) => void;
   onDeleteSupplier: (id: string) => void;
-  canEdit?: boolean;
+  canViewInventory?: boolean;
+  canManageInventory?: boolean;
+  canViewFleet?: boolean;
+  canManageFleet?: boolean;
+  canManageRentals?: boolean;
+  canViewSuppliers?: boolean;
+  canManageSuppliers?: boolean;
+  canCreatePurchaseOrders?: boolean;
   onUpdateItemStatus?: (id: string, status: string) => void;
   onReturnTool?: (itemId: string, condition: "good" | "damaged" | "maintenance", notes: string, photoUrl?: string) => void;
   onMarkIncidentReviewed?: (itemId: string) => void;
@@ -443,7 +450,14 @@ export function LogisticsModule({
   onAddSupplier,
   onEditSupplier,
   onDeleteSupplier,
-  canEdit = true,
+  canViewInventory = false,
+  canManageInventory = false,
+  canViewFleet = false,
+  canManageFleet = false,
+  canManageRentals = false,
+  canViewSuppliers = false,
+  canManageSuppliers = false,
+  canCreatePurchaseOrders = false,
   onUpdateItemStatus,
   onReturnTool,
   onMarkIncidentReviewed,
@@ -473,6 +487,7 @@ export function LogisticsModule({
   onOpenFormsFilteredByRental,
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
+  const canFulfillOrders = canManageInventory || canCreatePurchaseOrders;
   const tlLabels = t as Record<string, string>;
   const vehicleInspectionLabel =
     vehicleInspectionLabelProp ??
@@ -839,7 +854,7 @@ export function LogisticsModule({
                   {tlLabels.export_inventory ?? tlLabels.export_csv ?? "Export CSV"}
                 </button>
               ) : null}
-              {canEdit && (
+              {canManageInventory && (
                 <button
                   type="button"
                   onClick={onAddInventory}
@@ -954,7 +969,7 @@ export function LogisticsModule({
                   </div>
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-100 dark:border-slate-700">
                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    {(!isTrackedAsset(item) || (item.toolStatus ?? "available") === "available") && (
+                    {canManageInventory && (!isTrackedAsset(item) || (item.toolStatus ?? "available") === "available") && (
                       <>
                         <button type="button" onClick={() => onOpenAdjust(item.id, "add")} className="flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 px-3 py-2.5 min-h-[44px] text-xs font-medium border border-emerald-200 dark:border-emerald-800/40">
                           <ArrowUpCircle className="h-4 w-4" /> {t.addUnits ?? "Stock in"}
@@ -964,19 +979,19 @@ export function LogisticsModule({
                         </button>
                       </>
                     )}
-                    {(item.toolStatus ?? "available") === "in_use" && onReturnTool && (
+                    {(item.toolStatus ?? "available") === "in_use" && canManageInventory && onReturnTool && (
                       <button type="button" onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }} className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 min-h-[44px] transition-colors">
                         <RotateCcw className="h-3.5 w-3.5" />
                         {tlLabels.returnItem ?? "Return"}
                       </button>
                     )}
-                    {(item.toolStatus ?? "available") === "maintenance" && canEdit && onUpdateItemStatus && (
+                    {(item.toolStatus ?? "available") === "maintenance" && canManageInventory && onUpdateItemStatus && (
                       <button type="button" onClick={() => onUpdateItemStatus(item.id, "available")} className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-600 px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] transition-colors">
                         {tlLabels.markAvailable ?? "Mark available"}
                       </button>
                     )}
                     </div>
-                    {canEdit && (
+                    {canManageInventory && (
                       <div className="ml-auto flex shrink-0 items-center gap-0.5">
                         <button type="button" onClick={() => onEditInventory(item)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.edit}>
                           <Pencil className="h-4 w-4" />
@@ -1104,7 +1119,7 @@ export function LogisticsModule({
                                 ⚠ {(tlLabels.incidentReported ?? "Incident")}
                               </span>
                             )}
-                            {canEdit && onUpdateItemStatus && (
+                            {canManageInventory && onUpdateItemStatus && (
                               <select
                                 value={item.toolStatus ?? "available"}
                                 onChange={(e) => onUpdateItemStatus(item.id, e.target.value)}
@@ -1121,7 +1136,7 @@ export function LogisticsModule({
                     )}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        {(!isTrackedAsset(item) || (item.toolStatus ?? "available") === "available") && (
+                        {canManageInventory && (!isTrackedAsset(item) || (item.toolStatus ?? "available") === "available") && (
                           <>
                             <button type="button" onClick={() => onOpenAdjust(item.id, "add")} className="p-2.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.addUnits ?? "Add units"}>
                               <ArrowUpCircle className="h-4 w-4" />
@@ -1131,7 +1146,7 @@ export function LogisticsModule({
                             </button>
                           </>
                         )}
-                        {(item.toolStatus ?? "available") === "in_use" && onReturnTool && (
+                        {(item.toolStatus ?? "available") === "in_use" && canManageInventory && onReturnTool && (
                           <button type="button" onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }} className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 min-h-[44px] transition-colors">
                             <RotateCcw className="h-3.5 w-3.5" />
                             {tlLabels.returnItem ?? "Return"}
@@ -1141,12 +1156,12 @@ export function LogisticsModule({
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {(item.toolStatus ?? "available") === "maintenance" && canEdit && onUpdateItemStatus && (
+                        {(item.toolStatus ?? "available") === "maintenance" && canManageInventory && onUpdateItemStatus && (
                           <button type="button" onClick={() => onUpdateItemStatus(item.id, "available")} className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-600 px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] transition-colors">
                             {tlLabels.markAvailable ?? "Mark available"}
                           </button>
                         )}
-                        {canEdit && (
+                        {canManageInventory && (
                           <>
                             <button type="button" onClick={() => onEditInventory(item)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.edit}>
                               <Pencil className="h-4 w-4" />
@@ -1409,7 +1424,7 @@ export function LogisticsModule({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-semibold text-sm">
-                          {request.projectId}
+                          {(projects ?? []).find((p) => p.id === request.projectId)?.name ?? request.projectId}
                         </p>
                         <p className="text-xs text-zinc-500 mt-0.5">
                           {request.requestedByName} ·{" "}
@@ -1441,7 +1456,7 @@ export function LogisticsModule({
                           >
                             {item.quantity}x {item.name}
                           </span>
-                          {canEdit &&
+                          {canFulfillOrders &&
                             request.status !== "dispatched" &&
                             request.status !== "received" && (
                               <button
@@ -1467,7 +1482,7 @@ export function LogisticsModule({
                       ))}
                     </div>
 
-                    {canEdit && (
+                    {canFulfillOrders && (
                       <div className="flex gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         {request.status === "pending" && (
                           <button
@@ -1593,7 +1608,7 @@ export function LogisticsModule({
               ))}
               </div>
             </div>
-            {canEdit && (
+            {canManageFleet && (
               <button type="button" onClick={onAddFleet} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
                 <Plus className="h-4 w-4" />
                 {t.addNew ?? "Add vehicle"}
@@ -1701,12 +1716,12 @@ export function LogisticsModule({
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-slate-700 flex-wrap">
-                    {canEdit && onUpdateVehicleStatus && (
+                    {canManageFleet && onUpdateVehicleStatus && (
                       <select value={v.vehicleStatus ?? "available"} onChange={(e) => onUpdateVehicleStatus(v.id, e.target.value)} className="text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[44px]">
                         {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                       </select>
                     )}
-                    {canEdit && (
+                    {canManageFleet && (
                       <>
                         <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
                         <button type="button" onClick={() => onDeleteFleet(v.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
@@ -1818,12 +1833,12 @@ export function LogisticsModule({
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {canEdit && onUpdateVehicleStatus && (
+                          {canManageFleet && onUpdateVehicleStatus && (
                             <select value={v.vehicleStatus ?? "available"} onChange={(e) => onUpdateVehicleStatus(v.id, e.target.value)} className="text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1 bg-white dark:bg-slate-800 min-h-[44px]">
                               {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                             </select>
                           )}
-                          {canEdit && (
+                          {canManageFleet && (
                             <>
                               <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
                               <button type="button" onClick={() => onDeleteFleet(v.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
@@ -1849,7 +1864,7 @@ export function LogisticsModule({
 
       {warehouseSubTab === "rentals" && (
         <div className="space-y-4">
-          {canEdit && (
+          {canManageRentals && (
           <div className="flex justify-end">
             <button type="button" onClick={onAddRental} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
               <Plus className="h-4 w-4" />
@@ -1885,7 +1900,7 @@ export function LogisticsModule({
                     {getProjectName(r.projectId)}
                   </span>
                 </div>
-                {canEdit && (
+                {canManageRentals && (
                 <div className="flex gap-1">
                   <button type="button" onClick={() => onEditRental(r)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
                   <button type="button" onClick={() => onDeleteRental(r.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
@@ -1987,7 +2002,7 @@ export function LogisticsModule({
 
       {warehouseSubTab === "suppliers" && (
         <div className="space-y-4">
-          {canEdit && (
+          {canManageSuppliers && (
           <div className="flex justify-end">
             <button type="button" onClick={onAddSupplier} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
               <Plus className="h-4 w-4" />
@@ -2003,7 +2018,7 @@ export function LogisticsModule({
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{s.phone} · {s.email}</p>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{s.address}</p>
                 </button>
-                {canEdit && (
+                {canManageSuppliers && (
                 <div className="flex gap-1 shrink-0">
                   <button type="button" onClick={(e) => { e.stopPropagation(); onEditSupplier(s); }} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
                   <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteSupplier(s.id); }} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
@@ -2068,7 +2083,7 @@ export function LogisticsModule({
                         />
                       )}
                       <div className="flex gap-2">
-                        {onMarkIncidentReviewed && (
+                        {canManageInventory && onMarkIncidentReviewed && (
                           <button
                             type="button"
                             onClick={() => onMarkIncidentReviewed(item.id)}
@@ -2077,7 +2092,7 @@ export function LogisticsModule({
                             ✓ {tlLabels.markReviewed ?? "Mark reviewed"}
                           </button>
                         )}
-                        {onReturnTool && (
+                        {canManageInventory && onReturnTool && (
                           <button
                             type="button"
                             onClick={() => { setReturnModalItem(item); setReturnCondition("good"); setReturnNotes(""); setReturnPhotoUrl(null); }}
@@ -2134,7 +2149,7 @@ export function LogisticsModule({
                       ))}
                     </ul>
                   )}
-                  {canEdit && (
+                  {canManageSuppliers && (
                     <button type="button" onClick={() => { setSelectedSupplierId(null); onEditSupplier(s); }} className="mt-2 text-sm text-amber-600 hover:text-amber-500">
                       + {tl.addContact ?? "Add contact"}
                     </button>
@@ -2155,7 +2170,7 @@ export function LogisticsModule({
                     </ul>
                   )}
                 </div>
-                {canEdit && (
+                {canManageSuppliers && (
                   <button type="button" onClick={() => { setSelectedSupplierId(null); onEditSupplier(s); }} className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">
                     <Pencil className="h-4 w-4 inline mr-2" />
                     {tl.edit ?? "Editar"}
@@ -2305,7 +2320,7 @@ export function LogisticsModule({
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {getVehicleComplianceStatusBadge(record, tl)}
-                                    {canEdit && onComplianceRecordsChange && (
+                                    {canManageFleet && onComplianceRecordsChange && (
                                       <button
                                         type="button"
                                         onClick={() => {

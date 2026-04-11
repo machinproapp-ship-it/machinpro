@@ -59,10 +59,15 @@ export interface SecurityModuleProps {
   onDeleteDocument: (id: string) => void;
   auditLogs: AuditLogEntry[];
   canManageRoles: boolean;
-  canShowHazards: boolean;
-  canShowActions: boolean;
-  canShowDocuments: boolean;
-  canShowAudit: boolean;
+  canViewHazards: boolean;
+  canManageHazards: boolean;
+  canViewCorrectiveActions: boolean;
+  canManageCorrectiveActions: boolean;
+  canViewSecurityDocs: boolean;
+  canManageSecurityDocs: boolean;
+  canViewSecurityAudit: boolean;
+  /** Reservado (partes diarios en obra / proyectos); la pestaña Formación usa `canManageTraining`. */
+  canManageDailyReports: boolean;
   canShowTraining: boolean;
   canManageTraining: boolean;
   cloudinaryCloudName: string;
@@ -118,10 +123,14 @@ export function SecurityModule({
   onDeleteDocument,
   auditLogs,
   canManageRoles,
-  canShowHazards,
-  canShowActions,
-  canShowDocuments,
-  canShowAudit,
+  canViewHazards,
+  canManageHazards,
+  canViewCorrectiveActions,
+  canManageCorrectiveActions,
+  canViewSecurityDocs,
+  canManageSecurityDocs,
+  canViewSecurityAudit,
+  canManageDailyReports,
   canShowTraining,
   canManageTraining,
   cloudinaryCloudName,
@@ -137,11 +146,16 @@ export function SecurityModule({
 }: SecurityModuleProps) {
   const { showToast } = useToast();
   void useMachinProDisplayPrefs();
+  const showHazardsTab = canViewHazards || canManageHazards;
+  const showActionsTab = canViewCorrectiveActions || canManageCorrectiveActions;
+  const showDocumentsTab = canViewSecurityDocs || canManageSecurityDocs;
+  const showAuditTab = canViewSecurityAudit;
+
   const firstAllowed =
-    (canShowHazards ? "hazards" : null) ||
-    (canShowActions ? "actions" : null) ||
-    (canShowDocuments ? "documents" : null) ||
-    (canShowAudit ? "audit" : null) ||
+    (showHazardsTab ? "hazards" : null) ||
+    (showActionsTab ? "actions" : null) ||
+    (showDocumentsTab ? "documents" : null) ||
+    (showAuditTab ? "audit" : null) ||
     (canShowTraining ? "training" : null) ||
     "hazards";
 
@@ -149,12 +163,12 @@ export function SecurityModule({
 
   const allowed = useCallback(
     (id: SecurityTabId) =>
-      (id === "hazards" && canShowHazards) ||
-      (id === "actions" && canShowActions) ||
-      (id === "documents" && canShowDocuments) ||
-      (id === "audit" && canShowAudit) ||
+      (id === "hazards" && showHazardsTab) ||
+      (id === "actions" && showActionsTab) ||
+      (id === "documents" && showDocumentsTab) ||
+      (id === "audit" && showAuditTab) ||
       (id === "training" && canShowTraining),
-    [canShowHazards, canShowActions, canShowDocuments, canShowAudit, canShowTraining]
+    [showHazardsTab, showActionsTab, showDocumentsTab, showAuditTab, canShowTraining]
   );
 
   const selectSecurityTab = useCallback(
@@ -254,7 +268,7 @@ export function SecurityModule({
       </HorizontalScrollFade>
 
       <div role="tabpanel">
-        {tab === "hazards" && canShowHazards && (
+        {tab === "hazards" && showHazardsTab && (
           <HazardModule
             t={t}
             companyId={companyId}
@@ -268,15 +282,16 @@ export function SecurityModule({
             onFocusHazardConsumed={onFocusHazardConsumed}
             onOpenCorrectiveFromHazard={(p) => {
               onOpenCorrectiveFromHazard(p);
-              if (canShowActions) setTab("actions");
+              if (showActionsTab) setTab("actions");
             }}
             openCreateSignal={openHazardSignal}
             dateLocale={dateLocale}
             timeZone={timeZone}
+            manageHazards={canManageHazards}
           />
         )}
 
-        {tab === "actions" && canShowActions && (
+        {tab === "actions" && showActionsTab && (
           <CorrectiveActionsModule
             t={t}
             companyId={companyId}
@@ -290,19 +305,20 @@ export function SecurityModule({
             onConsumePrefill={onConsumeCorrectivePrefill}
             onNavigateToHazard={(id) => {
               onRequestFocusHazard(id);
-              if (canShowHazards) setTab("hazards");
+              if (showHazardsTab) setTab("hazards");
             }}
             openCreateSignal={openActionSignal}
             dateLocale={dateLocale}
             timeZone={timeZone}
+            manageCorrectiveActions={canManageCorrectiveActions}
           />
         )}
 
-        {tab === "documents" && canShowDocuments && (
+        {tab === "documents" && showDocumentsTab && (
           <BindersModule
             binders={binders}
             documents={binderDocuments}
-            canManage={canManageBinders}
+            canManage={canManageSecurityDocs}
             currentUserRole={userRole}
             employees={employees}
             roleOptions={roleOptions}
@@ -314,7 +330,7 @@ export function SecurityModule({
           />
         )}
 
-        {tab === "audit" && canShowAudit && (
+        {tab === "audit" && showAuditTab && (
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
             <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex flex-wrap items-start justify-between gap-3">
               <div>

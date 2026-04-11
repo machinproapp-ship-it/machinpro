@@ -64,6 +64,7 @@ import type { FormTemplate } from "@/types/forms";
 import type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask, TaskPriority } from "@/types/projectTask";
+import type { ProjectExpenseCategory, ProjectExpenseRow } from "@/types/homePage";
 import { ALL_TRANSLATIONS, type Currency } from "@/lib/i18n";
 import {
   dateLocaleForUser,
@@ -116,6 +117,8 @@ export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } fr
 // ─── Tipos ─────────────────────────────────────────────────────────────────────
 
 export type PhotoType = "obra" | "inventario";
+
+export type { ProjectExpenseCategory, ProjectExpenseRow };
 
 export interface ProjectEmployee {
   id: string;
@@ -300,6 +303,21 @@ export interface ProjectsModuleProps {
   showProjectMapTab?: boolean;
   /** EPI / seguridad en obra (canViewSecurity). */
   showProjectEpiTab?: boolean;
+  /** Costes de obra (gastos manuales + resumen vs presupuesto). */
+  showProjectCostsTab?: boolean;
+  projectExpenses?: ProjectExpenseRow[];
+  canManageProjectCosts?: boolean;
+  canExportProjectCosts?: boolean;
+  onAddProjectExpense?: (row: {
+    projectId: string;
+    name: string;
+    amount: number;
+    currency: string;
+    category: ProjectExpenseCategory;
+    expenseDate: string;
+    notes: string | null;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  onDeleteProjectExpense?: (id: string) => Promise<{ ok: boolean; error?: string }>;
   projectsSecurityTabSignal?: number;
   projectSecurityCompanyId?: string | null;
   projectSecurityCompanyName?: string;
@@ -319,6 +337,8 @@ export interface ProjectsModuleProps {
   onProjectSecurityInteraction?: () => void;
   projectSecurityCanShowHazards?: boolean;
   projectSecurityCanShowActions?: boolean;
+  projectSecurityCanManageHazards?: boolean;
+  projectSecurityCanManageCorrectiveActions?: boolean;
   projectSecurityDateLocale?: string;
   projectSecurityTimeZone?: string;
   /** Informe PDF de inspección (galería → Inspección). */
@@ -486,6 +506,7 @@ type TabId =
   | "rfi"
   | "seguridad"
   | "project_epi"
+  | "costes"
   | "mapa";
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
@@ -499,6 +520,7 @@ const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "rfi", icon: <FileQuestion className="h-4 w-4" /> },
   { id: "seguridad", icon: <Shield className="h-4 w-4" /> },
   { id: "project_epi", icon: <HardHat className="h-4 w-4" /> },
+  { id: "costes", icon: <DollarSign className="h-4 w-4" /> },
   { id: "mapa", icon: <MapPin className="h-4 w-4" /> },
 ];
 
@@ -587,6 +609,12 @@ export function ProjectsModule({
   showProjectFormsTab = true,
   showProjectMapTab = true,
   showProjectEpiTab = true,
+  showProjectCostsTab = false,
+  projectExpenses = [],
+  canManageProjectCosts = false,
+  canExportProjectCosts = false,
+  onAddProjectExpense,
+  onDeleteProjectExpense,
   projectsSecurityTabSignal = 0,
   projectSecurityCompanyId = null,
   projectSecurityCompanyName = "",
@@ -604,6 +632,8 @@ export function ProjectsModule({
   onProjectSecurityInteraction,
   projectSecurityCanShowHazards = false,
   projectSecurityCanShowActions = false,
+  projectSecurityCanManageHazards = false,
+  projectSecurityCanManageCorrectiveActions = false,
   projectSecurityDateLocale = "es",
   projectSecurityTimeZone = "UTC",
   canManageProjectGallery = false,
@@ -665,6 +695,18 @@ export function ProjectsModule({
     assignedToEmployeeId: "",
     dueDate: "",
   });
+
+  const [costFormName, setCostFormName] = useState("");
+  const [costFormAmount, setCostFormAmount] = useState("");
+  const [costFormCategory, setCostFormCategory] = useState<ProjectExpenseCategory>("other");
+  const [costFormDate, setCostFormDate] = useState(() => todayYmdLocal());
+  const [costFormNotes, setCostFormNotes] = useState("");
+  const [costFormBusy, setCostFormBusy] = useState(false);
+
+  const projectExpensesForProject = useMemo(() => {
+    if (!selectedProjectId) return [];
+    return (projectExpenses ?? []).filter((e) => e.projectId === selectedProjectId);
+  }, [projectExpenses, selectedProjectId]);
 
   const filteredMachinTemplates = useMemo(
     () => filterFormTemplatesByProjectCategory(formTemplates, newFormType),
@@ -781,6 +823,8 @@ export function ProjectsModule({
           return showProjectSecurityTab;
         case "project_epi":
           return showProjectEpiTab;
+        case "costes":
+          return showProjectCostsTab;
         case "mapa":
           return showProjectMapTab && !!companyId;
         default:
@@ -798,6 +842,7 @@ export function ProjectsModule({
       showProjectRfiTab,
       showProjectSecurityTab,
       showProjectEpiTab,
+      showProjectCostsTab,
       showProjectMapTab,
       companyId,
     ]
@@ -1512,6 +1557,8 @@ export function ProjectsModule({
                     ? (t as Record<string, string>).security_tab ?? PM_EN.security_tab
                   : tab.id === "project_epi"
                     ? (t as Record<string, string>).project_safety_title ?? PM_EN.project_safety_title
+                  : tab.id === "costes"
+                    ? (t as Record<string, string>).project_costs_title ?? PM_EN.project_costs_title
                   : tab.id === "mapa"
                     ? (t as Record<string, string>).tab_map ?? PM_EN.tab_map
                   : "";
@@ -3667,9 +3714,359 @@ export function ProjectsModule({
             onSecurityInteraction={onProjectSecurityInteraction}
             canShowHazards={projectSecurityCanShowHazards}
             canShowActions={projectSecurityCanShowActions}
+            canManageHazards={projectSecurityCanManageHazards}
+            canManageCorrectiveActions={projectSecurityCanManageCorrectiveActions}
             dateLocale={projectSecurityDateLocale}
             timeZone={projectSecurityTimeZone}
           />
+        ) : null}
+
+        {activeTab === "costes" && selectedProject && showProjectCostsTab ? (
+          <div className="space-y-6">
+            {(() => {
+              const laborSum = projectLaborSummaries[selectedProject.id] ?? {
+                totalHours: 0,
+                totalCost: 0,
+                byEmployee: [],
+              };
+              const laborCost = canViewProjectLaborCosts ? laborSum.totalCost : 0;
+              const sumCat = (cats: ProjectExpenseCategory[]) =>
+                projectExpensesForProject
+                  .filter((e) => cats.includes(e.category))
+                  .reduce((a, e) => a + (Number.isFinite(e.amount) ? e.amount : 0), 0);
+              const personnelExp = sumCat(["personnel"]);
+              const materialsExp = sumCat(["material", "tool"]);
+              const rentalExp = sumCat(["rental"]);
+              const otherExp = sumCat(["other"]);
+              const expensesTotal = projectExpensesForProject.reduce(
+                (a, e) => a + (Number.isFinite(e.amount) ? e.amount : 0),
+                0
+              );
+              const executedTotal = laborCost + expensesTotal;
+              const budget = selectedProject.budgetCAD ?? 0;
+              const overBudget = budget > 0 && executedTotal > budget;
+              const catLabel = (c: ProjectExpenseCategory) => {
+                const tx = t as Record<string, string>;
+                if (c === "personnel") return tx.project_costs_personnel ?? PM_EN.project_costs_personnel;
+                if (c === "material" || c === "tool")
+                  return tx.project_costs_materials ?? PM_EN.project_costs_materials;
+                if (c === "rental") return tx.project_costs_rentals ?? PM_EN.project_costs_rentals;
+                return tx.project_costs_other ?? PM_EN.project_costs_other;
+              };
+              const exportCsv = () => {
+                const tx = t as Record<string, string>;
+                const hdr = [
+                  tx.date ?? "date",
+                  tx.project ?? "project",
+                  "category",
+                  tx.projectFormNameLabel ?? "name",
+                  "amount",
+                  "currency",
+                  "notes",
+                ];
+                const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+                const lines = [hdr.join(",")];
+                if (canViewProjectLaborCosts && laborCost > 0) {
+                  lines.push(
+                    [
+                      esc("—"),
+                      esc(selectedProject.name),
+                      esc(tx.labor_cost_total ?? "labor"),
+                      esc(tx.labor_costing ?? "Labor"),
+                      String(laborCost),
+                      companyCurrency,
+                      "",
+                    ].join(",")
+                  );
+                }
+                for (const e of projectExpensesForProject) {
+                  lines.push(
+                    [
+                      esc(e.expenseDate),
+                      esc(selectedProject.name),
+                      esc(e.category),
+                      esc(e.name),
+                      String(e.amount),
+                      esc(e.currency || companyCurrency),
+                      esc(e.notes ?? ""),
+                    ].join(",")
+                  );
+                }
+                const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                triggerBlobDownload(
+                  blob,
+                  `project-costs-${selectedProject.id.slice(0, 8)}.csv`
+                );
+                showToast("success", tx.export_success ?? PM_EN.export_success);
+              };
+              return (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {canViewProjectLaborCosts ? (
+                      <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {tl.labor_costing ?? PM_EN.labor_costing}
+                        </p>
+                        <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-white">
+                          {formatCurrency(laborCost, companyCurrency, dateLoc)}
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {tl.project_costs_personnel ?? PM_EN.project_costs_personnel}
+                      </p>
+                      <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-white">
+                        {formatCurrency(personnelExp, companyCurrency, dateLoc)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {tl.project_costs_materials ?? PM_EN.project_costs_materials}
+                      </p>
+                      <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-white">
+                        {formatCurrency(materialsExp, companyCurrency, dateLoc)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {tl.project_costs_rentals ?? PM_EN.project_costs_rentals}
+                      </p>
+                      <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-white">
+                        {formatCurrency(rentalExp, companyCurrency, dateLoc)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {tl.project_costs_other ?? PM_EN.project_costs_other}
+                      </p>
+                      <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-white">
+                        {formatCurrency(otherExp, companyCurrency, dateLoc)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 sm:col-span-2 lg:col-span-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {tl.project_costs_total ?? PM_EN.project_costs_total}
+                          </p>
+                          <p className="text-xl font-bold tabular-nums text-amber-800 dark:text-amber-200">
+                            {formatCurrency(executedTotal, companyCurrency, dateLoc)}
+                          </p>
+                        </div>
+                        {budget > 0 ? (
+                          <div className="text-right">
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              {tl.project_costs_budget ?? PM_EN.project_costs_budget}
+                            </p>
+                            <p className="text-sm font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+                              {formatCurrency(budget, companyCurrency, dateLoc)}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                      {overBudget ? (
+                        <p className="mt-2 flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          {tl.project_costs_over_budget ?? PM_EN.project_costs_over_budget}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canExportProjectCosts ? (
+                      <button
+                        type="button"
+                        onClick={() => void exportCsv()}
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-slate-700"
+                      >
+                        <FileDown className="h-4 w-4" />
+                        {tl.project_costs_export ?? PM_EN.project_costs_export}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {canManageProjectCosts && onAddProjectExpense ? (
+                    <form
+                      className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 p-4 space-y-3"
+                      onSubmit={(ev) => {
+                        ev.preventDefault();
+                        if (!selectedProject?.id || costFormBusy) return;
+                        const amt = Number.parseFloat(costFormAmount.replace(",", "."));
+                        if (!costFormName.trim() || !Number.isFinite(amt) || amt < 0) {
+                          showToast("error", tl.toast_error ?? PM_EN.toast_error);
+                          return;
+                        }
+                        setCostFormBusy(true);
+                        void (async () => {
+                          const res = await onAddProjectExpense({
+                            projectId: selectedProject.id,
+                            name: costFormName.trim(),
+                            amount: amt,
+                            currency: companyCurrency,
+                            category: costFormCategory,
+                            expenseDate: costFormDate || todayYmdLocal(),
+                            notes: costFormNotes.trim() ? costFormNotes.trim() : null,
+                          });
+                          setCostFormBusy(false);
+                          if (!res.ok) {
+                            showToast("error", res.error ?? (tl.toast_error ?? PM_EN.toast_error));
+                            return;
+                          }
+                          setCostFormName("");
+                          setCostFormAmount("");
+                          setCostFormCategory("other");
+                          setCostFormDate(todayYmdLocal());
+                          setCostFormNotes("");
+                          showToast("success", tl.toast_saved ?? PM_EN.toast_saved);
+                        })();
+                      }}
+                    >
+                      <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                        {tl.project_costs_add_expense ?? PM_EN.project_costs_add_expense}
+                      </h3>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                          {tl.projectFormNameLabel ?? PM_EN.projectFormNameLabel}
+                          <input
+                            value={costFormName}
+                            onChange={(e) => setCostFormName(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                            required
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                          {tl.project_costs_amount ?? PM_EN.project_costs_amount}
+                          <input
+                            value={costFormAmount}
+                            onChange={(e) => setCostFormAmount(e.target.value)}
+                            inputMode="decimal"
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm tabular-nums"
+                            required
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                          {tl.date ?? PM_EN.date}
+                          <input
+                            type="date"
+                            value={costFormDate}
+                            onChange={(e) => setCostFormDate(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                          {tl.project_costs_category ?? PM_EN.project_costs_category}
+                          <select
+                            value={costFormCategory}
+                            onChange={(e) =>
+                              setCostFormCategory(e.target.value as ProjectExpenseCategory)
+                            }
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                          >
+                            {(
+                              ["personnel", "material", "tool", "rental", "other"] as ProjectExpenseCategory[]
+                            ).map((c) => (
+                              <option key={c} value={c}>
+                                {catLabel(c)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                        {tl.photoNotesPlaceholder ?? PM_EN.photoNotesPlaceholder}
+                        <textarea
+                          value={costFormNotes}
+                          onChange={(e) => setCostFormNotes(e.target.value)}
+                          rows={2}
+                          className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm resize-none"
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        disabled={costFormBusy}
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {tl.project_costs_add_expense ?? PM_EN.project_costs_add_expense}
+                      </button>
+                    </form>
+                  ) : null}
+
+                  <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700">
+                    <table className="w-full min-w-[320px] text-sm">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-slate-600 text-left text-xs text-zinc-500 dark:text-zinc-400">
+                          <th className="py-2 px-3 font-medium">{tl.date ?? PM_EN.date}</th>
+                          <th className="py-2 px-3 font-medium">{tl.project_costs_category ?? PM_EN.project_costs_category}</th>
+                          <th className="py-2 px-3 font-medium">{tl.projectFormNameLabel ?? PM_EN.projectFormNameLabel}</th>
+                          <th className="py-2 px-3 font-medium text-right">{tl.project_costs_amount ?? PM_EN.project_costs_amount}</th>
+                          {canManageProjectCosts && onDeleteProjectExpense ? (
+                            <th className="py-2 px-3 w-10" />
+                          ) : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {projectExpensesForProject.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={canManageProjectCosts && onDeleteProjectExpense ? 5 : 4}
+                              className="py-8 text-center text-zinc-500 dark:text-zinc-400"
+                            >
+                              {tl.project_costs_empty ?? PM_EN.project_costs_empty}
+                            </td>
+                          </tr>
+                        ) : (
+                          projectExpensesForProject.map((e) => (
+                            <tr
+                              key={e.id}
+                              className="border-b border-zinc-100 dark:border-slate-800 text-zinc-800 dark:text-zinc-200"
+                            >
+                              <td className="py-2 px-3 tabular-nums whitespace-nowrap">{e.expenseDate}</td>
+                              <td className="py-2 px-3">{catLabel(e.category)}</td>
+                              <td className="py-2 px-3 min-w-0">
+                                <span className="block truncate" title={e.name}>
+                                  {e.name}
+                                </span>
+                                {e.notes ? (
+                                  <span className="block text-xs text-zinc-500 truncate" title={e.notes}>
+                                    {e.notes}
+                                  </span>
+                                ) : null}
+                              </td>
+                              <td className="py-2 px-3 text-right tabular-nums font-medium">
+                                {formatCurrency(e.amount, e.currency || companyCurrency, dateLoc)}
+                              </td>
+                              {canManageProjectCosts && onDeleteProjectExpense ? (
+                                <td className="py-2 px-3">
+                                  <button
+                                    type="button"
+                                    className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                    aria-label={tl.delete ?? PM_EN.delete}
+                                    onClick={() => {
+                                      void (async () => {
+                                        const res = await onDeleteProjectExpense(e.id);
+                                        if (!res.ok) {
+                                          showToast("error", res.error ?? (tl.toast_error ?? PM_EN.toast_error));
+                                        }
+                                      })();
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </td>
+                              ) : null}
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         ) : null}
 
         {activeTab === "project_epi" && selectedProject && showProjectEpiTab ? (

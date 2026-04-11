@@ -38,6 +38,9 @@ export interface RolePermissions {
   canManageProjectBlueprints: boolean;
   canManageProjectRFI: boolean;
   canManageProjectVisitors: boolean;
+  canViewProjectCosts: boolean;
+  canManageProjectCosts: boolean;
+  canExportProjectCosts: boolean;
   /** Módulo Formularios (empresa): ver instancias y plantillas. */
   canViewForms: boolean;
   canCreateForms: boolean;
@@ -58,6 +61,9 @@ export interface RolePermissions {
   canManageTimesheets: boolean;
   /** Ver costes de personal, exportar informes laborales (CSV/PDF). */
   canViewLaborCosting: boolean;
+  canViewPayroll: boolean;
+  canManagePayroll: boolean;
+  canExportPayroll: boolean;
 
   // ─── Logística ──────────────────────────────────────────
   canViewLogistics: boolean;
@@ -138,6 +144,9 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canManageProjectBlueprints",
   "canManageProjectRFI",
   "canManageProjectVisitors",
+  "canViewProjectCosts",
+  "canManageProjectCosts",
+  "canExportProjectCosts",
   "canViewForms",
   "canCreateForms",
   "canFillForms",
@@ -152,6 +161,9 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewTimesheets",
   "canManageTimesheets",
   "canViewLaborCosting",
+  "canViewPayroll",
+  "canManagePayroll",
+  "canExportPayroll",
   "canViewLogistics",
   "canManageInventory",
   "canViewInventory",
@@ -233,6 +245,9 @@ export const ROLE_PERMISSION_GROUPS: {
       "canManageProjectBlueprints",
       "canManageProjectRFI",
       "canManageProjectVisitors",
+      "canViewProjectCosts",
+      "canManageProjectCosts",
+      "canExportProjectCosts",
     ],
   },
   {
@@ -247,6 +262,9 @@ export const ROLE_PERMISSION_GROUPS: {
       "canViewTimesheets",
       "canManageTimesheets",
       "canViewLaborCosting",
+      "canViewPayroll",
+      "canManagePayroll",
+      "canExportPayroll",
     ],
   },
   {
@@ -330,6 +348,9 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageProjectBlueprints: "Gestionar planos",
   canManageProjectRFI: "Gestionar RFI",
   canManageProjectVisitors: "Gestionar visitantes y QR",
+  canViewProjectCosts: "Ver costes del proyecto",
+  canManageProjectCosts: "Gestionar costes del proyecto",
+  canExportProjectCosts: "Exportar costes del proyecto",
   canViewForms: "Ver formularios",
   canCreateForms: "Crear formularios",
   canFillForms: "Rellenar formularios asignados",
@@ -344,6 +365,9 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewTimesheets: "Ver hojas de horas",
   canManageTimesheets: "Editar hojas de horas",
   canViewLaborCosting: "Ver costes de personal e informes",
+  canViewPayroll: "Ver nóminas",
+  canManagePayroll: "Gestionar nóminas",
+  canExportPayroll: "Exportar nóminas",
   canViewLogistics: "Ver logística",
   canManageInventory: "Gestionar inventario",
   canViewInventory: "Ver inventario",

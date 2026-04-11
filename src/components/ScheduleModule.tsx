@@ -36,6 +36,8 @@ import {
 } from "@/lib/laborReportExport";
 import { hoursWorkedFromClockFields, laborCostForHours } from "@/lib/laborCosting";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import { PayrollSchedulePanel } from "@/components/PayrollSchedulePanel";
+import type { ClockEntryForSchedule } from "@/types/homePage";
 
 export interface SchedEmployee {
   id: string;
@@ -69,23 +71,7 @@ export interface SchedEntry {
   eventLabel?: string;
 }
 
-export interface ClockEntryForSchedule {
-  id: string;
-  employeeId: string;
-  date: string;
-  clockIn: string;
-  clockOut?: string;
-  clockInAtIso?: string;
-  clockOutAtIso?: string | null;
-  locationLat?: number;
-  locationLng?: number;
-  locationAlert?: boolean;
-  locationAlertMeters?: number;
-  hadPendingCerts?: boolean;
-  projectId?: string;
-  projectCode?: string;
-  projectName?: string;
-}
+export type { ClockEntryForSchedule };
 
 export interface TimeEntryForSchedule {
   id: string;
@@ -350,6 +336,10 @@ export interface ScheduleModuleProps {
   canViewLaborCosting?: boolean;
   timesheetCostCurrency?: string;
   employeeLaborRatesByEmployeeId?: Record<string, number>;
+  canViewPayroll?: boolean;
+  canManagePayroll?: boolean;
+  canExportPayroll?: boolean;
+  companyCountryForPayroll?: string;
 }
 
 function startOfWeek(date: Date): Date {
@@ -1511,6 +1501,10 @@ export default function ScheduleModule({
   canViewLaborCosting = false,
   timesheetCostCurrency = "CAD",
   employeeLaborRatesByEmployeeId = {},
+  canViewPayroll = false,
+  canManagePayroll = false,
+  canExportPayroll = false,
+  companyCountryForPayroll = "CA",
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
@@ -1536,28 +1530,44 @@ export default function ScheduleModule({
   const showClockTab =
     !!canViewTimeclock && (Boolean(canClockIn) || Boolean(canManageEmployees));
   const showTimesheetsTab = canViewTimesheets;
+  const showPayrollTab = !!canViewPayroll;
   const [scheduleSubTab, setScheduleSubTab] = useState<
-    "calendar" | "clock" | "timesheets" | "vacations"
+    "calendar" | "clock" | "timesheets" | "payroll" | "vacations"
   >("calendar");
   const showVacationsTab = canRequestVacation || canApproveVacations;
 
-  const firstAllowedScheduleSubTab = useMemo((): "calendar" | "clock" | "timesheets" | "vacations" => {
+  const firstAllowedScheduleSubTab = useMemo(():
+    | "calendar"
+    | "clock"
+    | "timesheets"
+    | "payroll"
+    | "vacations" => {
     if (showCalendarTab) return "calendar";
     if (showClockTab) return "clock";
     if (showTimesheetsTab) return "timesheets";
+    if (showPayrollTab) return "payroll";
     if (showVacationsTab) return "vacations";
     return "calendar";
-  }, [showCalendarTab, showClockTab, showTimesheetsTab, showVacationsTab]);
+  }, [showCalendarTab, showClockTab, showTimesheetsTab, showPayrollTab, showVacationsTab]);
 
   useEffect(() => {
-    const allowed = new Set<"calendar" | "clock" | "timesheets" | "vacations">();
+    const allowed = new Set<"calendar" | "clock" | "timesheets" | "payroll" | "vacations">();
     if (showCalendarTab) allowed.add("calendar");
     if (showClockTab) allowed.add("clock");
     if (showTimesheetsTab) allowed.add("timesheets");
+    if (showPayrollTab) allowed.add("payroll");
     if (showVacationsTab) allowed.add("vacations");
     if (allowed.size === 0) return;
     if (!allowed.has(scheduleSubTab)) setScheduleSubTab(firstAllowedScheduleSubTab);
-  }, [showCalendarTab, showClockTab, showTimesheetsTab, showVacationsTab, scheduleSubTab, firstAllowedScheduleSubTab]);
+  }, [
+    showCalendarTab,
+    showClockTab,
+    showTimesheetsTab,
+    showPayrollTab,
+    showVacationsTab,
+    scheduleSubTab,
+    firstAllowedScheduleSubTab,
+  ]);
   const [viewMonth, setViewMonth] = useState(() => today.getMonth());
   const [viewYear, setViewYear] = useState(() => today.getFullYear());
   const [formOpen, setFormOpen] = useState(false);
@@ -2097,6 +2107,21 @@ export default function ScheduleModule({
               }`}
             >
               {labels.timesheets ?? "Hojas de horas"}
+            </button>
+          ) : null}
+          {showPayrollTab ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={scheduleSubTab === "payroll"}
+              onClick={() => setScheduleSubTab("payroll")}
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                scheduleSubTab === "payroll"
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {lx.payroll_title ?? "Payroll"}
             </button>
           ) : null}
           {showVacationsTab ? (
@@ -2989,6 +3014,28 @@ export default function ScheduleModule({
           timesheetCostCurrency={timesheetCostCurrency}
           employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
         />
+      )}
+
+      {showPayrollTab && scheduleSubTab === "payroll" && (
+        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <PayrollSchedulePanel
+            labels={lx}
+            companyName={companyName}
+            companyId={companyId}
+            timeZone={scheduleTz}
+            dateLocale={dateLocale}
+            countryCode={companyCountryForPayroll}
+            currency={timesheetCostCurrency}
+            employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+            clockEntries={clockEntries}
+            employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
+            profileToLegacyEmployeeId={profileToLegacyEmployeeId}
+            currentUserProfileId={currentUserProfileId}
+            viewAllPayroll={viewAll || canManagePayroll}
+            canManagePayroll={canManagePayroll}
+            canExportPayroll={canExportPayroll}
+          />
+        </div>
       )}
 
       {selectedDay !== null && (
