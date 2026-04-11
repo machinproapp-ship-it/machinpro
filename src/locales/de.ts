@@ -764,6 +764,9 @@ export default {
   payPeriod: "Zahlungszeitraum",
   dashboard_widget_timeclock: "Heute gestempelt",
   dashboard_widget_activity: "Letzte Aktivität",
+  dashboard_activity_empty_business: "Keine aktuelle Aktivität",
+  dashboard_activity_empty_business_hint:
+    "Geschäftsrelevante Änderungen erscheinen hier. Anmeldungen und Sicherheitsereignisse werden nicht angezeigt.",
   dashboard_widget_alerts: "Aktive Warnungen",
   dashboard_widget_quickaccess: "Schnellzugriff",
   dashboard_clocked_in: "Eingestempelt",

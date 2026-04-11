@@ -181,6 +181,16 @@ function auditActorLabel(
   return (labels.dashboard_activity_unknown_user ?? "").trim() || "—";
 }
 
+/** Oculta login, sesión y demás acciones `auth_*` en el widget de actividad del panel central. */
+function isAuthAuditAction(action: string | null | undefined): boolean {
+  const a = (action ?? "").trim().toLowerCase();
+  return a.startsWith("auth_");
+}
+
+function filterBusinessAuditRows(rows: AuditLogEntry[], max = 10): AuditLogEntry[] {
+  return rows.filter((r) => !isAuthAuditAction(r.action)).slice(0, max);
+}
+
 function formatActivityLine(
   row: AuditLogEntry,
   labels: Record<string, string>,
@@ -220,7 +230,7 @@ function SkeletonLoader() {
     <div className="space-y-6 animate-pulse" aria-busy="true" aria-live="polite">
       <div className="h-7 w-56 max-w-[80%] rounded-lg bg-gray-200 dark:bg-gray-600" />
       <div className="h-4 w-full max-w-md rounded bg-gray-100 dark:bg-gray-700" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-6">
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
@@ -270,11 +280,11 @@ function UnifiedDashCard({
       }}
       disabled={disabled}
       aria-label={ariaLabel ?? label}
-      className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left shadow-sm hover:border-amber-400/60 dark:hover:border-amber-500/50 transition-colors disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+      className="flex h-full min-h-[44px] w-full flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left shadow-sm hover:border-amber-400/60 dark:hover:border-amber-500/50 transition-colors disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
     >
-      <div className="flex items-start gap-3 w-full">
+      <div className="flex min-h-0 flex-1 items-start gap-3 w-full">
         <div className={`shrink-0 p-2 rounded-lg ${iconWrapClassName}`}>{icon}</div>
-        <div className="flex-1 min-w-0">
+        <div className="flex min-h-0 flex-1 min-w-0 flex-col">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{label}</span>
             <ChevronRight className="h-4 w-4 text-gray-400 shrink-0 ml-auto" aria-hidden />
@@ -1105,11 +1115,12 @@ function CentralDashboardBody(
           const now = Date.now();
           const cached = c.audit;
           if (cached && now - cached.at < 60_000) {
+            const visible = filterBusinessAuditRows(cached.rows, 10);
             if (!cancelled) {
-              setActivityRows(cached.rows);
+              setActivityRows(visible);
               setAuditProfileByUserId(cached.profiles);
             }
-            activityRowsSnap = cached.rows;
+            activityRowsSnap = visible;
             auditProfilesSnap = cached.profiles;
             return;
           }
@@ -1120,17 +1131,18 @@ function CentralDashboardBody(
             )
             .eq("company_id", companyId)
             .order("created_at", { ascending: false })
-            .limit(10);
+            .limit(80);
           if (error) throw error;
           const rows = (data ?? []) as AuditLogEntry[];
-          const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
+          const filteredRows = filterBusinessAuditRows(rows, 10);
+          const ids = [...new Set(filteredRows.map((r) => r.user_id).filter(Boolean))] as string[];
           const profileMap =
             ids.length > 0 ? await fetchCentralUserProfilesMerged(companyId, ids) : ({} as Record<string, AuditProfileSnippet>);
-          c.audit = { at: Date.now(), rows, profiles: profileMap };
-          activityRowsSnap = rows;
+          c.audit = { at: Date.now(), rows: filteredRows, profiles: profileMap };
+          activityRowsSnap = filteredRows;
           auditProfilesSnap = profileMap;
           if (!cancelled) {
-            setActivityRows(rows);
+            setActivityRows(filteredRows);
             setAuditProfileByUserId(profileMap);
           }
         } catch (e) {
@@ -1765,7 +1777,16 @@ function CentralDashboardBody(
             </h3>
             <ul className="text-sm space-y-2 max-h-56 min-h-0 overflow-y-auto overscroll-contain">
               {activityRows.length === 0 ? (
-                <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
+                <li className="text-gray-600 dark:text-gray-400">
+                  <p className="font-medium text-gray-800 dark:text-gray-200">
+                    {L("dashboard_activity_empty_business") || L("dashboard_trend_neutral")}
+                  </p>
+                  {(L("dashboard_activity_empty_business_hint") || "").trim() ? (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {L("dashboard_activity_empty_business_hint")}
+                    </p>
+                  ) : null}
+                </li>
               ) : (
                 activityRows.map((row) => (
                   <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 min-w-0">
@@ -2109,7 +2130,7 @@ function CentralDashboardBody(
       {showZone1 ? (
         <>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
-          <div className="grid grid-cols-1 gap-3 mb-6 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense lg:grid-cols-3">
+          <div className="mb-6 grid min-w-0 grid-cols-2 gap-3 md:gap-6 items-stretch">
             {(
               (canViewEmployees || canManageEmployees
                 ? [
@@ -2215,17 +2236,8 @@ function CentralDashboardBody(
                       ]
                     : []
                 )
-                .map((item, index, arr) => (
-                  <div
-                    key={item.key}
-                    className={`min-w-0 ${
-                      arr.length % 2 === 1 && index === arr.length - 1
-                        ? arr.length === 1
-                          ? "md:col-span-2 lg:col-span-3"
-                          : "md:col-span-2 lg:col-span-1"
-                        : ""
-                    }`}
-                  >
+                .map((item) => (
+                  <div key={item.key} className="flex h-full min-h-0 min-w-0">
                     {item.node}
                   </div>
                 ))

@@ -805,6 +805,9 @@ export default {
   payPeriod: "Período de pago",
   dashboard_widget_timeclock: "Fichaje hoy",
   dashboard_widget_activity: "Actividad reciente",
+  dashboard_activity_empty_business: "Sin actividad reciente",
+  dashboard_activity_empty_business_hint:
+    "Aquí verás cambios de negocio. Los inicios de sesión y eventos de seguridad no se muestran.",
   dashboard_widget_alerts: "Alertas activas",
   dashboard_widget_quickaccess: "Accesos rápidos",
   dashboard_clocked_in: "Fichado",

@@ -757,6 +757,9 @@ export default {
   payPeriod: "Période de paie",
   dashboard_widget_timeclock: "Pointage aujourd'hui",
   dashboard_widget_activity: "Activité récente",
+  dashboard_activity_empty_business: "Aucune activité récente",
+  dashboard_activity_empty_business_hint:
+    "Les changements métier s’affichent ici. Les connexions et la sécurité ne sont pas affichées.",
   dashboard_widget_alerts: "Alertes actives",
   dashboard_widget_quickaccess: "Accès rapides",
   dashboard_clocked_in: "Pointé",

@@ -763,6 +763,9 @@ export default {
   payPeriod: "Período de pagamento",
   dashboard_widget_timeclock: "Registo de ponto hoje",
   dashboard_widget_activity: "Atividade recente",
+  dashboard_activity_empty_business: "Sem atividade recente",
+  dashboard_activity_empty_business_hint:
+    "Alterações de negócio aparecem aqui. Inícios de sessão e eventos de segurança não são mostrados.",
   dashboard_widget_alerts: "Alertas ativos",
   dashboard_widget_quickaccess: "Acessos rápidos",
   dashboard_clocked_in: "Com registo",

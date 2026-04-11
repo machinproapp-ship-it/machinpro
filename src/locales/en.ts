@@ -849,6 +849,9 @@ export default {
   payPeriod: "Pay period",
   dashboard_widget_timeclock: "Time clock today",
   dashboard_widget_activity: "Recent activity",
+  dashboard_activity_empty_business: "No recent activity",
+  dashboard_activity_empty_business_hint:
+    "Business changes appear here. Sign-in and security events are not shown.",
   dashboard_widget_alerts: "Active alerts",
   dashboard_widget_quickaccess: "Quick access",
   dashboard_clocked_in: "Clocked in",

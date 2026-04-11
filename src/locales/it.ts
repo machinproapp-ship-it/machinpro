@@ -763,6 +763,9 @@ export default {
   payPeriod: "Periodo di pagamento",
   dashboard_widget_timeclock: "Timbrature oggi",
   dashboard_widget_activity: "Attività recente",
+  dashboard_activity_empty_business: "Nessuna attività recente",
+  dashboard_activity_empty_business_hint:
+    "Qui compaiono le modifiche operative. Accessi ed eventi di sicurezza non sono mostrati.",
   dashboard_widget_alerts: "Avvisi attivi",
   dashboard_widget_quickaccess: "Accessi rapidi",
   dashboard_clocked_in: "Timbrato",
