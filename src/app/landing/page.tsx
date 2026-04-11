@@ -226,6 +226,11 @@ export default function LandingPage() {
     upsertMeta("property", "og:type", "website");
     const origin = typeof window !== "undefined" ? window.location.origin : "https://machin.pro";
     upsertMeta("property", "og:url", `${origin}/landing`);
+    upsertMeta("property", "og:image", `${origin}/logo-source.png`);
+    upsertMeta("name", "twitter:card", "summary_large_image");
+    upsertMeta("name", "twitter:title", title);
+    upsertMeta("name", "twitter:description", desc);
+    upsertMeta("name", "twitter:image", `${origin}/logo-source.png`);
   }, [language, geoDetect, tx]);
 
   useEffect(() => {
@@ -397,7 +402,7 @@ export default function LandingPage() {
               href="/register"
               className="min-h-[44px] inline-flex items-center rounded-xl bg-[#f97316] px-4 text-sm font-semibold text-white hover:bg-orange-600 transition-colors"
             >
-              {tx("landing_nav_start", "Start free")}
+              {tx("landing_nav_start", tx("landing_cta_start", "Start free 14 days"))}
             </Link>
           </div>
         </div>
@@ -471,6 +476,10 @@ export default function LandingPage() {
                   {tx("beta_founders_title", "Beta Founders Program")}
                 </h2>
                 <p className="text-lg font-semibold text-amber-200/95">{betaSpotsLabel}</p>
+                <p className="text-base font-semibold text-white/95">
+                  {interpolateCount(tx("landing_beta_social_proof", ""), betaFounderSpots)}
+                </p>
+                <p className="text-sm text-teal-100/85">{tx("landing_beta_countries", "")}</p>
                 <div
                   className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-4 lg:mx-0"
                   aria-hidden
@@ -572,6 +581,9 @@ export default function LandingPage() {
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-600 dark:text-slate-400 sm:text-base">
               {tx("landing_pricing_subtitle", "")}
+            </p>
+            <p className="mx-auto mt-4 max-w-xl rounded-xl border border-emerald-300/80 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100 sm:text-base">
+              {tx("landing_pricing_trial_banner", "")}
             </p>
             <div className="mt-8 flex flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center">
               <div className="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900 sm:w-auto sm:justify-center">

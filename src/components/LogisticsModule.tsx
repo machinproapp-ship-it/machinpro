@@ -1555,15 +1555,17 @@ export function LogisticsModule({
           ) : null}
 
           {fleetViewMode === "tracking" && companyId && gpsMapTimeZone ? (
-            <TeamGpsMapWidget
-              companyId={companyId}
-              timeZone={gpsMapTimeZone}
-              language={gpsMapLanguage}
-              countryCode={gpsMapCountryCode}
-              projectNameById={gpsProjectNameById}
-              labels={t as Record<string, string>}
-              vehiclePlateByUserId={vehiclePlateByUserIdForGps}
-            />
+            <div className="min-w-0 max-w-full overflow-x-hidden">
+              <TeamGpsMapWidget
+                companyId={companyId}
+                timeZone={gpsMapTimeZone}
+                language={gpsMapLanguage}
+                countryCode={gpsMapCountryCode}
+                projectNameById={gpsProjectNameById}
+                labels={t as Record<string, string>}
+                vehiclePlateByUserId={vehiclePlateByUserIdForGps}
+              />
+            </div>
           ) : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">

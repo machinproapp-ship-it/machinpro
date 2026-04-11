@@ -3629,25 +3629,27 @@ export function ProjectsModule({
         ) : null}
 
         {activeTab === "mapa" && selectedProject && companyId ? (
-          projectMapActiveCount > 0 ? (
-            <TeamGpsMapWidget
-              companyId={companyId}
-              timeZone={userTz}
-              language={language}
-              countryCode={countryCode}
-              projectNameById={projectNameByIdForGps}
-              labels={t as Record<string, string>}
-              filterProjectId={selectedProject.id}
-            />
-          ) : (
-            <div className="rounded-xl border border-zinc-200 dark:border-slate-700 p-6 text-zinc-600 dark:text-zinc-300 flex items-center gap-3">
-              <MapPin className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
-              <span>
-                {(t as Record<string, string>).gps_no_active_project ??
-                  "No hay empleados fichados en este proyecto ahora mismo"}
-              </span>
-            </div>
-          )
+          <div className="min-w-0 max-w-full overflow-x-hidden space-y-3">
+            {projectMapActiveCount > 0 ? (
+              <TeamGpsMapWidget
+                companyId={companyId}
+                timeZone={userTz}
+                language={language}
+                countryCode={countryCode}
+                projectNameById={projectNameByIdForGps}
+                labels={t as Record<string, string>}
+                filterProjectId={selectedProject.id}
+              />
+            ) : (
+              <div className="min-h-[200px] rounded-xl border border-zinc-200 dark:border-slate-700 p-6 text-zinc-600 dark:text-zinc-300 flex flex-col sm:flex-row sm:items-center gap-3">
+                <MapPin className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+                <p className="text-sm leading-relaxed min-w-0">
+                  {(t as Record<string, string>).gps_no_active_project ??
+                    "No hay empleados fichados en este proyecto ahora mismo"}
+                </p>
+              </div>
+            )}
+          </div>
         ) : null}
       </div>
 

@@ -145,7 +145,7 @@ export function ProjectEpiSafetyTab({
   );
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="w-full max-w-full space-y-8 lg:max-w-3xl">
       <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-4">
         <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
           {L("project_safety_requirements")}
@@ -154,7 +154,7 @@ export function ProjectEpiSafetyTab({
           {labeledReqs.map((row, idx) => (
             <li
               key={row.id}
-              className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-100 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/40 p-3"
+              className="flex flex-wrap items-stretch gap-2 rounded-lg border border-zinc-100 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/40 p-3 min-w-0"
             >
               <span className="text-xs font-mono text-zinc-400 shrink-0">{idx + 1}</span>
               {canEdit ? (

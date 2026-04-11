@@ -324,7 +324,7 @@ export function TeamGpsMapWidget({
     <div className="space-y-2">
       <div
         ref={containerRef}
-        className="w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 h-[300px] md:h-[450px] z-0"
+        className="w-full max-w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 h-[min(52vh,420px)] min-h-[300px] md:h-[450px] z-0"
         aria-label={Lx("gps_map_title")}
       />
       {loading ? (

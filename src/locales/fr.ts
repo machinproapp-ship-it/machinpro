@@ -2117,14 +2117,20 @@ export default {
   training_open_pdf: "Ouvrir le PDF",
   training_uploading: "Téléversement…",
 
-  landing_hero_title: "Gestion professionnelle des entreprises de construction.",
+  landing_hero_title: "Construire sans chaos",
   landing_hero_sub:
-    "Tout ce qu'il vous faut pour gérer votre chantier, votre équipe et votre entreprise de n'importe où.",
+    "Gérez les équipes, projets, logistique et conformité depuis n'importe où — sans perdre le contrôle du chantier.",
   landing_hero_subtitle:
-    "Tout ce qu'il vous faut pour gérer votre chantier, votre équipe et votre entreprise de n'importe où.",
+    "Gérez les équipes, projets, logistique et conformité depuis n'importe où — sans perdre le contrôle du chantier.",
   landing_theme_toggle: "Thème",
   landing_cta_start: "Commencer gratuitement 14 jours",
+  landing_cta_plans: "Voir les offres",
   landing_cta_demo: "Voir la démo",
+  landing_beta_urgency:
+    "Bêta privée le 14 avril : places limitées. Inscrivez-vous maintenant pour ne pas rater le coche.",
+  landing_beta_social_proof: "{{count}} entreprises participent déjà à la bêta privée.",
+  landing_beta_countries: "Équipes au Canada, en Espagne, au Mexique et au Royaume-Uni.",
+  landing_pricing_trial_banner: "14 jours d'essai gratuits — sans carte bancaire.",
   landing_languages_badge: "🌍 Disponible en 21 langues · Amériques · Europe · UK",
   landing_features_title: "Personnalisez votre MachinPro.",
   landing_feat_employees: "👥 Employés avec rôles et permissions",
@@ -2270,7 +2276,7 @@ export default {
   landing_nav_features: "Fonctionnalités",
   landing_nav_pricing: "Tarifs",
   landing_nav_login: "Connexion",
-  landing_nav_start: "Commencer gratuitement",
+  landing_nav_start: "Commencer gratuitement 14 jours",
   landing_testimonials_title: "Témoignages",
   landing_testimonials_coming: "Bientôt — soyez le premier à donner votre avis.",
   landing_badge_mobile: "Disponible sur iOS et Android",
@@ -2389,9 +2395,9 @@ export default {
   register_tax_id_us: "EIN (facultatif)",
   register_tax_id_latam: "Numéro fiscal local (facultatif)",
 
-  landing_meta_title: "MachinPro — Logiciel de gestion de chantier",
+  landing_meta_title: "MachinPro — Gestion de chantier sans chaos",
   landing_meta_description:
-    "Digitalisez projets, sécurité, visiteurs, plans et facturation au même endroit.",
+    "Gérez votre entreprise de construction depuis n'importe où. Équipes, projets, logistique et conformité dans une seule app.",
   landing_seo_extra_northam: "Chantiers, équipes et sécurité alignée OSHA.",
   landing_seo_extra_uk: "Construction sites, santé et sécurité, conformité type HSE.",
   landing_seo_extra_eu: "Chantiers, équipes et sécurité alignée EU-OSHA.",

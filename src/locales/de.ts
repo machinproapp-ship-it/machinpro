@@ -2131,14 +2131,20 @@ export default {
   training_open_pdf: "PDF öffnen",
   training_uploading: "Wird hochgeladen…",
 
-  landing_hero_title: "Professionelles Management für Bauunternehmen.",
+  landing_hero_title: "Bauen ohne Chaos",
   landing_hero_sub:
-    "Alles was Sie brauchen um Ihre Baustelle, Ihr Team und Ihr Unternehmen von überall zu verwalten.",
+    "Steuern Sie Personal, Projekte, Logistik und Compliance von überall — ohne die Kontrolle über die Baustelle zu verlieren.",
   landing_hero_subtitle:
-    "Alles was Sie brauchen um Ihre Baustelle, Ihr Team und Ihr Unternehmen von überall zu verwalten.",
+    "Steuern Sie Personal, Projekte, Logistik und Compliance von überall — ohne die Kontrolle über die Baustelle zu verlieren.",
   landing_theme_toggle: "Design",
   landing_cta_start: "14 Tage kostenlos starten",
+  landing_cta_plans: "Pläne ansehen",
   landing_cta_demo: "Funktionen ansehen",
+  landing_beta_urgency:
+    "Private Beta am 14. April: begrenzte Plätze. Jetzt anmelden und nichts verpassen.",
+  landing_beta_social_proof: "{{count}} Unternehmen sind bereits in der privaten Beta.",
+  landing_beta_countries: "Teams in Kanada, Spanien, Mexiko und dem Vereinigten Königreich.",
+  landing_pricing_trial_banner: "14 Tage kostenlos testen — keine Kreditkarte nötig.",
   landing_languages_badge: "🌍 Verfügbar in 21 Sprachen · Amerika · Europa · UK",
   landing_features_title: "Machen Sie MachinPro zu Ihrem.",
   landing_feat_employees: "👥 Mitarbeiter mit Rollen und Berechtigungen",
@@ -2378,9 +2384,9 @@ export default {
   register_tax_id_us: "EIN (optional)",
   register_tax_id_latam: "Lokale Steuernummer (optional)",
 
-  landing_meta_title: "MachinPro — Baustellensoftware",
+  landing_meta_title: "MachinPro — Baustellenmanagement ohne Chaos",
   landing_meta_description:
-    "Digitalisieren Sie Projekte, Sicherheit, Besucher, Pläne und Abrechnung an einem Ort.",
+    "Führen Sie Ihr Bauunternehmen von überall. Personal, Projekte, Logistik und Compliance in einer App.",
   landing_seo_extra_northam: "Baustellen, Teams und OSHA-orientierte Sicherheit.",
   landing_seo_extra_uk: "Baustellen, Arbeitsschutz und HSE-orientierte Compliance.",
   landing_seo_extra_eu: "Baustellen, Teams und EU-OSHA-orientiertes Sicherheitsmanagement.",

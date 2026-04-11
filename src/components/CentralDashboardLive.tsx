@@ -399,6 +399,108 @@ type TimeRow = {
   clock_out_at: string | null;
 };
 
+const CENTRAL_WARM_TTL_MS = 60_000;
+
+type CentralDashboardCacheSnap = {
+  companyId: string;
+  audit?: { at: number; rows: AuditLogEntry[]; profiles: Record<string, AuditProfileSnippet> };
+  visitors?: { at: number; todayCount: number; activeNow: number; recent: VisitorWidgetRow[] };
+  hazards?: { at: number; hazardRows: Hazard[]; correctivePendingCount: number };
+  empCount?: { at: number; value: number | null };
+};
+
+type CentralDashboardWarmBlob = {
+  savedAt: number;
+  refreshTk: number;
+  todayIso: string;
+  resolvedConfig: ResolvedDashboardConfig;
+  myTimeRows: TimeRow[];
+  teamTimeRows: TimeRow[];
+  teamClockLabelsByUserId: Record<string, string>;
+  scheduleToday: Record<string, unknown>[];
+  dailyReportsToday: Record<string, unknown>[];
+  myTasksToday: { description: string; completed: boolean }[];
+  empActiveCount: number | null;
+  activityRows: AuditLogEntry[];
+  auditProfileByUserId: Record<string, AuditProfileSnippet>;
+  hazardRows: Hazard[];
+  correctivePendingCount: number;
+  visitorsTodayCount: number;
+  visitorsActiveNow: number;
+  visitorsRecent: VisitorWidgetRow[];
+  dashboardCache: CentralDashboardCacheSnap;
+};
+
+const centralDashboardWarmStore = new Map<string, CentralDashboardWarmBlob>();
+
+function centralDashboardWarmKey(companyId: string, userId: string, refreshTk: number, todayIso: string) {
+  return `${companyId}\0${userId}\0${refreshTk}\0${todayIso}`;
+}
+
+type CentralCachedProfileRow = {
+  id: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  email?: string | null;
+};
+
+const centralUserProfileRowsByKey = new Map<string, CentralCachedProfileRow>();
+
+function centralProfileRowKey(companyId: string, userId: string) {
+  return `${companyId}\0${userId.trim().toLowerCase()}`;
+}
+
+async function fetchCentralUserProfilesMerged(
+  companyId: string,
+  rawIds: string[]
+): Promise<Record<string, AuditProfileSnippet>> {
+  const ids = [...new Set(rawIds.map((x) => String(x).trim()).filter(Boolean))];
+  const missing: string[] = [];
+  for (const id of ids) {
+    if (!centralUserProfileRowsByKey.has(centralProfileRowKey(companyId, id))) missing.push(id);
+  }
+  if (missing.length > 0) {
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("id, full_name, display_name, email")
+      .eq("company_id", companyId)
+      .in("id", missing);
+    if (error) throw error;
+    for (const p of (data ?? []) as CentralCachedProfileRow[]) {
+      const idRaw = (p.id ?? "").trim();
+      if (!idRaw) continue;
+      centralUserProfileRowsByKey.set(centralProfileRowKey(companyId, idRaw), p);
+    }
+  }
+  const profileMap: Record<string, AuditProfileSnippet> = {};
+  for (const id of ids) {
+    const p = centralUserProfileRowsByKey.get(centralProfileRowKey(companyId, id));
+    if (!p) continue;
+    const snippet: AuditProfileSnippet = {
+      full_name: p.full_name,
+      display_name: p.display_name,
+      email: p.email,
+    };
+    profileMap[id] = snippet;
+    profileMap[id.toLowerCase()] = snippet;
+  }
+  return profileMap;
+}
+
+function buildTeamClockLabelsFromCentralCache(companyId: string, rawIds: string[]): Record<string, string> {
+  const ids = [...new Set(rawIds.map((x) => String(x).trim()).filter(Boolean))];
+  const next: Record<string, string> = {};
+  for (const id of ids) {
+    const p = centralUserProfileRowsByKey.get(centralProfileRowKey(companyId, id));
+    const label = p
+      ? displayNameFromProfile(p.full_name, p.display_name, p.email) || `${id.slice(0, 8)}…`
+      : `${id.slice(0, 8)}…`;
+    next[id] = label;
+    next[id.toLowerCase()] = label;
+  }
+  return next;
+}
+
 export function CentralDashboardLive(props: CentralDashboardLiveProps) {
   const companyId = props.companyId;
   const currentUserId = props.currentUserId ?? null;
@@ -583,6 +685,7 @@ function CentralDashboardBody(
     empCount?: { at: number; value: number | null };
   }>({ companyId: "" });
   const lastDashboardRefreshTkAppliedRef = useRef<number | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const showZone1 =
     canViewEmployees ||
@@ -646,12 +749,13 @@ function CentralDashboardBody(
     ]
   );
 
-  const loadDashboardConfig = useCallback(async () => {
+  const loadDashboardConfig = useCallback(async (): Promise<ResolvedDashboardConfig> => {
     try {
       const cached = readCentralDashboardConfigCache(companyId, currentUserId);
       if (cached != null) {
-        setResolvedConfig(parseDashboardConfig(cached));
-        return;
+        const parsed = parseDashboardConfig(cached);
+        setResolvedConfig(parsed);
+        return parsed;
       }
       const [{ data: co, error: coErr }, { data: pr, error: prErr }] = await Promise.all([
         supabase.from("companies").select("dashboard_config").eq("id", companyId).maybeSingle(),
@@ -662,11 +766,15 @@ function CentralDashboardBody(
       const userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
       const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
       writeCentralDashboardConfigCache(companyId, currentUserId, merged);
-      setResolvedConfig(parseDashboardConfig(merged));
+      const parsed = parseDashboardConfig(merged);
+      setResolvedConfig(parsed);
+      return parsed;
     } catch (e) {
       console.error("[CentralDashboard] loadDashboardConfig", e);
       setLoadErrors((prev) => [...prev, errMessage(e)]);
-      setResolvedConfig(parseDashboardConfig(null));
+      const fallback = parseDashboardConfig(null);
+      setResolvedConfig(fallback);
+      return fallback;
     }
   }, [companyId, currentUserId]);
 
@@ -722,6 +830,14 @@ function CentralDashboardBody(
   useEffect(() => {
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    const scheduleDelayed = (ms: number, fn: () => Promise<void>) =>
+      new Promise<void>((resolve) => {
+        const tid = setTimeout(() => {
+          void fn().finally(() => resolve());
+        }, ms);
+        timers.push(tid);
+      });
+
     const pushErr = (e: unknown, label: string) => {
       if (cancelled) return;
       setLoadErrors((prev) => [...prev, `${label}: ${errMessage(e)}`]);
@@ -732,6 +848,42 @@ function CentralDashboardBody(
       cref.current = { companyId };
     }
     const c = cref.current;
+
+    const warmKey = centralDashboardWarmKey(companyId, currentUserId, dashboardRefreshTk, todayIso);
+    const warm = centralDashboardWarmStore.get(warmKey);
+    if (warm && Date.now() - warm.savedAt < CENTRAL_WARM_TTL_MS) {
+      lastDashboardRefreshTkAppliedRef.current = dashboardRefreshTk;
+      cref.current = { ...warm.dashboardCache, companyId };
+      hasLoadedRef.current = true;
+      setLoadErrors([]);
+      setResolvedConfig(warm.resolvedConfig);
+      setMyTimeRows(warm.myTimeRows);
+      setTeamTimeRows(warm.teamTimeRows);
+      setTeamClockLabelsByUserId(warm.teamClockLabelsByUserId);
+      setScheduleToday(warm.scheduleToday);
+      setDailyReportsToday(warm.dailyReportsToday);
+      setMyTasksToday(warm.myTasksToday);
+      setEmpActiveCount(warm.empActiveCount);
+      setActivityRows(warm.activityRows);
+      setAuditProfileByUserId(warm.auditProfileByUserId);
+      setHazardRows(warm.hazardRows);
+      setCorrectivePendingCount(warm.correctivePendingCount);
+      setVisitorsTodayCount(warm.visitorsTodayCount);
+      setVisitorsActiveNow(warm.visitorsActiveNow);
+      setVisitorsRecent(warm.visitorsRecent);
+      setPrimaryReady(true);
+      setScheduleLoading(false);
+      setDailyLoading(false);
+      setEmpCountLoading(false);
+      setActivityLoading(false);
+      setVisitorsLoading(false);
+      setHazardsLoading(false);
+      return () => {
+        cancelled = true;
+        for (const t of timers) clearTimeout(t);
+      };
+    }
+
     if (lastDashboardRefreshTkAppliedRef.current !== dashboardRefreshTk) {
       lastDashboardRefreshTkAppliedRef.current = dashboardRefreshTk;
       delete c.audit;
@@ -764,7 +916,23 @@ function CentralDashboardBody(
         return;
       }
 
-      const phase1Time = async () => {
+      let scheduleMine: Record<string, unknown>[] = [];
+      let dailyFiltered: Record<string, unknown>[] = [];
+      let myTasksSnapshot: { description: string; completed: boolean }[] = [];
+      let visitorsTodaySnap = 0;
+      let visitorsActiveSnap = 0;
+      let visitorsRecentSnap: VisitorWidgetRow[] = [];
+      let hazardRowsSnap: Hazard[] = [];
+      let correctiveSnap = 0;
+      let activityRowsSnap: AuditLogEntry[] = [];
+      let auditProfilesSnap: Record<string, AuditProfileSnippet> = {};
+
+      const phase1Time = async (): Promise<{
+        myTimeRows: TimeRow[];
+        teamTimeRows: TimeRow[];
+        teamLabels: Record<string, string>;
+      }> => {
+        const empty = { myTimeRows: [] as TimeRow[], teamTimeRows: [] as TimeRow[], teamLabels: {} as Record<string, string> };
         try {
           const { data, error } = await supabase
             .from("time_entries")
@@ -775,30 +943,48 @@ function CentralDashboardBody(
             .order("clock_in_at", { ascending: false })
             .limit(20);
           if (error) throw error;
-          if (cancelled) return;
+          if (cancelled) return empty;
           const rows = (data ?? []) as TimeRow[];
-          setMyTimeRows(rows.filter((r) => String(r.user_id) === currentUserId));
-          setTeamTimeRows(canViewTeamClock ? rows : []);
+          const myTimeRows = rows.filter((r) => String(r.user_id) === currentUserId);
+          const teamTimeRows = canViewTeamClock ? rows : [];
+          let teamLabels: Record<string, string> = {};
+          if (canViewTeamClock && teamTimeRows.length > 0) {
+            const ids = [...new Set(teamTimeRows.map((r) => r.user_id).filter(Boolean))] as string[];
+            try {
+              await fetchCentralUserProfilesMerged(companyId, ids);
+              teamLabels = buildTeamClockLabelsFromCentralCache(companyId, ids);
+            } catch (e) {
+              pushErr(e, "user_profiles");
+            }
+          }
+          if (!cancelled) {
+            setMyTimeRows(myTimeRows);
+            setTeamTimeRows(teamTimeRows);
+            setTeamClockLabelsByUserId(teamLabels);
+          }
+          return { myTimeRows, teamTimeRows, teamLabels };
         } catch (e) {
           pushErr(e, L("myClockIn"));
           if (!cancelled) {
             setMyTimeRows([]);
             setTeamTimeRows([]);
+            setTeamClockLabelsByUserId({});
           }
+          return empty;
         }
       };
 
-      const phase1Emp = async () => {
+      const phase1Emp = async (): Promise<number | null> => {
         try {
           if (!canViewEmployees && !canManageEmployees) {
             if (!cancelled) setEmpActiveCount(null);
-            return;
+            return null;
           }
           const now = Date.now();
           const cached = c.empCount;
           if (cached && now - cached.at < 300_000) {
             if (!cancelled) setEmpActiveCount(cached.value);
-            return;
+            return cached.value;
           }
           const { count, error } = await supabase
             .from("user_profiles")
@@ -809,14 +995,20 @@ function CentralDashboardBody(
           const value = count ?? 0;
           c.empCount = { at: Date.now(), value };
           if (!cancelled) setEmpActiveCount(value);
+          return value;
         } catch (e) {
           pushErr(e, "user_profiles");
+          return null;
         } finally {
           if (!cancelled) setEmpCountLoading(false);
         }
       };
 
-      await Promise.all([phase1Time(), loadDashboardConfig(), phase1Emp()]);
+      const [t1, resolvedCfg, empSnap] = await Promise.all([
+        phase1Time(),
+        loadDashboardConfig(),
+        phase1Emp(),
+      ]);
       if (cancelled) return;
       setPrimaryReady(true);
 
@@ -829,15 +1021,14 @@ function CentralDashboardBody(
             .eq("date", todayIso)
             .limit(50);
           if (error) throw error;
-          if (!cancelled) {
-            const rows = (data ?? []) as Record<string, unknown>[];
-            const mine = rows.filter((row) => {
-              const ids = row.employee_ids;
-              if (!Array.isArray(ids)) return false;
-              return ids.map(String).includes(currentUserId);
-            });
-            setScheduleToday(mine);
-          }
+          const rows = (data ?? []) as Record<string, unknown>[];
+          const mine = rows.filter((row) => {
+            const ids = row.employee_ids;
+            if (!Array.isArray(ids)) return false;
+            return ids.map(String).includes(currentUserId);
+          });
+          scheduleMine = mine;
+          if (!cancelled) setScheduleToday(mine);
         } catch (e) {
           pushErr(e, "schedule");
         } finally {
@@ -874,7 +1065,7 @@ function CentralDashboardBody(
             const f = rows.filter((r) => pset.has(String(r.project_id ?? "")));
             if (f.length > 0) filtered = f;
           }
-          if (!cancelled) setDailyReportsToday(filtered);
+          dailyFiltered = filtered;
           const tasks: { description: string; completed: boolean }[] = [];
           for (const r of filtered) {
             const dt = r.daily_report_tasks;
@@ -888,7 +1079,11 @@ function CentralDashboardBody(
               });
             }
           }
-          if (!cancelled) setMyTasksToday(tasks);
+          myTasksSnapshot = tasks;
+          if (!cancelled) {
+            setDailyReportsToday(filtered);
+            setMyTasksToday(tasks);
+          }
         } catch (e) {
           pushErr(e, "daily_reports");
         } finally {
@@ -903,6 +1098,8 @@ function CentralDashboardBody(
               setActivityRows([]);
               setAuditProfileByUserId({});
             }
+            activityRowsSnap = [];
+            auditProfilesSnap = {};
             return;
           }
           const now = Date.now();
@@ -912,6 +1109,8 @@ function CentralDashboardBody(
               setActivityRows(cached.rows);
               setAuditProfileByUserId(cached.profiles);
             }
+            activityRowsSnap = cached.rows;
+            auditProfilesSnap = cached.profiles;
             return;
           }
           const { data, error } = await supabase
@@ -925,33 +1124,11 @@ function CentralDashboardBody(
           if (error) throw error;
           const rows = (data ?? []) as AuditLogEntry[];
           const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
-          const profileMap: Record<string, AuditProfileSnippet> = {};
-          if (ids.length > 0) {
-            const { data: profs, error: pErr } = await supabase
-              .from("user_profiles")
-              .select("id, full_name, display_name, email")
-              .in("id", ids)
-              .eq("company_id", companyId)
-              .limit(50);
-            if (pErr) throw pErr;
-            for (const p of (profs ?? []) as {
-              id: string;
-              full_name?: string | null;
-              display_name?: string | null;
-              email?: string | null;
-            }[]) {
-              const idRaw = (p.id ?? "").trim();
-              if (!idRaw) continue;
-              const snippet = {
-                full_name: p.full_name,
-                display_name: p.display_name,
-                email: p.email,
-              };
-              profileMap[idRaw] = snippet;
-              profileMap[idRaw.toLowerCase()] = snippet;
-            }
-          }
+          const profileMap =
+            ids.length > 0 ? await fetchCentralUserProfilesMerged(companyId, ids) : ({} as Record<string, AuditProfileSnippet>);
           c.audit = { at: Date.now(), rows, profiles: profileMap };
+          activityRowsSnap = rows;
+          auditProfilesSnap = profileMap;
           if (!cancelled) {
             setActivityRows(rows);
             setAuditProfileByUserId(profileMap);
@@ -971,6 +1148,9 @@ function CentralDashboardBody(
               setVisitorsActiveNow(0);
               setVisitorsRecent([]);
             }
+            visitorsTodaySnap = 0;
+            visitorsActiveSnap = 0;
+            visitorsRecentSnap = [];
             return;
           }
           const now = Date.now();
@@ -981,6 +1161,9 @@ function CentralDashboardBody(
               setVisitorsActiveNow(cached.activeNow);
               setVisitorsRecent(cached.recent);
             }
+            visitorsTodaySnap = cached.todayCount;
+            visitorsActiveSnap = cached.activeNow;
+            visitorsRecentSnap = cached.recent;
             return;
           }
 
@@ -1016,10 +1199,17 @@ function CentralDashboardBody(
             if (todayRes.error) throw todayRes.error;
             if (activeRes.error) throw activeRes.error;
             if (recentRes.error) throw recentRes.error;
+            const tC = todayRes.count ?? 0;
+            const aC = activeRes.count ?? 0;
+            const rec = (recentRes.data ?? []) as VisitorWidgetRow[];
+            visitorsTodaySnap = tC;
+            visitorsActiveSnap = aC;
+            visitorsRecentSnap = rec;
+            c.visitors = { at: Date.now(), todayCount: tC, activeNow: aC, recent: rec };
             if (!cancelled) {
-              setVisitorsTodayCount(todayRes.count ?? 0);
-              setVisitorsActiveNow(activeRes.count ?? 0);
-              setVisitorsRecent((recentRes.data ?? []) as VisitorWidgetRow[]);
+              setVisitorsTodayCount(tC);
+              setVisitorsActiveNow(aC);
+              setVisitorsRecent(rec);
             }
             return;
           }
@@ -1028,6 +1218,9 @@ function CentralDashboardBody(
           const todayCount = vrows.filter((r) => r.check_in >= tStart && r.check_in <= tEnd).length;
           const activeNow = vrows.filter((r) => r.status === "checked_in").length;
           const recent = vrows.slice(0, 5);
+          visitorsTodaySnap = todayCount;
+          visitorsActiveSnap = activeNow;
+          visitorsRecentSnap = recent;
           c.visitors = { at: Date.now(), todayCount, activeNow, recent };
           if (!cancelled) {
             setVisitorsTodayCount(todayCount);
@@ -1050,6 +1243,8 @@ function CentralDashboardBody(
               setHazardRows(hzCached.hazardRows);
               setCorrectivePendingCount(hzCached.correctivePendingCount);
             }
+            hazardRowsSnap = hzCached.hazardRows;
+            correctiveSnap = hzCached.correctivePendingCount;
             return;
           }
 
@@ -1084,6 +1279,8 @@ function CentralDashboardBody(
           } else if (!cancelled) {
             setCorrectivePendingCount(0);
           }
+          hazardRowsSnap = hazardRowsNext;
+          correctiveSnap = corrective;
           c.hazards = {
             at: Date.now(),
             hazardRows: hazardRowsNext,
@@ -1096,11 +1293,46 @@ function CentralDashboardBody(
         }
       };
 
-      timers.push(setTimeout(() => void loadSchedule(), 400));
-      timers.push(setTimeout(() => void auditPipeline(), 500));
-      timers.push(setTimeout(() => void loadDailyBundle(), 600));
-      timers.push(setTimeout(() => void fetchVisitors(), 800));
-      timers.push(setTimeout(() => void fetchHazards(), 1000));
+      await Promise.all([
+        scheduleDelayed(400, loadSchedule),
+        scheduleDelayed(500, auditPipeline),
+        scheduleDelayed(600, loadDailyBundle),
+        scheduleDelayed(800, fetchVisitors),
+        scheduleDelayed(1000, fetchHazards),
+      ]);
+
+      if (cancelled) return;
+
+      const dashSnap: CentralDashboardCacheSnap = {
+        companyId,
+        audit: c.audit,
+        visitors: c.visitors,
+        hazards: c.hazards,
+        empCount: c.empCount,
+      };
+
+      centralDashboardWarmStore.set(warmKey, {
+        savedAt: Date.now(),
+        refreshTk: dashboardRefreshTk,
+        todayIso,
+        resolvedConfig: resolvedCfg,
+        myTimeRows: t1.myTimeRows,
+        teamTimeRows: t1.teamTimeRows,
+        teamClockLabelsByUserId: t1.teamLabels,
+        scheduleToday: scheduleMine,
+        dailyReportsToday: dailyFiltered,
+        myTasksToday: myTasksSnapshot,
+        empActiveCount: empSnap,
+        activityRows: activityRowsSnap,
+        auditProfileByUserId: auditProfilesSnap,
+        hazardRows: hazardRowsSnap,
+        correctivePendingCount: correctiveSnap,
+        visitorsTodayCount: visitorsTodaySnap,
+        visitorsActiveNow: visitorsActiveSnap,
+        visitorsRecent: visitorsRecentSnap,
+        dashboardCache: dashSnap,
+      });
+      hasLoadedRef.current = true;
     };
 
     void run();
@@ -1128,49 +1360,6 @@ function CentralDashboardBody(
   ]);
 
   useDismissOnEscape(customizeOpen, () => setCustomizeOpen(false));
-
-  useEffect(() => {
-    if (!companyId || teamTimeRows.length === 0) {
-      setTeamClockLabelsByUserId({});
-      return;
-    }
-    const ids = [...new Set(teamTimeRows.map((r) => r.user_id).filter(Boolean))] as string[];
-    if (ids.length === 0) {
-      setTeamClockLabelsByUserId({});
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_profiles")
-          .select("id, full_name, display_name, email")
-          .eq("company_id", companyId)
-          .in("id", ids);
-        if (error) throw error;
-        const next: Record<string, string> = {};
-        for (const row of (data ?? []) as {
-          id: string;
-          full_name?: string | null;
-          display_name?: string | null;
-          email?: string | null;
-        }[]) {
-          const idRaw = (row.id ?? "").trim();
-          if (!idRaw) continue;
-          const label = displayNameFromProfile(row.full_name, row.display_name, row.email) || `${idRaw.slice(0, 8)}…`;
-          next[idRaw] = label;
-          next[idRaw.toLowerCase()] = label;
-        }
-        if (!cancelled) setTeamClockLabelsByUserId(next);
-      } catch (e) {
-        console.error("[CentralDashboard] team clock labels", e);
-        if (!cancelled) setTeamClockLabelsByUserId({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId, teamTimeRows]);
 
   /** Enabled widgets in saved order only — do not append “missing” ids or turning everything off cannot persist. */
   const orderedVisibleWidgets = useMemo(() => {

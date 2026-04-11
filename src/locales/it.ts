@@ -2131,14 +2131,20 @@ export default {
   training_open_pdf: "Apri PDF",
   training_uploading: "Caricamento…",
 
-  landing_hero_title: "Gestione professionale per le imprese edili.",
+  landing_hero_title: "Costruisci senza caos",
   landing_hero_sub:
-    "Tutto ciò di cui hai bisogno per gestire il tuo cantiere, il tuo team e la tua azienda da qualsiasi posto.",
+    "Gestisci persone, progetti, logistica e conformità da qualsiasi posto — senza perdere il controllo del cantiere.",
   landing_hero_subtitle:
-    "Tutto ciò di cui hai bisogno per gestire il tuo cantiere, il tuo team e la tua azienda da qualsiasi posto.",
+    "Gestisci persone, progetti, logistica e conformità da qualsiasi posto — senza perdere il controllo del cantiere.",
   landing_theme_toggle: "Tema",
   landing_cta_start: "Inizia gratis 14 giorni",
+  landing_cta_plans: "Vedi i piani",
   landing_cta_demo: "Vedi le funzioni",
+  landing_beta_urgency:
+    "Beta privata il 14 aprile: posti limitati. Iscriviti ora per non restare fuori.",
+  landing_beta_social_proof: "{{count}} aziende sono già nella beta privata.",
+  landing_beta_countries: "Team in Canada, Spagna, Messico e Regno Unito.",
+  landing_pricing_trial_banner: "14 giorni di prova gratuita — senza carta di credito.",
   landing_languages_badge: "🌍 Disponibile in 21 lingue · Americhe · Europa · UK",
   landing_features_title: "Personalizza il tuo MachinPro.",
   landing_feat_employees: "👥 Dipendenti con ruoli e permessi",
@@ -2284,7 +2290,7 @@ export default {
   landing_nav_features: "Funzioni",
   landing_nav_pricing: "Prezzi",
   landing_nav_login: "Accedi",
-  landing_nav_start: "Inizia gratis",
+  landing_nav_start: "Inizia gratis 14 giorni",
   landing_testimonials_title: "Testimonianze",
   landing_testimonials_coming: "Prossimamente — sii il primo a lasciare un feedback.",
   landing_badge_mobile: "Disponibile su iOS e Android",
@@ -2403,9 +2409,9 @@ export default {
   register_tax_id_us: "EIN (facoltativo)",
   register_tax_id_latam: "Codice fiscale locale (facoltativo)",
 
-  landing_meta_title: "MachinPro — Software per cantieri",
+  landing_meta_title: "MachinPro — Gestione cantieri senza caos",
   landing_meta_description:
-    "Digitalizza progetti, sicurezza, visitatori, planimetrie e fatturazione in un unico posto.",
+    "Gestisci la tua impresa edile da qualsiasi posto. Persone, progetti, logistica e conformità in un’unica app.",
   landing_seo_extra_northam: "Cantieri, squadre e sicurezza allineata OSHA.",
   landing_seo_extra_uk: "Cantieri, salute e sicurezza, conformità tipo HSE.",
   landing_seo_extra_eu: "Cantieri, team e sicurezza allineata EU-OSHA.",

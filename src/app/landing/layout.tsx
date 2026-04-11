@@ -6,23 +6,25 @@ const site = siteRaw.replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(site),
-  title: "MachinPro — Gestión profesional de empresas de construcción",
+  title: "MachinPro — Gestión de obras sin caos",
   description:
-    "Gestiona tu equipo, proyectos, horarios y logística desde cualquier lugar. Para empresas de construcción en Canadá, USA, México, Europa y UK.",
+    "Gestiona tu empresa de construcción desde cualquier lugar. Personal, proyectos, logística y cumplimiento en una sola app.",
   openGraph: {
-    title: "MachinPro — Gestión profesional de empresas de construcción",
+    title: "MachinPro — Gestión de obras sin caos",
     description:
-      "Gestiona tu equipo, proyectos, horarios y logística desde cualquier lugar. Para empresas de construcción en Canadá, USA, México, Europa y UK.",
+      "Gestiona tu empresa de construcción desde cualquier lugar. Personal, proyectos, logística y cumplimiento en una sola app.",
     url: `${site}/landing`,
     siteName: "MachinPro",
     locale: "es_ES",
     type: "website",
+    images: [{ url: "/logo-source.png", width: 512, height: 512, alt: "MachinPro" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MachinPro — Gestión profesional de empresas de construcción",
+    title: "MachinPro — Gestión de obras sin caos",
     description:
-      "Gestiona tu equipo, proyectos, horarios y logística desde cualquier lugar. Para empresas de construcción en Canadá, USA, México, Europa y UK.",
+      "Gestiona tu empresa de construcción desde cualquier lugar. Personal, proyectos, logística y cumplimiento en una sola app.",
+    images: [`${site}/logo-source.png`],
   },
   icons: {
     icon: [{ url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }],

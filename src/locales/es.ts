@@ -2186,14 +2186,20 @@ export default {
   training_open_pdf: "Abrir PDF",
   training_uploading: "Subiendo…",
 
-  landing_hero_title: "Obra, equipo y empresa — todo en un solo lugar.",
+  landing_hero_title: "Construye sin caos",
   landing_hero_sub:
-    "Todo lo que necesitas para gestionar tu obra, tu equipo y tu empresa desde cualquier lugar.",
+    "Gestiona personal, proyectos, logística y cumplimiento desde cualquier lugar — sin perder el control de la obra.",
   landing_hero_subtitle:
-    "Todo lo que necesitas para gestionar tu obra, tu equipo y tu empresa desde cualquier lugar.",
+    "Gestiona personal, proyectos, logística y cumplimiento desde cualquier lugar — sin perder el control de la obra.",
   landing_theme_toggle: "Tema",
-  landing_cta_start: "Empezar gratis 14 días",
+  landing_cta_start: "Empieza gratis 14 días",
+  landing_cta_plans: "Ver planes",
   landing_cta_demo: "Ver demo",
+  landing_beta_urgency:
+    "Beta privada el 14 de abril: plazas limitadas. Apúntate ahora para no quedarte fuera.",
+  landing_beta_social_proof: "{{count}} empresas ya están en la beta privada.",
+  landing_beta_countries: "Equipos en Canadá, España, México y Reino Unido.",
+  landing_pricing_trial_banner: "14 días de prueba gratis — sin tarjeta de crédito.",
   landing_languages_badge: "🌍 Disponible en 21 idiomas · América · Europa · UK",
   landing_features_title: "Personaliza tu MachinPro.",
   landing_feat_employees: "👥 Empleados con roles y permisos",
@@ -2321,7 +2327,7 @@ export default {
   landing_feat_todo_4: "Auditoría inmutable",
   landing_cta_title: "Empieza hoy — 14 días gratis",
   landing_cta_subtitle: "Sin tarjeta de crédito. Cancela cuando quieras.",
-  landing_cta_primary: "Empezar gratis",
+  landing_cta_primary: "Empieza gratis 14 días",
   landing_pricing_plan_cta: "Empezar gratis 14 días",
   contact_email: "info@machin.pro",
   landing_footer_desc:
@@ -2339,7 +2345,7 @@ export default {
   landing_nav_features: "Características",
   landing_nav_pricing: "Precios",
   landing_nav_login: "Iniciar sesión",
-  landing_nav_start: "Empezar gratis",
+  landing_nav_start: "Empieza gratis 14 días",
   landing_testimonials_title: "Opiniones",
   landing_testimonials_coming: "Próximamente — sé el primero en dejar tu opinión.",
   landing_badge_mobile: "Disponible en iOS y Android",
@@ -2458,9 +2464,9 @@ export default {
   register_tax_id_us: "EIN (opcional)",
   register_tax_id_latam: "Número fiscal local (opcional)",
 
-  landing_meta_title: "MachinPro — Software de gestión de obras",
+  landing_meta_title: "MachinPro — Gestión de obras sin caos",
   landing_meta_description:
-    "Digitaliza proyectos, seguridad, visitantes, planos y facturación en un solo lugar.",
+    "Gestiona tu empresa de construcción desde cualquier lugar. Personal, proyectos, logística y cumplimiento en una sola app.",
   landing_seo_extra_northam: "Obra, trabajadores y flujos alineados a OSHA.",
   landing_seo_extra_uk: "Obra, salud y seguridad, y cumplimiento alineado con HSE (Reino Unido).",
   landing_seo_extra_eu: "Obras, equipos y gestión de seguridad alineada a EU-OSHA.",
