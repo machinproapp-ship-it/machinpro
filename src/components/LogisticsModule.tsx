@@ -26,7 +26,7 @@ import {
   Search,
   Download,
 } from "lucide-react";
-import type { ComplianceField, ComplianceRecord } from "@/app/page";
+import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";

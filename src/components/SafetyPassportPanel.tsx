@@ -6,7 +6,7 @@ import { jsPDF } from "jspdf";
 import { Download, Loader2, Shield } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
-import type { ComplianceField, ComplianceRecord } from "@/app/page";
+import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import {
   type TrainingAssignmentRow,
   type TrainingCourseRow,

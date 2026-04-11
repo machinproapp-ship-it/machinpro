@@ -58,7 +58,7 @@ import type {
   ComplianceRecord,
   ScheduleEntry,
   VacationRequestRow,
-} from "@/app/page";
+} from "@/types/homePage";
 
 const EmployeeGpsRouteTab = dynamic(
   () => import("@/components/EmployeeGpsRouteTab").then((m) => m.EmployeeGpsRouteTab),

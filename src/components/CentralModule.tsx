@@ -14,7 +14,7 @@ import {
 import type { CentralEmployee } from '@/types/shared';
 import type { Subcontractor } from '@/types/subcontractor';
 import { getTaxIdLabel, getComplianceCertLabel, SUBCONTRACTOR_SPECIALTIES } from '@/types/subcontractor';
-import type { ComplianceField, ComplianceRecord, EmployeeDocument } from '@/app/page';
+import type { ComplianceField, ComplianceRecord, EmployeeDocument } from "@/types/homePage";
 import type { AuditLogEntry } from '@/lib/useAuditLog';
 import { watchdogSubjectLabel, type ComplianceAlert } from '@/lib/complianceWatchdog';
 import type { UserRole } from '@/types/shared';
