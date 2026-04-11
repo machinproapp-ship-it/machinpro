@@ -144,6 +144,12 @@ export interface ScheduleModuleProps {
     notes?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
   viewAll: boolean;
+  /** Pestaña calendario / turnos (AW: canViewSchedule). */
+  canViewScheduleCalendar?: boolean;
+  /** Pestaña fichaje (canViewTimeclock / equipo según canManageEmployees). */
+  canViewTimeclock?: boolean;
+  /** Pestaña hojas de horas (canViewTimesheets). */
+  canViewTimesheets?: boolean;
   labels: {
     schedule?: string;
     schedule_tab_calendar?: string;
@@ -1460,7 +1466,7 @@ export default function ScheduleModule({
   projects,
   currentUserEmployeeId,
   canWrite,
-  canViewTeamAvailability = true,
+  canViewTeamAvailability = false,
   canManageTeamAvailability = false,
   canClockIn = false,
   canManageEmployees = false,
@@ -1469,6 +1475,9 @@ export default function ScheduleModule({
   onManualClockIn,
   onManualClockOut,
   viewAll,
+  canViewScheduleCalendar = false,
+  canViewTimeclock = false,
+  canViewTimesheets = false,
   labels,
   canApproveVacations = false,
   canRequestVacation = false,
@@ -1523,11 +1532,32 @@ export default function ScheduleModule({
       (!!mapLeg && e.employeeId === mapLeg)
     );
   });
-  const showClockTab = canClockIn || canManageEmployees;
+  const showCalendarTab = canViewScheduleCalendar;
+  const showClockTab =
+    !!canViewTimeclock && (Boolean(canClockIn) || Boolean(canManageEmployees));
+  const showTimesheetsTab = canViewTimesheets;
   const [scheduleSubTab, setScheduleSubTab] = useState<
     "calendar" | "clock" | "timesheets" | "vacations"
   >("calendar");
   const showVacationsTab = canRequestVacation || canApproveVacations;
+
+  const firstAllowedScheduleSubTab = useMemo((): "calendar" | "clock" | "timesheets" | "vacations" => {
+    if (showCalendarTab) return "calendar";
+    if (showClockTab) return "clock";
+    if (showTimesheetsTab) return "timesheets";
+    if (showVacationsTab) return "vacations";
+    return "calendar";
+  }, [showCalendarTab, showClockTab, showTimesheetsTab, showVacationsTab]);
+
+  useEffect(() => {
+    const allowed = new Set<"calendar" | "clock" | "timesheets" | "vacations">();
+    if (showCalendarTab) allowed.add("calendar");
+    if (showClockTab) allowed.add("clock");
+    if (showTimesheetsTab) allowed.add("timesheets");
+    if (showVacationsTab) allowed.add("vacations");
+    if (allowed.size === 0) return;
+    if (!allowed.has(scheduleSubTab)) setScheduleSubTab(firstAllowedScheduleSubTab);
+  }, [showCalendarTab, showClockTab, showTimesheetsTab, showVacationsTab, scheduleSubTab, firstAllowedScheduleSubTab]);
   const [viewMonth, setViewMonth] = useState(() => today.getMonth());
   const [viewYear, setViewYear] = useState(() => today.getFullYear());
   const [formOpen, setFormOpen] = useState(false);
@@ -2003,7 +2033,7 @@ export default function ScheduleModule({
           <Calendar className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           {labels.schedule ?? ALL_TRANSLATIONS.en.schedule}
         </h2>
-        {canWrite && scheduleSubTab === "calendar" && (
+        {canWrite && showCalendarTab && scheduleSubTab === "calendar" && (
           <button
             type="button"
             onClick={openNewEntryForm}
@@ -2024,19 +2054,21 @@ export default function ScheduleModule({
           role="tablist"
           aria-label={labels.schedule ?? ALL_TRANSLATIONS.en.schedule}
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scheduleSubTab === "calendar"}
-            onClick={() => setScheduleSubTab("calendar")}
-            className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
-              scheduleSubTab === "calendar"
-                ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            {labels.schedule_tab_calendar ?? ALL_TRANSLATIONS.en.schedule_tab_calendar}
-          </button>
+          {showCalendarTab ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={scheduleSubTab === "calendar"}
+              onClick={() => setScheduleSubTab("calendar")}
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                scheduleSubTab === "calendar"
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {labels.schedule_tab_calendar ?? ALL_TRANSLATIONS.en.schedule_tab_calendar}
+            </button>
+          ) : null}
           {showClockTab ? (
             <button
               type="button"
@@ -2052,19 +2084,21 @@ export default function ScheduleModule({
               {lx.clock_tab ?? lx.clockInTitle ?? "Fichaje"}
             </button>
           ) : null}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scheduleSubTab === "timesheets"}
-            onClick={() => setScheduleSubTab("timesheets")}
-            className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
-              scheduleSubTab === "timesheets"
-                ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            {labels.timesheets ?? "Hojas de horas"}
-          </button>
+          {showTimesheetsTab ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={scheduleSubTab === "timesheets"}
+              onClick={() => setScheduleSubTab("timesheets")}
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                scheduleSubTab === "timesheets"
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {labels.timesheets ?? "Hojas de horas"}
+            </button>
+          ) : null}
           {showVacationsTab ? (
             <button
               type="button"
@@ -2588,7 +2622,7 @@ export default function ScheduleModule({
         </div>
       )}
 
-      {scheduleSubTab === "calendar" && (
+      {showCalendarTab && scheduleSubTab === "calendar" && (
         <>
           <div className="mb-4 flex w-full min-w-0 flex-wrap items-center justify-center gap-2 sm:flex-nowrap sm:justify-between">
             <button
@@ -2937,7 +2971,7 @@ export default function ScheduleModule({
         </>
       )}
 
-      {scheduleSubTab === "timesheets" && (
+      {showTimesheetsTab && scheduleSubTab === "timesheets" && (
         <TimesheetsView
           clockEntries={clockEntries}
           employees={employees}

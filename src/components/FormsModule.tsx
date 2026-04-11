@@ -84,6 +84,8 @@ export interface FormsModuleProps {
   canFillForms?: boolean;
   canApproveForms?: boolean;
   canExportForms?: boolean;
+  /** Ver biblioteca / listado completo (canViewForms). Sin esto, solo relleno/aprobación según otros flags. */
+  canViewForms?: boolean;
   onCreateInstance: (instance: FormInstance) => void;
   onUpdateInstance: (instance: FormInstance) => void;
   onAddTemplate: (tpl: FormTemplate) => void;
@@ -433,6 +435,7 @@ export function FormsModule({
   canFillForms: canFillFormsProp,
   canApproveForms: canApproveFormsProp,
   canExportForms: canExportFormsProp,
+  canViewForms: canViewFormsProp = true,
   onCreateInstance,
   onUpdateInstance,
   onAddTemplate,
@@ -459,6 +462,7 @@ export function FormsModule({
   const canFillForms = canFillFormsProp ?? true;
   const canApproveForms = canApproveFormsProp ?? canManage;
   const canExportForms = canExportFormsProp ?? canManage;
+  const canViewForms = canViewFormsProp !== false;
   const fillReadOnly = !canFillForms;
   const [view, setView] = useState<FormsView>("list");
   const [listTab, setListTab] = useState<ListTab>("all");
@@ -504,8 +508,8 @@ export function FormsModule({
   useEffect(() => {
     if (!openTemplatePickerToken || openTemplatePickerToken <= lastTemplatePickerTkRef.current) return;
     lastTemplatePickerTkRef.current = openTemplatePickerToken;
-    setView("template");
-  }, [openTemplatePickerToken]);
+    if (canViewForms || canCreateForms) setView("template");
+  }, [openTemplatePickerToken, canViewForms, canCreateForms]);
 
   useEffect(() => {
     if (!listContextFilterOnOpen) return;
@@ -854,17 +858,17 @@ export function FormsModule({
                   </button>
                 </span>
               ) : null}
-              {canCreateForms && (
-              <button
-                type="button"
-                onClick={() => setView("template")}
-                className="flex items-center gap-2 rounded-xl bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px]"
-              >
-                <Plus className="h-4 w-4" />
-                {t.newForm}
-              </button>
-              )}
-              {canManageFormTemplates && (
+              {canViewForms && canCreateForms ? (
+                <button
+                  type="button"
+                  onClick={() => setView("template")}
+                  className="flex items-center gap-2 rounded-xl bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px]"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t.newForm}
+                </button>
+              ) : null}
+              {canViewForms && canManageFormTemplates ? (
                 <button
                   type="button"
                   onClick={() => setView("builder")}
@@ -873,7 +877,7 @@ export function FormsModule({
                   <Pencil className="h-4 w-4" />
                   {l("form_builder_title")}
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -1004,7 +1008,7 @@ export function FormsModule({
       )}
 
       {/* ---------- TEMPLATE VIEW (library) ---------- */}
-      {view === "builder" && canManageFormTemplates && (
+      {view === "builder" && canViewForms && canManageFormTemplates && (
         <FormTemplateBuilder
           labels={t}
           currentUserEmployeeId={currentUserEmployeeId}
@@ -1013,7 +1017,7 @@ export function FormsModule({
         />
       )}
 
-      {view === "template" && (
+      {view === "template" && canViewForms && (
         <>
           <div className="flex flex-wrap items-center gap-3">
             <button

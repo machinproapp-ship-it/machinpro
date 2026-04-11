@@ -94,6 +94,8 @@ export interface SettingsModuleProps {
   onDarkModeChange?: (dark: boolean) => void;
   /** TOTP MFA (admin / supervisor). */
   showMfaSecuritySection?: boolean;
+  /** Notificaciones push y preferencias (canManageNotifications). */
+  canManageNotifications?: boolean;
 }
 
 export function SettingsModule({
@@ -149,6 +151,7 @@ export function SettingsModule({
   darkMode = false,
   onDarkModeChange,
   showMfaSecuritySection = false,
+  canManageNotifications = false,
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -222,7 +225,8 @@ export function SettingsModule({
     ] as const;
     return raw.filter(([id]) => {
       if (id === "company") return canEditCompanyProfile;
-      if (id === "notifications") return !!(session?.access_token && companyId);
+      if (id === "notifications")
+        return !!(session?.access_token && companyId && canManageNotifications);
       if (id === "regional") return canManageRegionalConfig || canEditCompanyProfile;
       if (id === "billing") return showBillingSection && !!billingSection;
       return true;
@@ -236,6 +240,7 @@ export function SettingsModule({
     canManageRegionalConfig,
     showBillingSection,
     billingSection,
+    canManageNotifications,
   ]);
 
   const persistPushPref = useCallback((key: "hazard" | "action" | "visitor", on: boolean) => {

@@ -343,6 +343,14 @@ export interface CentralDashboardLiveProps {
   canAccessVisitors: boolean;
   canAccessHazards: boolean;
   canAccessCorrective: boolean;
+  canViewProjectVisitors?: boolean;
+  canManageProjectVisitors?: boolean;
+  canManageHazards?: boolean;
+  canManageCorrectiveActions?: boolean;
+  canManageProjectRFI?: boolean;
+  canAccessSubcontractors?: boolean;
+  /** Inventario crítico (canViewInventory), no solo logística general. */
+  canViewInventory?: boolean;
   onNavigateAppSection: (section: MainSection) => void;
   onOpenAuditInCentral: () => void;
   onQuickNewHazard: () => void;
@@ -545,6 +553,13 @@ function CentralDashboardBody(
     canAccessVisitors,
     canAccessHazards,
     canAccessCorrective,
+    canViewProjectVisitors = false,
+    canManageProjectVisitors = false,
+    canManageHazards = false,
+    canManageCorrectiveActions = false,
+    canManageProjectRFI = false,
+    canAccessSubcontractors = false,
+    canViewInventory = false,
     onNavigateAppSection,
     onOpenAuditInCentral,
     onQuickNewHazard,
@@ -715,25 +730,21 @@ function CentralDashboardBody(
         case "my_timeclock":
           return true;
         case "activity":
-          return canViewAuditLog || canManageEmployees;
+          return canViewAuditLog;
         case "compliance_alerts":
           return canManageComplianceAlerts;
         case "hazards":
-          return canAccessHazards && (canManageEmployees || canManageComplianceAlerts);
+          return canAccessHazards;
         case "security_summary":
-          return (
-            canViewSecurityDashboard &&
-            (canAccessHazards || canAccessCorrective) &&
-            (canManageEmployees || canManageComplianceAlerts)
-          );
+          return canViewSecurityDashboard;
         case "visitors":
-          return canAccessVisitors && canManageEmployees;
+          return canViewProjectVisitors;
         case "my_tasks":
           return true;
         case "daily_report":
           return true;
         case "critical_inventory":
-          return canViewLogistics;
+          return canViewInventory;
         case "quick_access":
           return true;
         case "labor_costing":
@@ -753,9 +764,11 @@ function CentralDashboardBody(
       canViewSecurityDashboard,
       canAccessVisitors,
       canViewLogistics,
+      canViewInventory,
       laborCostingEnabled,
       canViewLaborCosting,
       canViewForms,
+      canViewProjectVisitors,
     ]
   );
 
@@ -1419,7 +1432,7 @@ function CentralDashboardBody(
   const renderQuickButtons = (quickKeys: QuickAccessKey[]) => (
     <div className="flex flex-wrap gap-2">
       {quickKeys.map((k) => {
-        if (k === "hazard" && canAccessHazards && currentUserRole !== "worker") {
+        if (k === "hazard" && canManageHazards) {
           return (
             <button
               key={k}
@@ -1432,7 +1445,7 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "corrective" && canAccessCorrective && currentUserRole !== "worker") {
+        if (k === "corrective" && canManageCorrectiveActions) {
           return (
             <button
               key={k}
@@ -1445,13 +1458,16 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "visitor" && (canAccessVisitors || currentUserRole === "worker")) {
+        if (
+          k === "visitor" &&
+          (canManageProjectVisitors || (currentUserRole === "worker" && visitorCheckInUrl))
+        ) {
           return (
             <button
               key={k}
               type="button"
               onClick={() => {
-                if (canAccessVisitors) onQuickVisitorQr();
+                if (canManageProjectVisitors) onQuickVisitorQr();
                 else if (visitorCheckInUrl) window.open(visitorCheckInUrl, "_blank", "noopener,noreferrer");
               }}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -1461,7 +1477,7 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "audit" && (canManageEmployees || canViewAuditLog)) {
+        if (k === "audit" && canViewAuditLog) {
           return (
             <button
               key={k}
@@ -1474,7 +1490,7 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "employee" && onQuickNewEmployee) {
+        if (k === "employee" && onQuickNewEmployee && canManageEmployees) {
           return (
             <button
               key={k}
@@ -1487,7 +1503,7 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "rfi" && onQuickNewRfi) {
+        if (k === "rfi" && onQuickNewRfi && canManageProjectRFI) {
           return (
             <button
               key={k}
@@ -1500,7 +1516,11 @@ function CentralDashboardBody(
             </button>
           );
         }
-        if (k === "subcontractor" && (onQuickNewSubcontractor || onOpenSubcontractorsInOperations)) {
+        if (
+          k === "subcontractor" &&
+          canAccessSubcontractors &&
+          (onQuickNewSubcontractor || onOpenSubcontractorsInOperations)
+        ) {
           return (
             <button
               key={k}

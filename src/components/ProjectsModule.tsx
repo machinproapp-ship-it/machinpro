@@ -227,6 +227,8 @@ export interface ProjectsModuleProps {
   onAddRevision?: (blueprintId: string, revision: BlueprintRevision) => void;
   onMarkBlueprintNotCurrent?: (blueprintId: string) => void;
   canEdit?: boolean;
+  /** Añadir/quitar personal asignado al proyecto. Si no se pasa, se usa `canEdit` (legacy). */
+  canManageProjectTeam?: boolean;
   canAnnotateBlueprints?: boolean;
   cloudName?: string;
   onOpenResourceRequest?: (projectId: string) => void;
@@ -288,6 +290,16 @@ export interface ProjectsModuleProps {
   showProjectRfiTab?: boolean;
   /** AH-21: pestaña Seguridad (riesgos + acciones en el proyecto). */
   showProjectSecurityTab?: boolean;
+  showProjectGeneralTab?: boolean;
+  showProjectTeamTab?: boolean;
+  showProjectInventoryTab?: boolean;
+  showProjectGalleryTab?: boolean;
+  showProjectBlueprintsTab?: boolean;
+  showProjectFormsTab?: boolean;
+  /** Pestaña mapa / asistencia (canViewAttendance). */
+  showProjectMapTab?: boolean;
+  /** EPI / seguridad en obra (canViewSecurity). */
+  showProjectEpiTab?: boolean;
   projectsSecurityTabSignal?: number;
   projectSecurityCompanyId?: string | null;
   projectSecurityCompanyName?: string;
@@ -518,6 +530,7 @@ export function ProjectsModule({
   onAddRevision,
   onMarkBlueprintNotCurrent,
   canEdit: canEditProp,
+  canManageProjectTeam: canManageProjectTeamProp,
   canAnnotateBlueprints,
   cloudName = "",
   onOpenResourceRequest,
@@ -566,6 +579,14 @@ export function ProjectsModule({
   openRfiTabSignal = 0,
   showProjectRfiTab = false,
   showProjectSecurityTab = false,
+  showProjectGeneralTab = true,
+  showProjectTeamTab = true,
+  showProjectInventoryTab = true,
+  showProjectGalleryTab = true,
+  showProjectBlueprintsTab = true,
+  showProjectFormsTab = true,
+  showProjectMapTab = true,
+  showProjectEpiTab = true,
   projectsSecurityTabSignal = 0,
   projectSecurityCompanyId = null,
   projectSecurityCompanyName = "",
@@ -737,23 +758,56 @@ export function ProjectsModule({
     canDeleteProjectFormEntry ??
     (currentUserRole === "admin" || currentUserRole === "supervisor");
 
-  useEffect(() => {
-    if (!showProjectVisitorsTab && activeTab === "visitantes") {
-      setActiveTab("general");
-    }
-  }, [showProjectVisitorsTab, activeTab]);
+  const projectTabAllowed = useCallback(
+    (id: TabId): boolean => {
+      switch (id) {
+        case "general":
+          return showProjectGeneralTab;
+        case "personal":
+          return showProjectTeamTab;
+        case "inventario":
+          return showProjectInventoryTab;
+        case "galeria":
+          return showProjectGalleryTab;
+        case "blueprints":
+          return showProjectBlueprintsTab;
+        case "formularios":
+          return showProjectFormsTab;
+        case "visitantes":
+          return showProjectVisitorsTab;
+        case "rfi":
+          return showProjectRfiTab;
+        case "seguridad":
+          return showProjectSecurityTab;
+        case "project_epi":
+          return showProjectEpiTab;
+        case "mapa":
+          return showProjectMapTab && !!companyId;
+        default:
+          return true;
+      }
+    },
+    [
+      showProjectGeneralTab,
+      showProjectTeamTab,
+      showProjectInventoryTab,
+      showProjectGalleryTab,
+      showProjectBlueprintsTab,
+      showProjectFormsTab,
+      showProjectVisitorsTab,
+      showProjectRfiTab,
+      showProjectSecurityTab,
+      showProjectEpiTab,
+      showProjectMapTab,
+      companyId,
+    ]
+  );
 
   useEffect(() => {
-    if (!showProjectRfiTab && activeTab === "rfi") {
-      setActiveTab("general");
-    }
-  }, [showProjectRfiTab, activeTab]);
-
-  useEffect(() => {
-    if (!showProjectSecurityTab && activeTab === "seguridad") {
-      setActiveTab("general");
-    }
-  }, [showProjectSecurityTab, activeTab]);
+    if (projectTabAllowed(activeTab)) return;
+    const next = TABS.map((tab) => tab.id).find((id) => projectTabAllowed(id));
+    if (next) setActiveTab(next);
+  }, [activeTab, projectTabAllowed]);
 
   useEffect(() => {
     if (!companyId || !selectedProjectId || !supabase) {
@@ -790,15 +844,15 @@ export function ProjectsModule({
     const mx = Math.max(tab, qr);
     if (!mx || mx <= lastVisitorNavSig.current) return;
     lastVisitorNavSig.current = mx;
-    if (selectedProjectId) setActiveTab("visitantes");
-  }, [visitorTabSignal, visitorOpenQrSignal, selectedProjectId]);
+    if (selectedProjectId && showProjectVisitorsTab) setActiveTab("visitantes");
+  }, [visitorTabSignal, visitorOpenQrSignal, selectedProjectId, showProjectVisitorsTab]);
 
   useEffect(() => {
     const s = openRfiTabSignal ?? 0;
-    if (!s || s <= lastRfiNavSig.current || !selectedProjectId) return;
+    if (!s || s <= lastRfiNavSig.current || !selectedProjectId || !showProjectRfiTab) return;
     lastRfiNavSig.current = s;
     setActiveTab("rfi");
-  }, [openRfiTabSignal, selectedProjectId]);
+  }, [openRfiTabSignal, selectedProjectId, showProjectRfiTab]);
 
   useEffect(() => {
     const s = projectsSecurityTabSignal ?? 0;
@@ -816,11 +870,20 @@ export function ProjectsModule({
     }
     if (dailyReportFocusConsumedSig.current === sig) return;
     dailyReportFocusConsumedSig.current = sig;
-    setActiveTab("formularios");
-    setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
-    setOpenDailyReportKey(reportId);
+    if (showProjectFormsTab) {
+      setActiveTab("formularios");
+      setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
+      setOpenDailyReportKey(reportId);
+    }
     onConsumeDailyReportNav?.();
-  }, [focusDailyReportNav, selectedProjectId, onSelectProject, currentUserRole, onConsumeDailyReportNav]);
+  }, [
+    focusDailyReportNav,
+    selectedProjectId,
+    onSelectProject,
+    currentUserRole,
+    onConsumeDailyReportNav,
+    showProjectFormsTab,
+  ]);
 
   useEffect(() => {
     if (!openSafetyChecklistId) {
@@ -848,6 +911,8 @@ export function ProjectsModule({
   }, [safetyDraft]);
 
   const canEdit = canEditProp ?? (currentUserRole === "admin" || currentUserRole === "supervisor" || currentUserRole === "projectManager");
+  const canManageProjectTeam =
+    typeof canManageProjectTeamProp === "boolean" ? canManageProjectTeamProp : canEdit;
   const canAnnotate = canAnnotateBlueprints ?? canEdit;
 
   const displayPrefsRev = useMachinProDisplayPrefs();
@@ -1422,14 +1487,7 @@ export function ProjectsModule({
         return (
           <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 min-w-0">
             <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto px-4 sm:px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
-            {TABS.filter((tab) => {
-                if (tab.id === "visitantes" && !showProjectVisitorsTab) return false;
-                if (tab.id === "rfi" && !showProjectRfiTab) return false;
-                if (tab.id === "seguridad" && !showProjectSecurityTab) return false;
-                if (tab.id === "project_epi" && !canEdit && !canViewAttendancePanel) return false;
-                if (tab.id === "mapa" && !companyId) return false;
-                return true;
-              }).map((tab) => {
+            {TABS.filter((tab) => projectTabAllowed(tab.id)).map((tab) => {
               const label =
                 tab.id === "general"
                   ? t.siteTabGeneral ?? t.tabGeneral ?? PM_EN.tabGeneral
@@ -1707,7 +1765,7 @@ export function ProjectsModule({
               </div>
             )}
 
-            {(currentUserRole === "admin" || currentUserRole === "supervisor" || currentUserRole === "projectManager") && (
+            {canUploadPhotos && (
               <div>
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">
                   {t.progressPhotos ?? PM_EN.progressPhotos}
@@ -1791,7 +1849,7 @@ export function ProjectsModule({
                           <span className={`text-zinc-400 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}>›</span>
                         </div>
                       </button>
-                      {canEdit && (
+                      {canManageProjectTeam && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1857,7 +1915,7 @@ export function ProjectsModule({
                 );
               })
             )}
-            {canEdit && (
+            {canManageProjectTeam && (
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-slate-700">
                 <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                   {tl.projects_team_add_employee ?? PM_EN.projects_team_add_employee}
@@ -3614,7 +3672,7 @@ export function ProjectsModule({
           />
         ) : null}
 
-        {activeTab === "project_epi" && selectedProject && (canEdit || canViewAttendancePanel) ? (
+        {activeTab === "project_epi" && selectedProject && showProjectEpiTab ? (
           <ProjectEpiSafetyTab
             project={selectedProject}
             allEmployees={allEmployees ?? []}
@@ -3628,7 +3686,7 @@ export function ProjectsModule({
           />
         ) : null}
 
-        {activeTab === "mapa" && selectedProject && companyId ? (
+        {activeTab === "mapa" && selectedProject && companyId && showProjectMapTab ? (
           <div className="min-w-0 max-w-full overflow-x-hidden space-y-3">
             {projectMapActiveCount > 0 ? (
               <TeamGpsMapWidget

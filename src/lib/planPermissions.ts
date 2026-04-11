@@ -7,6 +7,7 @@ export interface ModulePermissionsShape {
   site: boolean;
   worker: boolean;
   forms?: boolean;
+  formsNav?: boolean;
   canSeeOnlyAssignedProjects?: boolean;
   canAccessSchedule?: boolean;
   canCreateShifts?: boolean;

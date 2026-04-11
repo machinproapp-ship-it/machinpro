@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { Building2, Warehouse, Calendar, HardHat, Settings, X } from "lucide-react";
+import {
+  Building2,
+  Warehouse,
+  Calendar,
+  HardHat,
+  Settings,
+  X,
+  Shield,
+  ClipboardList,
+} from "lucide-react";
 import type { MainSection, SidebarLabels } from "@/types/shared";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
@@ -20,6 +29,10 @@ export interface SidebarProps {
   canAccessSite: boolean;
   canAccessSchedule?: boolean;
   canAccessSettings?: boolean;
+  /** Navegación Seguridad (módulo global). */
+  canAccessSecurity?: boolean;
+  /** Entrada menú Formularios (lista / biblioteca). */
+  canAccessFormsNav?: boolean;
   labels: SidebarLabels;
   collapsed?: boolean;
   /** Drawer móvil (< lg): abierto */
@@ -33,8 +46,10 @@ export function Sidebar({
   canAccessOffice,
   canAccessWarehouse,
   canAccessSite,
-  canAccessSchedule = true,
-  canAccessSettings = true,
+  canAccessSchedule = false,
+  canAccessSettings = false,
+  canAccessSecurity = false,
+  canAccessFormsNav = false,
   labels,
   collapsed = false,
   mobileDrawerOpen = false,
@@ -44,6 +59,8 @@ export function Sidebar({
   const E = ALL_TRANSLATIONS.en;
   const L = (k: string, fb: string) => dict[k] ?? (E as Record<string, string>)[k] ?? fb;
   const operationsLabel = labels.nav_operations ?? labels.site ?? L("site", "Operations");
+  const securityLabel = labels.nav_security ?? L("nav_security", E.nav_security ?? "Security");
+  const formsLabel = labels.forms ?? dict.forms ?? E.forms ?? "Forms";
   const closeLabel = L("nav_menu_close", "Close menu");
   const drawerTitle = L("nav_drawer_title", E.settings ?? "Menu");
   const sidebarNavItems: NavItem[] = useMemo(
@@ -57,6 +74,18 @@ export function Sidebar({
         label: labels.warehouse ?? dict.warehouse ?? E.warehouse,
         show: canAccessWarehouse,
       },
+      {
+        id: "security",
+        icon: Shield,
+        label: securityLabel,
+        show: canAccessSecurity,
+      },
+      {
+        id: "forms",
+        icon: ClipboardList,
+        label: formsLabel,
+        show: canAccessFormsNav,
+      },
       { id: "settings", icon: Settings, label: labels.settings ?? dict.settings ?? E.settings, show: canAccessSettings },
     ],
     [
@@ -64,12 +93,17 @@ export function Sidebar({
       labels.schedule,
       labels.warehouse,
       labels.settings,
+      labels.forms,
       dict,
       operationsLabel,
+      securityLabel,
+      formsLabel,
       canAccessOffice,
       canAccessSite,
       canAccessSchedule,
       canAccessWarehouse,
+      canAccessSecurity,
+      canAccessFormsNav,
       canAccessSettings,
     ]
   );
@@ -92,6 +126,10 @@ export function Sidebar({
         return "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300";
       case "warehouse":
         return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+      case "security":
+        return "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300";
+      case "forms":
+        return "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300";
       default:
         return "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300";
     }

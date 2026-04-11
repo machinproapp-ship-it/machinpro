@@ -91,6 +91,10 @@ export interface EmployeesModuleProps {
   showNewEmployeeButton?: boolean;
   /** Solo administrador ve el pasaporte de otros; el empleado ve el suyo. */
   viewerIsAdmin?: boolean;
+  /** Pestaña ruta GPS en ficha (canViewAttendance). */
+  canViewEmployeeGpsRoute?: boolean;
+  /** Mini calendario de turnos de la semana en ficha (canViewTeamAvailability). */
+  canViewTeamAvailabilityInProfile?: boolean;
   /** Perfil Supabase: permite cambiar propia foto */
   currentUserProfileId?: string | null;
   cloudinaryCloudName?: string;
@@ -400,6 +404,8 @@ export function EmployeesModule({
   canDeleteEmployee: canDeleteEmployeeProp,
   showNewEmployeeButton = false,
   viewerIsAdmin = false,
+  canViewEmployeeGpsRoute = false,
+  canViewTeamAvailabilityInProfile = false,
   currentUserProfileId = null,
   cloudinaryCloudName = "",
   cloudinaryUploadPreset = "",
@@ -565,7 +571,7 @@ export function EmployeesModule({
   }, [selectedId]);
 
   useEffect(() => {
-    if (!supabase || !viewerIsAdmin || !selected?.id) {
+    if (!supabase || !canViewEmployeeGpsRoute || !selected?.id) {
       setEmployeeHasGpsData(false);
       return;
     }
@@ -581,7 +587,7 @@ export function EmployeesModule({
     return () => {
       cancelled = true;
     };
-  }, [selected?.id, viewerIsAdmin, companyId]);
+  }, [selected?.id, canViewEmployeeGpsRoute, companyId]);
 
   useEffect(() => {
     if (!employeeHasGpsData) setEmployeeDetailTab("info");
@@ -1330,7 +1336,7 @@ export function EmployeesModule({
           )}
         </div>
 
-        {viewerIsAdmin && companyId ? (
+        {canViewEmployeeGpsRoute && companyId ? (
           <div
             className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-slate-700 pb-3"
             role="tablist"
@@ -1366,7 +1372,7 @@ export function EmployeesModule({
           </div>
         ) : null}
 
-        {employeeDetailTab === "route" && viewerIsAdmin && companyId ? (
+        {employeeDetailTab === "route" && canViewEmployeeGpsRoute && companyId ? (
           <EmployeeGpsRouteTab
             companyId={companyId}
             userId={selected.id}
@@ -1680,7 +1686,7 @@ export function EmployeesModule({
           </>
         ) : null}
 
-        {scheduleShiftsByWeekDay && (
+        {scheduleShiftsByWeekDay && canViewTeamAvailabilityInProfile ? (
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
               <Calendar className="h-4 w-4 shrink-0" aria-hidden />
@@ -1744,7 +1750,7 @@ export function EmployeesModule({
               })}
             </div>
           </section>
-        )}
+        ) : null}
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{tl.employees_payment_section ?? ""}</h3>

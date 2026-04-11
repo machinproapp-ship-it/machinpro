@@ -146,6 +146,8 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canExportForms",
   "canViewSchedule",
   "canCreateShifts",
+  "canViewTeamAvailability",
+  "canManageTeamAvailability",
   "canManageVacations",
   "canViewTimesheets",
   "canManageTimesheets",

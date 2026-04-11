@@ -312,6 +312,14 @@ interface CentralModuleProps {
   dashboardFormsPendingPreview?: { id: string; name: string; contextLine: string; status: string }[];
   onNavigateToForms?: () => void;
   onNavigateToFormsNew?: () => void;
+  /** Widget inventario crítico (canViewInventory). */
+  dashboardCanViewInventory?: boolean;
+  dashboardCanViewProjectVisitors?: boolean;
+  dashboardCanManageProjectVisitors?: boolean;
+  dashboardCanManageHazards?: boolean;
+  dashboardCanManageCorrectiveActions?: boolean;
+  dashboardCanManageProjectRFI?: boolean;
+  dashboardCanAccessSubcontractors?: boolean;
 }
 
 function computeComplianceRecordStatus(
@@ -466,6 +474,13 @@ export function CentralModule({
   dashboardFormsPendingPreview = [],
   onNavigateToForms,
   onNavigateToFormsNew,
+  dashboardCanViewInventory = false,
+  dashboardCanViewProjectVisitors = false,
+  dashboardCanManageProjectVisitors = false,
+  dashboardCanManageHazards = false,
+  dashboardCanManageCorrectiveActions = false,
+  dashboardCanManageProjectRFI = false,
+  dashboardCanAccessSubcontractors = false,
 }: CentralModuleProps) {
   const canViewProjects = canViewProjectsProp ?? canEdit;
   const canCreateProjects = canCreateProjectsProp ?? canEdit;
@@ -921,9 +936,16 @@ export function CentralModule({
                 canAccessVisitors={canAccessVisitors}
                 canAccessHazards={canAccessHazards}
                 canAccessCorrective={canAccessCorrective}
+                canViewProjectVisitors={dashboardCanViewProjectVisitors}
+                canManageProjectVisitors={dashboardCanManageProjectVisitors}
+                canManageHazards={dashboardCanManageHazards}
+                canManageCorrectiveActions={dashboardCanManageCorrectiveActions}
+                canManageProjectRFI={dashboardCanManageProjectRFI}
+                canAccessSubcontractors={dashboardCanAccessSubcontractors}
+                canViewInventory={dashboardCanViewInventory}
                 onNavigateAppSection={onNavigateAppSection}
                 onOpenAuditInCentral={() => {
-                  if (dashboardCanManageEmployees || dashboardCanViewAuditLog) setCentralView("auditlog");
+                  if (dashboardCanViewAuditLog) setCentralView("auditlog");
                 }}
                 onOpenRolesInCentral={() => {
                   if (canManageRoles || canViewRoles) setCentralView("roles");
