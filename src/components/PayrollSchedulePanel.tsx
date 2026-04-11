@@ -93,6 +93,11 @@ export function PayrollSchedulePanel({
   const { showToast } = useToast();
   const L = (k: string, fb: string) => (lx[k] as string | undefined) || fb;
 
+  const uniqueEmployees = useMemo(
+    () => Array.from(new Map(employees.map((e) => [e.id, e])).values()),
+    [employees]
+  );
+
   const [periodType, setPeriodType] = useState<PayrollPeriod>("monthly");
   const [anchorMonth, setAnchorMonth] = useState(() => {
     const t = new Date();
@@ -144,9 +149,9 @@ export function PayrollSchedulePanel({
       hoursByEmp.set(e.employeeId, (hoursByEmp.get(e.employeeId) ?? 0) + h);
     }
 
-    const nameById = buildEmployeeNameByClockId(employees, profileToLegacyEmployeeId);
+    const nameById = buildEmployeeNameByClockId(uniqueEmployees, profileToLegacyEmployeeId);
     const ids = viewAllPayroll
-      ? [...new Set([...hoursByEmp.keys(), ...employees.map((e) => e.id)])]
+      ? [...new Set([...hoursByEmp.keys(), ...uniqueEmployees.map((e) => e.id)])]
       : currentUserProfileId
         ? [currentUserProfileId]
         : [];
@@ -176,7 +181,7 @@ export function PayrollSchedulePanel({
   }, [
     clockEntries,
     periodBounds,
-    employees,
+    uniqueEmployees,
     profileToLegacyEmployeeId,
     viewAllPayroll,
     currentUserProfileId,

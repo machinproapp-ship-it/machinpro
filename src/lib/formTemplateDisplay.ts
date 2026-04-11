@@ -20,6 +20,19 @@ export function resolveFormLabel(
   return keyOrText;
 }
 
+/** Resolves stored template name keys (e.g. `form_tpl_*`) via current locale, then English bundle. */
+export function resolveTemplateName(
+  template: { name: string },
+  t: Record<string, string>
+): string {
+  const key = template.name;
+  const loc = t[key];
+  if (loc !== undefined && loc !== "") return loc;
+  const en = EN_LABELS[key];
+  if (en !== undefined && en !== "") return en;
+  return key;
+}
+
 function isInspectionTableValue(v: unknown): v is InspectionTableValue {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }

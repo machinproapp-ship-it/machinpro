@@ -1409,7 +1409,10 @@ export default function Home() {
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
   const activeEmployees = useMemo(
-    () => (employees ?? []).filter(isActiveProfileEmployee),
+    () =>
+      Array.from(
+        new Map((employees ?? []).filter(isActiveProfileEmployee).map((e) => [e.id, e])).values()
+      ),
     [employees]
   );
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
@@ -2799,7 +2802,18 @@ export default function Home() {
 
   // Usar el rol real de Supabase si está disponible.
   // Mantener el simulador solo si no hay perfil (modo dev local).
-  const effectiveRole: UserRole = (profile?.role as UserRole) ?? currentUserRole;
+  const effectiveRole: UserRole = (() => {
+    const raw = profile?.role;
+    if (raw == null || String(raw).trim() === "") return currentUserRole;
+    const s = String(raw).toLowerCase().trim();
+    if (["admin", "administrator", "owner", "superadmin"].includes(s)) return "admin";
+    if (s === "supervisor") return "supervisor";
+    if (s === "worker") return "worker";
+    if (s === "logistic") return "logistic";
+    if (s === "projectmanager" || s === "project_manager") return "projectManager";
+    const allowed: UserRole[] = ["admin", "supervisor", "worker", "logistic", "projectManager"];
+    return allowed.includes(raw as UserRole) ? (raw as UserRole) : currentUserRole;
+  })();
   const effectiveEmployeeId: string | null = profile?.employeeId ?? null;
   const workerEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : null;
 

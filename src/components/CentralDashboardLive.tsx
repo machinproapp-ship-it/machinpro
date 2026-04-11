@@ -1799,7 +1799,7 @@ function CentralDashboardBody(
               {activityRows.length === 0 ? (
                 <li className="text-gray-600 dark:text-gray-400">
                   <p className="font-medium text-gray-800 dark:text-gray-200">
-                    {L("dashboard_activity_empty_business") || L("dashboard_trend_neutral")}
+                    {(L("dashboard_activity_empty_business") || "").trim() || "Sin actividad reciente"}
                   </p>
                   {(L("dashboard_activity_empty_business_hint") || "").trim() ? (
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

@@ -24,6 +24,7 @@ import { BrandWordmark } from "@/components/BrandWordmark";
 import { FormFieldInput } from "@/components/FormFieldInput";
 import {
   resolveFormLabel,
+  resolveTemplateName,
   formatFormFieldValue,
 } from "@/lib/formTemplateDisplay";
 import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
@@ -198,7 +199,7 @@ function FormTemplatePickCard({
         </span>
       </div>
       <h3 className="font-semibold text-zinc-900 dark:text-white">
-        {resolveFormLabel(template.name, labels)}
+        {resolveTemplateName(template, labels)}
       </h3>
       {template.description && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2">
@@ -803,7 +804,7 @@ export function FormsModule({
     setQrModal({
       signToken: instance.signToken,
       link,
-      templateName: resolveFormLabel(template.name, t),
+      templateName: resolveTemplateName(template, t),
       expiresInHours: template.expiresInHours,
       instance,
     });
@@ -959,7 +960,7 @@ export function FormsModule({
                   >
                     <div>
                       <p className="font-medium text-zinc-900 dark:text-white">
-                        {template ? resolveFormLabel(template.name, t) : inst.templateId}
+                        {template ? resolveTemplateName(template, t) : inst.templateId}
                       </p>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">
                         {contextLine} · {inst.date}
@@ -1243,7 +1244,7 @@ export function FormsModule({
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">
-                {resolveFormLabel(template.name, t)}
+                {resolveTemplateName(template, t)}
               </h2>
             </div>
 
@@ -1396,7 +1397,7 @@ export function FormsModule({
                 </button>
                 <div>
                   <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">
-                    {resolveFormLabel(template.name, t)}
+                    {resolveTemplateName(template, t)}
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
                     {detailContextLine} · {instance.date}
@@ -1445,7 +1446,7 @@ export function FormsModule({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    const safeTpl = resolveFormLabel(template.name, t).replace(/[^a-zA-Z0-9._-]+/g, "_");
+                    const safeTpl = resolveTemplateName(template, t).replace(/[^a-zA-Z0-9._-]+/g, "_");
                     a.download = `${safeTpl}-${instance.date}.pdf`;
                     a.click();
                     URL.revokeObjectURL(url);

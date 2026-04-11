@@ -19,10 +19,6 @@ import {
 
 type TxFn = (key: string, fallback: string) => string;
 
-function interpolateCount(template: string, count: number): string {
-  return template.replace(/\{\{\s*count\s*\}\}/g, String(count));
-}
-
 const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
   plan_users_esencial: "15 users included",
   plan_users_operaciones: "30 users included",
@@ -180,15 +176,13 @@ export default function LandingPage() {
   const [dark, setDark] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
   const [geoDetect, setGeoDetect] = useState<GeoDetect | null>(null);
-  const betaFounderSpots = useMemo(() => {
-    const raw = process.env.NEXT_PUBLIC_BETA_FOUNDER_SPOTS;
-    const n = raw != null && raw !== "" ? Number(raw) : NaN;
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 20;
-  }, []);
-
-  const betaSpotsLabel = useMemo(
-    () => interpolateCount(tx("beta_founders_spots", "Only {{count}} spots available"), betaFounderSpots),
-    [tx, betaFounderSpots]
+  const betaHeadline = useMemo(
+    () =>
+      `${tx("landing_beta_open", "Beta privada abierta")} — ${tx(
+        "landing_beta_spots",
+        "Plazas limitadas disponibles"
+      )}`,
+    [tx]
   );
 
   useEffect(() => {
@@ -475,27 +469,9 @@ export default function LandingPage() {
                 <h2 className="text-2xl font-bold text-white sm:text-3xl">
                   {tx("beta_founders_title", "Beta Founders Program")}
                 </h2>
-                <p className="text-lg font-semibold text-amber-200/95">{betaSpotsLabel}</p>
-                <p className="text-base font-semibold text-white/95">
-                  {interpolateCount(tx("landing_beta_social_proof", ""), betaFounderSpots)}
-                </p>
+                <p className="text-lg font-semibold text-amber-200/95">{betaHeadline}</p>
+                <p className="text-base font-semibold text-white/95">{tx("landing_beta_social_proof", "")}</p>
                 <p className="text-sm text-teal-100/85">{tx("landing_beta_countries", "")}</p>
-                <div
-                  className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-4 lg:mx-0"
-                  aria-hidden
-                >
-                  <div className="flex flex-1 flex-wrap gap-1">
-                    {Array.from({ length: betaFounderSpots }, (_, i) => (
-                      <span
-                        key={i}
-                        className={`h-2.5 flex-1 min-w-[1.25rem] max-w-[2rem] rounded-full ${
-                          i < Math.ceil(betaFounderSpots * 0.35) ? "bg-amber-400" : "bg-white/25"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="tabular-nums text-sm font-bold text-white">{betaFounderSpots}</span>
-                </div>
                 <p className="text-sm leading-relaxed text-teal-100/90 sm:text-base">
                   {tx("beta_founders_benefit", "")}
                 </p>
@@ -507,7 +483,7 @@ export default function LandingPage() {
                 </Link>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-6 text-left text-teal-50 shadow-xl backdrop-blur-sm lg:max-w-md">
-                <p className="text-sm font-medium">{betaSpotsLabel}</p>
+                <p className="text-sm font-medium">{betaHeadline}</p>
                 <p className="mt-2 text-xs leading-relaxed text-teal-100/85">
                   {tx("beta_founders_card_details", "")}
                 </p>

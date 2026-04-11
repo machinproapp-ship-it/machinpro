@@ -132,6 +132,19 @@ export function mergeRolePermissions(raw: unknown): RolePermissions {
     if (!hasOwn("canExportForms")) acc.canExportForms = true;
   }
 
+  if (!hasOwn("canViewWorkOrders")) {
+    acc.canViewWorkOrders =
+      acc.canEditProjects === true ||
+      acc.canManageProjectCosts === true ||
+      acc.canViewProjectCosts === true ||
+      acc.canManageProductionCatalog === true ||
+      acc.canViewProductionCatalog === true;
+  }
+  if (!hasOwn("canManageWorkOrders")) {
+    acc.canManageWorkOrders =
+      acc.canManageProjectCosts === true || acc.canManageProductionCatalog === true;
+  }
+
   return acc as RolePermissions;
 }
 

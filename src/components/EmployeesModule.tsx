@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Users,
   Search,
@@ -483,6 +483,7 @@ export function EmployeesModule({
   const [fichajeSaving, setFichajeSaving] = useState(false);
   const [employeeDetailTab, setEmployeeDetailTab] = useState<"info" | "route">("info");
   const [employeeHasGpsData, setEmployeeHasGpsData] = useState(false);
+  const paySectionRef = useRef<HTMLElement | null>(null);
 
   const activeProjects = useMemo(
     () => projects.filter((p) => !p.archived),
@@ -1242,7 +1243,8 @@ export function EmployeesModule({
           ? tl.production_pay_fixed ?? tl.employees_fixed_salary ?? ""
           : tl.production_pay_hourly ?? tl.employees_hourly_rate ?? "";
       const cur = (sel.pay_currency ?? defaultPayCurrency ?? "").trim() || "CAD";
-      const amt = coercePayAmount(sel.pay_amount);
+      const payAmt = coercePayAmount(sel.pay_amount);
+      const laborHr = coercePayAmount(sel.hourly_rate);
       const per =
         pt === "fixed"
           ? sel.pay_period === "monthly"
@@ -1253,19 +1255,61 @@ export function EmployeesModule({
                 ? tl.pay_period_weekly ?? ""
                 : ""
           : "";
+      const missingRate = pt === "fixed" ? payAmt == null : payAmt == null && laborHr == null;
+      if (missingRate) {
+        return (
+          <div className="space-y-3">
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs text-zinc-500">{tl.salary_type_label ?? tl.employees_payment_type ?? ""}</dt>
+                <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{typeLabel}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-sm text-amber-800 dark:text-amber-200">{tl.payroll_no_rate_configured ?? ""}</p>
+                {canManageEmployees ? (
+                  <button
+                    type="button"
+                    className="mt-2 min-h-[44px] rounded-lg border border-amber-500/60 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+                    onClick={() => paySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  >
+                    {tl.payroll_configure_rate ?? ""}
+                  </button>
+                ) : null}
+              </div>
+            </dl>
+          </div>
+        );
+      }
       return (
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <dt className="text-xs text-zinc-500">{tl.salary_type_label ?? tl.employees_payment_type ?? ""}</dt>
             <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{typeLabel}</dd>
           </div>
-          <div>
-            <dt className="text-xs text-zinc-500">{tl.salary_amount_label ?? ""}</dt>
-            <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
-              {amt != null ? `${amt} ${cur}` : tl.common_dash ?? "—"}
-              {per ? ` · ${per}` : ""}
-            </dd>
-          </div>
+          {pt === "hourly" ? (
+            <>
+              <div>
+                <dt className="text-xs text-zinc-500">{tl.salary_amount_label ?? tl.employee_salary_label ?? ""}</dt>
+                <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {payAmt != null ? `${payAmt} ${cur}` : tl.common_dash ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-zinc-500">{tl.employee_hourly_rate_label ?? tl.hourly_rate ?? ""}</dt>
+                <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {laborHr != null ? `${laborHr} ${defaultPayCurrency}` : tl.common_dash ?? "—"}
+                </dd>
+              </div>
+            </>
+          ) : (
+            <div>
+              <dt className="text-xs text-zinc-500">{tl.salary_amount_label ?? tl.employee_salary_label ?? ""}</dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                {payAmt != null ? `${payAmt} ${cur}` : tl.common_dash ?? "—"}
+                {per ? ` · ${per}` : ""}
+              </dd>
+            </div>
+          )}
         </dl>
       );
     };
@@ -1796,7 +1840,11 @@ export function EmployeesModule({
         ) : null}
 
         {showSalarySection ? (
-        <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+        <section
+          ref={paySectionRef}
+          id="employee-pay-section"
+          className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3 scroll-mt-24"
+        >
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {tl.salary_view_title ?? tl.employees_payment_section ?? ""}
           </h3>
@@ -1854,6 +1902,27 @@ export function EmployeesModule({
                       className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
                     />
                   </label>
+                  <label className="block text-sm sm:col-span-2">
+                    <span className="text-zinc-500">
+                      {tl.employee_hourly_rate_label ?? tl.hourly_rate ?? ""} ({defaultPayCurrency})
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={draft.hourly_rate ?? ""}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          hourly_rate: e.target.value === "" ? null : parseFloat(e.target.value),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    />
+                    <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                      {tl.employees_labor_rate_hint ?? ""}
+                    </span>
+                  </label>
                   <label className="block text-sm">
                     <span className="text-zinc-500">{tl.employees_currency ?? ""}</span>
                     <select
@@ -1892,31 +1961,6 @@ export function EmployeesModule({
             </div>
           ) : null}
         </section>
-        ) : null}
-
-        {canManageEmployees && !workerSelf && (draft.pay_type ?? "") !== "production" ? (
-          <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{tl.labor_costing ?? ""}</h3>
-            <label className="block text-sm max-w-md">
-              <span className="text-zinc-500">
-                {tl.hourly_rate ?? ""} ({defaultPayCurrency})
-              </span>
-              <input
-                type="number"
-                step="0.01"
-                min={0}
-                value={draft.hourly_rate ?? ""}
-                onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    hourly_rate: e.target.value === "" ? null : parseFloat(e.target.value),
-                  }))
-                }
-                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-              />
-            </label>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">{tl.employees_labor_rate_hint ?? ""}</p>
-          </section>
         ) : null}
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
