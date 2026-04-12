@@ -57,7 +57,7 @@ import {
 import { generateInspectionReportPDF } from "@/lib/generateInspectionReportPDF";
 import BlueprintViewer from "@/components/BlueprintViewer";
 import { ProjectTimeclockSection } from "@/components/ProjectTimeclockSection";
-import type { ToolStatus, ResourceRequest } from "@/components/LogisticsModule";
+import type { ToolStatus, ResourceRequest, Rental } from "@/components/LogisticsModule";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import type { UserRole } from "@/types/shared";
 import { ProjectSecurityTab } from "@/components/ProjectSecurityTab";
@@ -91,8 +91,11 @@ import { supabase } from "@/lib/supabase";
 import {
   type CatalogItem,
   type ProjectTaskOverride,
+  type ProductionReport,
   effectivePrices,
 } from "@/lib/productionCatalog";
+import { generateInvoicePdf, nextMachinProInvoiceNumber, defaultInvoiceTaxPercent } from "@/lib/generateInvoicePdf";
+import { generateBenefitReportPdf } from "@/lib/generateBenefitReportPdf";
 import { generateWorkOrderPdf } from "@/lib/generateWorkOrderPdf";
 import { fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import {
@@ -387,6 +390,9 @@ export interface ProjectsModuleProps {
   /** Parte diario: sección producción (payType o permiso). */
   showProductionInDailyReport?: boolean;
   onRefreshProductionData?: () => void;
+  /** Producción global (filtrado por proyecto en Costes). */
+  productionReports?: ProductionReport[];
+  rentals?: Rental[];
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -670,6 +676,8 @@ export function ProjectsModule({
   canManageWorkOrders = false,
   showProductionInDailyReport = false,
   onRefreshProductionData,
+  productionReports = [],
+  rentals = [],
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -725,6 +733,18 @@ export function ProjectsModule({
   const [costFormDate, setCostFormDate] = useState(() => todayYmdLocal());
   const [costFormNotes, setCostFormNotes] = useState("");
   const [costFormBusy, setCostFormBusy] = useState(false);
+  const [costInvoiceOpen, setCostInvoiceOpen] = useState(false);
+  const [costInvoiceStart, setCostInvoiceStart] = useState("");
+  const [costInvoiceEnd, setCostInvoiceEnd] = useState("");
+  const [costInvoiceClientName, setCostInvoiceClientName] = useState("");
+  const [costInvoiceClientAddr, setCostInvoiceClientAddr] = useState("");
+  const [costInvoiceClientEmail, setCostInvoiceClientEmail] = useState("");
+  const [costInvoiceProjectRef, setCostInvoiceProjectRef] = useState("");
+  const [costInvoiceTax, setCostInvoiceTax] = useState("");
+  const [costInvoiceNotes, setCostInvoiceNotes] = useState("");
+  const [benefitOpen, setBenefitOpen] = useState(false);
+  const [benefitStart, setBenefitStart] = useState("");
+  const [benefitEnd, setBenefitEnd] = useState("");
   const [workOrderImportOpen, setWorkOrderImportOpen] = useState(false);
   const [workOrderImportPick, setWorkOrderImportPick] = useState<Record<string, boolean>>({});
 
@@ -3959,14 +3979,48 @@ export function ProjectsModule({
 
                   <div className="flex flex-wrap items-center gap-2">
                     {canExportProjectCosts ? (
-                      <button
-                        type="button"
-                        onClick={() => void exportCsv()}
-                        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-slate-700"
-                      >
-                        <FileDown className="h-4 w-4" />
-                        {tl.project_costs_export ?? PM_EN.project_costs_export}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void exportCsv()}
+                          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-slate-700"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          {tl.project_costs_export ?? PM_EN.project_costs_export}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = formatTodayYmdInTimeZone(userTz);
+                            const d = new Date(`${today}T12:00:00`);
+                            const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+                            setCostInvoiceStart(start);
+                            setCostInvoiceEnd(today);
+                            setCostInvoiceTax(String(defaultInvoiceTaxPercent(countryCode)));
+                            setCostInvoiceProjectRef(selectedProject?.name ?? "");
+                            setCostInvoiceOpen(true);
+                          }}
+                          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-950 dark:text-amber-100"
+                        >
+                          <FileText className="h-4 w-4" />
+                          {tl.invoice_generate ?? "Generate invoice"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = formatTodayYmdInTimeZone(userTz);
+                            const d = new Date(`${today}T12:00:00`);
+                            const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+                            setBenefitStart(start);
+                            setBenefitEnd(today);
+                            setBenefitOpen(true);
+                          }}
+                          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-emerald-400 bg-emerald-50 dark:bg-emerald-950/25 px-4 py-2 text-sm font-medium text-emerald-950 dark:text-emerald-100"
+                        >
+                          <FileText className="h-4 w-4" />
+                          {tl.benefit_report_generate ?? "Generate report"}
+                        </button>
+                      </>
                     ) : null}
                   </div>
 
@@ -4146,6 +4200,314 @@ export function ProjectsModule({
                       </tbody>
                     </table>
                   </div>
+
+                  {costInvoiceOpen && selectedProject ? (
+                    <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+                      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                            {tl.invoice_generate ?? "Generate invoice"}
+                          </h3>
+                          <button
+                            type="button"
+                            className="min-h-[44px] min-w-[44px] rounded-lg p-2 text-zinc-500"
+                            onClick={() => setCostInvoiceOpen(false)}
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <label className="block text-xs text-zinc-500">
+                            {tl.timesheet_date_from ?? "From"}
+                            <input
+                              type="date"
+                              value={costInvoiceStart}
+                              onChange={(e) => setCostInvoiceStart(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                            />
+                          </label>
+                          <label className="block text-xs text-zinc-500">
+                            {tl.timesheet_date_to ?? "To"}
+                            <input
+                              type="date"
+                              value={costInvoiceEnd}
+                              onChange={(e) => setCostInvoiceEnd(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                            />
+                          </label>
+                        </div>
+                        <label className="block text-xs text-zinc-500">
+                          {tl.invoice_client_name ?? "Client name"}
+                          <input
+                            value={costInvoiceClientName}
+                            onChange={(e) => setCostInvoiceClientName(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500">
+                          {tl.invoice_client_address ?? "Client address"}
+                          <textarea
+                            value={costInvoiceClientAddr}
+                            onChange={(e) => setCostInvoiceClientAddr(e.target.value)}
+                            rows={2}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500">
+                          {tl.invoice_client_email ?? "Client email"}
+                          <input
+                            value={costInvoiceClientEmail}
+                            onChange={(e) => setCostInvoiceClientEmail(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500">
+                          {tl.invoice_client_project_ref ?? "Client project ref"}
+                          <input
+                            value={costInvoiceProjectRef}
+                            onChange={(e) => setCostInvoiceProjectRef(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500">
+                          {tl.invoice_tax_rate ?? "Tax rate (%)"}
+                          <input
+                            value={costInvoiceTax}
+                            onChange={(e) => setCostInvoiceTax(e.target.value)}
+                            inputMode="decimal"
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px] tabular-nums"
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500">
+                          {tl.invoice_notes ?? "Notes"}
+                          <textarea
+                            value={costInvoiceNotes}
+                            onChange={(e) => setCostInvoiceNotes(e.target.value)}
+                            rows={2}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                          />
+                        </label>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <button
+                            type="button"
+                            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                            onClick={() => {
+                              void (async () => {
+                                if (!selectedProject) return;
+                                const map = new Map<
+                                  string,
+                                  {
+                                    description: string;
+                                    unit: string;
+                                    quantity: number;
+                                    unitPrice: number;
+                                    lineTotal: number;
+                                  }
+                                >();
+                                for (const r of productionReports) {
+                                  if (r.projectId !== selectedProject.id) continue;
+                                  if (r.date < costInvoiceStart || r.date > costInvoiceEnd) continue;
+                                  for (const e of r.entries) {
+                                    const key = `${e.catalogItemId}|${e.taskName}`;
+                                    const cur = map.get(key) ?? {
+                                      description: e.taskName,
+                                      unit: String(e.unit),
+                                      quantity: 0,
+                                      unitPrice: e.sellPrice,
+                                      lineTotal: 0,
+                                    };
+                                    cur.quantity += e.unitsCompleted;
+                                    cur.lineTotal += e.totalSell;
+                                    if (e.sellPrice > 0) cur.unitPrice = e.sellPrice;
+                                    map.set(key, cur);
+                                  }
+                                }
+                                const lines = [...map.values()].filter((l) => l.lineTotal > 0 || l.quantity > 0);
+                                if (lines.length === 0) {
+                                  showToast("error", tl.invoice_no_lines ?? "No billable lines in this period.");
+                                  return;
+                                }
+                                const tax = Number.parseFloat(costInvoiceTax.replace(",", "."));
+                                if (!Number.isFinite(tax) || tax < 0) {
+                                  showToast("error", tl.toast_error ?? PM_EN.toast_error);
+                                  return;
+                                }
+                                try {
+                                  const num = nextMachinProInvoiceNumber(companyId || "co");
+                                  const { blob, filename } = await generateInvoicePdf({
+                                    labels: tl,
+                                    companyName: companyName || "MachinPro",
+                                    companyId: companyId || "",
+                                    companyLogoUrl: companyLogoUrl?.trim() || undefined,
+                                    issuerName: companyName || "MachinPro",
+                                    issuerAddress: companyAddress?.trim() || undefined,
+                                    issuerEmail: companyEmail?.trim() || undefined,
+                                    issuerPhone: companyPhone?.trim() || undefined,
+                                    invoiceNumber: num,
+                                    issueDate: formatTodayYmdInTimeZone(userTz),
+                                    currency: companyCurrency,
+                                    clientName:
+                                      costInvoiceClientName.trim() || (tl.invoice_client ?? "Client"),
+                                    clientAddress: costInvoiceClientAddr.trim() || undefined,
+                                    clientEmail: costInvoiceClientEmail.trim() || undefined,
+                                    clientProjectRef: costInvoiceProjectRef.trim() || undefined,
+                                    lines: lines.map((l) => ({
+                                      description: l.description,
+                                      unit: l.unit,
+                                      quantity: l.quantity,
+                                      unitPrice: l.unitPrice,
+                                      lineTotal: l.lineTotal,
+                                    })),
+                                    taxPercent: tax,
+                                    notes: costInvoiceNotes.trim() || undefined,
+                                  });
+                                  const href = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = href;
+                                  a.download = filename;
+                                  a.click();
+                                  URL.revokeObjectURL(href);
+                                  showToast("success", tl.export_success ?? PM_EN.export_success);
+                                  setCostInvoiceOpen(false);
+                                } catch (e) {
+                                  showToast("error", (e as Error)?.message ?? (tl.export_error ?? PM_EN.toast_error));
+                                }
+                              })();
+                            }}
+                          >
+                            {tl.invoice_generate ?? "Generate invoice"}
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600"
+                            onClick={() => setCostInvoiceOpen(false)}
+                          >
+                            {tl.common_cancel ?? PM_EN.common_cancel}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {benefitOpen && selectedProject ? (
+                    <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+                      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                            {tl.benefit_report_title ?? "Benefit report"}
+                          </h3>
+                          <button
+                            type="button"
+                            className="min-h-[44px] min-w-[44px] rounded-lg p-2 text-zinc-500"
+                            onClick={() => setBenefitOpen(false)}
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <label className="block text-xs text-zinc-500">
+                            {tl.timesheet_date_from ?? "From"}
+                            <input
+                              type="date"
+                              value={benefitStart}
+                              onChange={(e) => setBenefitStart(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                            />
+                          </label>
+                          <label className="block text-xs text-zinc-500">
+                            {tl.timesheet_date_to ?? "To"}
+                            <input
+                              type="date"
+                              value={benefitEnd}
+                              onChange={(e) => setBenefitEnd(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                            />
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <button
+                            type="button"
+                            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                            onClick={() => {
+                              void (async () => {
+                                if (!selectedProject) return;
+                                const prod = productionReports.filter(
+                                  (r) =>
+                                    r.projectId === selectedProject.id &&
+                                    r.date >= benefitStart &&
+                                    r.date <= benefitEnd
+                                );
+                                const income = prod.reduce((a, r) => a + r.totalSell, 0);
+                                const laborCost = prod.reduce((a, r) => a + r.totalCost, 0);
+                                const materialsCost = projectExpensesForProject
+                                  .filter(
+                                    (e) =>
+                                      (e.category === "material" || e.category === "tool") &&
+                                      e.expenseDate >= benefitStart &&
+                                      e.expenseDate <= benefitEnd
+                                  )
+                                  .reduce((a, e) => a + (Number.isFinite(e.amount) ? e.amount : 0), 0);
+                                const otherCost = projectExpensesForProject
+                                  .filter(
+                                    (e) =>
+                                      e.category === "other" &&
+                                      e.expenseDate >= benefitStart &&
+                                      e.expenseDate <= benefitEnd
+                                  )
+                                  .reduce((a, e) => a + (Number.isFinite(e.amount) ? e.amount : 0), 0);
+                                const rentalsCost = rentals
+                                  .filter((r) => r.projectId === selectedProject.id)
+                                  .reduce(
+                                    (a, r) =>
+                                      a +
+                                      (Number.isFinite(r.cost) && r.cost > 0
+                                        ? r.cost
+                                        : Number(r.costCAD) || 0),
+                                    0
+                                  );
+                                try {
+                                  const { blob, filename } = await generateBenefitReportPdf({
+                                    labels: tl,
+                                    companyName: companyName || "MachinPro",
+                                    companyId: companyId || "",
+                                    companyLogoUrl: companyLogoUrl?.trim() || undefined,
+                                    projectName: selectedProject.name,
+                                    periodStart: benefitStart,
+                                    periodEnd: benefitEnd,
+                                    currency: companyCurrency,
+                                    income,
+                                    laborCost,
+                                    materialsCost,
+                                    rentalsCost,
+                                    otherCost,
+                                  });
+                                  const href = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = href;
+                                  a.download = filename;
+                                  a.click();
+                                  URL.revokeObjectURL(href);
+                                  showToast("success", tl.export_success ?? PM_EN.export_success);
+                                  setBenefitOpen(false);
+                                } catch (e) {
+                                  showToast("error", (e as Error)?.message ?? (tl.export_error ?? PM_EN.toast_error));
+                                }
+                              })();
+                            }}
+                          >
+                            {tl.benefit_report_generate ?? "Generate report"}
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600"
+                            onClick={() => setBenefitOpen(false)}
+                          >
+                            {tl.common_cancel ?? PM_EN.common_cancel}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </>
               );
             })()}

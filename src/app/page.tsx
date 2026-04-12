@@ -6185,6 +6185,8 @@ export default function Home() {
                   profile?.payType === "production" || !!rolePerms.canReportProduction
                 }
                 onRefreshProductionData={() => void reloadProductionData()}
+                productionReports={productionReports}
+                rentals={rentals}
               />
                 )}
               <ModuleHelpFab
@@ -6414,6 +6416,7 @@ export default function Home() {
                 canExportPayroll={!!rolePerms.canExportPayroll}
                 companyCountryForPayroll={companyCountry ?? "CA"}
                 productionReports={productionReports}
+                onRefreshProductionReports={() => void reloadProductionData()}
               />
               <ModuleHelpFab
                 moduleKey="schedule"
@@ -7804,6 +7807,7 @@ export default function Home() {
           run={productTourRun}
           onComplete={() => setProductTourRun(false)}
           onSkip={() => setProductTourRun(false)}
+          onNavigate={(section) => setActiveSection(section as MainSection)}
           t={t as Record<string, string>}
           companyName={companyName || profile?.companyName || ""}
         />

@@ -348,6 +348,8 @@ export interface ScheduleModuleProps {
   canExportPayroll?: boolean;
   companyCountryForPayroll?: string;
   productionReports?: ProductionReport[];
+  /** Tras actualizar production_reports (aprobar / pagado). */
+  onRefreshProductionReports?: () => void;
 }
 
 function startOfWeek(date: Date): Date {
@@ -1515,6 +1517,7 @@ export default function ScheduleModule({
   canExportPayroll = false,
   companyCountryForPayroll = "CA",
   productionReports = [],
+  onRefreshProductionReports,
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
@@ -3080,12 +3083,17 @@ export default function ScheduleModule({
               timeZone={scheduleTz}
               dateLocale={dateLocale}
               currency={timesheetCostCurrency}
+              companyCountry={companyCountryForPayroll}
+              companyLogoUrl={companyLogoUrl}
               employees={employees.map((e) => ({ id: e.id, name: e.name }))}
               productionReports={productionReports}
               profileToLegacyEmployeeId={profileToLegacyEmployeeId}
               currentUserProfileId={currentUserProfileId}
               viewAll={viewAll || canManagePayroll}
               canExportPayroll={canExportPayroll}
+              canManagePayroll={canManagePayroll}
+              projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+              onRefreshProductionReports={onRefreshProductionReports}
             />
           )}
         </div>

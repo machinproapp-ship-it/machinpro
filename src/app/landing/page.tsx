@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
-import { Star } from "lucide-react";
+import { Star, HardHat, ClipboardList, TrendingUp } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
 import { LANGUAGES } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
@@ -681,6 +681,83 @@ export default function LandingPage() {
             <div className="mt-4 space-y-2 text-center text-xs font-medium text-slate-500 dark:text-slate-500">
               <p>{tx("landing_pricing_usd_note", "")}</p>
               {showRegionNote ? <p>{tx("pricing_ppp_notice", tx("landing_pricing_region_note", ""))}</p> : null}
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
+        id="casos-uso"
+        className="scroll-mt-24 border-y border-slate-200/80 bg-[#e8f1f3] px-4 py-16 dark:border-slate-800 dark:bg-slate-950/90 sm:py-24"
+      >
+        <div className="mx-auto max-w-6xl">
+          <FadeSection>
+            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_usecase_title", "")}
+            </h2>
+            <div className="mt-10 grid gap-6 md:grid-cols-3">
+              {(
+                [
+                  { Icon: HardHat, titleKey: "landing_usecase_contractor_title", descKey: "landing_usecase_contractor_desc", featKey: "landing_usecase_contractor_features" },
+                  {
+                    Icon: ClipboardList,
+                    titleKey: "landing_usecase_sitemanager_title",
+                    descKey: "landing_usecase_sitemanager_desc",
+                    featKey: "landing_usecase_sitemanager_features",
+                  },
+                  { Icon: TrendingUp, titleKey: "landing_usecase_owner_title", descKey: "landing_usecase_owner_desc", featKey: "landing_usecase_owner_features" },
+                ] as const
+              ).map((c) => (
+                <div
+                  key={c.titleKey}
+                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/90"
+                >
+                  <c.Icon className="h-10 w-10 text-[#f97316]" aria-hidden />
+                  <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
+                  <p className="mt-4 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-500">
+                    {tx(c.featKey, "")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
+        id="landing-features-all"
+        className="scroll-mt-24 bg-slate-100 dark:bg-slate-900/70 px-4 py-16 sm:py-24"
+      >
+        <div className="mx-auto max-w-7xl">
+          <FadeSection>
+            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_features_heading", "")}
+            </h2>
+            <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+              {(["central", "operations", "schedule", "logistics", "security", "forms"] as const).map((id) => (
+                <div
+                  key={id}
+                  className="flex min-h-[200px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
+                >
+                  <h3 className="text-base font-semibold text-[#1a4f5e] dark:text-teal-300">
+                    {tx(`landing_features_module_${id}`, "")}
+                  </h3>
+                  <ul className="mt-3 flex-1 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    {(tx(`landing_features_lines_${id}`, "") || "")
+                      .split("\n")
+                      .filter(Boolean)
+                      .map((line, i) => (
+                        <li key={`${id}-${i}`} className="flex gap-2 leading-snug">
+                          <span className="shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden>
+                            ·
+                          </span>
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </FadeSection>
         </div>

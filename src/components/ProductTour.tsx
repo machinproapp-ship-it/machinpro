@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useMemo } from "react";
-import { EVENTS, STATUS, type Step } from "react-joyride";
+import { ACTIONS, EVENTS, STATUS, type EventData, type Step } from "react-joyride";
 
 const Joyride = dynamic(() => import("react-joyride").then((m) => m.Joyride), { ssr: false });
 
@@ -10,13 +10,21 @@ export type ProductTourProps = {
   run: boolean;
   onComplete?: () => void;
   onSkip?: () => void;
+  onNavigate: (section: string) => void;
   t: Record<string, string>;
   companyName?: string;
 };
 
 const L = (dict: Record<string, string>, key: string, fb: string) => dict[key] ?? fb;
 
-export function ProductTour({ run, onComplete, onSkip, t, companyName: _companyName }: ProductTourProps) {
+export function ProductTour({
+  run,
+  onComplete,
+  onSkip,
+  onNavigate,
+  t,
+  companyName: _companyName,
+}: ProductTourProps) {
   void _companyName;
 
   const steps: Step[] = useMemo(
@@ -76,20 +84,42 @@ export function ProductTour({ run, onComplete, onSkip, t, companyName: _companyN
   );
 
   const handleEvent = useCallback(
-    (data: { type: string; status?: string }) => {
-      if (data.type !== EVENTS.TOUR_END) return;
-      try {
-        localStorage.setItem("machinpro_tour_completed", "true");
-      } catch {
-        /* ignore */
+    (data: EventData) => {
+      const { action, index, type, status } = data;
+
+      if (type === EVENTS.STEP_AFTER && action === ACTIONS.NEXT) {
+        switch (index) {
+          case 0:
+            window.setTimeout(() => onNavigate("settings"), 100);
+            break;
+          case 1:
+            window.setTimeout(() => onNavigate("site"), 100);
+            break;
+          case 2:
+            window.setTimeout(() => onNavigate("schedule"), 100);
+            break;
+          case 3:
+            window.setTimeout(() => onNavigate("site"), 100);
+            break;
+          default:
+            break;
+        }
       }
-      if (data.status === STATUS.SKIPPED) {
-        onSkip?.();
-      } else {
-        onComplete?.();
+
+      if (type === EVENTS.TOUR_END) {
+        try {
+          localStorage.setItem("machinpro_tour_completed", "true");
+        } catch {
+          /* ignore */
+        }
+        if (status === STATUS.SKIPPED) {
+          onSkip?.();
+        } else {
+          onComplete?.();
+        }
       }
     },
-    [onComplete, onSkip]
+    [onComplete, onNavigate, onSkip]
   );
 
   const locale = useMemo(
