@@ -17,6 +17,18 @@ export function defaultInvoiceTaxPercent(countryCode: string): number {
   return 0;
 }
 
+export function peekMachinProInvoiceNumber(companyId: string): string {
+  const y = new Date().getFullYear();
+  const key = `machinpro_invoice_seq_${companyId}_${y}`;
+  let n = 0;
+  try {
+    n = parseInt(localStorage.getItem(key) ?? "0", 10) || 0;
+  } catch {
+    /* ignore */
+  }
+  return `INV-${y}-${String(n + 1).padStart(4, "0")}`;
+}
+
 export function nextMachinProInvoiceNumber(companyId: string): string {
   const y = new Date().getFullYear();
   const key = `machinpro_invoice_seq_${companyId}_${y}`;
@@ -58,6 +70,8 @@ export async function generateInvoicePdf(opts: {
   issuerAddress?: string;
   issuerEmail?: string;
   issuerPhone?: string;
+  /** Número fiscal / VAT del emisor (si existe en datos de empresa). */
+  issuerTaxNumber?: string;
   invoiceNumber: string;
   issueDate: string;
   currency: string;
@@ -65,6 +79,7 @@ export async function generateInvoicePdf(opts: {
   clientAddress?: string;
   clientEmail?: string;
   clientProjectRef?: string;
+  clientTaxNumber?: string;
   lines: InvoicePdfLine[];
   taxPercent: number;
   notes?: string;
@@ -107,6 +122,10 @@ export async function generateInvoicePdf(opts: {
     doc.text(opts.issuerPhone.trim(), 14, y);
     y += 3.5;
   }
+  if (opts.issuerTaxNumber?.trim()) {
+    doc.text(`${R("invoice_issuer_tax", "Tax ID")}: ${opts.issuerTaxNumber.trim()}`, 14, y);
+    y += 3.5;
+  }
   y += 4;
 
   doc.setFont("helvetica", "bold");
@@ -123,6 +142,10 @@ export async function generateInvoicePdf(opts: {
   }
   if (opts.clientEmail?.trim()) {
     doc.text(opts.clientEmail.trim(), 14, y);
+    y += 3.5;
+  }
+  if (opts.clientTaxNumber?.trim()) {
+    doc.text(`${R("invoice_client_fiscal", "Client tax number")}: ${opts.clientTaxNumber.trim()}`, 14, y);
     y += 3.5;
   }
   if (opts.clientProjectRef?.trim()) {
@@ -212,7 +235,12 @@ export async function generateInvoicePdf(opts: {
     }
   }
 
-  drawMachinProPdfFooter(doc, `MachinPro · machin.pro`);
+  drawMachinProPdfFooter(
+    doc,
+    `MachinPro · machin.pro`,
+    210,
+    R("invoice_footer_generated", "Generado con MachinPro · machin.pro")
+  );
 
   const slug = fileSlugCompany(opts.companyName, opts.companyId || "co");
   return {

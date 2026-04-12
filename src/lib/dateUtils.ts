@@ -119,6 +119,24 @@ export function dateLocaleForUser(language: string, countryCode: string): string
   return m[language] ?? "en-GB";
 }
 
+/** Ensures `Intl.DateTimeFormat` gets a full BCP-47 tag (month names match UI language). */
+export function normalizeIntlCalendarLocale(locale: string): string {
+  const s = (locale || "").trim();
+  if (!s) return "en-US";
+  if (s.includes("-") && s.length >= 4) return s;
+  const m: Record<string, string> = {
+    en: "en-US",
+    es: "es-ES",
+    fr: "fr-FR",
+    de: "de-DE",
+    it: "it-IT",
+    pt: "pt-PT",
+    nl: "nl-NL",
+    pl: "pl-PL",
+  };
+  return m[s.toLowerCase()] ?? "en-US";
+}
+
 function toDate(input: Date | string | number): Date {
   return input instanceof Date ? input : new Date(input);
 }

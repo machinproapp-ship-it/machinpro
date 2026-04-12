@@ -7,6 +7,13 @@ function L(labels: Record<string, string>, key: string, fallback: string): strin
   return typeof v === "string" && v.trim() ? v : fallback;
 }
 
+function asciiBarRow(label: string, value: number, max: number, width = 28): string {
+  if (max <= 0 || !Number.isFinite(value)) return `${label} ${value.toFixed(0)}`;
+  const n = Math.max(0, Math.min(width, Math.round((Math.abs(value) / max) * width)));
+  const bar = "█".repeat(n) + "░".repeat(width - n);
+  return `${label} ${bar} ${value.toFixed(0)}`;
+}
+
 export async function generateBenefitReportPdf(opts: {
   labels: Record<string, string>;
   companyName: string;
@@ -35,7 +42,7 @@ export async function generateBenefitReportPdf(opts: {
   doc.setFont("helvetica", "normal");
   doc.text(opts.companyName, 14, y);
   y += 4;
-  doc.text(`${opts.projectName}`, 14, y);
+  doc.text(opts.projectName, 14, y);
   y += 4;
   doc.text(`${R("timesheet_date_from", "From")}: ${opts.periodStart}  →  ${R("timesheet_date_to", "To")}: ${opts.periodEnd}`, 14, y);
   y += 10;
@@ -54,21 +61,59 @@ export async function generateBenefitReportPdf(opts: {
   };
 
   section(R("benefit_report_income", "Income"));
-  doc.text(`${R("benefit_report_billed_production", "Billed production (sell)")}: ${opts.currency} ${opts.income.toFixed(2)}`, 18, y);
+  doc.text(
+    `${R("benefit_report_billed_production", "Billed production (sell)")}: ${opts.currency} ${opts.income.toFixed(2)}`,
+    18,
+    y
+  );
   y += 8;
 
   section(R("benefit_report_costs", "Costs"));
-  doc.text(`${R("benefit_report_labor", "Labor (production cost)")}: ${opts.currency} ${opts.laborCost.toFixed(2)}`, 18, y);
+  doc.text(
+    `${R("benefit_labor_cost", R("benefit_report_labor", "Labor (production cost)"))}: ${opts.currency} ${opts.laborCost.toFixed(2)}`,
+    18,
+    y
+  );
   y += 4;
-  doc.text(`${R("benefit_report_materials", "Materials & tools")}: ${opts.currency} ${opts.materialsCost.toFixed(2)}`, 18, y);
+  doc.text(
+    `${R("benefit_material_cost", R("benefit_report_materials", "Materials & tools"))}: ${opts.currency} ${opts.materialsCost.toFixed(2)}`,
+    18,
+    y
+  );
   y += 4;
-  doc.text(`${R("benefit_report_rentals", "Rentals")}: ${opts.currency} ${opts.rentalsCost.toFixed(2)}`, 18, y);
+  doc.text(
+    `${R("benefit_rental_cost", R("benefit_report_rentals", "Rentals"))}: ${opts.currency} ${opts.rentalsCost.toFixed(2)}`,
+    18,
+    y
+  );
   y += 4;
-  doc.text(`${R("benefit_report_other", "Other expenses")}: ${opts.currency} ${opts.otherCost.toFixed(2)}`, 18, y);
+  doc.text(
+    `${R("benefit_other_cost", R("benefit_report_other", "Other expenses"))}: ${opts.currency} ${opts.otherCost.toFixed(2)}`,
+    18,
+    y
+  );
   y += 4;
   doc.setFont("helvetica", "bold");
   doc.text(`${R("benefit_report_total_costs", "Total costs")}: ${opts.currency} ${totalCosts.toFixed(2)}`, 18, y);
   y += 10;
+
+  const maxStack = Math.max(opts.income, totalCosts, 1);
+  section(R("benefit_report_chart_title", "Overview (ASCII)"));
+  doc.setFont("courier", "normal");
+  doc.setFontSize(7);
+  for (const ln of [
+    asciiBarRow("IN ", opts.income, maxStack),
+    asciiBarRow("LB", opts.laborCost, maxStack),
+    asciiBarRow("MT", opts.materialsCost, maxStack),
+    asciiBarRow("RT", opts.rentalsCost, maxStack),
+    asciiBarRow("OT", opts.otherCost, maxStack),
+  ]) {
+    doc.text(ln, 14, y);
+    y += 3.2;
+  }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  y += 4;
 
   section(R("benefit_report_margin", "Margin"));
   doc.text(`${R("benefit_report_gross_profit", "Gross profit")}: ${opts.currency} ${grossProfit.toFixed(2)}`, 18, y);
@@ -94,7 +139,12 @@ export async function generateBenefitReportPdf(opts: {
   }
   doc.setTextColor(0);
 
-  drawMachinProPdfFooter(doc, `MachinPro · machin.pro`);
+  drawMachinProPdfFooter(
+    doc,
+    `MachinPro · machin.pro`,
+    210,
+    R("invoice_footer_generated", "Generado con MachinPro · machin.pro")
+  );
 
   const slug = fileSlugCompany(opts.companyName, opts.companyId || "co");
   return {

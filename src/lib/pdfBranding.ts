@@ -48,14 +48,16 @@ export async function drawPdfBrandedHeader(doc: jsPDF, opts: { companyLogoUrl?: 
   return top + 22;
 }
 
-export function drawMachinProPdfFooter(doc: jsPDF, footerText: string, pageW = 210): void {
+export function drawMachinProPdfFooter(doc: jsPDF, footerText: string, pageW = 210, secondLine?: string): void {
   const n = doc.getNumberOfPages();
   for (let i = 1; i <= n; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(120);
     doc.setFont("helvetica", "normal");
-    doc.text(footerText, pageW / 2, 287, { align: "center" });
+    const y1 = secondLine ? 281 : 287;
+    doc.text(footerText, pageW / 2, y1, { align: "center" });
+    if (secondLine) doc.text(secondLine, pageW / 2, 287, { align: "center" });
     doc.setTextColor(0);
   }
 }

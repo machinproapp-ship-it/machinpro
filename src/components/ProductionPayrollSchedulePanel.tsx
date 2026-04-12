@@ -3,11 +3,16 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
 import type { PayrollPeriod } from "@/lib/payroll";
 import type { ProductionReport } from "@/lib/productionCatalog";
-import { formatTodayYmdInTimeZone } from "@/lib/dateUtils";
+import { formatTodayYmdInTimeZone, normalizeIntlCalendarLocale } from "@/lib/dateUtils";
 import { ChevronDown, ChevronRight, Download, FileText, X } from "lucide-react";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { generatePayrollPdf } from "@/lib/generatePayrollPdf";
-import { generateInvoicePdf, nextMachinProInvoiceNumber, defaultInvoiceTaxPercent } from "@/lib/generateInvoicePdf";
+import {
+  generateInvoicePdf,
+  nextMachinProInvoiceNumber,
+  peekMachinProInvoiceNumber,
+  defaultInvoiceTaxPercent,
+} from "@/lib/generateInvoicePdf";
 import { useToast } from "@/components/Toast";
 import { supabase } from "@/lib/supabase";
 import { invertProfileToLegacy } from "@/lib/laborCosting";
@@ -128,6 +133,15 @@ export function ProductionPayrollSchedulePanel({
     const t = new Date();
     return { y: t.getFullYear(), m: t.getMonth() };
   });
+
+  const intlCalLocale = useMemo(() => normalizeIntlCalendarLocale(dateLocale), [dateLocale]);
+  const monthYearLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(intlCalLocale, { month: "long", year: "numeric" }).format(
+        new Date(anchorMonth.y, anchorMonth.m, 1)
+      ),
+    [intlCalLocale, anchorMonth.y, anchorMonth.m]
+  );
   const [weekOffset, setWeekOffset] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [busyEmp, setBusyEmp] = useState<string | null>(null);
@@ -138,6 +152,7 @@ export function ProductionPayrollSchedulePanel({
   const [invProjectRef, setInvProjectRef] = useState("");
   const [invTaxPct, setInvTaxPct] = useState(String(defaultInvoiceTaxPercent(companyCountry)));
   const [invNotes, setInvNotes] = useState("");
+  const [invClientFiscal, setInvClientFiscal] = useState("");
 
   const projectNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -240,6 +255,11 @@ export function ProductionPayrollSchedulePanel({
   ]);
 
   const companyTotal = useMemo(() => rows.reduce((a, r) => a + r.amount, 0), [rows]);
+
+  const productionReportsInPeriod = useMemo(() => {
+    const { start, end } = periodBounds;
+    return productionReports.filter((r) => r.date >= start && r.date <= end).length;
+  }, [productionReports, periodBounds]);
 
   const updateReportsStatus = useCallback(
     async (reportIds: string[], status: ProductionReport["status"]) => {
@@ -388,6 +408,7 @@ export function ProductionPayrollSchedulePanel({
           clientAddress: invClientAddr.trim() || undefined,
           clientEmail: invClientEmail.trim() || undefined,
           clientProjectRef: invProjectRef.trim() || undefined,
+          clientTaxNumber: invClientFiscal.trim() || undefined,
           lines: aggregatedInvoiceLines.map((l) => ({
             description: l.description,
             unit: l.unit,
@@ -441,9 +462,7 @@ export function ProductionPayrollSchedulePanel({
               ‹
             </button>
             <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">
-              {new Intl.DateTimeFormat(dateLocale, { month: "long", year: "numeric" }).format(
-                new Date(anchorMonth.y, anchorMonth.m, 1)
-              )}
+              {monthYearLabel}
             </span>
             <button
               type="button"
@@ -515,14 +534,23 @@ export function ProductionPayrollSchedulePanel({
         </p>
       </div>
 
+      {productionReportsInPeriod === 0 ? (
+        <div className="rounded-xl border border-zinc-200 dark:border-slate-600 bg-zinc-50/80 dark:bg-slate-900/40 px-4 py-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
+          {L("payroll_no_production_reports", "Sin reportes de producción para este período")}
+        </div>
+      ) : (
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-zinc-50 dark:bg-slate-800/80 text-left text-zinc-600 dark:text-zinc-400">
             <tr>
               <th className="px-1 py-3 w-10" />
               <th className="px-3 py-3 font-medium">{L("employees", "Empleados")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("production_report_units", "Unidades")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("payroll_production_total_owed", "Importe")}</th>
+              <th className="px-3 py-3 font-medium text-right">
+                {L("payroll_production_units_total", L("production_report_units", "Unidades"))}
+              </th>
+              <th className="px-3 py-3 font-medium text-right">
+                {L("payroll_production_total_due", L("payroll_production_total_owed", "Importe"))}
+              </th>
               <th className="px-3 py-3 font-medium">{L("common_status", "Estado")}</th>
               {canManagePayroll ? <th className="px-3 py-3 font-medium">{L("common_actions", "Acciones")}</th> : null}
             </tr>
@@ -549,7 +577,7 @@ export function ProductionPayrollSchedulePanel({
                       {currency} {r.amount.toFixed(2)}
                     </td>
                     <td className="px-3 py-2">
-                      <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs capitalize">
+                      <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs">
                         {r.status === "draft"
                           ? L("payroll_status_draft", "Borrador")
                           : r.status === "approved"
@@ -612,6 +640,7 @@ export function ProductionPayrollSchedulePanel({
           </tbody>
         </table>
       </div>
+      )}
 
       {invoiceOpen ? (
         <div className="fixed inset-0 z-[10060] flex items-end justify-center sm:items-center p-4 bg-black/50">
@@ -630,6 +659,9 @@ export function ProductionPayrollSchedulePanel({
             </div>
             <p className="text-xs text-zinc-500">
               {periodBounds.start} → {periodBounds.end}
+            </p>
+            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
+              {L("invoice_preview_number", "Invoice number")}: {peekMachinProInvoiceNumber(companyId || "co")}
             </p>
             <label className="block text-xs text-zinc-500">
               {L("invoice_client_name", "Client name")}
@@ -665,7 +697,15 @@ export function ProductionPayrollSchedulePanel({
               />
             </label>
             <label className="block text-xs text-zinc-500">
-              {L("invoice_tax_rate", "Tax rate (%)")}
+              {L("invoice_client_fiscal", "Client tax number")}
+              <input
+                value={invClientFiscal}
+                onChange={(e) => setInvClientFiscal(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+              />
+            </label>
+            <label className="block text-xs text-zinc-500">
+              {L("invoice_tax_percent", L("invoice_tax_rate", "Tax (%)"))}
               <input
                 value={invTaxPct}
                 onChange={(e) => setInvTaxPct(e.target.value)}

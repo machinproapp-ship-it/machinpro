@@ -43,6 +43,7 @@ import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
 import { BindersModule } from "@/components/BindersModule";
 import { TrainingHubModule } from "@/components/TrainingHubModule";
 import { EmployeesModule } from "@/components/EmployeesModule";
+import { WorkerHub } from "@/components/WorkerHub";
 import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OnboardingModal } from "@/components/OnboardingModal";
@@ -890,7 +891,7 @@ function permissionsToModule(p: RolePermissions): ModulePermissions {
       p.canManageFormTemplates ||
       p.canApproveForms ||
       p.canExportForms,
-    formsNav: p.canViewForms,
+    formsNav: p.canViewForms || p.canFillForms,
     canSeeOnlyAssignedProjects: p.canViewOnlyAssignedProjects,
     canAccessSchedule: p.canViewSchedule || p.canViewTimeclock || p.canViewPayroll,
     canCreateShifts: p.canCreateShifts,
@@ -2133,7 +2134,6 @@ export default function Home() {
             let hourlyRate: number | undefined;
             let monthlySalary: number | undefined;
             const payAmt = row.pay_amount != null ? Number(row.pay_amount) : undefined;
-            if (payType === "hourly" && payAmt != null && Number.isFinite(payAmt)) hourlyRate = payAmt;
             if (payType === "salary" && payAmt != null && Number.isFinite(payAmt)) monthlySalary = payAmt;
             let laborHourlyRate: number | null | undefined;
             const hrRaw = row.hourly_rate;
@@ -2141,6 +2141,25 @@ export default function Home() {
               const hn = typeof hrRaw === "number" ? hrRaw : Number(hrRaw);
               if (Number.isFinite(hn) && hn > 0) laborHourlyRate = hn;
               else laborHourlyRate = null;
+            }
+            if (payType === "hourly") {
+              const fromCol =
+                hrRaw != null && hrRaw !== ""
+                  ? typeof hrRaw === "number"
+                    ? hrRaw
+                    : Number(hrRaw)
+                  : NaN;
+              const fromPay = payAmt != null ? Number(payAmt) : NaN;
+              const eff =
+                Number.isFinite(fromCol) && fromCol > 0
+                  ? fromCol
+                  : Number.isFinite(fromPay) && fromPay > 0
+                    ? fromPay
+                    : undefined;
+              if (eff != null) {
+                laborHourlyRate = eff;
+                hourlyRate = eff;
+              }
             }
             return {
               id,
@@ -6197,6 +6216,39 @@ export default function Home() {
               </>
             )}
 
+            {activeSection === "schedule" && perms.canAccessSchedule && !rolePerms.canViewCentral && rolePerms.canViewSchedule ? (
+              <WorkerHub
+                variant="schedule"
+                labels={t as Record<string, string>}
+                dateLocale={dateLocaleBcp47}
+                timeZone={userTimeZone}
+                profileId={profile?.id ?? null}
+                legacyEmployeeId={effectiveEmployeeId ?? null}
+                userAuthId={user?.id ?? null}
+                scheduleEntries={scheduleEntries}
+                projects={visibleProjects.map((p) => ({ id: p.id, name: p.name }))}
+                clockEntries={displayClockEntries.map((c) => ({
+                  id: c.id,
+                  employeeId: c.employeeId,
+                  date: c.date,
+                  clockIn: c.clockIn,
+                  clockOut: c.clockOut,
+                  projectId: c.projectId,
+                }))}
+                formInstances={formInstances}
+                formTemplates={formTemplates}
+                projectTasks={projectTasks}
+                canViewSchedule={!!rolePerms.canViewSchedule}
+                canFillForms={!!rolePerms.canFillForms}
+                canReportProduction={!!rolePerms.canReportProduction}
+                onNavigate={(s) => setActiveSection(s)}
+                onOpenFormInstance={(id) => {
+                  setFormsOpenFillInstanceId(id);
+                  setActiveSection("forms");
+                }}
+              />
+            ) : null}
+
             {activeSection === "schedule" && perms.canAccessSchedule && (
               <>
               <ScheduleModule
@@ -6245,6 +6297,53 @@ export default function Home() {
                   payroll_title: (t as Record<string, string>).payroll_title ?? "Nóminas",
                   payroll_pay_toggle_hours: (t as Record<string, string>).payroll_pay_toggle_hours,
                   payroll_pay_toggle_production: (t as Record<string, string>).payroll_pay_toggle_production,
+                  payroll_period_weekly: (t as Record<string, string>).payroll_period_weekly,
+                  payroll_period_biweekly: (t as Record<string, string>).payroll_period_biweekly,
+                  payroll_period_monthly: (t as Record<string, string>).payroll_period_monthly,
+                  payroll_gross: (t as Record<string, string>).payroll_gross,
+                  payroll_deductions: (t as Record<string, string>).payroll_deductions,
+                  payroll_net: (t as Record<string, string>).payroll_net,
+                  payroll_status_draft: (t as Record<string, string>).payroll_status_draft,
+                  payroll_status_approved: (t as Record<string, string>).payroll_status_approved,
+                  payroll_status_paid: (t as Record<string, string>).payroll_status_paid,
+                  payroll_approve: (t as Record<string, string>).payroll_approve,
+                  payroll_mark_paid: (t as Record<string, string>).payroll_mark_paid,
+                  payroll_export_csv: (t as Record<string, string>).payroll_export_csv,
+                  payroll_export_pdf: (t as Record<string, string>).payroll_export_pdf,
+                  payroll_export_pdf_btn: (t as Record<string, string>).payroll_export_pdf_btn,
+                  payroll_no_rate: (t as Record<string, string>).payroll_no_rate,
+                  payroll_employer_cost: (t as Record<string, string>).payroll_employer_cost,
+                  payroll_deduction_employer_tag: (t as Record<string, string>).payroll_deduction_employer_tag,
+                  payroll_orientative_note: (t as Record<string, string>).payroll_orientative_note,
+                  payroll_based_on_production: (t as Record<string, string>).payroll_based_on_production,
+                  payroll_production_total_owed: (t as Record<string, string>).payroll_production_total_owed,
+                  payroll_production_task: (t as Record<string, string>).payroll_production_task,
+                  payroll_production_task_breakdown: (t as Record<string, string>).payroll_production_task_breakdown,
+                  payroll_production_export_pdf: (t as Record<string, string>).payroll_production_export_pdf,
+                  payroll_production_company_total: (t as Record<string, string>).payroll_production_company_total,
+                  payroll_production_no_tasks: (t as Record<string, string>).payroll_production_no_tasks,
+                  production_report_units: (t as Record<string, string>).production_report_units,
+                  payroll_no_production_reports: (t as Record<string, string>).payroll_no_production_reports,
+                  payroll_production_total_due: (t as Record<string, string>).payroll_production_total_due,
+                  payroll_production_units_total: (t as Record<string, string>).payroll_production_units_total,
+                  invoice_generate: (t as Record<string, string>).invoice_generate,
+                  invoice_generate_period: (t as Record<string, string>).invoice_generate_period,
+                  invoice_client_name: (t as Record<string, string>).invoice_client_name,
+                  invoice_client_address: (t as Record<string, string>).invoice_client_address,
+                  invoice_client_email: (t as Record<string, string>).invoice_client_email,
+                  invoice_client_project_ref: (t as Record<string, string>).invoice_client_project_ref,
+                  invoice_tax_rate: (t as Record<string, string>).invoice_tax_rate,
+                  invoice_tax_percent: (t as Record<string, string>).invoice_tax_percent,
+                  invoice_notes: (t as Record<string, string>).invoice_notes,
+                  invoice_no_lines: (t as Record<string, string>).invoice_no_lines,
+                  invoice_client: (t as Record<string, string>).invoice_client,
+                  invoice_client_fiscal: (t as Record<string, string>).invoice_client_fiscal,
+                  invoice_preview_number: (t as Record<string, string>).invoice_preview_number,
+                  invoice_footer_generated: (t as Record<string, string>).invoice_footer_generated,
+                  invoice_issuer_tax: (t as Record<string, string>).invoice_issuer_tax,
+                  common_cancel: (t as Record<string, string>).common_cancel,
+                  toast_saved: (t as Record<string, string>).toast_saved,
+                  toast_error: (t as Record<string, string>).toast_error,
                   clock_tab: (t as Record<string, string>).clock_tab,
                   schedule_tab_calendar: (t as Record<string, string>).schedule_tab_calendar,
                   shift: (t as Record<string, string>).shift ?? "Turno",
@@ -6501,6 +6600,39 @@ export default function Home() {
                 />
               </>
             )}
+
+            {activeSection === "forms" && perms.forms && !rolePerms.canViewCentral && !rolePerms.canViewSchedule && rolePerms.canFillForms ? (
+              <WorkerHub
+                variant="forms"
+                labels={t as Record<string, string>}
+                dateLocale={dateLocaleBcp47}
+                timeZone={userTimeZone}
+                profileId={profile?.id ?? null}
+                legacyEmployeeId={effectiveEmployeeId ?? null}
+                userAuthId={user?.id ?? null}
+                scheduleEntries={scheduleEntries}
+                projects={visibleProjects.map((p) => ({ id: p.id, name: p.name }))}
+                clockEntries={displayClockEntries.map((c) => ({
+                  id: c.id,
+                  employeeId: c.employeeId,
+                  date: c.date,
+                  clockIn: c.clockIn,
+                  clockOut: c.clockOut,
+                  projectId: c.projectId,
+                }))}
+                formInstances={formInstances}
+                formTemplates={formTemplates}
+                projectTasks={projectTasks}
+                canViewSchedule={!!rolePerms.canViewSchedule}
+                canFillForms={!!rolePerms.canFillForms}
+                canReportProduction={!!rolePerms.canReportProduction}
+                onNavigate={(s) => setActiveSection(s)}
+                onOpenFormInstance={(id) => {
+                  setFormsOpenFillInstanceId(id);
+                  setActiveSection("forms");
+                }}
+              />
+            ) : null}
 
             {activeSection === "forms" && perms.forms && (
               <>
@@ -7812,6 +7944,7 @@ export default function Home() {
           onSkip={() => setProductTourRun(false)}
           onNavigate={(section) => setActiveSection(section as MainSection)}
           onOpenMobileNav={() => setMobileNavOpen(true)}
+          onCloseMobileNav={() => setMobileNavOpen(false)}
           t={t as Record<string, string>}
           companyName={companyName || profile?.companyName || ""}
         />

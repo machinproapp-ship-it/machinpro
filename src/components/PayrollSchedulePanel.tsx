@@ -13,7 +13,7 @@ import {
 import { hoursWorkedFromClockFields, invertProfileToLegacy } from "@/lib/laborCosting";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { generatePayrollPdf } from "@/lib/generatePayrollPdf";
-import { formatTodayYmdInTimeZone } from "@/lib/dateUtils";
+import { formatTodayYmdInTimeZone, normalizeIntlCalendarLocale } from "@/lib/dateUtils";
 import { useToast } from "@/components/Toast";
 
 type RowStatus = "draft" | "approved" | "paid";
@@ -114,6 +114,15 @@ export function PayrollSchedulePanel({
     const t = new Date();
     return { y: t.getFullYear(), m: t.getMonth() };
   });
+
+  const intlCalLocale = useMemo(() => normalizeIntlCalendarLocale(dateLocale), [dateLocale]);
+  const monthYearLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(intlCalLocale, { month: "long", year: "numeric" }).format(
+        new Date(anchorMonth.y, anchorMonth.m, 1)
+      ),
+    [intlCalLocale, anchorMonth.y, anchorMonth.m]
+  );
   const [weekOffset, setWeekOffset] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [statusByEmp, setStatusByEmp] = useState<Record<string, RowStatus>>({});
@@ -278,9 +287,9 @@ export function PayrollSchedulePanel({
             onChange={(e) => setPeriodType(e.target.value as PayrollPeriod)}
             className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px] min-w-[160px]"
           >
-            <option value="weekly">{L("payroll_period_weekly", "Semanal")}</option>
-            <option value="biweekly">{L("payroll_period_biweekly", "Quincenal")}</option>
-            <option value="monthly">{L("payroll_period_monthly", "Mensual")}</option>
+            <option value="weekly">{L("payroll_period_weekly", "Weekly")}</option>
+            <option value="biweekly">{L("payroll_period_biweekly", "Biweekly")}</option>
+            <option value="monthly">{L("payroll_period_monthly", "Monthly")}</option>
           </select>
         </div>
         {periodType === "monthly" ? (
@@ -294,11 +303,7 @@ export function PayrollSchedulePanel({
             >
               ‹
             </button>
-            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">
-              {new Intl.DateTimeFormat(dateLocale, { month: "long", year: "numeric" }).format(
-                new Date(anchorMonth.y, anchorMonth.m, 1)
-              )}
-            </span>
+            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">{monthYearLabel}</span>
             <button
               type="button"
               className="min-h-[44px] min-w-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 px-2"

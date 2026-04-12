@@ -862,19 +862,25 @@ export function EmployeesModule({
       pay_amount:
         payType === "unspecified" ||
         payType === "production" ||
+        payType === "hourly" ||
         payAmount == null ||
         Number.isNaN(payAmount as number)
           ? null
           : payAmount,
       pay_currency:
-        payType === "unspecified" || payType === "production"
+        payType === "unspecified" || payType === "production" || payType === "hourly"
           ? null
           : (draft.pay_currency ?? selected.pay_currency ?? "CAD") || null,
       pay_period:
-        payType === "unspecified" || payType === "production"
+        payType === "unspecified" || payType === "production" || payType === "hourly"
           ? null
           : (draft.pay_period ?? selected.pay_period ?? "monthly") || null,
-      hourly_rate: payType === "production" ? null : coercePayAmount(draft.hourly_rate),
+      hourly_rate:
+        payType === "production"
+          ? null
+          : payType === "fixed"
+            ? null
+            : coercePayAmount(draft.hourly_rate),
     };
     const { error } = await supabase.from("user_profiles").update(payload).eq("id", selected.id);
     setSaving(false);
@@ -1856,17 +1862,23 @@ export function EmployeesModule({
                 <span className="text-zinc-500">{tl.employees_payment_type ?? ""}</span>
                 <select
                   value={draft.pay_type ?? "unspecified"}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const v = e.target.value;
                     setDraft((d) => ({
                       ...d,
-                      pay_type: e.target.value,
+                      pay_type: v,
                       pay_amount:
-                        e.target.value === "unspecified" || e.target.value === "production"
+                        v === "unspecified" || v === "production" || v === "hourly"
                           ? null
                           : d.pay_amount ?? selected.pay_amount ?? null,
-                      hourly_rate: e.target.value === "production" ? null : d.hourly_rate,
-                    }))
-                  }
+                      hourly_rate:
+                        v === "production" || v === "fixed"
+                          ? null
+                          : v === "hourly"
+                            ? d.hourly_rate ?? selected.hourly_rate ?? null
+                            : d.hourly_rate,
+                    }));
+                  }}
                   className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
                 >
                   <option value="unspecified">{tl.employees_pay_type_unspecified ?? ""}</option>
@@ -1884,77 +1896,79 @@ export function EmployeesModule({
               draft.pay_type !== "unspecified" &&
               draft.pay_type !== "production" ? (
                 <>
-                  <label className="block text-sm">
-                    <span className="text-zinc-500">
-                      {draft.pay_type === "fixed" ? tl.employees_fixed_salary ?? "" : tl.employees_hourly_rate ?? ""}
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={draft.pay_amount ?? ""}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          pay_amount: e.target.value === "" ? null : parseFloat(e.target.value),
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                    />
-                  </label>
-                  <label className="block text-sm sm:col-span-2">
-                    <span className="text-zinc-500">
-                      {tl.employee_hourly_rate_label ?? tl.hourly_rate ?? ""} ({defaultPayCurrency})
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={draft.hourly_rate ?? ""}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          hourly_rate: e.target.value === "" ? null : parseFloat(e.target.value),
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                    />
-                    <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                      {tl.employees_labor_rate_hint ?? ""}
-                    </span>
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-zinc-500">{tl.employees_currency ?? ""}</span>
-                    <select
-                      value={draft.pay_currency ?? "CAD"}
-                      onChange={(e) => setDraft((d) => ({ ...d, pay_currency: e.target.value }))}
-                      className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                    >
-                      {PAY_CURRENCIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                   {draft.pay_type === "fixed" ? (
                     <label className="block text-sm sm:col-span-2">
-                      <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
-                      <select
-                        value={draft.pay_period ?? "monthly"}
+                      <span className="text-zinc-500">
+                        {tl.employees_fixed_salary ?? tl.salary_amount_label ?? ""} ({defaultPayCurrency ?? "CAD"})
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={draft.pay_amount ?? ""}
                         onChange={(e) =>
                           setDraft((d) => ({
                             ...d,
-                            pay_period: e.target.value as ProfileRow["pay_period"],
+                            pay_amount: e.target.value === "" ? null : parseFloat(e.target.value),
                           }))
                         }
                         className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
-                      >
-                        <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
-                        <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
-                        <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
-                      </select>
+                      />
                     </label>
+                  ) : (
+                    <label className="block text-sm sm:col-span-2">
+                      <span className="text-zinc-500">
+                        {tl.employee_hourly_rate_label ?? tl.hourly_rate ?? ""} ({defaultPayCurrency ?? "CAD"})
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={draft.hourly_rate ?? ""}
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            hourly_rate: e.target.value === "" ? null : parseFloat(e.target.value),
+                          }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                      />
+                    </label>
+                  )}
+                  {draft.pay_type === "fixed" ? (
+                    <>
+                      <label className="block text-sm">
+                        <span className="text-zinc-500">{tl.employees_currency ?? ""}</span>
+                        <select
+                          value={draft.pay_currency ?? "CAD"}
+                          onChange={(e) => setDraft((d) => ({ ...d, pay_currency: e.target.value }))}
+                          className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                        >
+                          {PAY_CURRENCIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-sm sm:col-span-2">
+                        <span className="text-zinc-500">{tl.employees_pay_period ?? ""}</span>
+                        <select
+                          value={draft.pay_period ?? "monthly"}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              pay_period: e.target.value as ProfileRow["pay_period"],
+                            }))
+                          }
+                          className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                        >
+                          <option value="monthly">{tl.pay_period_monthly ?? ""}</option>
+                          <option value="biweekly">{tl.pay_period_biweekly ?? ""}</option>
+                          <option value="weekly">{tl.pay_period_weekly ?? ""}</option>
+                        </select>
+                      </label>
+                    </>
                   ) : null}
                 </>
               ) : null}

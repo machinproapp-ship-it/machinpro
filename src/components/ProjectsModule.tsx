@@ -94,7 +94,12 @@ import {
   type ProductionReport,
   effectivePrices,
 } from "@/lib/productionCatalog";
-import { generateInvoicePdf, nextMachinProInvoiceNumber, defaultInvoiceTaxPercent } from "@/lib/generateInvoicePdf";
+import {
+  generateInvoicePdf,
+  nextMachinProInvoiceNumber,
+  peekMachinProInvoiceNumber,
+  defaultInvoiceTaxPercent,
+} from "@/lib/generateInvoicePdf";
 import { generateBenefitReportPdf } from "@/lib/generateBenefitReportPdf";
 import { generateWorkOrderPdf } from "@/lib/generateWorkOrderPdf";
 import { fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
@@ -742,6 +747,7 @@ export function ProjectsModule({
   const [costInvoiceProjectRef, setCostInvoiceProjectRef] = useState("");
   const [costInvoiceTax, setCostInvoiceTax] = useState("");
   const [costInvoiceNotes, setCostInvoiceNotes] = useState("");
+  const [costInvoiceClientFiscal, setCostInvoiceClientFiscal] = useState("");
   const [benefitOpen, setBenefitOpen] = useState(false);
   const [benefitStart, setBenefitStart] = useState("");
   const [benefitEnd, setBenefitEnd] = useState("");
@@ -4001,6 +4007,7 @@ export function ProjectsModule({
                             setCostInvoiceEnd(today);
                             setCostInvoiceTax(String(defaultInvoiceTaxPercent(countryCode)));
                             setCostInvoiceProjectRef(selectedProject?.name ?? "");
+                            setCostInvoiceClientFiscal("");
                             setCostInvoiceOpen(true);
                           }}
                           className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-950 dark:text-amber-100"
@@ -4219,6 +4226,10 @@ export function ProjectsModule({
                             <X className="h-5 w-5" />
                           </button>
                         </div>
+                        <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
+                          {tl.invoice_preview_number ?? "Invoice number"}:{" "}
+                          {peekMachinProInvoiceNumber(companyId || "co")}
+                        </p>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <label className="block text-xs text-zinc-500">
                             {tl.timesheet_date_from ?? "From"}
@@ -4273,7 +4284,15 @@ export function ProjectsModule({
                           />
                         </label>
                         <label className="block text-xs text-zinc-500">
-                          {tl.invoice_tax_rate ?? "Tax rate (%)"}
+                          {tl.invoice_client_fiscal ?? "Client tax number"}
+                          <input
+                            value={costInvoiceClientFiscal}
+                            onChange={(e) => setCostInvoiceClientFiscal(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                          />
+                        </label>
+                        <label className="block text-xs text-zinc-500">
+                          {tl.invoice_tax_percent ?? tl.invoice_tax_rate ?? "Tax (%)"}
                           <input
                             value={costInvoiceTax}
                             onChange={(e) => setCostInvoiceTax(e.target.value)}
@@ -4354,6 +4373,7 @@ export function ProjectsModule({
                                     clientAddress: costInvoiceClientAddr.trim() || undefined,
                                     clientEmail: costInvoiceClientEmail.trim() || undefined,
                                     clientProjectRef: costInvoiceProjectRef.trim() || undefined,
+                                    clientTaxNumber: costInvoiceClientFiscal.trim() || undefined,
                                     lines: lines.map((l) => ({
                                       description: l.description,
                                       unit: l.unit,
@@ -4459,7 +4479,12 @@ export function ProjectsModule({
                                   )
                                   .reduce((a, e) => a + (Number.isFinite(e.amount) ? e.amount : 0), 0);
                                 const rentalsCost = rentals
-                                  .filter((r) => r.projectId === selectedProject.id)
+                                  .filter((r) => {
+                                    if (r.projectId !== selectedProject.id) return false;
+                                    const rd = (r.returnDate ?? "").trim();
+                                    if (!rd) return true;
+                                    return rd >= benefitStart && rd <= benefitEnd;
+                                  })
                                   .reduce(
                                     (a, r) =>
                                       a +

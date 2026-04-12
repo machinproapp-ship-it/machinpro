@@ -15,6 +15,8 @@ export type ProductTourProps = {
   onNavigate: (section: string) => void;
   /** Opens the mobile nav drawer so sidebar targets exist in the DOM (< lg). */
   onOpenMobileNav?: () => void;
+  /** Closes the drawer when the tour ends (mobile). */
+  onCloseMobileNav?: () => void;
   t: Record<string, string>;
   companyName?: string;
 };
@@ -27,6 +29,7 @@ export function ProductTour({
   onSkip,
   onNavigate,
   onOpenMobileNav,
+  onCloseMobileNav,
   t,
   companyName: _companyName,
 }: ProductTourProps) {
@@ -116,6 +119,14 @@ export function ProductTour({
 
       if (type === EVENTS.STEP_BEFORE && narrow && i >= 1 && i <= 4) {
         onOpenMobileNav?.();
+        window.setTimeout(() => onOpenMobileNav?.(), 120);
+      }
+
+      if (type === EVENTS.STEP_AFTER && action === ACTIONS.NEXT && narrow && typeof index === "number") {
+        if (index >= 0 && index <= 3) {
+          onOpenMobileNav?.();
+          window.setTimeout(() => onOpenMobileNav?.(), 0);
+        }
       }
 
       if (type === EVENTS.STEP_AFTER && action === ACTIONS.NEXT) {
@@ -138,6 +149,7 @@ export function ProductTour({
       }
 
       if (type === EVENTS.TOUR_END) {
+        onCloseMobileNav?.();
         try {
           localStorage.setItem("machinpro_tour_completed", "true");
         } catch {
@@ -150,7 +162,7 @@ export function ProductTour({
         }
       }
     },
-    [narrow, onComplete, onNavigate, onOpenMobileNav, onSkip]
+    [narrow, onComplete, onCloseMobileNav, onNavigate, onOpenMobileNav, onSkip]
   );
 
   const locale = useMemo(
