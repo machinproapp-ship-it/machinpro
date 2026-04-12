@@ -7811,6 +7811,7 @@ export default function Home() {
           onComplete={() => setProductTourRun(false)}
           onSkip={() => setProductTourRun(false)}
           onNavigate={(section) => setActiveSection(section as MainSection)}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
           t={t as Record<string, string>}
           companyName={companyName || profile?.companyName || ""}
         />

@@ -1,16 +1,20 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ACTIONS, EVENTS, STATUS, type EventData, type Step } from "react-joyride";
 
 const Joyride = dynamic(() => import("react-joyride").then((m) => m.Joyride), { ssr: false });
+
+const MOBILE_MAX_PX = 1024;
 
 export type ProductTourProps = {
   run: boolean;
   onComplete?: () => void;
   onSkip?: () => void;
   onNavigate: (section: string) => void;
+  /** Opens the mobile nav drawer so sidebar targets exist in the DOM (< lg). */
+  onOpenMobileNav?: () => void;
   t: Record<string, string>;
   companyName?: string;
 };
@@ -22,12 +26,24 @@ export function ProductTour({
   onComplete,
   onSkip,
   onNavigate,
+  onOpenMobileNav,
   t,
   companyName: _companyName,
 }: ProductTourProps) {
   void _companyName;
 
-  const steps: Step[] = useMemo(
+  const [narrow, setNarrow] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      setNarrow(typeof window !== "undefined" && window.innerWidth < MOBILE_MAX_PX);
+    };
+    update();
+    window.addEventListener("resize", update, { passive: true });
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  const baseSteps: Step[] = useMemo(
     () => [
       {
         target: "#dashboard-management-cards",
@@ -83,9 +99,24 @@ export function ProductTour({
     [t]
   );
 
+  const steps: Step[] = useMemo(() => {
+    if (!narrow) return baseSteps;
+    return baseSteps.map((step, i) => {
+      if (i >= 1 && i <= 4) {
+        return { ...step, target: "body", placement: "center" as const };
+      }
+      return step;
+    });
+  }, [baseSteps, narrow]);
+
   const handleEvent = useCallback(
     (data: EventData) => {
       const { action, index, type, status } = data;
+      const i = typeof index === "number" ? index : -1;
+
+      if (type === EVENTS.STEP_BEFORE && narrow && i >= 1 && i <= 4) {
+        onOpenMobileNav?.();
+      }
 
       if (type === EVENTS.STEP_AFTER && action === ACTIONS.NEXT) {
         switch (index) {
@@ -119,7 +150,7 @@ export function ProductTour({
         }
       }
     },
-    [onComplete, onNavigate, onSkip]
+    [narrow, onComplete, onNavigate, onOpenMobileNav, onSkip]
   );
 
   const locale = useMemo(

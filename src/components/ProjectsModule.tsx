@@ -944,6 +944,7 @@ export function ProjectsModule({
       showProjectCostsTab,
       canViewWorkOrders,
       showProjectMapTab,
+      companyId,
     ]
   );
 
@@ -1630,7 +1631,7 @@ export function ProjectsModule({
           );
         return (
           <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 min-w-0">
-            <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto px-4 sm:px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0">
+            <div className="flex w-full min-w-0 max-w-full flex-wrap gap-0 px-4 sm:px-6">
             {TABS.filter((tab) => projectTabAllowed(tab.id)).map((tab) => {
               const label =
                 tab.id === "general"
@@ -1661,7 +1662,9 @@ export function ProjectsModule({
                   : tab.id === "work_order"
                     ? (t as Record<string, string>).work_order_title ?? "Work Order"
                   : tab.id === "mapa"
-                    ? (t as Record<string, string>).tab_map ?? PM_EN.tab_map
+                    ? (t as Record<string, string>).map ??
+                      (t as Record<string, string>).tab_map ??
+                      PM_EN.tab_map
                   : "";
               const badge =
                 tab.id === "galeria" && pendingObraPhotos.length > 0 && canApprove

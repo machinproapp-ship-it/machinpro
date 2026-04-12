@@ -22,12 +22,13 @@ export interface ModuleHelpFabProps {
 export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleHelpFabProps) {
   const [open, setOpen] = useState(false);
   const L = (k: string, fb: string) => labels[k] ?? fb;
-  const p = `help_mod_${moduleKey}`;
-  const title = L(`${p}_title`, "");
-  const body = L(`${p}_body`, "");
-  const a1 = L(`${p}_action1`, "");
-  const a2 = L(`${p}_action2`, "");
-  const a3 = L(`${p}_action3`, "");
+  const mod = `help_module_${moduleKey}`;
+  const leg = `help_mod_${moduleKey}`;
+  const title = L(mod, L(`${leg}_title`, ""));
+  const body = L(`${mod}_desc`, L(`${leg}_body`, ""));
+  const a1 = L(`${mod}_1`, L(`${leg}_action1`, ""));
+  const a2 = L(`${mod}_2`, L(`${leg}_action2`, ""));
+  const a3 = L(`${mod}_3`, L(`${leg}_action3`, ""));
 
   return (
     <>
@@ -58,7 +59,7 @@ export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleH
           >
             <div className="mb-3 flex items-start justify-between gap-2">
               <h2 id={`module-help-title-${moduleKey}`} className="text-base font-semibold text-zinc-900 dark:text-white">
-                {title}
+                {title || L("help_module_button", "Help")}
               </h2>
               <button
                 type="button"

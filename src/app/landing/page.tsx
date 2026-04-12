@@ -305,7 +305,7 @@ export default function LandingPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header
         className={`sticky top-0 z-50 transition-colors duration-300 ${
           navSolid
@@ -695,7 +695,7 @@ export default function LandingPage() {
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
               {tx("landing_usecase_title", "")}
             </h2>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
+            <div className="mt-10 grid grid-cols-1 gap-6 min-w-0 md:grid-cols-3">
               {(
                 [
                   { Icon: HardHat, titleKey: "landing_usecase_contractor_title", descKey: "landing_usecase_contractor_desc", featKey: "landing_usecase_contractor_features" },
@@ -734,7 +734,7 @@ export default function LandingPage() {
             <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
               {tx("landing_features_heading", "")}
             </h2>
-            <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <div className="mt-10 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               {(["central", "operations", "schedule", "logistics", "security", "forms"] as const).map((id) => (
                 <div
                   key={id}
