@@ -1261,7 +1261,7 @@ export function EmployeesModule({
                 ? tl.pay_period_weekly ?? ""
                 : ""
           : "";
-      const missingRate = pt === "fixed" ? payAmt == null : payAmt == null && laborHr == null;
+      const missingRate = pt === "fixed" ? payAmt == null : laborHr == null;
       if (missingRate) {
         return (
           <div className="space-y-3">
@@ -1293,20 +1293,12 @@ export function EmployeesModule({
             <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{typeLabel}</dd>
           </div>
           {pt === "hourly" ? (
-            <>
-              <div>
-                <dt className="text-xs text-zinc-500">{tl.salary_amount_label ?? tl.employee_salary_label ?? ""}</dt>
-                <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {payAmt != null ? `${payAmt} ${cur}` : tl.common_dash ?? "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-zinc-500">{tl.employee_hourly_rate_label ?? tl.hourly_rate ?? ""}</dt>
-                <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {laborHr != null ? `${laborHr} ${defaultPayCurrency}` : tl.common_dash ?? "—"}
-                </dd>
-              </div>
-            </>
+            <div>
+              <dt className="text-xs text-zinc-500">{tl.employee_hourly_rate_label ?? tl.hourly_rate ?? ""}</dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                {laborHr != null ? `${laborHr} ${(defaultPayCurrency ?? cur).trim() || "CAD"}` : tl.common_dash ?? "—"}
+              </dd>
+            </div>
           ) : (
             <div>
               <dt className="text-xs text-zinc-500">{tl.salary_amount_label ?? tl.employee_salary_label ?? ""}</dt>
