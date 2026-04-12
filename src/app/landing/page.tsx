@@ -765,6 +765,12 @@ export default function LandingPage() {
                 >
                   {tx("landing_footer_contact_link", "Contact")}
                 </button>
+                <Link
+                  href="/help"
+                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
+                >
+                  {tx("landing_footer_help", "Help center")}
+                </Link>
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-slate-900 dark:text-white">{tx("landing_footer_legal", "Legal")}</p>

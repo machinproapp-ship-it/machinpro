@@ -2148,7 +2148,7 @@ function CentralDashboardBody(
       ) : null}
 
       {showZone1 ? (
-        <>
+        <section id="dashboard-management-cards" className="scroll-mt-24">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
           <div className="mb-6 grid min-w-0 grid-cols-2 gap-3 md:gap-6 items-stretch">
             {(
@@ -2263,22 +2263,22 @@ function CentralDashboardBody(
                 ))
             )}
           </div>
-        </>
+        </section>
       ) : null}
 
       {canViewDashboardWidgets ? (
         <>
-      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
-      <div className="grid grid-cols-1 gap-3 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense">
-        {(() => {
-          const opsIds = orderedVisibleWidgets.filter(canShowWidget);
-          return opsIds.map((id, index) => (
-            <div key={id} className={`min-w-0 ${mdColSpanForOperationsWidget(opsIds, index)}`}>
-              {renderWidget(id)}
-            </div>
-          ));
-        })()}
-      </div>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
+          <div className="grid grid-cols-1 gap-3 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense">
+            {(() => {
+              const opsIds = orderedVisibleWidgets.filter(canShowWidget);
+              return opsIds.map((id, index) => (
+                <div key={id} className={`min-w-0 ${mdColSpanForOperationsWidget(opsIds, index)}`}>
+                  {renderWidget(id)}
+                </div>
+              ));
+            })()}
+          </div>
         </>
       ) : null}
 

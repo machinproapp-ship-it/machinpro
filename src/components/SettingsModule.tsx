@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import {
   Sliders,
@@ -1246,6 +1247,12 @@ export function SettingsModule({
                 {tl.helpAndTutorials ?? ""}
               </h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-prose">{tl.helpSectionIntro ?? ""}</p>
+              <Link
+                href={`/help?lang=${language}`}
+                className="inline-flex min-h-[44px] items-center text-sm font-semibold text-orange-600 dark:text-orange-400 hover:underline"
+              >
+                {tl.help_center_link ?? "Centro de ayuda (machin.pro/help)"}
+              </Link>
 
               <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4 space-y-4">
                 <div>

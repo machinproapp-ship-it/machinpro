@@ -14,6 +14,23 @@ import {
 import type { MainSection, SidebarLabels } from "@/types/shared";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
+function sidebarNavDomId(id: MainSection): string | undefined {
+  switch (id) {
+    case "site":
+      return "operations-nav-item";
+    case "schedule":
+      return "schedule-nav-item";
+    case "warehouse":
+      return "logistics-nav-item";
+    case "security":
+      return "security-nav-item";
+    case "settings":
+      return "settings-nav-item";
+    default:
+      return undefined;
+  }
+}
+
 type NavItem = {
   id: MainSection;
   icon: typeof Building2;
@@ -153,6 +170,7 @@ export function Sidebar({
             return (
               <button
                 key={item.id}
+                id={sidebarNavDomId(item.id)}
                 type="button"
                 onClick={() => navigate(item.id)}
                 className={buttonClass(item.id, isActive, itemColorClass(item.id))}
@@ -202,6 +220,7 @@ export function Sidebar({
             return (
               <button
                 key={item.id}
+                id={sidebarNavDomId(item.id)}
                 type="button"
                 onClick={() => navigate(item.id)}
                 className={buttonClass(item.id, isActive, itemColorClass(item.id))}

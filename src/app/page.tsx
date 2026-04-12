@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { BrandWordmark } from "@/components/BrandWordmark";
@@ -48,6 +49,13 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { ModuleHelpFab } from "@/components/ModuleHelpFab";
+import { BetaWelcomeModal } from "@/components/BetaWelcomeModal";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
+
+const ProductTour = dynamic(
+  () => import("@/components/ProductTour").then((mod) => ({ default: mod.ProductTour })),
+  { ssr: false }
+);
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { countOperationallyActiveProjects } from "@/lib/projectFilters";
 import { useAuth } from "@/lib/AuthContext";
@@ -2816,6 +2824,66 @@ export default function Home() {
   })();
   const effectiveEmployeeId: string | null = profile?.employeeId ?? null;
   const workerEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : null;
+
+  const skipAutoProductTourRef = useRef(false);
+  /** Evita doble programación del tour cuando el usuario pulsa «Empezar el tour» en el modal. */
+  const manualTourFromWelcomeRef = useRef(false);
+  const [betaWelcomeOpen, setBetaWelcomeOpen] = useState(false);
+  const [productTourRun, setProductTourRun] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!session || effectiveRole !== "admin") {
+      setBetaWelcomeOpen(false);
+      return;
+    }
+    try {
+      const welcomed = localStorage.getItem("machinpro_beta_welcomed") === "true";
+      setBetaWelcomeOpen(!welcomed || !onboardingComplete);
+    } catch {
+      setBetaWelcomeOpen(!onboardingComplete);
+    }
+  }, [session, effectiveRole, onboardingComplete]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!session || effectiveRole !== "admin") return;
+    if (activeSection !== "office") return;
+    try {
+      if (localStorage.getItem("machinpro_tour_completed") === "true") return;
+    } catch {
+      /* ignore */
+    }
+    if (betaWelcomeOpen) return;
+    if (skipAutoProductTourRef.current) return;
+    if (manualTourFromWelcomeRef.current) return;
+    const id = window.setTimeout(() => {
+      try {
+        if (localStorage.getItem("machinpro_tour_completed") === "true") return;
+      } catch {
+        /* ignore */
+      }
+      if (skipAutoProductTourRef.current) return;
+      if (manualTourFromWelcomeRef.current) return;
+      setProductTourRun(true);
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [session, effectiveRole, activeSection, betaWelcomeOpen]);
+
+  const handleBetaStartTour = useCallback(() => {
+    skipAutoProductTourRef.current = false;
+    manualTourFromWelcomeRef.current = true;
+    setBetaWelcomeOpen(false);
+    window.setTimeout(() => {
+      setProductTourRun(true);
+      manualTourFromWelcomeRef.current = false;
+    }, 500);
+  }, []);
+
+  const handleBetaSkipDashboard = useCallback(() => {
+    skipAutoProductTourRef.current = true;
+    setBetaWelcomeOpen(false);
+  }, []);
 
   const clearPendingOpenEmployee = useCallback(() => setPendingOpenEmployeeId(null), []);
   const clearPendingOpenBinderDocument = useCallback(() => setPendingOpenBinderDocumentId(null), []);
@@ -7723,6 +7791,31 @@ export default function Home() {
           timeZone={userTimeZone}
         />
       )}
+      {session && effectiveRole === "admin" ? (
+        <BetaWelcomeModal
+          open={betaWelcomeOpen}
+          t={t as Record<string, string>}
+          onStartTour={handleBetaStartTour}
+          onSkipToDashboard={handleBetaSkipDashboard}
+        />
+      ) : null}
+      {session && effectiveRole === "admin" ? (
+        <ProductTour
+          run={productTourRun}
+          onComplete={() => setProductTourRun(false)}
+          onSkip={() => setProductTourRun(false)}
+          t={t as Record<string, string>}
+          companyName={companyName || profile?.companyName || ""}
+        />
+      ) : null}
+      {session ? (
+        <FeedbackWidget
+          labels={t as Record<string, string>}
+          accessToken={session.access_token ?? null}
+          userId={user?.id ?? null}
+          companyId={companyId}
+        />
+      ) : null}
       <InstallPWABanner labels={t} isDark={darkMode ?? false} />
     </div>
   );
