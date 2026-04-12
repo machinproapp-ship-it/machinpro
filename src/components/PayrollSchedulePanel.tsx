@@ -10,7 +10,7 @@ import {
   type PayrollPeriod,
   type PayrollDeduction,
 } from "@/lib/payroll";
-import { hoursWorkedFromClockFields } from "@/lib/laborCosting";
+import { hoursWorkedFromClockFields, invertProfileToLegacy } from "@/lib/laborCosting";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { generatePayrollPdf } from "@/lib/generatePayrollPdf";
 import { formatTodayYmdInTimeZone } from "@/lib/dateUtils";
@@ -98,6 +98,17 @@ export function PayrollSchedulePanel({
     [employees]
   );
 
+  /** Clock rows may use legacy employees.id; roster uses user_profiles.id — merge to profile id. */
+  const legacyToProfileId = useMemo(
+    () => invertProfileToLegacy(profileToLegacyEmployeeId),
+    [profileToLegacyEmployeeId]
+  );
+
+  const rosterEmployeeIdForClock = useCallback(
+    (clockEmployeeId: string) => legacyToProfileId[clockEmployeeId] ?? clockEmployeeId,
+    [legacyToProfileId]
+  );
+
   const [periodType, setPeriodType] = useState<PayrollPeriod>("monthly");
   const [anchorMonth, setAnchorMonth] = useState(() => {
     const t = new Date();
@@ -146,7 +157,8 @@ export function PayrollSchedulePanel({
         clockOutAtIso: e.clockOutAtIso,
       });
       if (h <= 0) continue;
-      hoursByEmp.set(e.employeeId, (hoursByEmp.get(e.employeeId) ?? 0) + h);
+      const rosterId = rosterEmployeeIdForClock(e.employeeId);
+      hoursByEmp.set(rosterId, (hoursByEmp.get(rosterId) ?? 0) + h);
     }
 
     const nameById = buildEmployeeNameByClockId(uniqueEmployees, profileToLegacyEmployeeId);
@@ -189,12 +201,13 @@ export function PayrollSchedulePanel({
     currency,
     resolveRateKey,
     statusByEmp,
+    rosterEmployeeIdForClock,
   ]);
 
   const exportCsv = () => {
     if (!canExportPayroll) return;
     const hName = L("employees", "Empleados");
-    const hHours = L("timesheet_hours", L("labor_hours_worked", "Horas trabajadas"));
+    const hHours = L("timesheet_hours", "Horas trabajadas");
     const hGross = L("payroll_gross", "Bruto");
     const hNet = L("payroll_net", "Neto");
     const hSt = L("common_status", "Estado");
@@ -333,7 +346,7 @@ export function PayrollSchedulePanel({
               className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
             >
               <Download className="h-4 w-4" />
-              {L("payroll_export_pdf_btn", L("payroll_export_pdf", "Exportar PDF"))}
+              {L("payroll_export_pdf", "Exportar PDF")}
             </button>
           </div>
         ) : null}
@@ -352,9 +365,7 @@ export function PayrollSchedulePanel({
             <tr>
               <th className="px-3 py-3 font-medium w-10" />
               <th className="px-3 py-3 font-medium">{L("employees", "Empleados")}</th>
-              <th className="px-3 py-3 font-medium text-right">
-                {L("timesheet_hours", L("labor_hours_worked", "Horas trabajadas"))}
-              </th>
+              <th className="px-3 py-3 font-medium text-right">{L("timesheet_hours", "Horas trabajadas")}</th>
               <th className="px-3 py-3 font-medium text-right">{L("payroll_gross", "Bruto")}</th>
               <th className="px-3 py-3 font-medium text-right">{L("payroll_deductions", "Deducciones")}</th>
               <th className="px-3 py-3 font-medium text-right">{L("payroll_net", "Neto")}</th>
@@ -390,7 +401,7 @@ export function PayrollSchedulePanel({
                     <td className="px-3 py-2 text-right tabular-nums">{r.totalDeductions.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">{r.net.toFixed(2)}</td>
                     <td className="px-3 py-2">
-                      <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs capitalize">
+                      <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs">
                         {r.status === "draft"
                           ? L("payroll_status_draft", "Borrador")
                           : r.status === "approved"

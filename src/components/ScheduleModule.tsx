@@ -1551,6 +1551,14 @@ export default function ScheduleModule({
     !!canViewTimeclock && (Boolean(canClockIn) || Boolean(canManageEmployees));
   const showTimesheetsTab = canViewTimesheets;
   const showPayrollTab = !!canViewPayroll;
+  const payrollEmployeesForPanel = useMemo(
+    () =>
+      Array.from(new Map(employees.map((e) => [e.id, e])).values()).map((e) => ({
+        id: e.id,
+        name: e.name,
+      })),
+    [employees]
+  );
   const [payrollPayMode, setPayrollPayMode] = useState<"hours" | "production">("hours");
   const [scheduleSubTab, setScheduleSubTab] = useState<
     "calendar" | "clock" | "timesheets" | "payroll" | "vacations"
@@ -3073,7 +3081,7 @@ export default function ScheduleModule({
               dateLocale={dateLocale}
               countryCode={companyCountryForPayroll}
               currency={timesheetCostCurrency}
-              employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+              employees={payrollEmployeesForPanel}
               clockEntries={clockEntries}
               employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
               profileToLegacyEmployeeId={profileToLegacyEmployeeId}
@@ -3095,7 +3103,7 @@ export default function ScheduleModule({
               currency={timesheetCostCurrency}
               companyCountry={companyCountryForPayroll}
               companyLogoUrl={companyLogoUrl}
-              employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+              employees={payrollEmployeesForPanel}
               productionReports={productionReports}
               profileToLegacyEmployeeId={profileToLegacyEmployeeId}
               currentUserProfileId={currentUserProfileId}

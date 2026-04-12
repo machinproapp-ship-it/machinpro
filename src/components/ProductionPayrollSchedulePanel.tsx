@@ -10,6 +10,7 @@ import { generatePayrollPdf } from "@/lib/generatePayrollPdf";
 import { generateInvoicePdf, nextMachinProInvoiceNumber, defaultInvoiceTaxPercent } from "@/lib/generateInvoicePdf";
 import { useToast } from "@/components/Toast";
 import { supabase } from "@/lib/supabase";
+import { invertProfileToLegacy } from "@/lib/laborCosting";
 
 type SchedEmp = { id: string; name: string };
 
@@ -107,6 +108,21 @@ export function ProductionPayrollSchedulePanel({
   const L = (k: string, fb: string) => (lx[k] as string | undefined) || fb;
   const { showToast } = useToast();
 
+  const uniqueEmployees = useMemo(
+    () => Array.from(new Map(employees.map((e) => [e.id, e])).values()),
+    [employees]
+  );
+
+  const legacyToProfileId = useMemo(
+    () => invertProfileToLegacy(profileToLegacyEmployeeId),
+    [profileToLegacyEmployeeId]
+  );
+
+  const rosterIdForReport = useCallback(
+    (reportEmployeeId: string) => legacyToProfileId[reportEmployeeId] ?? reportEmployeeId,
+    [legacyToProfileId]
+  );
+
   const [periodType, setPeriodType] = useState<PayrollPeriod>("monthly");
   const [anchorMonth, setAnchorMonth] = useState(() => {
     const t = new Date();
@@ -147,7 +163,7 @@ export function ProductionPayrollSchedulePanel({
 
   const rows = useMemo(() => {
     const { start, end } = periodBounds;
-    const nameBy = buildNameById(employees, profileToLegacyEmployeeId);
+    const nameBy = buildNameById(uniqueEmployees, profileToLegacyEmployeeId);
 
     type Agg = {
       reportIds: string[];
@@ -160,9 +176,10 @@ export function ProductionPayrollSchedulePanel({
 
     for (const r of productionReports) {
       if (r.date < start || r.date > end) continue;
-      if (!viewAll && r.employeeId !== currentUserProfileId) continue;
+      const empKey = rosterIdForReport(r.employeeId);
+      if (!viewAll && empKey !== currentUserProfileId) continue;
       const agg =
-        byEmp.get(r.employeeId) ??
+        byEmp.get(empKey) ??
         ({
           reportIds: [],
           units: 0,
@@ -190,11 +207,11 @@ export function ProductionPayrollSchedulePanel({
         if (e.sellPrice > 0) cur.unitPrice = e.sellPrice;
         agg.taskMap.set(key, cur);
       }
-      byEmp.set(r.employeeId, agg);
+      byEmp.set(empKey, agg);
     }
 
     const ids = viewAll
-      ? [...new Set([...byEmp.keys(), ...employees.map((e) => e.id)])]
+      ? [...new Set([...byEmp.keys(), ...uniqueEmployees.map((e) => e.id)])]
       : currentUserProfileId
         ? [currentUserProfileId]
         : [];
@@ -217,8 +234,9 @@ export function ProductionPayrollSchedulePanel({
     periodBounds,
     viewAll,
     currentUserProfileId,
-    employees,
+    uniqueEmployees,
     profileToLegacyEmployeeId,
+    rosterIdForReport,
   ]);
 
   const companyTotal = useMemo(() => rows.reduce((a, r) => a + r.amount, 0), [rows]);
