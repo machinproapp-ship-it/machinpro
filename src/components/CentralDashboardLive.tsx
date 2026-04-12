@@ -367,6 +367,8 @@ export interface CentralDashboardLiveProps {
   canViewLogistics: boolean;
   canViewDashboardWidgets?: boolean;
   criticalInventoryCount?: number;
+  criticalInventoryLines?: { itemId: string; text: string }[];
+  onCriticalInventoryNavigate?: (itemId: string) => void;
   onQuickNewEmployee?: () => void;
   onQuickNewRfi?: () => void;
   onQuickNewSubcontractor?: () => void;
@@ -576,6 +578,8 @@ function CentralDashboardBody(
     canViewLogistics,
     canViewDashboardWidgets = true,
     criticalInventoryCount = 0,
+    criticalInventoryLines = [],
+    onCriticalInventoryNavigate,
     onQuickNewEmployee,
     onQuickNewRfi,
     onQuickNewSubcontractor,
@@ -2051,6 +2055,24 @@ function CentralDashboardBody(
               {title}
             </h3>
             <p className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{criticalInventoryCount}</p>
+            {criticalInventoryLines.length > 0 ? (
+              <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-gray-700 dark:text-gray-200">
+                {criticalInventoryLines.map((row) => (
+                  <li key={row.itemId}>
+                    <button
+                      type="button"
+                      className="min-h-[44px] w-full rounded-lg px-1 py-1 text-left hover:bg-gray-100 dark:hover:bg-gray-800"
+                      onClick={() => {
+                        onCriticalInventoryNavigate?.(row.itemId);
+                        onNavigateAppSection("warehouse");
+                      }}
+                    >
+                      · {row.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <button
               type="button"
               onClick={() => onNavigateAppSection("warehouse")}

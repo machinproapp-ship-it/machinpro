@@ -159,6 +159,13 @@ const BODY_EN: Record<keyof RolePermissions, string> = {
   canViewWorkOrders: "View work orders",
   canManageWorkOrders: "Manage work orders",
   canReportProduction: "Report daily production",
+  canImportInventory: "Import inventory",
+  canTransferInventory: "Transfer inventory",
+  canPrintInventoryQR: "Print QR labels",
+  canScanInventoryQR: "Scan inventory QR",
+  canViewInventoryHistory: "View movement history",
+  canManageInventoryAlerts: "Manage inventory alerts",
+  canViewInventoryReports: "View inventory reports",
 };
 
 /** FR (sprint AW-5 + coherencia con ES) */
@@ -246,6 +253,13 @@ const BODY_FR: Record<keyof RolePermissions, string> = {
   canViewWorkOrders: "Voir les bons de travail",
   canManageWorkOrders: "Gérer les bons de travail",
   canReportProduction: "Déclarer la production journalière",
+  canImportInventory: "Importer l'inventaire",
+  canTransferInventory: "Transférer l'inventaire",
+  canPrintInventoryQR: "Imprimer les étiquettes QR",
+  canScanInventoryQR: "Scanner QR inventaire",
+  canViewInventoryHistory: "Voir l'historique des mouvements",
+  canManageInventoryAlerts: "Gérer les alertes d'inventaire",
+  canViewInventoryReports: "Voir les rapports d'inventaire",
 };
 
 const BODY_DE: Record<keyof RolePermissions, string> = {
@@ -332,6 +346,13 @@ const BODY_DE: Record<keyof RolePermissions, string> = {
   canViewWorkOrders: "Arbeitsaufträge anzeigen",
   canManageWorkOrders: "Arbeitsaufträge verwalten",
   canReportProduction: "Tagesproduktion melden",
+  canImportInventory: "Inventar importieren",
+  canTransferInventory: "Inventar übertragen",
+  canPrintInventoryQR: "QR-Etiketten drucken",
+  canScanInventoryQR: "Inventar-QR scannen",
+  canViewInventoryHistory: "Bewegungshistorie anzeigen",
+  canManageInventoryAlerts: "Inventarwarnungen verwalten",
+  canViewInventoryReports: "Inventarberichte anzeigen",
 };
 
 const BODY_IT: Record<keyof RolePermissions, string> = {
@@ -418,6 +439,13 @@ const BODY_IT: Record<keyof RolePermissions, string> = {
   canViewWorkOrders: "Visualizza ordini di lavoro",
   canManageWorkOrders: "Gestisci ordini di lavoro",
   canReportProduction: "Segnala produzione giornaliera",
+  canImportInventory: "Importa inventario",
+  canTransferInventory: "Trasferisci inventario",
+  canPrintInventoryQR: "Stampa etichette QR",
+  canScanInventoryQR: "Scansiona QR inventario",
+  canViewInventoryHistory: "Visualizza storico movimenti",
+  canManageInventoryAlerts: "Gestisci avvisi inventario",
+  canViewInventoryReports: "Visualizza report inventario",
 };
 
 const BODY_PT: Record<keyof RolePermissions, string> = {
@@ -504,6 +532,13 @@ const BODY_PT: Record<keyof RolePermissions, string> = {
   canViewWorkOrders: "Ver ordens de trabalho",
   canManageWorkOrders: "Gerir ordens de trabalho",
   canReportProduction: "Reportar produção diária",
+  canImportInventory: "Importar inventário",
+  canTransferInventory: "Transferir inventário",
+  canPrintInventoryQR: "Imprimir etiquetas QR",
+  canScanInventoryQR: "Digitalizar QR inventário",
+  canViewInventoryHistory: "Ver histórico de movimentos",
+  canManageInventoryAlerts: "Gerir alertas de inventário",
+  canViewInventoryReports: "Ver relatórios de inventário",
 };
 
 export const PERMISSION_LABELS_ES = flatFromRole(GROUPS_ES, ROLE_PERMISSION_LABELS);

@@ -7,10 +7,11 @@ import { Sidebar } from "@/components/Sidebar";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import type { CentralEmployee, MainSection, UserRole } from "@/types/shared";
 import { CentralModule } from "@/components/CentralModule";
+import type { InventoryLedgerRow } from "@/types/inventoryLedger";
+import { generateInventoryQrDataUrl } from "@/lib/inventoryQr";
 import {
   LogisticsModule,
   type InventoryItem,
-  type InventoryMovement,
   type Vehicle,
   type Rental,
   type RentalEquipmentType,
@@ -613,6 +614,42 @@ const INITIAL_SCHEDULE: ScheduleEntry[] = [
 
 // ─── Datos demo: inventario, flota, alquileres, proveedores ─────────────────────
 
+const INV_LEDGER_LS_KEY = "machinpro_inventory_ledger_v1";
+
+function parseStoredInventoryLedger(raw: string | null): InventoryLedgerRow[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const out: InventoryLedgerRow[] = [];
+    for (const x of parsed) {
+      if (!x || typeof x !== "object") continue;
+      const o = x as Record<string, unknown>;
+      if (typeof o.id !== "string" || typeof o.itemId !== "string") continue;
+      const mt = o.movementType;
+      if (typeof mt !== "string") continue;
+      out.push({
+        id: o.id,
+        itemId: o.itemId,
+        itemName: typeof o.itemName === "string" ? o.itemName : undefined,
+        movementType: mt as InventoryLedgerRow["movementType"],
+        quantity: typeof o.quantity === "number" ? o.quantity : Number(o.quantity) || 0,
+        fromLocation: typeof o.fromLocation === "string" ? o.fromLocation : undefined,
+        toLocation: typeof o.toLocation === "string" ? o.toLocation : undefined,
+        fromProjectId: typeof o.fromProjectId === "string" ? o.fromProjectId : undefined,
+        toProjectId: typeof o.toProjectId === "string" ? o.toProjectId : undefined,
+        performedByProfileId: typeof o.performedByProfileId === "string" ? o.performedByProfileId : undefined,
+        performedByName: typeof o.performedByName === "string" ? o.performedByName : undefined,
+        notes: typeof o.notes === "string" ? o.notes : undefined,
+        createdAt: typeof o.createdAt === "string" ? o.createdAt : new Date().toISOString(),
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 const INITIAL_INVENTORY: InventoryItem[] = [
   { id: "inv1", name: "Cemento", type: "consumable", quantity: 120, unit: "sacos", purchasePriceCAD: 12.5 },
   { id: "inv2", name: "Varilla", type: "consumable", quantity: 80, unit: "piezas", purchasePriceCAD: 8 },
@@ -843,6 +880,13 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canManageSuppliers: true,
       canManageRentals: true,
       canCreatePurchaseOrders: true,
+      canImportInventory: true,
+      canTransferInventory: true,
+      canPrintInventoryQR: true,
+      canScanInventoryQR: true,
+      canViewInventoryHistory: true,
+      canManageInventoryAlerts: true,
+      canViewInventoryReports: true,
       canViewSchedule: true,
       canViewTimesheets: true,
       canViewLaborCosting: true,
@@ -1473,7 +1517,20 @@ export default function Home() {
       notes: string | null;
     }) => {
       if (!supabase || !companyId) {
-        return { ok: false as const, error: "Supabase unavailable" };
+        const localId = `local-pe-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        const localRow: ProjectExpenseRow = {
+          id: localId,
+          projectId: row.projectId,
+          name: row.name,
+          amount: row.amount,
+          currency: row.currency,
+          category: row.category,
+          expenseDate: row.expenseDate,
+          notes: row.notes,
+        };
+        setProjectExpenses((prev) => [localRow, ...prev]);
+        invalidateDashboardCache();
+        return { ok: true as const };
       }
       const { data, error } = await supabase
         .from("project_expenses")
@@ -1709,6 +1766,7 @@ export default function Home() {
   }, [employeeDocs]);
 
   const [warehouseSubTab, setWarehouseSubTab] = useState<WarehouseSubTabId>("inventory");
+  const [warehouseOpenInventoryId, setWarehouseOpenInventoryId] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => {
     if (typeof window === "undefined") return INITIAL_INVENTORY;
     try {
@@ -1719,7 +1777,23 @@ export default function Home() {
       return parsed;
     } catch { return INITIAL_INVENTORY; }
   });
-  const [inventoryMovements] = useState<InventoryMovement[]>([]);
+  const [inventoryMovements, setInventoryMovements] = useState<InventoryLedgerRow[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return parseStoredInventoryLedger(localStorage.getItem(INV_LEDGER_LS_KEY));
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(INV_LEDGER_LS_KEY, JSON.stringify(inventoryMovements));
+    } catch {
+      /* ignore */
+    }
+  }, [inventoryMovements]);
+
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
     const normalize = (list: Vehicle[]) =>
       list.map((v) => ({
@@ -1971,6 +2045,231 @@ export default function Home() {
   const [adjustModal, setAdjustModal] = useState<{ itemId: string; type: "add" | "remove" } | null>(null);
   const [adjustQuantity, setAdjustQuantity] = useState("");
   const [adjustNote, setAdjustNote] = useState("");
+
+  const appendInventoryLedger = useCallback(
+    (row: Omit<InventoryLedgerRow, "id"> & { id?: string }) => {
+      const id = row.id ?? `mov-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const full: InventoryLedgerRow = {
+        ...row,
+        id,
+        quantity: row.quantity ?? 0,
+        createdAt: row.createdAt ?? new Date().toISOString(),
+      };
+      setInventoryMovements((prev) => [...prev, full]);
+    },
+    []
+  );
+
+  const handleApplyAdjustment = useCallback(() => {
+    if (!adjustModal) return;
+    const qty = Math.max(0, parseFloat(String(adjustQuantity).replace(",", ".")) || 0);
+    if (qty <= 0) {
+      setAdjustModal(null);
+      setAdjustQuantity("");
+      setAdjustNote("");
+      return;
+    }
+    const item = inventoryItems.find((i) => i.id === adjustModal.itemId);
+    if (!item || item.deletedAt) {
+      setAdjustModal(null);
+      return;
+    }
+    const note = adjustNote.trim();
+    const nowIso = new Date().toISOString();
+    const isMat = item.type === "consumable" || item.type === "material";
+    const tx = t as Record<string, string>;
+    if (adjustModal.type === "add") {
+      setInventoryItems((prev) => {
+        const next = prev.map((i) =>
+          i.id === item.id ? { ...i, quantity: i.quantity + qty, lastMovementAt: nowIso } : i
+        );
+        try {
+          localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      appendInventoryLedger({
+        itemId: item.id,
+        itemName: item.name,
+        movementType: "in",
+        quantity: qty,
+        notes: note || undefined,
+        performedByProfileId: profile?.id,
+        performedByName: profile?.fullName ?? profile?.email ?? undefined,
+        createdAt: nowIso,
+      });
+    } else {
+      const newQty = Math.max(0, item.quantity - qty);
+      setInventoryItems((prev) => {
+        const next = prev.map((i) =>
+          i.id === item.id ? { ...i, quantity: newQty, lastMovementAt: nowIso } : i
+        );
+        try {
+          localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      appendInventoryLedger({
+        itemId: item.id,
+        itemName: item.name,
+        movementType: "out",
+        quantity: qty,
+        fromLocation: item.location ?? "warehouse",
+        fromProjectId: item.assignedToProjectId,
+        notes: note || undefined,
+        performedByProfileId: profile?.id,
+        performedByName: profile?.fullName ?? profile?.email ?? undefined,
+        createdAt: nowIso,
+      });
+      if (isMat && item.assignedToProjectId) {
+        const amount = Math.round(qty * item.purchasePriceCAD * 100) / 100;
+        void handleAddProjectExpense({
+          projectId: item.assignedToProjectId,
+          name: `${tx.inventory_type_material ?? "Material"}: ${item.name} (−${qty} ${item.unit})`,
+          amount,
+          currency,
+          category: "material",
+          expenseDate: nowIso.slice(0, 10),
+          notes: note || null,
+        });
+      }
+    }
+    setAdjustModal(null);
+    setAdjustQuantity("");
+    setAdjustNote("");
+  }, [
+    adjustModal,
+    adjustQuantity,
+    adjustNote,
+    inventoryItems,
+    appendInventoryLedger,
+    profile?.id,
+    profile?.fullName,
+    profile?.email,
+    handleAddProjectExpense,
+    currency,
+    t,
+  ]);
+
+  const handleInventoryTransfer = useCallback(
+    (payload: {
+      itemId: string;
+      quantity: number;
+      fromProjectId: string | null;
+      toProjectId: string | null;
+      fromLocation: string;
+      toLocation: string;
+      notes?: string | null;
+    }) => {
+      const item = inventoryItems.find((i) => i.id === payload.itemId);
+      if (!item || item.deletedAt) return;
+      const nowIso = new Date().toISOString();
+      const isTool = item.type === "tool" || item.type === "equipment";
+      const isMat = item.type === "consumable" || item.type === "material";
+      setInventoryItems((prev) => {
+        const next = prev.map((i) => {
+          if (i.id !== payload.itemId) return i;
+          let q = i.quantity;
+          if (isMat && payload.quantity > 0) {
+            q = Math.max(0, i.quantity - payload.quantity);
+          }
+          return {
+            ...i,
+            quantity: q,
+            assignedToProjectId: payload.toProjectId ?? undefined,
+            location: payload.toLocation,
+            lastMovementAt: nowIso,
+            toolStatus: isTool
+              ? payload.toProjectId
+                ? ("in_use" as ToolStatus)
+                : ("available" as ToolStatus)
+              : i.toolStatus,
+          };
+        });
+        try {
+          localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      appendInventoryLedger({
+        itemId: item.id,
+        itemName: item.name,
+        movementType: "transfer",
+        quantity: payload.quantity,
+        fromLocation: payload.fromLocation,
+        toLocation: payload.toLocation,
+        fromProjectId: payload.fromProjectId ?? undefined,
+        toProjectId: payload.toProjectId ?? undefined,
+        notes: payload.notes ?? undefined,
+        performedByProfileId: profile?.id,
+        performedByName: profile?.fullName ?? profile?.email ?? undefined,
+        createdAt: nowIso,
+      });
+      if (isMat && payload.toProjectId && payload.quantity > 0) {
+        const amount = Math.round(payload.quantity * item.purchasePriceCAD * 100) / 100;
+        const tx = t as Record<string, string>;
+        void handleAddProjectExpense({
+          projectId: payload.toProjectId,
+          name: `${tx.inventory_transfer ?? "Transfer"}: ${item.name} (${payload.quantity} ${item.unit})`,
+          amount,
+          currency,
+          category: "material",
+          expenseDate: nowIso.slice(0, 10),
+          notes: payload.notes ?? null,
+        });
+      }
+    },
+    [inventoryItems, appendInventoryLedger, profile?.id, profile?.fullName, profile?.email, currency, t, handleAddProjectExpense]
+  );
+
+  const handleBulkInventoryImport = useCallback(
+    async (items: InventoryItem[]) => {
+      if (!items.length) return;
+      const nowIso = new Date().toISOString();
+      const cid = companyId ?? "local";
+      const withQr: InventoryItem[] = [];
+      for (const it of items) {
+        let qr = it.qrCode;
+        try {
+          qr = await generateInventoryQrDataUrl({
+            companyId: cid,
+            itemId: it.id,
+            itemName: it.name,
+            type: it.type,
+          });
+        } catch {
+          /* keep existing */
+        }
+        withQr.push({ ...it, qrCode: qr, location: it.location ?? "warehouse" });
+      }
+      setInventoryItems((prev) => {
+        const next = [...prev, ...withQr];
+        try {
+          localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      for (const it of withQr) {
+        appendInventoryLedger({
+          itemId: it.id,
+          itemName: it.name,
+          movementType: "import",
+          quantity: it.quantity,
+          notes: "csv import",
+          createdAt: nowIso,
+        });
+      }
+    },
+    [appendInventoryLedger, companyId]
+  );
 
   const [projectForms, setProjectForms] = useState<ProjectForm[]>(() => {
     try {
@@ -3177,17 +3476,110 @@ export default function Home() {
     ]
   );
 
-  const criticalInventoryCount = useMemo(
-    () =>
-      inventoryItems.filter(
-        (i) =>
-          i.quantity <= 0 ||
-          (i.lowStockThreshold != null &&
-            i.lowStockThreshold > 0 &&
-            i.quantity <= i.lowStockThreshold)
-      ).length,
-    [inventoryItems]
-  );
+  const criticalInventoryCount = useMemo(() => {
+    const now = Date.now();
+    const daysFromNow = (iso?: string) => {
+      if (!iso) return null;
+      const d = new Date(`${iso}T12:00:00`);
+      if (Number.isNaN(d.getTime())) return null;
+      return Math.ceil((d.getTime() - now) / 86_400_000);
+    };
+    const daysSince = (iso?: string) => {
+      if (!iso) return null;
+      const d = new Date(`${iso}T12:00:00`);
+      if (Number.isNaN(d.getTime())) return null;
+      return Math.floor((now - d.getTime()) / 86_400_000);
+    };
+    let n = 0;
+    for (const i of inventoryItems) {
+      if (i.deletedAt) continue;
+      const isTool = i.type === "tool" || i.type === "equipment";
+      const isMat = i.type === "consumable" || i.type === "material";
+      if (isMat) {
+        if (i.quantity <= 0) {
+          n++;
+          continue;
+        }
+        if (i.lowStockThreshold != null && i.lowStockThreshold > 0 && i.quantity <= i.lowStockThreshold) {
+          n++;
+          continue;
+        }
+      }
+      if (isTool) {
+        const duM = daysFromNow(i.maintenanceDate);
+        if (duM != null && duM >= 0 && duM <= 30) {
+          n++;
+          continue;
+        }
+        if (i.insuranceDate) {
+          const ins = new Date(`${i.insuranceDate}T12:00:00`).getTime();
+          if (!Number.isNaN(ins) && ins < now) {
+            n++;
+            continue;
+          }
+        }
+        if (i.toolStatus === "in_use" && i.assignedToProjectId) {
+          const idle = daysSince(i.lastMovementAt);
+          if (idle != null && idle > 30) {
+            n++;
+          }
+        }
+      }
+    }
+    return n;
+  }, [inventoryItems]);
+
+  const dashboardCriticalInventoryLines = useMemo(() => {
+    const tx = t as Record<string, string>;
+    const now = Date.now();
+    const daysFromNow = (iso?: string) => {
+      if (!iso) return null;
+      const d = new Date(`${iso}T12:00:00`);
+      if (Number.isNaN(d.getTime())) return null;
+      return Math.ceil((d.getTime() - now) / 86_400_000);
+    };
+    const daysSince = (iso?: string) => {
+      if (!iso) return null;
+      const d = new Date(`${iso}T12:00:00`);
+      if (Number.isNaN(d.getTime())) return null;
+      return Math.floor((now - d.getTime()) / 86_400_000);
+    };
+    const lines: { itemId: string; text: string }[] = [];
+    const push = (id: string, text: string) => {
+      if (lines.length >= 10) return;
+      lines.push({ itemId: id, text });
+    };
+    for (const i of inventoryItems) {
+      if (i.deletedAt) continue;
+      const isTool = i.type === "tool" || i.type === "equipment";
+      const isMat = i.type === "consumable" || i.type === "material";
+      if (isMat && (i.quantity <= 0 || (i.lowStockThreshold != null && i.lowStockThreshold > 0 && i.quantity <= i.lowStockThreshold))) {
+        push(i.id, `${i.name} · ${i.quantity} ${i.unit} (${tx.inventory_alert_low_stock ?? "Low stock"})`);
+        continue;
+      }
+      if (isTool) {
+        const duM = daysFromNow(i.maintenanceDate);
+        if (duM != null && duM >= 0 && duM <= 30) {
+          push(i.id, `${i.name} · ${tx.inventory_alert_maintenance ?? "Maintenance due"}`);
+          continue;
+        }
+        if (i.insuranceDate) {
+          const ins = new Date(`${i.insuranceDate}T12:00:00`).getTime();
+          if (!Number.isNaN(ins) && ins < now) {
+            push(i.id, `${i.name} · ${tx.inventory_alert_insurance ?? "Insurance expired"}`);
+            continue;
+          }
+        }
+        if (i.toolStatus === "in_use" && i.assignedToProjectId) {
+          const idle = daysSince(i.lastMovementAt);
+          if (idle != null && idle > 30) {
+            push(i.id, `${i.name} · ${tx.inventory_alert_onsite_too_long ?? "On site >30d"}`);
+          }
+        }
+      }
+    }
+    return lines;
+  }, [inventoryItems, t]);
 
   const currentUserEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : effectiveRole === "supervisor" ? effectiveEmployeeId : null;
 
@@ -4376,7 +4768,9 @@ export default function Home() {
     return o;
   }, [projects, formInstances]);
 
-  const siteInventoryItems: ProjectInventoryItem[] = (inventoryItems ?? []).map((i) => ({
+  const siteInventoryItems: ProjectInventoryItem[] = (inventoryItems ?? [])
+    .filter((i) => !i.deletedAt)
+    .map((i) => ({
     id: i.id,
     name: i.name,
     type: i.type,
@@ -4408,9 +4802,21 @@ export default function Home() {
     setEditInventoryDraft(null);
   }
   const qrUrlForAsset = (id: string) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(id)}`;
-  function saveNewItem() {
+  async function saveNewItem() {
     const id = "inv" + Date.now();
     const isTracked = newItemCategory === "tool" || newItemCategory === "equipment";
+    let qrCode = qrUrlForAsset(id);
+    try {
+      qrCode = await generateInventoryQrDataUrl({
+        companyId: companyId ?? "local",
+        itemId: id,
+        itemName: newItemName || "Nuevo ítem",
+        type: newItemCategory,
+      });
+    } catch {
+      /* keep fallback */
+    }
+    const hasProject = !!(isTracked && newItemAssignedProjectId);
     const item: InventoryItem = {
       id,
       name: newItemName || "Nuevo ítem",
@@ -4423,7 +4829,8 @@ export default function Home() {
       toolStatus: isTracked ? "available" : undefined,
       serialNumber: newItemSerialNumber || undefined,
       internalId: newItemInternalId || undefined,
-      qrCode: qrUrlForAsset(id),
+      qrCode,
+      location: hasProject ? "onsite" : "warehouse",
     };
     setInventoryItems((prev) => {
       const next = [...prev, item];
@@ -4432,11 +4839,22 @@ export default function Home() {
     });
     closeInventoryForm();
   }
-  function saveEditedItem() {
+  async function saveEditedItem() {
     if (!editingInventoryId || !editInventoryDraft) return;
     const isTracked = editInventoryDraft.type === "tool" || editInventoryDraft.type === "equipment";
     const patch = { ...editInventoryDraft } as Partial<InventoryItem>;
-    if (isTracked) patch.qrCode = qrUrlForAsset(editingInventoryId);
+    try {
+      patch.qrCode = await generateInventoryQrDataUrl({
+        companyId: companyId ?? "local",
+        itemId: editingInventoryId,
+        itemName: editInventoryDraft.name ?? "",
+        type: String(editInventoryDraft.type ?? "material"),
+      });
+    } catch {
+      patch.qrCode = qrUrlForAsset(editingInventoryId);
+    }
+    if (isTracked && editInventoryDraft.assignedToProjectId) patch.location = "onsite";
+    else if (isTracked && !editInventoryDraft.assignedToProjectId) patch.location = "warehouse";
     setInventoryItems((prev) => {
       const next = prev.map((i) => i.id === editingInventoryId ? { ...i, ...patch } as InventoryItem : i);
       try { localStorage.setItem("machinpro_inventory", JSON.stringify(next)); } catch {}
@@ -5394,6 +5812,8 @@ export default function Home() {
                 dashboardCanViewDashboardWidgets={!!rolePerms.canViewDashboardWidgets}
                 dashboardCanViewProjectsManagement={!!rolePerms.canViewProjects}
                 dashboardCriticalInventoryCount={criticalInventoryCount}
+                dashboardCriticalInventoryLines={dashboardCriticalInventoryLines}
+                onDashboardCriticalInventoryNavigate={(itemId) => setWarehouseOpenInventoryId(itemId)}
                 laborCostingEnabled={laborCostingEnabled}
                 canViewLaborCosting={!!rolePerms.canViewLaborCosting}
                 gettingStartedRefreshTk={gettingStartedRefreshTk}
@@ -5522,7 +5942,7 @@ export default function Home() {
                 setAdjustQuantity={setAdjustQuantity}
                 setAdjustNote={setAdjustNote}
                 onOpenAdjust={(itemId, type) => setAdjustModal({ itemId, type })}
-                onApplyAdjustment={() => setAdjustModal(null)}
+                onApplyAdjustment={handleApplyAdjustment}
                 onCloseAdjustModal={() => setAdjustModal(null)}
                 vehicles={vehicles}
                 rentals={rentals}
@@ -5540,8 +5960,9 @@ export default function Home() {
                 onDeleteInventory={(id) => {
                   const msg = (t as Record<string, string>).common_confirm_delete ?? "";
                   if (typeof window !== "undefined" && window.confirm(msg)) {
+                    const now = new Date().toISOString();
                     setInventoryItems((prev) => {
-                      const next = prev.filter((i) => i.id !== id);
+                      const next = prev.map((i) => (i.id === id ? { ...i, deletedAt: now } : i));
                       try { localStorage.setItem("machinpro_inventory", JSON.stringify(next)); } catch {}
                       return next;
                     });
@@ -5694,6 +6115,21 @@ export default function Home() {
                   setActiveSection("forms");
                   setFormsListContextFilterOnOpen({ type: "rental", id: rentalId });
                 }}
+                canImportInventory={!!rolePerms.canImportInventory}
+                canTransferInventory={!!rolePerms.canTransferInventory}
+                canPrintInventoryQR={!!rolePerms.canPrintInventoryQR}
+                canScanInventoryQR={!!rolePerms.canScanInventoryQR}
+                canViewInventoryHistory={!!rolePerms.canViewInventoryHistory}
+                canViewInventoryReports={!!rolePerms.canViewInventoryReports}
+                companyLogoUrl={logoUrl?.trim() || undefined}
+                displayCurrency={currency}
+                activeProfileId={profile?.id}
+                activeProfileName={profile?.fullName ?? profile?.email ?? ""}
+                onAppendInventoryLedger={appendInventoryLedger}
+                onInventoryTransfer={handleInventoryTransfer}
+                onBulkInventoryImport={handleBulkInventoryImport}
+                openInventoryDetailId={warehouseOpenInventoryId}
+                onOpenInventoryDetailConsumed={() => setWarehouseOpenInventoryId(null)}
               />
               <ModuleHelpFab
                 moduleKey="warehouse"
@@ -7310,7 +7746,13 @@ export default function Home() {
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={closeInventoryForm} className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">{t.cancel ?? "Cancelar"}</button>
-              <button type="button" onClick={editingInventoryId ? saveEditedItem : saveNewItem} className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]">{t.save ?? "Guardar"}</button>
+              <button
+                type="button"
+                onClick={() => void (editingInventoryId ? saveEditedItem() : saveNewItem())}
+                className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
+              >
+                {t.save ?? "Guardar"}
+              </button>
             </div>
           </div>
         </>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo, Fragment } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback, Fragment } from "react";
 import dynamic from "next/dynamic";
 import {
   Warehouse,
@@ -27,6 +27,10 @@ import {
   Download,
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
+import type { InventoryLedgerRow, InventoryMovementKind } from "@/types/inventoryLedger";
+import { parseInventoryQrPayload } from "@/lib/inventoryQr";
+import { generateInventoryQrLabelPdf } from "@/lib/generateInventoryQrLabelPdf";
+import Papa from "papaparse";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
@@ -36,6 +40,11 @@ import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
 
 const TeamGpsMapWidget = dynamic(
   () => import("@/components/TeamGpsMapWidget").then((m) => m.TeamGpsMapWidget),
+  { ssr: false }
+);
+
+const InventoryQrScannerModal = dynamic(
+  () => import("@/components/InventoryQrScannerModal").then((m) => m.InventoryQrScannerModal),
   { ssr: false }
 );
 
@@ -64,6 +73,14 @@ export interface InventoryItem {
   incidentPhotoUrl?: string;
   incidentEntryId?: string;
   incidentReviewed?: boolean;
+  deletedAt?: string;
+  location?: string;
+  maintenanceDate?: string;
+  insuranceDate?: string;
+  responsibleUserId?: string;
+  lastMovementAt?: string;
+  category?: string;
+  model?: string;
 }
 
 export interface Vehicle {
@@ -151,15 +168,8 @@ export interface Employee {
   role: string;
 }
 
-export interface InventoryMovement {
-  id: string;
-  itemId: string;
-  itemName: string;
-  type: "add" | "remove";
-  quantity: number;
-  note: string;
-  createdAt: string;
-}
+export type InventoryMovement = InventoryLedgerRow;
+export type { InventoryMovementKind };
 
 export type ResourceRequestStatus =
   | "pending"
@@ -270,6 +280,29 @@ export interface LogisticsModuleProps {
   activeFormsTodayByRentalId?: Record<string, number>;
   onOpenFormsFilteredByVehicle?: (vehicleId: string) => void;
   onOpenFormsFilteredByRental?: (rentalId: string) => void;
+  canImportInventory?: boolean;
+  canTransferInventory?: boolean;
+  canPrintInventoryQR?: boolean;
+  canScanInventoryQR?: boolean;
+  canViewInventoryHistory?: boolean;
+  canViewInventoryReports?: boolean;
+  companyLogoUrl?: string;
+  displayCurrency?: string;
+  activeProfileId?: string;
+  activeProfileName?: string;
+  onAppendInventoryLedger?: (row: Omit<InventoryLedgerRow, "id"> & { id?: string }) => void;
+  onInventoryTransfer?: (payload: {
+    itemId: string;
+    quantity: number;
+    fromProjectId: string | null;
+    toProjectId: string | null;
+    fromLocation: string;
+    toLocation: string;
+    notes?: string | null;
+  }) => void;
+  onBulkInventoryImport?: (items: InventoryItem[]) => void | Promise<void>;
+  openInventoryDetailId?: string | null;
+  onOpenInventoryDetailConsumed?: () => void;
 }
 
 function daysUntilExpiry(expiryDate: string): number {
@@ -485,6 +518,21 @@ export function LogisticsModule({
   activeFormsTodayByRentalId = {},
   onOpenFormsFilteredByVehicle,
   onOpenFormsFilteredByRental,
+  canImportInventory = false,
+  canTransferInventory = false,
+  canPrintInventoryQR = false,
+  canScanInventoryQR = false,
+  canViewInventoryHistory = false,
+  canViewInventoryReports = false,
+  companyLogoUrl = "",
+  displayCurrency = "CAD",
+  activeProfileId,
+  activeProfileName = "",
+  onAppendInventoryLedger,
+  onInventoryTransfer,
+  onBulkInventoryImport,
+  openInventoryDetailId,
+  onOpenInventoryDetailConsumed,
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
   const canFulfillOrders = canManageInventory || canCreatePurchaseOrders;
@@ -507,7 +555,7 @@ export function LogisticsModule({
     tool: true,
     equipment: true,
   });
-  const [selectedAsset, setSelectedAsset] = useState<{ type: "tool" | "vehicle"; id: string } | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<{ type: "inventory" | "vehicle"; id: string } | null>(null);
   const [returnModalItem, setReturnModalItem] = useState<InventoryItem | null>(null);
   const [returnCondition, setReturnCondition] = useState<"good" | "damaged" | "maintenance">("good");
   const [returnNotes, setReturnNotes] = useState("");
@@ -517,7 +565,42 @@ export function LogisticsModule({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [assetDrawerTab, setAssetDrawerTab] = useState<"info" | "history" | "gallery">("info");
   useEffect(() => { setAssetDrawerTab("info"); }, [selectedAsset]);
+
+  useEffect(() => {
+    if (!openInventoryDetailId) return;
+    const it = (inventoryItems ?? []).find((i) => i.id === openInventoryDetailId && !i.deletedAt);
+    if (it) setSelectedAsset({ type: "inventory", id: it.id });
+    onOpenInventoryDetailConsumed?.();
+  }, [openInventoryDetailId, inventoryItems, onOpenInventoryDetailConsumed]);
+
+  const onInventoryQrDecoded = useCallback(
+    (text: string) => {
+      const p = parseInventoryQrPayload(text);
+      if (!p || (companyId && p.companyId !== companyId)) {
+        showToast("error", (t as Record<string, string>).inventory_qr_scan ?? "Scan error");
+        return;
+      }
+      const it = (inventoryItems ?? []).find((i) => i.id === p.itemId);
+      if (!it || it.deletedAt) {
+        showToast("error", (t as Record<string, string>).wh_inventory_empty ?? "Not found");
+        return;
+      }
+      setSelectedAsset({ type: "inventory", id: it.id });
+      showToast("success", it.name);
+    },
+    [companyId, inventoryItems, showToast, t]
+  );
   const [logisticsInvFiltersOpen, setLogisticsInvFiltersOpen] = useState(false);
+  const [inventoryScope, setInventoryScope] = useState<"all" | "warehouse" | "onsite">("all");
+  const [transferItem, setTransferItem] = useState<InventoryItem | null>(null);
+  const [transferQtyStr, setTransferQtyStr] = useState("1");
+  const [transferDestProjectId, setTransferDestProjectId] = useState("");
+  const [transferToWarehouse, setTransferToWarehouse] = useState(false);
+  const [transferNoteStr, setTransferNoteStr] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importPreviewRows, setImportPreviewRows] = useState<InventoryItem[]>([]);
+  const [invScanOpen, setInvScanOpen] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [logisticsFleetFiltersOpen, setLogisticsFleetFiltersOpen] = useState(false);
   const [fleetViewMode, setFleetViewMode] = useState<"list" | "tracking">("list");
 
@@ -568,6 +651,14 @@ export function LogisticsModule({
   const isTrackedAsset = (i: InventoryItem) => i.type === "tool" || i.type === "equipment";
   const filteredItems = useMemo(() => {
     const base = (inventoryItems ?? []).filter((i) => {
+      if (i.deletedAt) return false;
+      if (inventoryScope === "warehouse") {
+        if (i.assignedToProjectId) return false;
+        if ((i.location ?? "warehouse") !== "warehouse") return false;
+      }
+      if (inventoryScope === "onsite") {
+        if (!i.assignedToProjectId && (i.location ?? "warehouse") === "warehouse") return false;
+      }
       if (inventoryFilter === "consumable") return i.type === "consumable";
       if (inventoryFilter === "tool") {
         if (filterStatus !== "all") return i.type === "tool" && (i.toolStatus ?? "available") === filterStatus;
@@ -583,7 +674,7 @@ export function LogisticsModule({
     const q = inventorySearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter((i) => i.name.toLowerCase().includes(q));
-  }, [inventoryItems, inventoryFilter, filterStatus, inventorySearch]);
+  }, [inventoryItems, inventoryFilter, filterStatus, inventorySearch, inventoryScope]);
 
   const flatOrderedInventory = useMemo(() => {
     const materials = filteredItems.filter((i) => i.type === "consumable" || i.type === "material");
@@ -642,6 +733,18 @@ export function LogisticsModule({
 
   const getStatusLabel = (key: string) =>
     (t as Record<string, string>)[key] || (ALL_TRANSLATIONS.en as Record<string, string>)[key] || key;
+
+  const ledgerMovementLabel = (mt: InventoryMovementKind, tx: Record<string, string>) => {
+    const m: Record<InventoryMovementKind, string> = {
+      in: tx.inventory_movement_in ?? "In",
+      out: tx.inventory_movement_out ?? "Out",
+      transfer: tx.inventory_movement_transfer ?? "Transfer",
+      maintenance: tx.inventory_movement_maintenance ?? "Maintenance",
+      status_change: tx.inventory_movement_status_change ?? "Status change",
+      import: tx.inventory_movement_import ?? "Import",
+    };
+    return m[mt] ?? mt;
+  };
 
   const exportInventoryCsv = () => {
     try {
@@ -719,8 +822,11 @@ export function LogisticsModule({
   const invTableColSpan =
     inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all" ? 9 : 8;
 
-  const logsForAsset = (assetId: string, assetType: "tool" | "vehicle") =>
-    assetUsageLogs.filter((l) => l.assetId === assetId && l.assetType === assetType);
+  const logsForAsset = (assetId: string, assetType: "inventory" | "vehicle") =>
+    (assetUsageLogs ?? []).filter((l) =>
+      l.assetId === assetId &&
+      (assetType === "inventory" ? l.assetType === "tool" : l.assetType === "vehicle")
+    );
 
   type TabEntry = { id: WarehouseSubTabId; label: string; icon: React.ReactNode; badge?: number };
   const tabs: TabEntry[] = [];
@@ -791,6 +897,29 @@ export function LogisticsModule({
                 className={`flex flex-col gap-2 ${logisticsInvFiltersOpen ? "" : "max-md:hidden"} md:flex`}
               >
               <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-xs text-zinc-400 mr-1 w-full md:w-auto">
+                  {(t as Record<string, string>).inventory_location ?? "Ubicación"}:
+                </span>
+                {(["all", "warehouse", "onsite"] as const).map((sc) => (
+                  <button
+                    key={sc}
+                    type="button"
+                    onClick={() => setInventoryScope(sc)}
+                    className={`rounded-lg px-3 py-2.5 text-sm font-medium min-h-[44px] ${
+                      inventoryScope === sc
+                        ? "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-200"
+                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    {sc === "all"
+                      ? (t.whFilterAll ?? "All")
+                      : sc === "warehouse"
+                        ? ((t as Record<string, string>).inventory_warehouse_view ?? "Warehouse")
+                        : ((t as Record<string, string>).inventory_onsite_view ?? "On site")}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-xs text-zinc-400 mr-1">
                   {tlLabels.type ?? "Type"}:
                 </span>
@@ -844,14 +973,99 @@ export function LogisticsModule({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 justify-end">
-              {flatOrderedInventory.length > 0 ? (
+              {flatOrderedInventory.length > 0 && canViewInventoryReports ? (
                 <button
                   type="button"
                   onClick={() => exportInventoryCsv()}
                   className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 >
                   <Download className="h-4 w-4 shrink-0" aria-hidden />
-                  {tlLabels.export_inventory ?? tlLabels.export_csv ?? "Export CSV"}
+                  {(t as Record<string, string>).inventory_export_csv ?? tlLabels.export_csv ?? "Export CSV"}
+                </button>
+              ) : null}
+              {canImportInventory && canManageInventory ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tx = t as Record<string, string>;
+                      const header =
+                        "nombre,tipo,categoria,unidad,stock,stock_minimo,precio_unitario,proveedor,numero_serie,fecha_mantenimiento,fecha_seguro";
+                      const blob = new Blob([header + "\n"], { type: "text/csv;charset=utf-8" });
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = "machinpro_inventory_template.csv";
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                      showToast("success", tx.inventory_import_template ?? "Template");
+                    }}
+                    className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600"
+                  >
+                    {(t as Record<string, string>).inventory_import_template ?? "Template"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => importFileRef.current?.click()}
+                    className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600"
+                  >
+                    {(t as Record<string, string>).inventory_import_upload ?? "Upload CSV"}
+                  </button>
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      Papa.parse<Record<string, string>>(f, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (res) => {
+                          const rows = res.data ?? [];
+                          const next: InventoryItem[] = [];
+                          rows.forEach((row, idx) => {
+                            const name = (row.nombre ?? row.name ?? "").trim();
+                            if (!name) return;
+                            const tipo = (row.tipo ?? row.type ?? "material").toLowerCase();
+                            const isTool = tipo === "tool" || tipo === "herramienta";
+                            const id = `inv${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`;
+                            next.push({
+                              id,
+                              name,
+                              type: isTool ? "tool" : "material",
+                              quantity: parseFloat(String(row.stock ?? row.quantity ?? "0").replace(",", ".")) || 0,
+                              unit: (row.unidad ?? row.unit ?? "u").trim() || "u",
+                              purchasePriceCAD:
+                                parseFloat(String(row.precio_unitario ?? row.price ?? "0").replace(",", ".")) || 0,
+                              lowStockThreshold:
+                                parseFloat(String(row.stock_minimo ?? row.min ?? "0").replace(",", ".")) || undefined,
+                              serialNumber: row.numero_serie?.trim() || undefined,
+                              maintenanceDate: row.fecha_mantenimiento?.trim() || undefined,
+                              insuranceDate: row.fecha_seguro?.trim() || undefined,
+                              category: row.categoria?.trim() || undefined,
+                              supplierId: row.proveedor?.trim() || undefined,
+                              location: "warehouse",
+                              toolStatus: isTool ? "available" : undefined,
+                            });
+                          });
+                          setImportPreviewRows(next);
+                          setImportOpen(true);
+                        },
+                      });
+                    }}
+                  />
+                </>
+              ) : null}
+              {canScanInventoryQR && canManageInventory ? (
+                <button
+                  type="button"
+                  onClick={() => setInvScanOpen(true)}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600"
+                >
+                  <Camera className="h-4 w-4" aria-hidden />
+                  {(t as Record<string, string>).inventory_qr_scan ?? "Scan QR"}
                 </button>
               ) : null}
               {canManageInventory && (
@@ -923,13 +1137,19 @@ export function LogisticsModule({
                       {(item.type === "tool" || item.type === "equipment") ? (
                         <button
                           type="button"
-                          onClick={() => setSelectedAsset({ type: "tool", id: item.id })}
+                          onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
                           className="text-sm font-medium text-left text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
                         >
                           {item.name}
                         </button>
                       ) : (
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{item.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
+                          className="text-sm font-medium text-left text-zinc-900 dark:text-zinc-100 hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                        >
+                          {item.name}
+                        </button>
                       )}
                       {item.assignedToEmployeeId && (
                         <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
@@ -993,6 +1213,23 @@ export function LogisticsModule({
                     </div>
                     {canManageInventory && (
                       <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                        {canTransferInventory && onInventoryTransfer ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTransferItem(item);
+                              setTransferQtyStr(
+                                isTrackedAsset(item) ? "1" : String(Math.max(1, Math.floor(item.quantity)) || 1)
+                              );
+                              setTransferDestProjectId("");
+                              setTransferToWarehouse(false);
+                              setTransferNoteStr("");
+                            }}
+                            className="rounded-lg border border-zinc-300 px-2 py-1 text-xs text-zinc-600 dark:border-zinc-600 dark:text-zinc-300 min-h-[44px]"
+                          >
+                            {(t as Record<string, string>).inventory_transfer ?? "Transfer"}
+                          </button>
+                        ) : null}
                         <button type="button" onClick={() => onEditInventory(item)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.edit}>
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -1077,13 +1314,19 @@ export function LogisticsModule({
                         {(item.type === "tool" || item.type === "equipment") ? (
                           <button
                             type="button"
-                            onClick={() => setSelectedAsset({ type: "tool", id: item.id })}
+                            onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
                             className="text-sm font-medium text-left text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
                           >
                             {item.name}
                           </button>
                         ) : (
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
+                            className="text-sm font-medium text-left text-zinc-900 dark:text-zinc-100 hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                          >
+                            {item.name}
+                          </button>
                         )}
                         {item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold && (
                           <span className="text-xs font-medium text-amber-600 dark:text-amber-400">({t.whLowStock ?? "Low stock"})</span>
@@ -1163,6 +1406,23 @@ export function LogisticsModule({
                         )}
                         {canManageInventory && (
                           <>
+                            {canTransferInventory && onInventoryTransfer ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTransferItem(item);
+                                  setTransferQtyStr(
+                                    isTrackedAsset(item) ? "1" : String(Math.max(1, Math.floor(item.quantity)) || 1)
+                                  );
+                                  setTransferDestProjectId("");
+                                  setTransferToWarehouse(false);
+                                  setTransferNoteStr("");
+                                }}
+                                className="rounded-lg border border-zinc-300 px-2 py-1 text-xs text-zinc-600 dark:border-zinc-600 dark:text-zinc-300 min-h-[44px]"
+                              >
+                                {(t as Record<string, string>).inventory_transfer ?? "Transfer"}
+                              </button>
+                            ) : null}
                             <button type="button" onClick={() => onEditInventory(item)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.edit}>
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -1203,22 +1463,206 @@ export function LogisticsModule({
               </p>
             )}
           </div>
-          {/* Registro de movimientos */}
-          {(inventoryMovements ?? []).length > 0 && (
+          {/* Movimientos recientes (empresa) */}
+          {canViewInventoryHistory && (inventoryMovements ?? []).length > 0 ? (
             <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
-              <h3 className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-slate-700">{t.movementsLog ?? "Movement log"}</h3>
-              <ul className="divide-y divide-zinc-200 dark:divide-slate-700 max-h-48 overflow-y-auto">
-                {(inventoryMovements ?? []).slice(-20).reverse().map((mov) => (
-                  <li key={mov.id} className="px-4 py-2 text-sm flex items-center justify-between gap-2">
-                    <span className="text-zinc-700 dark:text-zinc-300">{mov.createdAt}</span>
-                    <span className={mov.type === "add" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
-                      {mov.type === "add" ? "+" : "−"}{mov.quantity} {mov.itemName}
-                    </span>
-                    {mov.note && <span className="text-zinc-500 dark:text-zinc-400 truncate max-w-[120px]">{mov.note}</span>}
-                  </li>
-                ))}
+              <h3 className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-slate-700">
+                {(t as Record<string, string>).inventory_recent_movements ?? t.movementsLog ?? "Movements"}
+              </h3>
+              <ul className="divide-y divide-zinc-200 dark:divide-slate-700 max-h-56 overflow-y-auto">
+                {(inventoryMovements ?? [])
+                  .slice(-50)
+                  .reverse()
+                  .map((mov) => {
+                    const tx = t as Record<string, string>;
+                    return (
+                      <li key={mov.id} className="px-4 py-2 text-xs sm:text-sm flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                        <span className="text-zinc-500 dark:text-zinc-400 shrink-0">
+                          {mov.createdAt?.slice(0, 19).replace("T", " ")}
+                        </span>
+                        <span className="font-medium text-zinc-800 dark:text-zinc-100">
+                          {ledgerMovementLabel(mov.movementType, tx)} · {mov.itemName ?? mov.itemId}
+                          {mov.quantity != null && mov.quantity > 0 ? ` · ${mov.quantity}` : ""}
+                        </span>
+                        {mov.notes ? (
+                          <span className="text-zinc-500 dark:text-zinc-400 truncate max-w-full sm:max-w-[200px]">
+                            {mov.notes}
+                          </span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
+          ) : null}
+          <InventoryQrScannerModal
+            open={invScanOpen}
+            labels={t}
+            onClose={() => setInvScanOpen(false)}
+            onDecoded={onInventoryQrDecoded}
+          />
+          {importOpen && (
+            <>
+              <div className="fixed inset-0 z-[10060] bg-black/50" aria-hidden onClick={() => setImportOpen(false)} />
+              <div className="fixed inset-x-0 bottom-0 z-[10061] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                    {(t as Record<string, string>).inventory_import_preview ?? "Import preview"}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setImportOpen(false)}
+                    className="min-h-[44px] min-w-[44px] rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <X className="h-5 w-5 mx-auto" />
+                  </button>
+                </div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
+                  {importPreviewRows.length}{" "}
+                  {(t as Record<string, string>).inventory_import_confirm ?? "rows"}
+                </p>
+                <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-zinc-700 dark:text-zinc-200 mb-4">
+                  {importPreviewRows.slice(0, 30).map((r) => (
+                    <li key={r.id}>
+                      · {r.name} ({r.type}) — {r.quantity} {r.unit}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setImportOpen(false)}
+                    className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600"
+                  >
+                    {t.whClose ?? t.cancel ?? "Cancel"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onBulkInventoryImport && importPreviewRows.length) {
+                        void onBulkInventoryImport(importPreviewRows);
+                        showToast(
+                          "success",
+                          `${importPreviewRows.length} ${(t as Record<string, string>).inventory_import_success ?? "imported"}`
+                        );
+                      }
+                      setImportOpen(false);
+                      setImportPreviewRows([]);
+                    }}
+                    className="min-h-[44px] rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600"
+                  >
+                    {(t as Record<string, string>).inventory_import_confirm ?? "Confirm"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+          {transferItem && onInventoryTransfer && (
+            <>
+              <div className="fixed inset-0 z-[10060] bg-black/50" aria-hidden onClick={() => setTransferItem(null)} />
+              <div className="fixed inset-x-0 bottom-0 z-[10061] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                  {(t as Record<string, string>).inventory_transfer ?? "Transfer"}
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">{transferItem.name}</p>
+                {!isTrackedAsset(transferItem) ? (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                      {t.quantity ?? "Quantity"}
+                    </label>
+                    <input
+                      type="number"
+                      min={0.01}
+                      step={0.01}
+                      value={transferQtyStr}
+                      onChange={(e) => setTransferQtyStr(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    />
+                  </div>
+                ) : null}
+                <div className="mb-3 flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm min-h-[44px]">
+                    <input
+                      type="radio"
+                      checked={transferToWarehouse}
+                      onChange={() => {
+                        setTransferToWarehouse(true);
+                        setTransferDestProjectId("");
+                      }}
+                    />
+                    {(t as Record<string, string>).inventory_location_warehouse ?? "Warehouse"}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm min-h-[44px]">
+                    <input
+                      type="radio"
+                      checked={!transferToWarehouse}
+                      onChange={() => setTransferToWarehouse(false)}
+                    />
+                    {(t as Record<string, string>).inventory_transfer_to ?? "To project"}
+                  </label>
+                  {!transferToWarehouse ? (
+                    <select
+                      value={transferDestProjectId}
+                      onChange={(e) => setTransferDestProjectId(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                    >
+                      <option value="">—</option>
+                      {(projects ?? []).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </div>
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                    {t.movementNote ?? "Note"}
+                  </label>
+                  <input
+                    type="text"
+                    value={transferNoteStr}
+                    onChange={(e) => setTransferNoteStr(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+                  />
+                </div>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransferItem(null)}
+                    className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600"
+                  >
+                    {t.whClose ?? t.cancel ?? "Cancel"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const qty = isTrackedAsset(transferItem)
+                        ? 1
+                        : Math.max(0.01, parseFloat(String(transferQtyStr).replace(",", ".")) || 0);
+                      if (!transferToWarehouse && !transferDestProjectId) {
+                        showToast("error", (t as Record<string, string>).filterByProject ?? "Select project");
+                        return;
+                      }
+                      onInventoryTransfer({
+                        itemId: transferItem.id,
+                        quantity: qty,
+                        fromProjectId: transferItem.assignedToProjectId ?? null,
+                        toProjectId: transferToWarehouse ? null : transferDestProjectId || null,
+                        fromLocation: transferItem.location ?? "warehouse",
+                        toLocation: transferToWarehouse ? "warehouse" : "onsite",
+                        notes: transferNoteStr.trim() || null,
+                      });
+                      setTransferItem(null);
+                      showToast("success", (t as Record<string, string>).inventory_transfer_confirm ?? "OK");
+                    }}
+                    className="min-h-[44px] rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600"
+                  >
+                    {(t as Record<string, string>).inventory_transfer_confirm ?? "Confirm"}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
           {/* Modal Ajustar unidades */}
           {adjustModal && (
@@ -2190,21 +2634,28 @@ export function LogisticsModule({
             <div className="p-4 border-b border-zinc-200 dark:border-slate-700 flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white truncate">
-                  {selectedAsset.type === "tool"
+                  {selectedAsset.type === "inventory"
                     ? (inventoryItems ?? []).find((i) => i.id === selectedAsset.id)?.name ?? selectedAsset.id
                     : (vehicles ?? []).find((v) => v.id === selectedAsset.id)?.plate ?? selectedAsset.id}
                 </h3>
-                {selectedAsset.type === "tool" && (() => {
+                {selectedAsset.type === "inventory" && (() => {
                   const it = (inventoryItems ?? []).find((i) => i.id === selectedAsset.id);
                   if (!it) return null;
+                  const tx = t as Record<string, string>;
+                  const typeLbl =
+                    it.type === "consumable" || it.type === "material"
+                      ? (tx.inventory_type_material ?? "Material")
+                      : it.type === "equipment"
+                        ? (tlLabels.equipment ?? "Equipment")
+                        : (tx.inventory_type_tool ?? t.whTabTools ?? "Tool");
                   return (
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {it.type === "equipment" ? (tlLabels.equipment ?? "Equipment") : (t.whTabTools ?? "Tool")}
-                      </span>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toolStatusBadgeClass(it.toolStatus)}`}>
-                        {getStatusLabel(it.toolStatus === "available" ? "available" : it.toolStatus === "in_use" ? "inUse" : it.toolStatus === "maintenance" ? "maintenance" : it.toolStatus === "out_of_service" ? "outOfService" : "lost")}
-                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">{typeLbl}</span>
+                      {isTrackedAsset(it) ? (
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toolStatusBadgeClass(it.toolStatus)}`}>
+                          {getStatusLabel(it.toolStatus === "available" ? "available" : it.toolStatus === "in_use" ? "inUse" : it.toolStatus === "maintenance" ? "maintenance" : it.toolStatus === "out_of_service" ? "outOfService" : "lost")}
+                        </span>
+                      ) : null}
                       {it.incidentPhotoUrl && (
                         <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">⚠ {tlLabels.incidentReported ?? "Incident"}</span>
                       )}
@@ -2216,11 +2667,11 @@ export function LogisticsModule({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            {selectedAsset.type === "tool" && (() => {
+            {selectedAsset.type === "inventory" && (() => {
               const item = (inventoryItems ?? []).find((i) => i.id === selectedAsset.id);
               const qrUrl = item?.qrCode ?? `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(selectedAsset.id)}`;
               const tl = t as Record<string, string>;
-              const toolLogs = logsForAsset(selectedAsset.id, "tool");
+              const toolLogs = logsForAsset(selectedAsset.id, "inventory");
               const galleryPhotos: { url: string; type: "incident" | "return"; condition?: "good" | "damaged" | "maintenance"; label: string; date: string }[] = [];
               if (item?.incidentPhotoUrl) galleryPhotos.push({ url: item.incidentPhotoUrl, type: "incident", label: tl.incidentReported ?? "Incident", date: "—" });
               toolLogs.forEach((log) => {
@@ -2238,9 +2689,50 @@ export function LogisticsModule({
                   {assetDrawerTab === "info" && (
                     <div className="p-4 border-b border-zinc-200 dark:border-slate-700 space-y-3">
                       <img src={qrUrl} alt="QR Code" className="h-24 w-24 rounded-lg object-contain bg-white" />
-                      <button type="button" onClick={() => window.open(qrUrl, "_blank")} className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800">
-                        {tl.printLabel ?? "Imprimir etiqueta"}
-                      </button>
+                      {canPrintInventoryQR ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void (async () => {
+                              try {
+                                const statusLbl =
+                                  item?.toolStatus === "in_use"
+                                    ? ((t as Record<string, string>).inventory_status_onsite ?? "On site")
+                                    : item?.toolStatus === "maintenance"
+                                      ? ((t as Record<string, string>).inventory_status_maintenance ?? "Maintenance")
+                                      : ((t as Record<string, string>).inventory_status_available ?? "Available");
+                                const { blob, filename } = await generateInventoryQrLabelPdf({
+                                  labels: t as Record<string, string>,
+                                  companyName: companyName || "MachinPro",
+                                  companyLogoUrl: companyLogoUrl?.trim() || undefined,
+                                  itemName: item?.name ?? "",
+                                  itemCode: item?.serialNumber ?? item?.internalId ?? item?.id ?? "",
+                                  statusLabel:
+                                    item && isTrackedAsset(item)
+                                      ? statusLbl
+                                      : `${(t as Record<string, string>).inventory_current_stock ?? "Stock"}: ${item?.quantity ?? 0}`,
+                                  qrDataUrl: qrUrl,
+                                });
+                                const href = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = href;
+                                a.download = filename;
+                                a.click();
+                                URL.revokeObjectURL(href);
+                              } catch (e) {
+                                showToast("error", (e as Error)?.message ?? "PDF");
+                              }
+                            })();
+                          }}
+                          className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        >
+                          {(t as Record<string, string>).inventory_qr_print ?? tl.printLabel ?? "Print QR"}
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => window.open(qrUrl, "_blank")} className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                          {tl.printLabel ?? "Imprimir etiqueta"}
+                        </button>
+                      )}
                       {item && (
                         <div className="space-y-1.5 text-sm">
                           {item.assignedToProjectId && (
@@ -2378,38 +2870,83 @@ export function LogisticsModule({
                 </>
               );
             })()}
-            <div className="p-4 space-y-2">
-              {(selectedAsset.type !== "tool" || assetDrawerTab === "history") && (
-                <>
-              <h4 className="text-sm font-medium text-zinc-900 dark:text-white">
-                {t.usageHistory ?? "Historial de uso"}
-              </h4>
-              {logsForAsset(selectedAsset.id, selectedAsset.type).length === 0 ? (
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {t.noUsageHistory ?? "No usage history"}
-                </p>
-              ) : (
-                logsForAsset(selectedAsset.id, selectedAsset.type).map((log) => {
-                  const employeeName = (employees ?? []).find((e) => e.id === log.employeeId)?.name ?? log.employeeId;
-                  const projectName = getProjectName(log.projectId);
-                  return (
-                    <div key={log.id} className="flex items-start gap-2 text-xs border-l-2 border-amber-300 dark:border-amber-600 pl-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                          {employeeName} — {projectName}
-                        </p>
-                        <p className="text-zinc-500 dark:text-zinc-400">
-                          {log.startDate} → {log.endDate ?? (t.inUse ?? "En uso")}
-                        </p>
-                        {log.returnPhotoUrl && (
-                          <img src={log.returnPhotoUrl} alt={tlLabels.wh_return_condition_photo_alt ?? "Return photo"} className="h-16 w-16 rounded-lg object-cover mt-1 border border-zinc-200 dark:border-slate-700" />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-                </>
+            <div className="p-4 space-y-4">
+              {selectedAsset.type === "inventory" && assetDrawerTab === "history" && canViewInventoryHistory ? (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-zinc-900 dark:text-white">
+                    {(t as Record<string, string>).inventory_history ?? "Movement history"}
+                  </h4>
+                  <ul className="max-h-48 space-y-2 overflow-y-auto">
+                    {(inventoryMovements ?? [])
+                      .filter((m) => m.itemId === selectedAsset.id)
+                      .slice(-40)
+                      .reverse()
+                      .map((mov) => {
+                        const tx = t as Record<string, string>;
+                        return (
+                          <li key={mov.id} className="border-l-2 border-orange-300 pl-2 text-xs dark:border-orange-700">
+                            <span className="text-zinc-500 dark:text-zinc-400">
+                              {mov.createdAt?.slice(0, 16).replace("T", " ")}
+                            </span>
+                            <span className="ml-2 font-medium text-zinc-800 dark:text-zinc-100">
+                              {ledgerMovementLabel(mov.movementType, tx)}
+                              {mov.quantity != null && mov.quantity > 0 ? ` · ${mov.quantity}` : ""}
+                            </span>
+                            {mov.performedByName ? (
+                              <span className="ml-1 text-zinc-500">· {mov.performedByName}</span>
+                            ) : null}
+                            {mov.notes ? <p className="text-zinc-500 dark:text-zinc-400">{mov.notes}</p> : null}
+                          </li>
+                        );
+                      })}
+                  </ul>
+                </div>
+              ) : null}
+              {(selectedAsset.type !== "inventory" || assetDrawerTab === "history") && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-zinc-900 dark:text-white">
+                    {t.usageHistory ?? "Historial de uso"}
+                  </h4>
+                  {logsForAsset(
+                    selectedAsset.id,
+                    selectedAsset.type === "vehicle" ? "vehicle" : "inventory"
+                  ).length === 0 ? (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {t.noUsageHistory ?? "No usage history"}
+                    </p>
+                  ) : (
+                    logsForAsset(
+                      selectedAsset.id,
+                      selectedAsset.type === "vehicle" ? "vehicle" : "inventory"
+                    ).map((log) => {
+                      const employeeName =
+                        (employees ?? []).find((e) => e.id === log.employeeId)?.name ?? log.employeeId;
+                      const projectName = getProjectName(log.projectId);
+                      return (
+                        <div
+                          key={log.id}
+                          className="flex items-start gap-2 text-xs border-l-2 border-amber-300 dark:border-amber-600 pl-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                              {employeeName} — {projectName}
+                            </p>
+                            <p className="text-zinc-500 dark:text-zinc-400">
+                              {log.startDate} → {log.endDate ?? (t.inUse ?? "En uso")}
+                            </p>
+                            {log.returnPhotoUrl && (
+                              <img
+                                src={log.returnPhotoUrl}
+                                alt={tlLabels.wh_return_condition_photo_alt ?? "Return photo"}
+                                className="mt-1 h-16 w-16 rounded-lg border border-zinc-200 object-cover dark:border-slate-700"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               )}
             </div>
           </div>

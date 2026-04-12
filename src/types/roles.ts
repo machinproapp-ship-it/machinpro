@@ -75,6 +75,13 @@ export interface RolePermissions {
   canViewSuppliers: boolean;
   canManageRentals: boolean;
   canCreatePurchaseOrders: boolean;
+  canImportInventory: boolean;
+  canTransferInventory: boolean;
+  canPrintInventoryQR: boolean;
+  canScanInventoryQR: boolean;
+  canViewInventoryHistory: boolean;
+  canManageInventoryAlerts: boolean;
+  canViewInventoryReports: boolean;
 
   // ─── Seguridad ──────────────────────────────────────────
   canViewSecurity: boolean;
@@ -182,6 +189,13 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewSuppliers",
   "canManageRentals",
   "canCreatePurchaseOrders",
+  "canImportInventory",
+  "canTransferInventory",
+  "canPrintInventoryQR",
+  "canScanInventoryQR",
+  "canViewInventoryHistory",
+  "canManageInventoryAlerts",
+  "canViewInventoryReports",
   "canViewSecurity",
   "canManageHazards",
   "canViewHazards",
@@ -297,6 +311,13 @@ export const ROLE_PERMISSION_GROUPS: {
       "canManageSuppliers",
       "canManageRentals",
       "canCreatePurchaseOrders",
+      "canImportInventory",
+      "canTransferInventory",
+      "canPrintInventoryQR",
+      "canScanInventoryQR",
+      "canViewInventoryHistory",
+      "canManageInventoryAlerts",
+      "canViewInventoryReports",
     ],
   },
   {
@@ -396,6 +417,13 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewSuppliers: "Ver proveedores",
   canManageRentals: "Gestionar alquileres",
   canCreatePurchaseOrders: "Crear pedidos",
+  canImportInventory: "Importar inventario",
+  canTransferInventory: "Transferir inventario",
+  canPrintInventoryQR: "Imprimir etiquetas QR",
+  canScanInventoryQR: "Escanear QR de inventario",
+  canViewInventoryHistory: "Ver historial de movimientos",
+  canManageInventoryAlerts: "Gestionar alertas de inventario",
+  canViewInventoryReports: "Ver informes de inventario",
   canViewSecurity: "Ver seguridad",
   canManageHazards: "Gestionar riesgos",
   canViewHazards: "Ver riesgos",

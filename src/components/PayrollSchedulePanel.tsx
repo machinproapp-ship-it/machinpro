@@ -143,6 +143,8 @@ export function PayrollSchedulePanel({
     return { start: addDays(base, -6), end: base };
   }, [periodType, anchorMonth, weekOffset, timeZone]);
 
+  const regularHoursCap = periodType === "weekly" ? 40 : periodType === "biweekly" ? 80 : 160;
+
   const resolveRateKey = useCallback(
     (employeeId: string) => {
       const r = employeeLaborRatesByEmployeeId[employeeId];
@@ -180,7 +182,12 @@ export function PayrollSchedulePanel({
     return ids.map((empId) => {
       const hours = hoursByEmp.get(empId) ?? 0;
       const rate = resolveRateKey(empId);
-      const gross = rate != null && hours > 0 ? Math.round(hours * rate * 100) / 100 : 0;
+      const regularHours = Math.min(hours, regularHoursCap);
+      const otHours = Math.max(0, hours - regularHoursCap);
+      const gross =
+        rate != null
+          ? Math.round((regularHours * rate + otHours * rate * 1.5) * 100) / 100
+          : 0;
       const ded = calculateDeductions(gross, countryCode, currency);
       const td = totalEmployeeDeductions(ded);
       const ec = totalEmployerContributions(ded);
@@ -190,6 +197,8 @@ export function PayrollSchedulePanel({
         employeeId: empId,
         name: nameById.get(empId) ?? empId,
         hours,
+        regularHours,
+        otHours,
         rate,
         gross,
         deductions: ded,
@@ -211,6 +220,7 @@ export function PayrollSchedulePanel({
     resolveRateKey,
     statusByEmp,
     rosterEmployeeIdForClock,
+    regularHoursCap,
   ]);
 
   const exportCsv = () => {
@@ -400,7 +410,7 @@ export function PayrollSchedulePanel({
                     <td className="px-3 py-2 text-right tabular-nums">{r.hours.toFixed(1)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {r.rate == null
-                        ? L("payroll_no_rate", "—")
+                        ? L("payroll_no_rate", "Sin tarifa configurada")
                         : `${currency} ${r.gross.toFixed(2)}`}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.totalDeductions.toFixed(2)}</td>
@@ -445,6 +455,16 @@ export function PayrollSchedulePanel({
                   {open ? (
                     <tr className="bg-zinc-50/50 dark:bg-slate-900/50">
                       <td colSpan={canManagePayroll ? 8 : 7} className="px-6 py-3 text-xs text-zinc-600 dark:text-zinc-400">
+                        {r.rate != null ? (
+                          <p className="mb-2 font-medium text-zinc-700 dark:text-zinc-200">
+                            {L("payroll_gross", "Bruto")}: {currency} {r.gross.toFixed(2)} —{" "}
+                            {L("payroll_regular_hours", "Regular")}: {r.regularHours.toFixed(1)} × {currency}{" "}
+                            {r.rate.toFixed(2)}
+                            {r.otHours > 0
+                              ? ` + ${L("payroll_ot_hours", "OT")}: ${r.otHours.toFixed(1)} × ${currency} ${(r.rate * 1.5).toFixed(2)}`
+                              : ""}
+                          </p>
+                        ) : null}
                         <ul className="space-y-1">
                           {(r.deductions as PayrollDeduction[]).map((d, i) => (
                             <li key={i} className="flex justify-between gap-4">

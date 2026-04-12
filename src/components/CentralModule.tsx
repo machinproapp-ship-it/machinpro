@@ -266,6 +266,8 @@ interface CentralModuleProps {
   /** Tarjeta Proyectos en Zona de gestión (Central). */
   dashboardCanViewProjectsManagement?: boolean;
   dashboardCriticalInventoryCount?: number;
+  dashboardCriticalInventoryLines?: { itemId: string; text: string }[];
+  onDashboardCriticalInventoryNavigate?: (itemId: string) => void;
   /** AH-17 labor costing widget (Central dashboard). */
   laborCostingEnabled?: boolean;
   canViewLaborCosting?: boolean;
@@ -447,6 +449,8 @@ export function CentralModule({
   dashboardCanViewDashboardWidgets = false,
   dashboardCanViewProjectsManagement = false,
   dashboardCriticalInventoryCount = 0,
+  dashboardCriticalInventoryLines = [],
+  onDashboardCriticalInventoryNavigate,
   laborCostingEnabled = false,
   canViewLaborCosting = false,
   laborCostingCurrency = "CAD",
@@ -927,6 +931,8 @@ export function CentralModule({
                 canViewLogistics={dashboardCanViewLogistics}
                 canViewDashboardWidgets={dashboardCanViewDashboardWidgets}
                 criticalInventoryCount={dashboardCriticalInventoryCount}
+                criticalInventoryLines={dashboardCriticalInventoryLines}
+                onCriticalInventoryNavigate={onDashboardCriticalInventoryNavigate}
                 laborCostingEnabled={laborCostingEnabled}
                 canViewLaborCosting={canViewLaborCosting}
                 laborCostingCurrency={laborCostingCurrency}

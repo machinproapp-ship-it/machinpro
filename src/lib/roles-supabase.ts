@@ -43,6 +43,13 @@ function applyLegacyPermissionFields(
     acc.canManageSuppliers = true;
     acc.canManageRentals = true;
     acc.canCreatePurchaseOrders = true;
+    acc.canImportInventory = true;
+    acc.canTransferInventory = true;
+    acc.canPrintInventoryQR = true;
+    acc.canScanInventoryQR = true;
+    acc.canViewInventoryHistory = true;
+    acc.canManageInventoryAlerts = true;
+    acc.canViewInventoryReports = true;
   }
   if (L("canWriteSchedule")) acc.canCreateShifts = true;
   if (L("canApproveVacations")) acc.canManageVacations = true;
