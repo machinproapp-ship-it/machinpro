@@ -65,6 +65,9 @@ export function ProductionPayrollSchedulePanel({
   labels: lx,
   companyName,
   companyId,
+  companyAddress = "",
+  companyPhone = "",
+  companyEmail = "",
   timeZone,
   dateLocale,
   currency,
@@ -83,6 +86,9 @@ export function ProductionPayrollSchedulePanel({
   labels: Record<string, string>;
   companyName: string;
   companyId: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
   timeZone: string;
   dateLocale: string;
   currency: string;
@@ -354,9 +360,9 @@ export function ProductionPayrollSchedulePanel({
           companyId,
           companyLogoUrl: companyLogoUrl?.trim() || undefined,
           issuerName: companyName,
-          issuerAddress: "",
-          issuerEmail: "",
-          issuerPhone: "",
+          issuerAddress: companyAddress?.trim() || undefined,
+          issuerEmail: companyEmail?.trim() || undefined,
+          issuerPhone: companyPhone?.trim() || undefined,
           invoiceNumber: num,
           issueDate: formatTodayYmdInTimeZone(timeZone),
           currency,

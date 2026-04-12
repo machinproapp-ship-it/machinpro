@@ -331,6 +331,10 @@ export interface ScheduleModuleProps {
   timeZone?: string;
   /** Nombre empresa para archivos CSV (hojas de horas). */
   companyName?: string;
+  /** Datos emisor (PDF factura producción). */
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
   /** Logo empresa (PDF nómina / informes). */
   companyLogoUrl?: string;
   /** Fallback slug si no hay nombre de empresa. */
@@ -1505,6 +1509,9 @@ export default function ScheduleModule({
   dateLocale = "es-ES",
   timeZone: scheduleTimeZoneProp,
   companyName = "",
+  companyAddress = "",
+  companyPhone = "",
+  companyEmail = "",
   companyLogoUrl,
   companyId = "",
   currentUserId = "",
@@ -3080,6 +3087,9 @@ export default function ScheduleModule({
               labels={lx}
               companyName={companyName}
               companyId={companyId}
+              companyAddress={companyAddress}
+              companyPhone={companyPhone}
+              companyEmail={companyEmail}
               timeZone={scheduleTz}
               dateLocale={dateLocale}
               currency={timesheetCostCurrency}

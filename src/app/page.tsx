@@ -6405,6 +6405,9 @@ export default function Home() {
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
                 companyName={profile?.companyName ?? companyName ?? ""}
+                companyAddress={companyAddress}
+                companyPhone={companyPhone}
+                companyEmail={companyEmail}
                 companyLogoUrl={logoUrl?.trim() || undefined}
                 companyId={companyId ?? ""}
                 canViewTimesheetCosts={!!rolePerms.canViewLaborCosting}
