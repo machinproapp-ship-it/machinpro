@@ -47,6 +47,8 @@ import { EmployeesModule } from "@/components/EmployeesModule";
 import { WorkerHub } from "@/components/WorkerHub";
 import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
+import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
@@ -1707,11 +1709,32 @@ export default function Home() {
   const pendingSyncRef = useRef(pendingSync);
   pendingSyncRef.current = pendingSync;
 
+  const offlinePendingFormInstanceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of pendingSync) {
+      if (p.type === "form_instance") ids.add((p.data as FormInstance).id);
+    }
+    return ids;
+  }, [pendingSync]);
+
+  const pushOfflineFormLocal = useCallback((instance: FormInstance) => {
+    try {
+      const raw = localStorage.getItem("machinpro_offline_forms");
+      const arr = raw ? (JSON.parse(raw) as FormInstance[]) : [];
+      const i = arr.findIndex((x) => x.id === instance.id);
+      if (i >= 0) arr[i] = instance;
+      else arr.push(instance);
+      localStorage.setItem("machinpro_offline_forms", JSON.stringify(arr));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const syncPendingData = useCallback(async () => {
     if (!isOnline || !supabase || pendingSyncRef.current.length === 0) return;
     const toSync = [...pendingSyncRef.current];
     const synced: string[] = [];
-    const failed: string[] = [];
+    const formInstanceIds = new Set<string>();
 
     for (const item of toSync) {
       try {
@@ -1719,6 +1742,7 @@ export default function Home() {
           const instance = item.data as FormInstance;
           await supabase.from("form_instances").upsert(instance);
           synced.push(item.id);
+          formInstanceIds.add(instance.id);
         }
         if (item.type === "clock_entry") {
           const entry = item.data as ClockEntry;
@@ -1726,7 +1750,6 @@ export default function Home() {
           synced.push(item.id);
         }
       } catch {
-        failed.push(item.id);
         setPendingSync((prev) =>
           prev.map((p) =>
             p.id === item.id ? { ...p, attempts: p.attempts + 1 } : p
@@ -1737,8 +1760,22 @@ export default function Home() {
 
     if (synced.length > 0) {
       setPendingSync((prev) => prev.filter((p) => !synced.includes(p.id)));
+      if (formInstanceIds.size > 0) {
+        try {
+          const raw = localStorage.getItem("machinpro_offline_forms");
+          const arr = raw ? (JSON.parse(raw) as FormInstance[]) : [];
+          const next = arr.filter((x) => !formInstanceIds.has(x.id));
+          localStorage.setItem("machinpro_offline_forms", JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        const tl = t as Record<string, string>;
+        const n = formInstanceIds.size;
+        const piece = tl.offline_forms_synced ?? "formularios sincronizados";
+        showToast("success", `${n} ${piece}`);
+      }
     }
-  }, [isOnline]);
+  }, [isOnline, supabase, t, showToast]);
 
   useEffect(() => {
     if (isOnline && pendingSync.length > 0) {
@@ -2226,6 +2263,208 @@ export default function Home() {
       }
     },
     [inventoryItems, appendInventoryLedger, profile?.id, profile?.fullName, profile?.email, currency, t, handleAddProjectExpense]
+  );
+
+  const handleInventoryQrPostScan = useCallback(
+    (itemId: string, action: InventoryQrPostScanAction) => {
+      const item = inventoryItems.find((i) => i.id === itemId);
+      if (!item || item.deletedAt) return;
+      const nowIso = new Date().toISOString();
+      const isTool = item.type === "tool" || item.type === "equipment";
+      const isMat = item.type === "consumable" || item.type === "material";
+      const tx = t as Record<string, string>;
+
+      if (action.kind === "transfer") {
+        handleInventoryTransfer({
+          itemId,
+          quantity: action.quantity,
+          fromProjectId: action.fromProjectId,
+          toProjectId: action.toProjectId,
+          fromLocation: action.fromLocation,
+          toLocation: action.toLocation,
+          notes: action.notes ?? null,
+        });
+        return;
+      }
+
+      if (action.kind === "status_change") {
+        if (!isTool) return;
+        const oldSt = item.toolStatus ?? "available";
+        if (oldSt === action.newStatus) return;
+        setInventoryItems((prev) => {
+          const next = prev.map((i) =>
+            i.id === itemId ? { ...i, toolStatus: action.newStatus as ToolStatus } : i
+          );
+          try {
+            localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+          } catch {
+            /* ignore */
+          }
+          return next;
+        });
+        appendInventoryLedger({
+          itemId: item.id,
+          itemName: item.name,
+          movementType: "status_change",
+          quantity: 1,
+          fromLocation: oldSt,
+          toLocation: action.newStatus,
+          notes: action.notes,
+          performedByProfileId: profile?.id,
+          performedByName: profile?.fullName ?? profile?.email ?? undefined,
+          createdAt: nowIso,
+        });
+        return;
+      }
+
+      if (action.kind === "in") {
+        const qty = action.quantity;
+        if (isMat) {
+          if (qty <= 0) return;
+          setInventoryItems((prev) => {
+            const next = prev.map((i) =>
+              i.id === itemId ? { ...i, quantity: i.quantity + qty, lastMovementAt: nowIso } : i
+            );
+            try {
+              localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+            } catch {
+              /* ignore */
+            }
+            return next;
+          });
+          appendInventoryLedger({
+            itemId: item.id,
+            itemName: item.name,
+            movementType: "in",
+            quantity: qty,
+            notes: action.notes,
+            performedByProfileId: profile?.id,
+            performedByName: profile?.fullName ?? profile?.email ?? undefined,
+            createdAt: nowIso,
+          });
+        } else {
+          setInventoryItems((prev) => {
+            const next = prev.map((i) =>
+              i.id === itemId
+                ? {
+                    ...i,
+                    quantity: Math.max(1, i.quantity),
+                    toolStatus: "available" as ToolStatus,
+                    assignedToProjectId: undefined,
+                    assignedToEmployeeId: undefined,
+                    lastMovementAt: nowIso,
+                  }
+                : i
+            );
+            try {
+              localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+            } catch {
+              /* ignore */
+            }
+            return next;
+          });
+          appendInventoryLedger({
+            itemId: item.id,
+            itemName: item.name,
+            movementType: "in",
+            quantity: 1,
+            notes: action.notes,
+            performedByProfileId: profile?.id,
+            performedByName: profile?.fullName ?? profile?.email ?? undefined,
+            createdAt: nowIso,
+          });
+        }
+        return;
+      }
+
+      const projectId = action.projectId;
+      if (isMat) {
+        const qty = action.quantity;
+        if (qty <= 0) return;
+        const newQty = Math.max(0, item.quantity - qty);
+        setInventoryItems((prev) => {
+          const next = prev.map((i) =>
+            i.id === itemId
+              ? { ...i, quantity: newQty, assignedToProjectId: projectId, lastMovementAt: nowIso }
+              : i
+          );
+          try {
+            localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+          } catch {
+            /* ignore */
+          }
+          return next;
+        });
+        appendInventoryLedger({
+          itemId: item.id,
+          itemName: item.name,
+          movementType: "out",
+          quantity: qty,
+          fromLocation: item.location ?? "warehouse",
+          fromProjectId: item.assignedToProjectId,
+          toLocation: "onsite",
+          toProjectId: projectId,
+          notes: action.notes,
+          performedByProfileId: profile?.id,
+          performedByName: profile?.fullName ?? profile?.email ?? undefined,
+          createdAt: nowIso,
+        });
+        const amount = Math.round(qty * item.purchasePriceCAD * 100) / 100;
+        void handleAddProjectExpense({
+          projectId,
+          name: `${tx.inventory_type_material ?? "Material"}: ${item.name} (−${qty} ${item.unit})`,
+          amount,
+          currency,
+          category: "material",
+          expenseDate: nowIso.slice(0, 10),
+          notes: action.notes ?? null,
+        });
+        return;
+      }
+
+      setInventoryItems((prev) => {
+        const next = prev.map((i) =>
+          i.id === itemId
+            ? {
+                ...i,
+                toolStatus: "in_use" as ToolStatus,
+                assignedToProjectId: projectId,
+                lastMovementAt: nowIso,
+              }
+            : i
+        );
+        try {
+          localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      appendInventoryLedger({
+        itemId: item.id,
+        itemName: item.name,
+        movementType: "out",
+        quantity: 1,
+        fromLocation: item.location ?? "warehouse",
+        fromProjectId: item.assignedToProjectId,
+        toProjectId: projectId,
+        notes: action.notes,
+        performedByProfileId: profile?.id,
+        performedByName: profile?.fullName ?? profile?.email ?? undefined,
+        createdAt: nowIso,
+      });
+    },
+    [
+      inventoryItems,
+      appendInventoryLedger,
+      profile?.id,
+      profile?.fullName,
+      profile?.email,
+      t,
+      currency,
+      handleAddProjectExpense,
+      handleInventoryTransfer,
+    ]
   );
 
   const handleBulkInventoryImport = useCallback(
@@ -3113,18 +3352,6 @@ export default function Home() {
       localStorage.setItem("machinpro_project_tasks", JSON.stringify(projectTasks));
     } catch {}
   }, [projectTasks]);
-
-  useEffect(() => {
-    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
 
   // Usar el rol real de Supabase si está disponible.
   // Mantener el simulador solo si no hay perfil (modo dev local).
@@ -4470,12 +4697,18 @@ export default function Home() {
   );
 
   const handleCreateVacationRequest = useCallback(
-    async (start: string, end: string, notes: string) => {
+    async (start: string, end: string, notes: string, absenceKind?: string) => {
       if (!supabase || !companyId || !user?.id) return;
       const d0 = new Date(start + "T12:00:00");
       const d1 = new Date(end + "T12:00:00");
       if (d1 < d0) return;
       const totalDays = Math.floor((d1.getTime() - d0.getTime()) / 86400000) + 1;
+      const tl = t as Record<string, string>;
+      const typeLine =
+        absenceKind && absenceKind !== "vacation"
+          ? `[${tl[`vacation_type_${absenceKind}`] ?? absenceKind}] `
+          : "";
+      const mergedNotes = `${typeLine}${notes}`.trim() || null;
       const { data, error } = await supabase
         .from("vacation_requests")
         .insert({
@@ -4484,21 +4717,21 @@ export default function Home() {
           start_date: start,
           end_date: end,
           total_days: totalDays,
-          notes: notes || null,
+          notes: mergedNotes,
           status: "pending",
         })
         .select("*")
         .single();
       if (error || !data) return;
       setVacationRequests((prev) => [data as VacationRequestRow, ...prev]);
-      const tl = t as Record<string, string>;
       const title = tl.notif_vacation_pending_title ?? tl.schedule_vacation_pending_list ?? "Vacation pending approval";
       const who =
         (profile?.fullName ?? "").trim() ||
         (profile?.email ?? "").trim() ||
         (user.email ?? "").trim() ||
         user.id;
-      const body = `${who}: ${start} → ${end}` + (notes?.trim() ? ` · ${notes.trim()}` : "");
+      const body =
+        `${who}: ${start} → ${end}` + (mergedNotes?.trim() ? ` · ${mergedNotes.trim()}` : "");
       for (const e of activeEmployees) {
         const r = (e.role ?? "").toLowerCase();
         if (r !== "admin" && r !== "supervisor") continue;
@@ -5353,6 +5586,7 @@ export default function Home() {
         />
 
         <main className="flex-1 flex flex-col min-w-0 overflow-x-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-8">
+          <OfflineIndicator labels={t as Record<string, string>} onOnlineChange={setIsOnline} />
           <header className="mb-4 sm:mb-8 border-b border-gray-200 dark:border-gray-800 pb-4 flex w-full min-w-0 max-w-full flex-col gap-3 overflow-x-hidden sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 max-w-full flex-1 items-center gap-2">
               <button
@@ -5402,6 +5636,7 @@ export default function Home() {
                   localeBcp47={dateLocaleBcp47}
                   timeZone={userTimeZone}
                   onNavigate={handleAppNotificationNavigate}
+                  companyId={companyId ?? null}
                 />
               ) : null}
               {pendingSync.length > 0 ? (
@@ -6048,11 +6283,26 @@ export default function Home() {
                 canManageSuppliers={!!rolePerms.canManageSuppliers}
                 canCreatePurchaseOrders={!!rolePerms.canCreatePurchaseOrders}
                 onUpdateItemStatus={(id, status) => {
+                  const prevItem = inventoryItems.find((i) => i.id === id);
+                  const oldSt = prevItem?.toolStatus ?? "available";
                   setInventoryItems((prev) => {
                     const next = prev.map((i) => i.id === id ? { ...i, toolStatus: status as ToolStatus } : i);
                     try { localStorage.setItem("machinpro_inventory", JSON.stringify(next)); } catch {}
                     return next;
                   });
+                  if (prevItem && oldSt !== status) {
+                    appendInventoryLedger({
+                      itemId: id,
+                      itemName: prevItem.name,
+                      movementType: "status_change",
+                      quantity: 1,
+                      fromLocation: oldSt,
+                      toLocation: status,
+                      performedByProfileId: profile?.id,
+                      performedByName: profile?.fullName ?? profile?.email ?? undefined,
+                      createdAt: new Date().toISOString(),
+                    });
+                  }
                 }}
                 onReturnTool={(itemId, condition, notes, photoUrl) => {
                   const newStatus: ToolStatus = condition === "good" ? "available" : "maintenance";
@@ -6126,6 +6376,7 @@ export default function Home() {
                 activeProfileId={profile?.id}
                 activeProfileName={profile?.fullName ?? profile?.email ?? ""}
                 onAppendInventoryLedger={appendInventoryLedger}
+                onInventoryQrPostScan={handleInventoryQrPostScan}
                 onInventoryTransfer={handleInventoryTransfer}
                 onBulkInventoryImport={handleBulkInventoryImport}
                 openInventoryDetailId={warehouseOpenInventoryId}
@@ -7008,8 +7259,12 @@ export default function Home() {
                   canManageSecurityDocs={!!rolePerms.canManageSecurityDocs}
                   canViewSecurityAudit={!!rolePerms.canViewSecurityAudit}
                   canManageDailyReports={!!rolePerms.canManageDailyReports}
-                  canShowTraining={!!rolePerms.canViewSecurity}
-                  canManageTraining={effectiveRole === "admin"}
+                  canViewTrainingHub={!!rolePerms.canViewTrainingHub}
+                  canManageTrainingHub={!!rolePerms.canManageTrainingHub || effectiveRole === "admin"}
+                  canViewSafetyPassport={!!rolePerms.canViewSafetyPassport}
+                  canManageSafetyPassport={!!rolePerms.canManageSafetyPassport || effectiveRole === "admin"}
+                  employeeDocs={employeeDocs}
+                  complianceRecords={complianceRecords}
                   cloudinaryCloudName={
                     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim() || "dwdlmxmkt"
                   }
@@ -7090,10 +7345,19 @@ export default function Home() {
                 canApproveForms={!!rolePerms.canApproveForms}
                 canExportForms={!!rolePerms.canExportForms}
                 canViewForms={!!rolePerms.canViewForms}
-                onCreateInstance={(instance) => setFormInstances((prev) => [...prev, instance])}
+                onCreateInstance={(instance) => {
+                  setFormInstances((prev) => [...prev, instance]);
+                  if (!isOnline) {
+                    addToPendingSync("form_instance", instance);
+                    pushOfflineFormLocal(instance);
+                  }
+                }}
                 onUpdateInstance={(instance) => {
                   setFormInstances((prev) => prev.map((i) => (i.id === instance.id ? instance : i)));
-                  if (!isOnline) addToPendingSync("form_instance", instance);
+                  if (!isOnline) {
+                    addToPendingSync("form_instance", instance);
+                    pushOfflineFormLocal(instance);
+                  }
                 }}
                 onAddTemplate={(tpl) => setFormTemplates((prev) => [...prev, tpl])}
                 onUpdateTemplate={(tpl) =>
@@ -7114,6 +7378,7 @@ export default function Home() {
                   .map((r) => ({ id: r.id, name: r.name }))}
                 onConsumeOpenFillNavigation={consumeFormsOpenFillNavigation}
                 projectNameById={projectNameByIdForForms}
+                offlinePendingInstanceIds={Array.from(offlinePendingFormInstanceIds)}
               />
               <ModuleHelpFab
                 moduleKey="forms"

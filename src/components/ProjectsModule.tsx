@@ -1666,7 +1666,7 @@ export function ProjectsModule({
                   : tab.id === "costes"
                     ? (t as Record<string, string>).project_costs_title ?? PM_EN.project_costs_title
                   : tab.id === "work_order"
-                    ? (t as Record<string, string>).work_order_title ?? "Work Order"
+                    ? (t as Record<string, string>).work_order_title ?? "Orden de trabajo"
                   : tab.id === "mapa"
                     ? (t as Record<string, string>).map ??
                       (t as Record<string, string>).tab_map ??
@@ -4551,7 +4551,7 @@ export function ProjectsModule({
           <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).work_order_title ?? "Work Order"}
+                {(t as Record<string, string>).work_order_title ?? "Orden de trabajo"}
               </h3>
               {canManageWorkOrders ? (
                 <button

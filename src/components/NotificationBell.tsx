@@ -18,6 +18,15 @@ import { notificationDisplayBody, notificationDisplayTitle } from "@/lib/notific
 import { formatDateTime, formatRelative } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
+function urlBase64ToUint8Array(base64String: string): BufferSource {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 type Props = {
   supabase: SupabaseClient | null;
   labels: Record<string, string>;
@@ -28,6 +37,7 @@ type Props = {
   timeZone: string;
   /** Abrir entidad relacionada (proyecto, calendario, etc.). */
   onNavigate?: (n: AppNotificationRow) => void;
+  companyId?: string | null;
 };
 
 function categoryIcon(type: string) {
@@ -40,9 +50,19 @@ function categoryIcon(type: string) {
   return { Icon: Bell, key: "system" as const };
 }
 
-export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZone, onNavigate }: Props) {
+export function NotificationBell({
+  supabase,
+  labels,
+  enabled,
+  localeBcp47,
+  timeZone,
+  onNavigate,
+  companyId = null,
+}: Props) {
   const tl = labels;
   const [open, setOpen] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
   const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
   const [mdPanelLayout, setMdPanelLayout] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -96,6 +116,13 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
       window.removeEventListener("resize", updatePanelPosition);
       window.removeEventListener("scroll", updatePanelPosition, true);
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker.ready.then((reg) =>
+      reg.pushManager.getSubscription().then((s) => setPushSubscribed(!!s))
+    );
   }, [open]);
 
   useEffect(() => {
@@ -306,6 +333,58 @@ export function NotificationBell({ supabase, labels, enabled, localeBcp47, timeZ
                       : tl.notifications_load_more ?? "Load more"}
                   </button>
                 </div>
+              ) : null}
+
+              {companyId && supabase && !pushSubscribed ? (
+                <div className="border-t border-zinc-200 p-3 dark:border-zinc-700">
+                  <button
+                    type="button"
+                    disabled={pushBusy || typeof Notification === "undefined"}
+                    onClick={() => {
+                      void (async () => {
+                        if (!supabase || !companyId) return;
+                        const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+                        if (!vapid) return;
+                        setPushBusy(true);
+                        try {
+                          const perm = await Notification.requestPermission();
+                          if (perm !== "granted") return;
+                          const reg = await navigator.serviceWorker.ready;
+                          const sub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(vapid),
+                          });
+                          const {
+                            data: { session },
+                          } = await supabase.auth.getSession();
+                          const token = session?.access_token;
+                          if (!token) return;
+                          const res = await fetch("/api/notifications/subscribe", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ companyId, subscription: sub.toJSON() }),
+                          });
+                          if (res.ok) setPushSubscribed(true);
+                        } finally {
+                          setPushBusy(false);
+                        }
+                      })();
+                    }}
+                    className="min-h-[44px] w-full rounded-lg bg-amber-600 py-3 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    {pushBusy
+                      ? tl.notifications_loading ?? "…"
+                      : tl.notifications_enable ?? "Enable notifications"}
+                  </button>
+                </div>
+              ) : null}
+              {pushSubscribed ? (
+                <p className="border-t border-zinc-200 px-3 py-2 text-center text-xs text-emerald-700 dark:border-zinc-700 dark:text-emerald-400">
+                  {tl.notifications_enabled ?? ""}
+                </p>
               ) : null}
             </div>
           </div>

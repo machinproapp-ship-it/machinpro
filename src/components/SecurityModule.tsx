@@ -26,13 +26,15 @@ import {
 import { BindersModule } from "@/components/BindersModule";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { TrainingHubModule, type TrainingEmployeeOption } from "@/components/TrainingHubModule";
+import { SafetyPassportModule } from "@/components/SafetyPassportModule";
+import type { EmployeeDocument, ComplianceRecord } from "@/types/homePage";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
-export type SecurityTabId = "hazards" | "actions" | "documents" | "audit" | "training";
+export type SecurityTabId = "hazards" | "actions" | "documents" | "audit" | "training" | "passport";
 
 export interface SecurityModuleProps {
   t: Record<string, string>;
@@ -66,10 +68,13 @@ export interface SecurityModuleProps {
   canViewSecurityDocs: boolean;
   canManageSecurityDocs: boolean;
   canViewSecurityAudit: boolean;
-  /** Reservado (partes diarios en obra / proyectos); la pestaña Formación usa `canManageTraining`. */
   canManageDailyReports: boolean;
-  canShowTraining: boolean;
-  canManageTraining: boolean;
+  canViewTrainingHub: boolean;
+  canManageTrainingHub: boolean;
+  canViewSafetyPassport: boolean;
+  canManageSafetyPassport: boolean;
+  employeeDocs: EmployeeDocument[];
+  complianceRecords: ComplianceRecord[];
   cloudinaryCloudName: string;
   cloudinaryUploadPreset: string;
   customRoles: CustomRole[];
@@ -95,7 +100,8 @@ const TAB_CONFIG: { id: SecurityTabId; icon: typeof AlertTriangle; labelKey: str
   { id: "actions", icon: ClipboardCheck, labelKey: "security_tab_actions" },
   { id: "documents", icon: FolderOpen, labelKey: "security_tab_documents" },
   { id: "audit", icon: ScrollText, labelKey: "security_tab_audit" },
-  { id: "training", icon: GraduationCap, labelKey: "training_hub" },
+  { id: "training", icon: GraduationCap, labelKey: "training_hub_title" },
+  { id: "passport", icon: Shield, labelKey: "safety_passport_title" },
 ];
 
 export function SecurityModule({
@@ -131,8 +137,12 @@ export function SecurityModule({
   canManageSecurityDocs,
   canViewSecurityAudit,
   canManageDailyReports,
-  canShowTraining,
-  canManageTraining,
+  canViewTrainingHub,
+  canManageTrainingHub,
+  canViewSafetyPassport,
+  canManageSafetyPassport,
+  employeeDocs,
+  complianceRecords,
   cloudinaryCloudName,
   cloudinaryUploadPreset,
   customRoles,
@@ -146,6 +156,7 @@ export function SecurityModule({
 }: SecurityModuleProps) {
   const { showToast } = useToast();
   void useMachinProDisplayPrefs();
+  void canManageSafetyPassport;
   const showHazardsTab = canViewHazards || canManageHazards;
   const showActionsTab = canViewCorrectiveActions || canManageCorrectiveActions;
   const showDocumentsTab = canViewSecurityDocs || canManageSecurityDocs;
@@ -156,7 +167,8 @@ export function SecurityModule({
     (showActionsTab ? "actions" : null) ||
     (showDocumentsTab ? "documents" : null) ||
     (showAuditTab ? "audit" : null) ||
-    (canShowTraining ? "training" : null) ||
+    (canViewTrainingHub ? "training" : null) ||
+    (canViewSafetyPassport ? "passport" : null) ||
     "hazards";
 
   const [tab, setTab] = useState<SecurityTabId>(firstAllowed as SecurityTabId);
@@ -167,8 +179,16 @@ export function SecurityModule({
       (id === "actions" && showActionsTab) ||
       (id === "documents" && showDocumentsTab) ||
       (id === "audit" && showAuditTab) ||
-      (id === "training" && canShowTraining),
-    [showHazardsTab, showActionsTab, showDocumentsTab, showAuditTab, canShowTraining]
+      (id === "training" && canViewTrainingHub) ||
+      (id === "passport" && canViewSafetyPassport),
+    [
+      showHazardsTab,
+      showActionsTab,
+      showDocumentsTab,
+      showAuditTab,
+      canViewTrainingHub,
+      canViewSafetyPassport,
+    ]
   );
 
   const selectSecurityTab = useCallback(
@@ -461,18 +481,30 @@ export function SecurityModule({
           </div>
         )}
 
-        {tab === "training" && canShowTraining && (
+        {tab === "training" && canViewTrainingHub && (
           <TrainingHubModule
             t={t}
             companyId={companyId}
             userProfileId={userProfileId}
             userName={userName}
-            canManageTraining={canManageTraining}
+            canManageTraining={canManageTrainingHub}
             employees={employees}
             customRoles={customRoles}
             dateLocale={dateLocale}
             cloudinaryCloudName={cloudinaryCloudName}
             cloudinaryUploadPreset={cloudinaryUploadPreset}
+          />
+        )}
+
+        {tab === "passport" && canViewSafetyPassport && (
+          <SafetyPassportModule
+            t={t}
+            companyId={companyId}
+            companyName={companyName}
+            employees={employees}
+            employeeDocs={employeeDocs}
+            complianceRecords={complianceRecords}
+            dateLocale={dateLocale}
           />
         )}
       </div>

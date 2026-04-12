@@ -677,5 +677,6 @@ export default {
   "taskFilterInProgress": "In progress",
   "taskFilterCompleted": "Zakończone",
   "taskUnassigned": "Unassigned",
-  "editTask": "Edit task"
+  "editTask": "Edit task",
+  work_order_title: "Zlecenie pracy",
 } as const;

@@ -116,6 +116,11 @@ export interface RolePermissions {
   canManageWorkOrders: boolean;
   /** Reportar unidades en parte diario (producción). */
   canReportProduction: boolean;
+
+  canViewTrainingHub: boolean;
+  canManageTrainingHub: boolean;
+  canViewSafetyPassport: boolean;
+  canManageSafetyPassport: boolean;
 }
 
 export interface CustomRole {
@@ -218,6 +223,10 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewWorkOrders",
   "canManageWorkOrders",
   "canReportProduction",
+  "canViewTrainingHub",
+  "canManageTrainingHub",
+  "canViewSafetyPassport",
+  "canManageSafetyPassport",
 ];
 
 /** Clave i18n: `perm` + clave con primera letra en mayúscula (permCanViewCentral). */
@@ -333,6 +342,10 @@ export const ROLE_PERMISSION_GROUPS: {
       "canManageSecurityDocs",
       "canViewSecurityAudit",
       "canManageDailyReports",
+      "canViewTrainingHub",
+      "canManageTrainingHub",
+      "canViewSafetyPassport",
+      "canManageSafetyPassport",
     ],
   },
   {
@@ -446,6 +459,10 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewWorkOrders: "Ver work orders",
   canManageWorkOrders: "Gestionar work orders",
   canReportProduction: "Reportar producción diaria",
+  canViewTrainingHub: "Ver centro de formación",
+  canManageTrainingHub: "Gestionar formaciones",
+  canViewSafetyPassport: "Ver pasaporte de seguridad",
+  canManageSafetyPassport: "Gestionar pasaporte de seguridad",
 };
 
 const BASE_ROLE_IDS = ["role-admin", "role-supervisor", "role-worker", "role-logistic"];

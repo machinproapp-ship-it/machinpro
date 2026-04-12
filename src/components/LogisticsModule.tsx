@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import type { InventoryLedgerRow, InventoryMovementKind } from "@/types/inventoryLedger";
+import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
+import { InventoryQrPostScanModal } from "@/components/InventoryQrPostScanModal";
 import { parseInventoryQrPayload } from "@/lib/inventoryQr";
 import { generateInventoryQrLabelPdf } from "@/lib/generateInventoryQrLabelPdf";
 import Papa from "papaparse";
@@ -303,6 +305,8 @@ export interface LogisticsModuleProps {
   onBulkInventoryImport?: (items: InventoryItem[]) => void | Promise<void>;
   openInventoryDetailId?: string | null;
   onOpenInventoryDetailConsumed?: () => void;
+  /** Tras escanear QR: modal de acciones (entrada/salida/transferencia/estado). */
+  onInventoryQrPostScan?: (itemId: string, action: InventoryQrPostScanAction) => void;
 }
 
 function daysUntilExpiry(expiryDate: string): number {
@@ -533,6 +537,7 @@ export function LogisticsModule({
   onBulkInventoryImport,
   openInventoryDetailId,
   onOpenInventoryDetailConsumed,
+  onInventoryQrPostScan,
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
   const canFulfillOrders = canManageInventory || canCreatePurchaseOrders;
@@ -585,10 +590,14 @@ export function LogisticsModule({
         showToast("error", (t as Record<string, string>).wh_inventory_empty ?? "Not found");
         return;
       }
-      setSelectedAsset({ type: "inventory", id: it.id });
+      if (onInventoryQrPostScan) {
+        setQrPostScanItem(it);
+      } else {
+        setSelectedAsset({ type: "inventory", id: it.id });
+      }
       showToast("success", it.name);
     },
-    [companyId, inventoryItems, showToast, t]
+    [companyId, inventoryItems, onInventoryQrPostScan, showToast, t]
   );
   const [logisticsInvFiltersOpen, setLogisticsInvFiltersOpen] = useState(false);
   const [inventoryScope, setInventoryScope] = useState<"all" | "warehouse" | "onsite">("all");
@@ -600,6 +609,7 @@ export function LogisticsModule({
   const [importOpen, setImportOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState<InventoryItem[]>([]);
   const [invScanOpen, setInvScanOpen] = useState(false);
+  const [qrPostScanItem, setQrPostScanItem] = useState<InventoryItem | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const [logisticsFleetFiltersOpen, setLogisticsFleetFiltersOpen] = useState(false);
   const [fleetViewMode, setFleetViewMode] = useState<"list" | "tracking">("list");
@@ -1501,6 +1511,22 @@ export function LogisticsModule({
             onClose={() => setInvScanOpen(false)}
             onDecoded={onInventoryQrDecoded}
           />
+          {qrPostScanItem && onInventoryQrPostScan ? (
+            <InventoryQrPostScanModal
+              item={qrPostScanItem}
+              projects={projects ?? []}
+              labels={t}
+              onClose={() => setQrPostScanItem(null)}
+              onOpenDetail={() => {
+                setSelectedAsset({ type: "inventory", id: qrPostScanItem.id });
+                setQrPostScanItem(null);
+              }}
+              onSubmit={(action) => {
+                onInventoryQrPostScan(qrPostScanItem.id, action);
+                setQrPostScanItem(null);
+              }}
+            />
+          ) : null}
           {importOpen && (
             <>
               <div className="fixed inset-0 z-[10060] bg-black/50" aria-hidden onClick={() => setImportOpen(false)} />

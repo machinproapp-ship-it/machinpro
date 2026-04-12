@@ -152,6 +152,11 @@ export function mergeRolePermissions(raw: unknown): RolePermissions {
       acc.canManageProjectCosts === true || acc.canManageProductionCatalog === true;
   }
 
+  if (!hasOwn("canViewTrainingHub")) acc.canViewTrainingHub = acc.canViewSecurity === true;
+  if (!hasOwn("canManageTrainingHub")) acc.canManageTrainingHub = false;
+  if (!hasOwn("canViewSafetyPassport")) acc.canViewSafetyPassport = acc.canViewSecurity === true;
+  if (!hasOwn("canManageSafetyPassport")) acc.canManageSafetyPassport = false;
+
   return acc as RolePermissions;
 }
 

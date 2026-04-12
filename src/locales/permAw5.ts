@@ -166,6 +166,10 @@ const BODY_EN: Record<keyof RolePermissions, string> = {
   canViewInventoryHistory: "View movement history",
   canManageInventoryAlerts: "Manage inventory alerts",
   canViewInventoryReports: "View inventory reports",
+  canViewTrainingHub: "View training hub",
+  canManageTrainingHub: "Manage training",
+  canViewSafetyPassport: "View safety passport",
+  canManageSafetyPassport: "Manage safety passport",
 };
 
 /** FR (sprint AW-5 + coherencia con ES) */
@@ -260,6 +264,10 @@ const BODY_FR: Record<keyof RolePermissions, string> = {
   canViewInventoryHistory: "Voir l'historique des mouvements",
   canManageInventoryAlerts: "Gérer les alertes d'inventaire",
   canViewInventoryReports: "Voir les rapports d'inventaire",
+  canViewTrainingHub: "Voir le centre de formation",
+  canManageTrainingHub: "Gérer les formations",
+  canViewSafetyPassport: "Voir le passeport de sécurité",
+  canManageSafetyPassport: "Gérer le passeport de sécurité",
 };
 
 const BODY_DE: Record<keyof RolePermissions, string> = {
@@ -353,6 +361,10 @@ const BODY_DE: Record<keyof RolePermissions, string> = {
   canViewInventoryHistory: "Bewegungshistorie anzeigen",
   canManageInventoryAlerts: "Inventarwarnungen verwalten",
   canViewInventoryReports: "Inventarberichte anzeigen",
+  canViewTrainingHub: "Schulungszentrum anzeigen",
+  canManageTrainingHub: "Schulungen verwalten",
+  canViewSafetyPassport: "Sicherheitspass anzeigen",
+  canManageSafetyPassport: "Sicherheitspass verwalten",
 };
 
 const BODY_IT: Record<keyof RolePermissions, string> = {
@@ -446,6 +458,10 @@ const BODY_IT: Record<keyof RolePermissions, string> = {
   canViewInventoryHistory: "Visualizza storico movimenti",
   canManageInventoryAlerts: "Gestisci avvisi inventario",
   canViewInventoryReports: "Visualizza report inventario",
+  canViewTrainingHub: "Visualizza centro formazione",
+  canManageTrainingHub: "Gestisci formazioni",
+  canViewSafetyPassport: "Visualizza passaporto sicurezza",
+  canManageSafetyPassport: "Gestisci passaporto sicurezza",
 };
 
 const BODY_PT: Record<keyof RolePermissions, string> = {
@@ -539,6 +555,10 @@ const BODY_PT: Record<keyof RolePermissions, string> = {
   canViewInventoryHistory: "Ver histórico de movimentos",
   canManageInventoryAlerts: "Gerir alertas de inventário",
   canViewInventoryReports: "Ver relatórios de inventário",
+  canViewTrainingHub: "Ver centro de formação",
+  canManageTrainingHub: "Gerir formações",
+  canViewSafetyPassport: "Ver passaporte de segurança",
+  canManageSafetyPassport: "Gerir passaporte de segurança",
 };
 
 export const PERMISSION_LABELS_ES = flatFromRole(GROUPS_ES, ROLE_PERMISSION_LABELS);

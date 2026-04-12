@@ -677,5 +677,6 @@ export default {
   "taskFilterInProgress": "In progress",
   "taskFilterCompleted": "Completed",
   "taskUnassigned": "Unassigned",
-  "editTask": "Edit task"
+  "editTask": "Edit task",
+  work_order_title: "Munkarendelés",
 } as const;

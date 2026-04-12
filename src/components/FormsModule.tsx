@@ -109,6 +109,8 @@ export interface FormsModuleProps {
   onConsumeOpenFillNavigation?: () => void;
   /** Nombres de proyecto cuando `projects` no incluye el id (p. ej. instancias antiguas). */
   projectNameById?: Record<string, string>;
+  /** Instancias en cola offline / pendientes de sincronizar con Supabase. */
+  offlinePendingInstanceIds?: string[];
 }
 
 function formContextBadgeClass(ctx: FormContextType | undefined): string {
@@ -456,6 +458,7 @@ export function FormsModule({
   rentals: rentalsProp = [],
   onConsumeOpenFillNavigation,
   projectNameById = {},
+  offlinePendingInstanceIds = [],
 }: FormsModuleProps) {
   void useMachinProDisplayPrefs();
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
@@ -966,6 +969,11 @@ export function FormsModule({
                         {contextLine} · {inst.date}
                       </p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {offlinePendingInstanceIds.includes(inst.id) ? (
+                          <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                            {l("offline_forms_pending")}
+                          </span>
+                        ) : null}
                         <span
                           className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${formContextBadgeClass(ctxType)}`}
                         >

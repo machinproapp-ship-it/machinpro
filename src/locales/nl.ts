@@ -677,5 +677,6 @@ export default {
   "taskFilterInProgress": "Wordt verwerkt",
   "taskFilterCompleted": "Voltooid",
   "taskUnassigned": "Niet toegewezen",
-  "editTask": "Taak bewerken"
+  "editTask": "Taak bewerken",
+  work_order_title: "Werkorder",
 } as const;

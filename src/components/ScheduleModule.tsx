@@ -353,7 +353,12 @@ export interface ScheduleModuleProps {
   vacationEmployeeNames?: Record<string, string>;
   onApproveVacation?: (id: string, comment: string) => void | Promise<void>;
   onRejectVacation?: (id: string, comment: string) => void | Promise<void>;
-  onRequestVacation?: (start: string, end: string, notes: string) => void | Promise<void>;
+  onRequestVacation?: (
+    start: string,
+    end: string,
+    notes: string,
+    absenceKind?: string
+  ) => void | Promise<void>;
   onAddEntry?: (entry: Omit<SchedEntry, "id">) => void;
   onUpdateEntry?: (id: string, entry: Omit<SchedEntry, "id">) => void;
   onDeleteEntry?: (id: string) => void;
@@ -1699,6 +1704,7 @@ export default function ScheduleModule({
   const [fNotes, setFNotes] = useState("");
   const [fLabel, setFLabel] = useState("meeting");
   const [vacReqStart, setVacReqStart] = useState("");
+  const [vacReqAbsenceKind, setVacReqAbsenceKind] = useState<string>("vacation");
   const [vacReqEnd, setVacReqEnd] = useState("");
   const [vacReqNote, setVacReqNote] = useState("");
   const [vacAdminComment, setVacAdminComment] = useState<Record<string, string>>({});
@@ -2601,8 +2607,23 @@ export default function ScheduleModule({
             {onRequestVacation && canRequestVacation && (
               <div className="space-y-3 border-t border-zinc-200 dark:border-slate-700 pt-4">
                 <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {lx.vacations_request ?? lx.schedule_vacation_request ?? ""}
+                  {lx.vacation_request_title ?? lx.vacations_request ?? lx.schedule_vacation_request ?? ""}
                 </h4>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  {lx.absence_type_label ?? "Absence type"}
+                  <select
+                    value={vacReqAbsenceKind}
+                    onChange={(e) => setVacReqAbsenceKind(e.target.value)}
+                    className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:max-w-xs"
+                    aria-label={lx.vacation_request_title ?? lx.schedule_vacation_request ?? "Absence"}
+                  >
+                    <option value="vacation">{lx.vacation_type_vacation ?? "Vacation"}</option>
+                    <option value="sick">{lx.vacation_type_sick ?? "Sick leave"}</option>
+                    <option value="permission">{lx.vacation_type_permission ?? "Leave"}</option>
+                    <option value="training">{lx.vacation_type_training ?? "Training"}</option>
+                    <option value="other">{lx.vacation_type_other ?? "Other"}</option>
+                  </select>
+                </label>
                 <div className="flex flex-col flex-wrap gap-2 sm:flex-row">
                   <input
                     type="date"
@@ -2629,7 +2650,7 @@ export default function ScheduleModule({
                     type="button"
                     onClick={() => {
                       if (!vacReqStart || !vacReqEnd) return;
-                      void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote);
+                      void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote, vacReqAbsenceKind);
                       setVacReqNote("");
                     }}
                     className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 sm:w-auto"
