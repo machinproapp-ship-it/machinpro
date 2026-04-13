@@ -119,6 +119,8 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
       "pricing_feat_esencial_1",
       "pricing_feat_esencial_2",
       "pricing_feat_esencial_3",
+      "pricing_feat_esencial_4",
+      "pricing_feat_esencial_5",
     ],
   },
   operaciones: {
@@ -133,6 +135,11 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
       "pricing_feat_operaciones_1",
       "pricing_feat_operaciones_2",
       "pricing_feat_operaciones_3",
+      "pricing_feat_operaciones_4",
+      "pricing_feat_operaciones_5",
+      "pricing_feat_operaciones_6",
+      "pricing_feat_operaciones_7",
+      "pricing_feat_operaciones_8",
     ],
   },
   logistica: {
@@ -147,6 +154,9 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
       "pricing_feat_logistica_1",
       "pricing_feat_logistica_2",
       "pricing_feat_logistica_3",
+      "pricing_feat_logistica_4",
+      "pricing_feat_logistica_5",
+      "pricing_feat_logistica_6",
     ],
   },
   todo_incluido: {
@@ -157,7 +167,14 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     projects: null,
     storageGb: 200,
     usersDescriptionKey: "plan_users_todo_incluido",
-    featureKeys: ["pricing_feat_all_1", "pricing_feat_all_2", "pricing_feat_all_3"],
+    featureKeys: [
+      "pricing_feat_all_1",
+      "pricing_feat_all_2",
+      "pricing_feat_all_3",
+      "pricing_feat_all_4",
+      "pricing_feat_all_5",
+      "pricing_feat_all_6",
+    ],
   },
 };
 

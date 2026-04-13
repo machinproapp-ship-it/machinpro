@@ -897,15 +897,21 @@ export function HazardModule({
               onClick={() => setDetail(h)}
               className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-2 min-h-[44px]"
             >
-              <div className="flex items-start justify-between gap-2">
-                <span className="font-semibold text-gray-900 dark:text-white">{h.title}</span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${sevBadgeClass(h.severity)}`}>
-                  {sevLabel(h.severity)}
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <span className="min-w-0 flex-1 font-semibold leading-snug text-gray-900 dark:text-white">
+                  {h.title}
                 </span>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-700 ring-1 ring-gray-300 dark:text-gray-200 dark:ring-gray-600`}>
+                    {statusLabel(h.status)}
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${sevBadgeClass(h.severity)}`}>
+                    {sevLabel(h.severity)}
+                  </span>
+                </div>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {catLabel(h.category)} · {t.hazards_risk_score ?? "Score"}: {h.risk_score} ·{" "}
-                {statusLabel(h.status)}
+                {catLabel(h.category)} · {t.hazards_risk_score ?? "Score"}: {h.risk_score}
               </p>
               {(caByHazard[h.id]?.count ?? 0) > 0 && (
                 <div className="flex flex-wrap items-center gap-2 text-xs">

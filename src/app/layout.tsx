@@ -7,9 +7,34 @@ import { ClientRoot } from "./ClientRoot";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro"),
-  title: { default: "MachinPro", template: "%s · MachinPro" },
+  title: { default: "MachinPro — Gestión de obras sin caos", template: "%s · MachinPro" },
   description:
-    "Gestión profesional de empresas de construcción — equipo, proyectos, horarios y cumplimiento.",
+    "Plataforma de gestión para empresas de construcción. Personal, proyectos, logística, seguridad, formularios y nóminas. Todo desde el móvil. 21 idiomas.",
+  keywords: [
+    "construcción",
+    "gestión de obras",
+    "software construcción",
+    "site management",
+    "construction app",
+    "obra",
+    "proyecto construcción",
+  ],
+  openGraph: {
+    title: "MachinPro — Construye sin caos",
+    description: "Todo lo que necesitas para gestionar tu empresa de construcción desde el móvil.",
+    url: "https://machin.pro",
+    siteName: "MachinPro",
+    images: [{ url: "/logo-source.png", width: 512, height: 512, alt: "MachinPro" }],
+    type: "website",
+    locale: "es_ES",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MachinPro — Construye sin caos",
+    description:
+      "Gestión de obras sin caos. Personal, proyectos, logística, seguridad y nóminas.",
+    images: ["https://machin.pro/logo-source.png"],
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

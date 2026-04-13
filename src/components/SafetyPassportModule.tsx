@@ -153,7 +153,7 @@ export function SafetyPassportModule({
         <button
           type="button"
           onClick={() => void exportPdf()}
-          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600"
+          className="inline-flex min-h-[44px] w-full flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600 sm:w-auto"
         >
           <Download className="h-4 w-4" />
           {L("safety_passport_export", "Export passport PDF")}
@@ -161,14 +161,14 @@ export function SafetyPassportModule({
         <button
           type="button"
           onClick={() => void makeQr()}
-          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500"
+          className="inline-flex min-h-[44px] w-full flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 sm:w-auto"
         >
           <QrCode className="h-4 w-4" />
           {L("safety_passport_qr", "Passport QR")}
         </button>
       </div>
       {qrUrl ? (
-        <div className="flex flex-col items-center gap-2">
+        <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qrUrl} alt="" className="h-44 w-44 rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-600" />
           <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">{L("safety_passport_qr", "Passport QR")}</p>

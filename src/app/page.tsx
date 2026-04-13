@@ -50,6 +50,7 @@ import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { ModuleHelpFab } from "@/components/ModuleHelpFab";
@@ -1358,6 +1359,7 @@ export default function Home() {
       return false;
     }
   });
+  const [onboardingWizardLock, setOnboardingWizardLock] = useState(false);
 
   useEffect(() => {
     if (!supabase || !companyId || !session) return;
@@ -3882,6 +3884,33 @@ export default function Home() {
         : (projects ?? []);
 
   useEffect(() => {
+    const uid = user?.id;
+    const otherEmployees = uid
+      ? activeEmployees.filter((e) => e.id !== uid).length
+      : activeEmployees.length;
+    const onlySelf = otherEmployees === 0;
+    const noProjects = (visibleProjects ?? []).length === 0;
+    if (
+      session &&
+      effectiveRole === "admin" &&
+      !onboardingComplete &&
+      companyId &&
+      onlySelf &&
+      noProjects
+    ) {
+      setOnboardingWizardLock(true);
+    }
+  }, [
+    session,
+    effectiveRole,
+    onboardingComplete,
+    companyId,
+    activeEmployees,
+    visibleProjects,
+    user?.id,
+  ]);
+
+  useEffect(() => {
     if (!supabase || !session || !companyId) return;
     let cancelled = false;
     void (async () => {
@@ -5574,7 +5603,45 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-x-hidden">
-      {session && effectiveRole === "admin" && !onboardingComplete && (
+      {session &&
+        effectiveRole === "admin" &&
+        !onboardingComplete &&
+        onboardingWizardLock &&
+        companyId && (
+          <OnboardingWizard
+            session={session}
+            companyId={companyId}
+            labels={t as Record<string, string>}
+            companyName={companyName || profile?.companyName || ""}
+            companyCountry={companyCountry}
+            currency={currency}
+            customRoles={customRoles}
+            onCompanyNameChange={setCompanyName}
+            onCountryChange={(country, defaults) => {
+              setCompanyCountry(country);
+              if (defaults) {
+                if (!currencyManuallyChangedRef.current) {
+                  setCurrency(defaults.currency as Currency);
+                }
+                setMeasurementSystem(defaults.measurementSystem);
+              }
+              const defaultFields = getDefaultComplianceFields(country);
+              setComplianceFields((prev) => [...defaultFields, ...prev.filter((f) => !f.isDefault)]);
+            }}
+            onCurrencyChange={(c) => {
+              currencyManuallyChangedRef.current = true;
+              setCurrency(c);
+            }}
+            onProjectCreated={(row) => {
+              setProjects((prev) => [...prev, row as Project]);
+            }}
+            onComplete={completeOnboarding}
+          />
+        )}
+      {session &&
+        effectiveRole === "admin" &&
+        !onboardingComplete &&
+        !onboardingWizardLock && (
         <OnboardingModal
           onComplete={completeOnboarding}
           labels={t}

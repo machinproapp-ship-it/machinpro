@@ -8,12 +8,20 @@ export const metadata: Metadata = {
   metadataBase: new URL(site),
   title: "MachinPro — Gestión de obras sin caos",
   description:
-    "Gestiona tu empresa de construcción desde cualquier lugar. Personal, proyectos, logística y cumplimiento en una sola app.",
+    "Plataforma de gestión para empresas de construcción. Personal, proyectos, logística, seguridad, formularios y nóminas. Todo desde el móvil. 21 idiomas.",
+  keywords: [
+    "construcción",
+    "gestión de obras",
+    "software construcción",
+    "site management",
+    "construction app",
+    "obra",
+    "proyecto construcción",
+  ],
   openGraph: {
-    title: "MachinPro — Gestión de obras sin caos",
-    description:
-      "Gestiona tu empresa de construcción desde cualquier lugar. Personal, proyectos, logística y cumplimiento en una sola app.",
-    url: `${site}/landing`,
+    title: "MachinPro — Construye sin caos",
+    description: "Todo lo que necesitas para gestionar tu empresa de construcción desde el móvil.",
+    url: "https://machin.pro/landing",
     siteName: "MachinPro",
     locale: "es_ES",
     type: "website",
@@ -21,10 +29,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "MachinPro — Gestión de obras sin caos",
+    title: "MachinPro — Construye sin caos",
     description:
-      "Gestiona tu empresa de construcción desde cualquier lugar. Personal, proyectos, logística y cumplimiento en una sola app.",
-    images: [`${site}/logo-source.png`],
+      "Gestión de obras sin caos. Personal, proyectos, logística, seguridad y nóminas.",
+    images: ["https://machin.pro/logo-source.png"],
   },
   icons: {
     icon: [{ url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }],

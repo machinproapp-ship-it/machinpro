@@ -389,11 +389,11 @@ export function TrainingHubModule({
           </h3>
         </div>
         {canManageTraining ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
             <button
               type="button"
               onClick={() => setCourseModal("new")}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700 sm:w-auto"
             >
               <Plus className="h-4 w-4 shrink-0" aria-hidden />
               {L(t, "training_new_course", "New course")}
@@ -709,11 +709,11 @@ export function TrainingHubModule({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setAssignMode("people")}
-                className={`flex-1 rounded-lg py-2 text-sm font-medium ${
+                className={`flex-1 min-h-[44px] rounded-lg py-2 text-sm font-medium ${
                   assignMode === "people"
                     ? "bg-amber-100 dark:bg-amber-900/40 text-amber-950 dark:text-amber-100"
                     : "border border-zinc-300 dark:border-zinc-600"
@@ -724,7 +724,7 @@ export function TrainingHubModule({
               <button
                 type="button"
                 onClick={() => setAssignMode("role")}
-                className={`flex-1 rounded-lg py-2 text-sm font-medium ${
+                className={`flex-1 min-h-[44px] rounded-lg py-2 text-sm font-medium ${
                   assignMode === "role"
                     ? "bg-amber-100 dark:bg-amber-900/40 text-amber-950 dark:text-amber-100"
                     : "border border-zinc-300 dark:border-zinc-600"
@@ -869,10 +869,10 @@ function CourseEditModal({
           <h4 className="text-lg font-semibold text-zinc-900 dark:text-white">
             {initial ? L(t, "common_edit", "Edit") : L(t, "training_new_course", "New course")}
           </h4>
-          <button
+            <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="min-h-[44px] min-w-[44px] rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
             aria-label={L(t, "common_close", "Close")}
           >
             <X className="h-5 w-5" />

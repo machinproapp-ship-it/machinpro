@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
     name?: string;
     location?: string;
     estimated_start?: string | null;
+    type?: string | null;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -41,11 +42,19 @@ export async function POST(req: NextRequest) {
       : null;
 
   const id = randomUUID();
+  const typeRaw = typeof body.type === "string" ? body.type.trim().toLowerCase() : "";
+  const type =
+    typeRaw === "commercial" ||
+    typeRaw === "industrial" ||
+    typeRaw === "infrastructure" ||
+    typeRaw === "other"
+      ? typeRaw
+      : "residential";
   const row = {
     id,
     company_id: companyId,
     name,
-    type: "residential",
+    type,
     location,
     budget_cad: 0,
     spent_cad: 0,

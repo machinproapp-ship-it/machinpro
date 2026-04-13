@@ -6,11 +6,13 @@ const site = siteRaw.replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(site),
-  title: "MachinPro — About",
+  title: "MachinPro — ¿Qué es MachinPro?",
   description:
-    "One platform for construction operations: central dashboard, projects, scheduling, logistics, safety and forms.",
+    "Todo lo que hace MachinPro — módulos, casos de uso y países disponibles.",
   openGraph: {
-    title: "MachinPro — About",
+    title: "MachinPro — ¿Qué es MachinPro?",
+    description:
+      "Todo lo que hace MachinPro — módulos, casos de uso y países disponibles.",
     url: `${site}/about`,
     siteName: "MachinPro",
     type: "website",

@@ -131,19 +131,19 @@ export function GettingStartedWidget({
   const items: { done: boolean; title: string; hint: string; section: MainSection }[] = [
     {
       done: steps[0] ?? false,
-      title: L("onboarding_step_company", "Complete your company profile"),
+      title: L("onboarding_gs_company", "Complete your company profile"),
       hint: `${L("settings", "Settings")} -> ${L("settings_company", "Company")}`,
       section: "settings",
     },
     {
       done: steps[1] ?? false,
-      title: L("onboarding_step_employee", "Add your first employee"),
+      title: L("onboarding_gs_employee", "Add your first employee"),
       hint: `${L("office", "Central")} -> ${L("employees_title", "Employees")}`,
       section: "employees",
     },
     {
       done: steps[2] ?? false,
-      title: L("onboarding_step_project", "Create your first project"),
+      title: L("onboarding_gs_project", "Create your first project"),
       hint: `${L("office", "Central")} -> ${L("projects", "Projects")}`,
       section: "office",
     },

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Cancelación Stripe Checkout → pricing in-app en facturación. */
-export default function PricingPage() {
-  redirect("/billing?canceled=1");
+/** Precios públicos viven en la landing (`/landing#pricing`). */
+export default function PricingRedirectPage() {
+  redirect("/landing#pricing");
 }

@@ -726,7 +726,7 @@ export function CorrectiveActionsModule({
         </label>
       </FilterGrid>
 
-      <div className="lg:hidden space-y-3">
+      <div className="md:hidden space-y-3">
         {loading ? (
           <div className="space-y-3 py-2">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -792,7 +792,7 @@ export function CorrectiveActionsModule({
         )}
       </div>
 
-      <div className="hidden lg:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
+      <div className="hidden md:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         {loading ? (
           <div className="p-4 space-y-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (

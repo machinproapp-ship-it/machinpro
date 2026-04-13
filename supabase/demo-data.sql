@@ -384,4 +384,76 @@ FROM public.daily_reports dr
 WHERE dr.id = 'a0000d01-0000-4000-8000-000000000001'
 ON CONFLICT (id) DO NOTHING;
 
+-- Tarifas demo (nóminas / coste laboral)
+UPDATE public.user_profiles
+SET hourly_rate = 28.50, pay_type = 'hourly'
+WHERE id = 'a0000c01-0000-4000-8000-000000000001' AND company_id = 'a0000001-0000-4000-8000-000000000001';
+UPDATE public.user_profiles
+SET hourly_rate = 32.00, pay_type = 'hourly'
+WHERE id = 'a0000c03-0000-4000-8000-000000000003' AND company_id = 'a0000001-0000-4000-8000-000000000001';
+UPDATE public.user_profiles
+SET hourly_rate = 25.00, pay_type = 'hourly'
+WHERE id = 'a0000c02-0000-4000-8000-000000000002' AND company_id = 'a0000001-0000-4000-8000-000000000001';
+UPDATE public.user_profiles
+SET hourly_rate = 30.00, pay_type = 'hourly'
+WHERE id = 'a0000c05-0000-4000-8000-000000000005' AND company_id = 'a0000001-0000-4000-8000-000000000001';
+UPDATE public.user_profiles
+SET hourly_rate = 27.00, pay_type = 'hourly'
+WHERE id = 'a0000c04-0000-4000-8000-000000000004' AND company_id = 'a0000001-0000-4000-8000-000000000001';
+
+-- Actividad reciente demo (panel Central)
+INSERT INTO public.audit_logs (id, company_id, user_id, user_name, action, entity_type, entity_id, created_at)
+VALUES
+  (
+    'a0000af1-0000-4000-8000-000000000001'::uuid,
+    'a0000001-0000-4000-8000-000000000001',
+    'a0000c01-0000-4000-8000-000000000001',
+    'Carlos Mendoza',
+    'demo_feed_clock_in',
+    'activity',
+    'demo-act-1',
+    now() - interval '30 minutes'
+  ),
+  (
+    'a0000af1-0000-4000-8000-000000000002'::uuid,
+    'a0000001-0000-4000-8000-000000000001',
+    'a0000c03-0000-4000-8000-000000000003',
+    'Ana Torres',
+    'demo_feed_form',
+    'activity',
+    'demo-act-2',
+    now() - interval '28 minutes'
+  ),
+  (
+    'a0000af1-0000-4000-8000-000000000003'::uuid,
+    'a0000001-0000-4000-8000-000000000001',
+    'a0000c02-0000-4000-8000-000000000002',
+    'Luis Herrera',
+    'demo_feed_production',
+    'activity',
+    'demo-act-3',
+    now() - interval '26 minutes'
+  ),
+  (
+    'a0000af1-0000-4000-8000-000000000004'::uuid,
+    'a0000001-0000-4000-8000-000000000001',
+    'a0000c01-0000-4000-8000-000000000001',
+    'Oscar Machin',
+    'demo_feed_vacation',
+    'activity',
+    'demo-act-4',
+    now() - interval '24 minutes'
+  ),
+  (
+    'a0000af1-0000-4000-8000-000000000005'::uuid,
+    'a0000001-0000-4000-8000-000000000001',
+    'a0000c01-0000-4000-8000-000000000001',
+    'Carlos Mendoza',
+    'demo_feed_transfer',
+    'activity',
+    'demo-act-5',
+    now() - interval '22 minutes'
+  )
+ON CONFLICT (id) DO NOTHING;
+
 COMMIT;

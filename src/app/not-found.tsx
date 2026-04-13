@@ -1,103 +1,65 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
-import { useAppLocale } from "@/hooks/useAppLocale";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { useAuth } from "@/lib/AuthContext";
+import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import { useEffect, useMemo, useState } from "react";
 import type { Language } from "@/types/shared";
 
-export default function NotFound() {
-  const { tx, language, setLanguage } = useAppLocale();
-  const { session, profile, loading } = useAuth();
-  const [dark, setDark] = useState(false);
+const STATIC = ALL_TRANSLATIONS;
+
+export default function NotFoundPage() {
+  const { session } = useAuth();
+  const [lang, setLang] = useState<Language>("es");
 
   useEffect(() => {
-    setDark(typeof document !== "undefined" && document.documentElement.classList.contains("dark"));
+    try {
+      const s = localStorage.getItem("machinpro_language");
+      if (s && (s === "es" || s === "en" || s === "fr" || s === "de" || s === "it" || s === "pt")) {
+        setLang(s as Language);
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  useEffect(() => {
-    if (profile?.locale && profile.locale !== language) {
-      setLanguage(profile.locale as Language);
-    }
-  }, [profile?.locale, language, setLanguage]);
-
-  const toggleDark = () => {
-    const next = !document.documentElement.classList.contains("dark");
-    if (next) {
-      document.documentElement.classList.add("dark");
-      try {
-        localStorage.setItem("machinpro_dark_mode", "1");
-      } catch {
-        /* ignore */
-      }
-    } else {
-      document.documentElement.classList.remove("dark");
-      try {
-        localStorage.setItem("machinpro_dark_mode", "0");
-      } catch {
-        /* ignore */
-      }
-    }
-    setDark(next);
-  };
+  const t = useMemo(() => (STATIC[lang] ?? STATIC.es) as Record<string, string>, [lang]);
+  const title = t.not_found_title ?? "Esta página no existe";
+  const back = t.not_found_back ?? "Volver al inicio";
+  const dash = t.not_found_dashboard ?? "Ir al dashboard";
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-gradient-to-b from-[#0f3a45] via-[#134e5e] to-[#1a4f5e] dark:from-[#071a20] dark:via-[#0c2f38] dark:to-[#0f3a45]">
-      <div className="absolute right-4 top-4 z-10">
-        <button
-          type="button"
-          onClick={toggleDark}
-          className="min-h-[44px] min-w-[44px] rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-medium text-white hover:bg-white/20"
-          aria-label={dark ? tx("lightMode", "Light mode") : tx("settingsDarkMode", "Dark mode")}
-        >
-          {dark ? "☀" : "☾"}
-        </button>
-      </div>
-
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-16 text-center sm:py-20">
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-gradient-to-b from-[#0f3a45] via-[#1a4f5e] to-[#134e5e] px-4 py-12 dark:from-[#051a1f] dark:via-[#0c2f38] dark:to-[#0f3a45]">
+      <div className="mx-auto flex max-w-md flex-col items-center text-center">
         <div className="mb-8 flex justify-center">
-          <BrandLogoImage
-            src="/logo-source.png"
-            alt=""
-            boxClassName="h-20 w-20 sm:h-24 sm:w-24"
-            sizes="(max-width: 768px) 80px, 96px"
-            priority
-          />
+          <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-20 w-20 sm:h-24 sm:w-24" sizes="96px" />
         </div>
-
-        <p
-          className="text-7xl font-bold leading-none tracking-tight text-[#f97316] sm:text-8xl lg:text-9xl"
-          aria-hidden
-        >
+        <BrandWordmark tone="onDark" className="text-xl font-bold tracking-tight sm:text-2xl" />
+        <p className="mt-10 text-7xl font-extrabold tabular-nums text-amber-400 sm:text-8xl" aria-hidden>
           404
         </p>
-
-        <h1 className="mt-6 max-w-xl text-2xl font-bold text-white sm:text-3xl lg:text-4xl">
-          {tx("not_found_title", "Page not found")}
-        </h1>
-
-        <p className="mt-4 max-w-md text-base leading-relaxed text-teal-100/95 sm:text-lg">
-          {tx("not_found_subtitle", "The page you are looking for does not exist or has been moved.")}
+        <p lang={lang === "en" ? "en" : "es"} className="mt-4 max-w-sm text-base text-teal-100/95 sm:text-lg">
+          {title}
         </p>
-
-        <div className="mt-10 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
+        <div className="mt-10 flex w-full max-w-sm flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             href="/"
-            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#f97316] px-6 py-3 text-center text-base font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-300 sm:w-auto"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border-2 border-[#b8860b] bg-transparent px-6 py-3 text-base font-semibold text-[#f6e27a] hover:bg-[#b8860b]/10 sm:w-auto sm:min-w-[44px]"
           >
-            {tx("not_found_home", "Back to home")}
+            {back}
           </Link>
-          {!loading && session ? (
+          {session ? (
             <Link
               href="/app"
-              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border-2 border-white/80 bg-transparent px-6 py-3 text-center text-base font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
+              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#f97316] px-6 py-3 text-base font-semibold text-white shadow-lg shadow-orange-900/20 hover:bg-orange-600 sm:w-auto sm:min-w-[44px]"
             >
-              {tx("not_found_dashboard", "Go to dashboard")}
+              {dash}
             </Link>
           ) : null}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

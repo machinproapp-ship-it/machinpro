@@ -32,9 +32,13 @@ function formatMoney(amount: number, currency: string): string {
         ? "en-GB"
         : currency === "MXN"
           ? "es-MX"
-          : currency === "BRL"
-            ? "pt-BR"
-            : "en-US";
+          : currency === "AUD"
+            ? "en-AU"
+            : currency === "NZD"
+              ? "en-NZ"
+              : currency === "BRL"
+                ? "pt-BR"
+                : "en-US";
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,

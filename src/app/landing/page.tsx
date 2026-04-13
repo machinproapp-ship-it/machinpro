@@ -149,9 +149,13 @@ function formatMoney(amount: number, currency: string): string {
         ? "en-GB"
         : currency === "MXN"
           ? "es-MX"
-          : currency === "BRL"
-            ? "pt-BR"
-            : "en-US";
+          : currency === "AUD"
+            ? "en-AU"
+            : currency === "NZD"
+              ? "en-NZ"
+              : currency === "BRL"
+                ? "pt-BR"
+                : "en-US";
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
@@ -218,8 +222,7 @@ export default function LandingPage() {
     upsertMeta("property", "og:title", title);
     upsertMeta("property", "og:description", desc);
     upsertMeta("property", "og:type", "website");
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://machin.pro";
-    upsertMeta("property", "og:url", `${origin}/landing`);
+    upsertMeta("property", "og:url", "https://machin.pro/landing");
     upsertMeta("property", "og:image", `${origin}/logo-source.png`);
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", title);
@@ -270,22 +273,14 @@ export default function LandingPage() {
 
   const features = useMemo(
     (): FeatureRow[] => [
-      { titleKey: "landing_feat_employees", descKey: "landing_feat_employees_desc" },
-      { titleKey: "landing_feat_certificates", descKey: "landing_feat_certificates_desc" },
-      { titleKey: "landing_feat_projects", descKey: "landing_feat_projects_desc" },
-      { titleKey: "landing_feat_forms", descKey: "landing_feat_forms_desc" },
-      { titleKey: "landing_feat_compliance", descKey: "landing_feat_compliance_desc" },
-      { titleKey: "landing_feat_dashboard", descKey: "landing_feat_dashboard_desc" },
-      { titleKey: "landing_feat_timeclock", descKey: "landing_feat_timeclock_desc" },
-      { titleKey: "landing_feat_shifts", descKey: "landing_feat_shifts_desc" },
-      { titleKey: "landing_feat_gallery", descKey: "landing_feat_gallery_desc" },
-      { titleKey: "landing_feat_hazards", descKey: "landing_feat_hazards_desc" },
-      { titleKey: "landing_feat_audit", descKey: "landing_feat_audit_desc" },
-      { titleKey: "landing_feat_documents", descKey: "landing_feat_documents_desc" },
-      { titleKey: "landing_feat_inventory", descKey: "landing_feat_inventory_desc" },
-      { titleKey: "landing_feat_fleet", descKey: "landing_feat_fleet_desc" },
-      { titleKey: "landing_feat_suppliers", descKey: "landing_feat_suppliers_desc" },
-      { titleKey: "landing_feat_billing", descKey: "landing_feat_billing_desc" },
+      { titleKey: "landing_feat_pay_production", descKey: "landing_feat_pay_production_desc" },
+      { titleKey: "landing_feat_work_orders", descKey: "landing_feat_work_orders_desc" },
+      { titleKey: "landing_feat_inventory_qr", descKey: "landing_feat_inventory_qr_desc" },
+      { titleKey: "landing_feat_training_passport", descKey: "landing_feat_training_passport_desc" },
+      { titleKey: "landing_feat_timesheets", descKey: "landing_feat_timesheets_desc" },
+      { titleKey: "landing_feat_push", descKey: "landing_feat_push_desc" },
+      { titleKey: "landing_feat_offline", descKey: "landing_feat_offline_desc" },
+      { titleKey: "landing_feat_langs_regions", descKey: "landing_feat_langs_regions_desc" },
     ],
     []
   );
@@ -420,11 +415,8 @@ export default function LandingPage() {
               </h1>
               <p className="mt-4 max-w-2xl text-lg text-teal-100/95 sm:text-xl">
                 {tx(
-                  "landing_hero_subtitle",
-                  tx(
-                    "landing_hero_sub",
-                    "Everything you need to manage your site, your team and your company from anywhere."
-                  )
+                  "landing_hero_subtitle_full",
+                  "People, projects, schedule, logistics, safety, forms and payroll. All from your phone."
                 )}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
@@ -443,10 +435,10 @@ export default function LandingPage() {
                 </button>
               </div>
               <p className="mt-4 max-w-2xl text-center text-xs text-teal-200/85 dark:text-teal-200/70 sm:text-sm">
-                {tx(
-                  "landing_languages_badge",
-                  "🌍 Available in 21 languages · Americas · Europe · UK"
-                )}
+                {tx("landing_countries_languages", "")}
+              </p>
+              <p className="mt-2 max-w-2xl text-center text-[11px] text-teal-200/75 dark:text-teal-200/60 sm:text-xs">
+                {tx("landing_currencies_badge", "CAD · USD · MXN · EUR · GBP · AUD · NZD")}
               </p>
             </div>
           </FadeSection>
@@ -542,6 +534,82 @@ export default function LandingPage() {
                   </p>
                   <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
+                </div>
+              ))}
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
+        id="casos-uso"
+        className="scroll-mt-24 border-y border-slate-200/80 bg-[#e8f1f3] px-4 py-16 dark:border-slate-800 dark:bg-slate-950/90 sm:py-24"
+      >
+        <div className="mx-auto max-w-6xl">
+          <FadeSection>
+            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_usecase_title", "")}
+            </h2>
+            <div className="mt-10 grid grid-cols-1 gap-6 min-w-0 md:grid-cols-3">
+              {(
+                [
+                  { Icon: HardHat, titleKey: "landing_usecase_contractor_title", descKey: "landing_usecase_contractor_desc", featKey: "landing_usecase_contractor_features" },
+                  {
+                    Icon: ClipboardList,
+                    titleKey: "landing_usecase_sitemanager_title",
+                    descKey: "landing_usecase_sitemanager_desc",
+                    featKey: "landing_usecase_sitemanager_features",
+                  },
+                  { Icon: TrendingUp, titleKey: "landing_usecase_owner_title", descKey: "landing_usecase_owner_desc", featKey: "landing_usecase_owner_features" },
+                ] as const
+              ).map((c) => (
+                <div
+                  key={c.titleKey}
+                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/90"
+                >
+                  <c.Icon className="h-10 w-10 text-[#f97316]" aria-hidden />
+                  <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
+                  <p className="mt-4 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-500">
+                    {tx(c.featKey, "")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
+        id="logistica-landing"
+        className="scroll-mt-24 bg-white dark:bg-slate-950 px-4 py-16 sm:py-24 border-y border-slate-200 dark:border-slate-800"
+      >
+        <div className="mx-auto max-w-6xl">
+          <FadeSection>
+            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_logistics_section_title", "")}
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+              {tx("landing_logistics_section_subtitle", "")}
+            </p>
+            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+              {(
+                [
+                  { k: "landing_logistics_qr", icon: "📱" },
+                  { k: "landing_logistics_transfer", icon: "↔" },
+                  { k: "landing_logistics_history", icon: "📜" },
+                ] as const
+              ).map((item) => (
+                <div
+                  key={item.k}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
+                >
+                  <p className="text-2xl" aria-hidden>
+                    {item.icon}
+                  </p>
+                  <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                    {tx(item.k, "")}
+                  </p>
                 </div>
               ))}
             </div>
@@ -681,45 +749,6 @@ export default function LandingPage() {
             <div className="mt-4 space-y-2 text-center text-xs font-medium text-slate-500 dark:text-slate-500">
               <p>{tx("landing_pricing_usd_note", "")}</p>
               {showRegionNote ? <p>{tx("pricing_ppp_notice", tx("landing_pricing_region_note", ""))}</p> : null}
-            </div>
-          </FadeSection>
-        </div>
-      </section>
-
-      <section
-        id="casos-uso"
-        className="scroll-mt-24 border-y border-slate-200/80 bg-[#e8f1f3] px-4 py-16 dark:border-slate-800 dark:bg-slate-950/90 sm:py-24"
-      >
-        <div className="mx-auto max-w-6xl">
-          <FadeSection>
-            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_usecase_title", "")}
-            </h2>
-            <div className="mt-10 grid grid-cols-1 gap-6 min-w-0 md:grid-cols-3">
-              {(
-                [
-                  { Icon: HardHat, titleKey: "landing_usecase_contractor_title", descKey: "landing_usecase_contractor_desc", featKey: "landing_usecase_contractor_features" },
-                  {
-                    Icon: ClipboardList,
-                    titleKey: "landing_usecase_sitemanager_title",
-                    descKey: "landing_usecase_sitemanager_desc",
-                    featKey: "landing_usecase_sitemanager_features",
-                  },
-                  { Icon: TrendingUp, titleKey: "landing_usecase_owner_title", descKey: "landing_usecase_owner_desc", featKey: "landing_usecase_owner_features" },
-                ] as const
-              ).map((c) => (
-                <div
-                  key={c.titleKey}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/90"
-                >
-                  <c.Icon className="h-10 w-10 text-[#f97316]" aria-hidden />
-                  <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
-                  <p className="mt-4 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-500">
-                    {tx(c.featKey, "")}
-                  </p>
-                </div>
-              ))}
             </div>
           </FadeSection>
         </div>
