@@ -150,6 +150,8 @@ type ProfileRow = {
   phone?: string | null;
   avatar_url?: string | null;
   vacation_days_allowed?: number | null;
+  /** Cupo anual para balance en Horario (solicitud vacaciones); distinto de días bajo política opcional. */
+  vacation_days_per_year?: number | null;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
   emergency_contact_relation?: string | null;
@@ -641,6 +643,12 @@ export function EmployeesModule({
         const n = typeof rawVac === "number" ? rawVac : parseInt(String(rawVac).trim(), 10);
         if (Number.isFinite(n) && !Number.isNaN(n)) vacationDaysAllowed = n;
       }
+      let vacationDaysPerYear: number | null = 20;
+      const rawVpy = selected.vacation_days_per_year;
+      if (rawVpy != null && String(rawVpy).trim() !== "") {
+        const ny = typeof rawVpy === "number" ? rawVpy : parseInt(String(rawVpy).trim(), 10);
+        if (Number.isFinite(ny) && !Number.isNaN(ny) && ny >= 0) vacationDaysPerYear = Math.min(366, ny);
+      }
       setDraft({
         ...selected,
         pay_type: pt === "" ? "unspecified" : pt,
@@ -652,6 +660,7 @@ export function EmployeesModule({
           selected.vacation_policy_enabled === true ||
           (selected.vacation_policy_enabled == null && Boolean(selected.vacation_days_allowed)),
         vacation_days_allowed: vacationDaysAllowed,
+        vacation_days_per_year: vacationDaysPerYear,
         use_role_permissions: inherit,
         custom_permissions: inherit ? {} : (selected.custom_permissions ?? {}) as Partial<RolePermissions>,
       });
@@ -851,6 +860,12 @@ export function EmployeesModule({
       avatar_url: draft.avatar_url ?? selected.avatar_url,
       vacation_policy_enabled: Boolean(draft.vacation_policy_enabled),
       vacation_days_allowed: draft.vacation_policy_enabled ? draft.vacation_days_allowed ?? null : null,
+      vacation_days_per_year: (() => {
+        const raw = draft.vacation_days_per_year;
+        const n = typeof raw === "number" ? raw : raw != null ? Number(raw) : NaN;
+        if (!Number.isFinite(n) || Number.isNaN(n)) return 20;
+        return Math.min(366, Math.max(0, Math.round(n)));
+      })(),
       emergency_contact_name: draft.emergency_contact_name ?? null,
       emergency_contact_phone: draft.emergency_contact_phone ?? null,
       emergency_contact_relation: draft.emergency_contact_relation ?? null,
@@ -2090,6 +2105,26 @@ export function EmployeesModule({
                 }))
               }
               disabled={!canManageEmployees || workerSelf || !draft.vacation_policy_enabled}
+              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
+            />
+          </label>
+          <label className="block text-sm max-w-xs">
+            <span className="text-xs text-zinc-500">
+              {tl.employees_vacation_days_per_year ?? tl.employees_vacation_days_annual ?? t.employees_vacation_days_allowed ?? ""}
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={366}
+              value={draft.vacation_days_per_year ?? 20}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  vacation_days_per_year:
+                    e.target.value === "" ? 20 : Math.min(366, Math.max(0, parseInt(e.target.value, 10) || 0)),
+                }))
+              }
+              disabled={!canManageEmployees || workerSelf}
               className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
             />
           </label>

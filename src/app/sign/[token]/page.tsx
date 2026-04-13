@@ -12,6 +12,7 @@ import {
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import {
   resolveFormLabel,
+  resolveTemplateName,
   formatFormFieldValue,
 } from "@/lib/formTemplateDisplay";
 import { BrandWordmark } from "@/components/BrandWordmark";
@@ -298,7 +299,7 @@ export default function SignPage() {
             <BrandWordmark tone="onLight" className="inline" />
           </h1>
           <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 mt-1">
-            {resolveFormLabel(template.name, formLabels)}
+            {resolveTemplateName(template, formLabels)}
           </h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
             {t.project}: {projectName} · {t.date}: {instance.date}

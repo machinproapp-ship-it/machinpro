@@ -188,7 +188,17 @@ function isAuthAuditAction(action: string | null | undefined): boolean {
 }
 
 function filterBusinessAuditRows(rows: AuditLogEntry[], max = 10): AuditLogEntry[] {
-  return rows.filter((r) => !isAuthAuditAction(r.action)).slice(0, max);
+  const seen = new Set<string>();
+  const out: AuditLogEntry[] = [];
+  for (const r of rows) {
+    if (isAuthAuditAction(r.action)) continue;
+    const id = String(r.id ?? "").trim();
+    if (id && seen.has(id)) continue;
+    if (id) seen.add(id);
+    out.push(r);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 function formatActivityLine(
@@ -280,17 +290,19 @@ function UnifiedDashCard({
       }}
       disabled={disabled}
       aria-label={ariaLabel ?? label}
-      className="flex h-full min-h-[44px] w-full flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left shadow-sm hover:border-amber-400/60 dark:hover:border-amber-500/50 transition-colors disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+      className="flex h-full min-h-[7.5rem] w-full flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-3 text-left shadow-sm hover:border-amber-400/60 dark:hover:border-amber-500/50 transition-colors disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 sm:px-4"
     >
       <div className="flex min-h-0 flex-1 items-start gap-3 w-full">
         <div className={`shrink-0 p-2 rounded-lg ${iconWrapClassName}`}>{icon}</div>
-        <div className="flex min-h-0 flex-1 min-w-0 flex-col">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{label}</span>
-            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0 ml-auto" aria-hidden />
+        <div className="flex min-h-0 flex-1 min-w-0 flex-col justify-between">
+          <div className="flex items-start gap-2 min-w-0">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200 line-clamp-2 min-w-0 flex-1">
+              {label}
+            </span>
+            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0 ml-auto mt-0.5" aria-hidden />
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums mt-1">{value}</p>
-          {subContent ? <div className="mt-1">{subContent}</div> : null}
+          {subContent ? <div className="mt-1 line-clamp-2 text-left">{subContent}</div> : null}
         </div>
       </div>
     </button>
@@ -1812,19 +1824,22 @@ function CentralDashboardBody(
                   ) : null}
                 </li>
               ) : (
-                activityRows.map((row) => (
-                  <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 min-w-0">
-                    <span className="text-xs text-gray-500">{formatRelative(row.created_at, dateLoc)}</span>
-                    <p className="mt-0.5 break-words">
-                      {formatActivityLine(
-                        row,
-                        labels,
-                        projectNameById,
-                        auditActorLabel(row, auditProfileByUserId, labels)
-                      )}
-                    </p>
-                  </li>
-                ))
+                activityRows.map((row) => {
+                  const line = formatActivityLine(
+                    row,
+                    labels,
+                    projectNameById,
+                    auditActorLabel(row, auditProfileByUserId, labels)
+                  );
+                  return (
+                    <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 min-w-0">
+                      <span className="text-xs text-gray-500">{formatRelative(row.created_at, dateLoc)}</span>
+                      <p className="mt-0.5 min-w-0 max-w-full truncate text-ellipsis" title={line}>
+                        {line}
+                      </p>
+                    </li>
+                  );
+                })
               )}
             </ul>
           </>
@@ -1926,9 +1941,18 @@ function CentralDashboardBody(
                 <li className="text-gray-500 dark:text-gray-400">{L("dashboard_trend_neutral")}</li>
               ) : (
                 visitorsRecent.map((v) => (
-                  <li key={v.id} className="text-gray-800 dark:text-gray-200 leading-snug">
-                    <span className="font-medium">{v.visitor_name}</span>
-                    {v.project_name ? <span className="text-gray-500 dark:text-gray-400"> · {v.project_name}</span> : null}
+                  <li key={v.id} className="min-w-0 text-gray-800 dark:text-gray-200 leading-snug">
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-1">
+                      <span className="font-medium shrink-0">{v.visitor_name}</span>
+                      {v.project_name ? (
+                        <span
+                          className="min-w-0 max-w-full truncate text-gray-500 dark:text-gray-400"
+                          title={v.project_name}
+                        >
+                          · {v.project_name}
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="block text-xs text-gray-500 dark:text-gray-400">
                       {formatDateTime(v.check_in, dateLoc, timeZone)}
                     </span>
@@ -2010,9 +2034,9 @@ function CentralDashboardBody(
         return widgetChrome(
           id,
           <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-blue-500" aria-hidden />
-              {title}
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex flex-wrap items-center gap-2 break-words">
+              <ClipboardList className="h-4 w-4 shrink-0 text-blue-500" aria-hidden />
+              <span className="min-w-0 leading-snug">{title}</span>
             </h3>
             {formsPendingTodayPreview.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">{L("dashboard_trend_neutral")}</p>

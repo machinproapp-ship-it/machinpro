@@ -251,12 +251,32 @@ export interface ScheduleModuleProps {
     vacations_days_remaining?: string;
     vacations_allowance_hint?: string;
     vacations_list_heading?: string;
+    vacation_request_available_of?: string;
     timesheet_weekly_summary?: string;
     timesheet_export?: string;
     timesheet_total_month?: string;
     timesheet_date_from?: string;
     timesheet_date_to?: string;
     timesheet_by_project?: string;
+    timesheet_export_individual?: string;
+    timesheet_signature_employee?: string;
+    timesheet_signature_supervisor?: string;
+    timesheet_signature_date?: string;
+    timesheet_pdf_title?: string;
+    timesheet_pdf_period?: string;
+    timesheet_pdf_generated?: string;
+    timesheet_total_hours?: string;
+    timesheet_regular_hours?: string;
+    timesheet_overtime?: string;
+    timesheet_day_notes?: string;
+    timesheet_submitted?: string;
+    timesheet_approved?: string;
+    timesheet_rejected?: string;
+    timesheet_draft?: string;
+    timesheet_submit?: string;
+    timesheet_approve_hours?: string;
+    timesheet_reject_hours?: string;
+    timesheet_hours_by_project?: string;
     labor_cost_column?: string;
     labor_cost_total?: string;
     labor_hours_worked?: string;
@@ -1622,19 +1642,20 @@ function TimesheetsView({
                       companyName: companyName || "MachinPro",
                       filenameSlug: fileSlugCompany(companyName, companyIdFallback || "co"),
                       labels: {
-                        title: lx.timesheet_export_individual ?? "Timesheet",
-                        period: lx.timesheet_date_from ?? "Period",
+                        title: lx.timesheet_pdf_title ?? lx.timesheet_export_individual ?? "Timesheet",
+                        period: lx.timesheet_pdf_period ?? lx.timesheet_date_from ?? "Period",
                         date: lx.date ?? "Date",
                         project: lx.project ?? "Project",
                         hours: lx.hours ?? "Hours",
                         notes: lx.timesheet_day_notes ?? "Notes",
-                        total: lx.hours ?? "Total",
-                        regular: labels.regularHours ?? "Regular",
-                        overtime: labels.overtimeHours ?? "Overtime",
+                        total: lx.timesheet_total_hours ?? lx.hours ?? "Total",
+                        regular: lx.timesheet_regular_hours ?? labels.regularHours ?? "Regular",
+                        overtime: lx.timesheet_overtime ?? labels.overtimeHours ?? "Overtime",
                         status: lx.timesheet_approved ?? "Status",
                         employeeSign: lx.timesheet_signature_employee ?? "Employee signature",
                         supervisorSign: lx.timesheet_signature_supervisor ?? "Supervisor signature",
-                        footer: "MachinPro · machin.pro",
+                        signatureDate: lx.timesheet_signature_date ?? "Date",
+                        footer: lx.timesheet_pdf_generated ?? "MachinPro",
                         byProject: lx.timesheet_hours_by_project ?? "By project",
                       },
                     });
@@ -2005,6 +2026,10 @@ export default function ScheduleModule({
     if (!vacReqStart || !vacReqEnd) return null;
     return countBusinessDaysInclusive(vacReqStart, vacReqEnd);
   }, [vacReqStart, vacReqEnd]);
+
+  const vacRequestAnnualCap = currentUserId ? allowanceForUser(currentUserId) : 0;
+  const vacRequestUsedYtd = currentUserId ? (approvedVacationDaysByUser.get(currentUserId) ?? 0) : 0;
+  const vacRequestAvailableNow = Math.max(0, vacRequestAnnualCap - vacRequestUsedYtd);
 
   const vacationTeamCalendarDays = useMemo(
     () => getCalendarDays(vacTeamYear, vacTeamMonth),
@@ -2829,6 +2854,13 @@ export default function ScheduleModule({
                 <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
                   {lx.vacation_request_title ?? lx.vacations_request ?? lx.schedule_vacation_request ?? ""}
                 </h4>
+                {currentUserId ? (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    {(lx.vacation_request_available_of ?? "{available} / {total}")
+                      .replace(/\{available\}/g, String(vacRequestAvailableNow))
+                      .replace(/\{total\}/g, String(vacRequestAnnualCap))}
+                  </p>
+                ) : null}
                 <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
                   {lx.absence_type_label ?? "Absence type"}
                   <select

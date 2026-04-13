@@ -202,6 +202,8 @@ export async function POST(req: NextRequest) {
         pay_period: effectivePayType === "fixed" ? payPeriod : null,
         vacation_policy_enabled: vacationPolicyEnabled,
         vacation_days_allowed: vacationPolicyEnabled ? vacationDaysAnnual : null,
+        vacation_days_per_year:
+          vacationDaysAnnual != null && vacationDaysAnnual > 0 ? Math.round(vacationDaysAnnual) : 20,
       },
       { onConflict: "id" }
     );

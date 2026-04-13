@@ -343,6 +343,8 @@ export interface Employee {
   useRolePermissions?: boolean;
   /** AH-17: optional `user_profiles.hourly_rate` for labor costing (admin). */
   laborHourlyRate?: number | null;
+  /** Annual vacation allowance (calendar); `user_profiles.vacation_days_per_year`. */
+  vacationDaysPerYear?: number | null;
 }
 
 function isActiveProfileEmployee(e: Pick<Employee, "profileStatus">): boolean {
@@ -1675,6 +1677,14 @@ export default function Home() {
     () => buildLaborRateLookupForClock(employees, userToEmployeeMap),
     [employees, userToEmployeeMap]
   );
+  const vacationAllowanceByUserId = useMemo(() => {
+    const o: Record<string, number> = {};
+    for (const e of employees) {
+      const v = e.vacationDaysPerYear;
+      if (v != null && Number.isFinite(v) && v >= 0) o[e.id] = Math.min(366, Math.round(Number(v)));
+    }
+    return o;
+  }, [employees]);
   const projectLaborSummaries = useMemo(() => {
     const names: Record<string, string> = {};
     for (const e of employees) names[e.id] = e.name;
@@ -2630,7 +2640,7 @@ export default function Home() {
         supabase
           .from("user_profiles")
           .select(
-            "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
+            "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, vacation_days_per_year, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
           )
           .eq("company_id", cid)
           .order("created_at", { ascending: false }),
@@ -2713,6 +2723,13 @@ export default function Home() {
                 hourlyRate = eff;
               }
             }
+            let vacationDaysPerYear: number | null | undefined;
+            const vpy = row.vacation_days_per_year;
+            if (vpy != null && vpy !== "") {
+              const vn = typeof vpy === "number" ? vpy : Number(vpy);
+              if (Number.isFinite(vn) && vn >= 0) vacationDaysPerYear = Math.min(366, Math.round(vn));
+              else vacationDaysPerYear = null;
+            }
             return {
               id,
               name,
@@ -2723,6 +2740,7 @@ export default function Home() {
               hourlyRate,
               laborHourlyRate,
               monthlySalary,
+              vacationDaysPerYear,
               phone: row.phone != null ? String(row.phone) : undefined,
               email: em || undefined,
               certificates: certificatesFromProfileJson(row.certificates),
@@ -5597,7 +5615,10 @@ export default function Home() {
       <div className="flex min-w-0">
         <Sidebar
           activeSection={activeSection}
-          setActiveSection={(s: MainSection) => setActiveSection(s)}
+          setActiveSection={(s: MainSection) => {
+            setMobileNavOpen(false);
+            setActiveSection(s);
+          }}
           canAccessOffice={perms.office}
           canAccessWarehouse={perms.warehouse}
           canAccessSite={perms.site}
@@ -7002,7 +7023,7 @@ export default function Home() {
                 vacationRequests={vacationRequests}
                 vacationEmployeeNames={vacationEmployeeNames}
                 timesheetWeeklyRegularCap={timesheetWeeklyRegularCap}
-                vacationAllowanceByUserId={{}}
+                vacationAllowanceByUserId={vacationAllowanceByUserId}
                 currentUserId={user?.id ?? ""}
                 onApproveVacation={handleApproveVacation}
                 onRejectVacation={handleRejectVacation}
@@ -7177,12 +7198,32 @@ export default function Home() {
                   vacations_days_remaining: (t as Record<string, string>).vacations_days_remaining,
                   vacations_allowance_hint: (t as Record<string, string>).vacations_allowance_hint,
                   vacations_list_heading: (t as Record<string, string>).vacations_list_heading,
+                  vacation_request_available_of: (t as Record<string, string>).vacation_request_available_of,
                   timesheet_weekly_summary: (t as Record<string, string>).timesheet_weekly_summary,
                   timesheet_export: (t as Record<string, string>).timesheet_export,
                   timesheet_total_month: (t as Record<string, string>).timesheet_total_month,
                   timesheet_date_from: (t as Record<string, string>).timesheet_date_from,
                   timesheet_date_to: (t as Record<string, string>).timesheet_date_to,
                   timesheet_by_project: (t as Record<string, string>).timesheet_by_project,
+                  timesheet_export_individual: (t as Record<string, string>).timesheet_export_individual,
+                  timesheet_signature_employee: (t as Record<string, string>).timesheet_signature_employee,
+                  timesheet_signature_supervisor: (t as Record<string, string>).timesheet_signature_supervisor,
+                  timesheet_signature_date: (t as Record<string, string>).timesheet_signature_date,
+                  timesheet_pdf_title: (t as Record<string, string>).timesheet_pdf_title,
+                  timesheet_pdf_period: (t as Record<string, string>).timesheet_pdf_period,
+                  timesheet_pdf_generated: (t as Record<string, string>).timesheet_pdf_generated,
+                  timesheet_total_hours: (t as Record<string, string>).timesheet_total_hours,
+                  timesheet_regular_hours: (t as Record<string, string>).timesheet_regular_hours,
+                  timesheet_overtime: (t as Record<string, string>).timesheet_overtime,
+                  timesheet_day_notes: (t as Record<string, string>).timesheet_day_notes,
+                  timesheet_submitted: (t as Record<string, string>).timesheet_submitted,
+                  timesheet_approved: (t as Record<string, string>).timesheet_approved,
+                  timesheet_rejected: (t as Record<string, string>).timesheet_rejected,
+                  timesheet_draft: (t as Record<string, string>).timesheet_draft,
+                  timesheet_submit: (t as Record<string, string>).timesheet_submit,
+                  timesheet_approve_hours: (t as Record<string, string>).timesheet_approve_hours,
+                  timesheet_reject_hours: (t as Record<string, string>).timesheet_reject_hours,
+                  timesheet_hours_by_project: (t as Record<string, string>).timesheet_hours_by_project,
                   admin: (t as Record<string, string>).admin,
                   supervisor: (t as Record<string, string>).supervisor,
                   worker: (t as Record<string, string>).worker,

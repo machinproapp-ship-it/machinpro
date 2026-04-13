@@ -30,6 +30,7 @@ export function resolveTemplateName(
   if (loc !== undefined && loc !== "") return loc;
   const en = EN_LABELS[key];
   if (en !== undefined && en !== "") return en;
+  /** Stored value is already a human-readable name (not an i18n key). */
   return key;
 }
 

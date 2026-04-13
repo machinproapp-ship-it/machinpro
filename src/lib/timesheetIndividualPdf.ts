@@ -27,6 +27,7 @@ export function downloadIndividualTimesheetPdf(opts: {
     status: string;
     employeeSign: string;
     supervisorSign: string;
+    signatureDate: string;
     footer: string;
     byProject: string;
   };
@@ -110,7 +111,11 @@ export function downloadIndividualTimesheetPdf(opts: {
   y += 5;
   pdf.text(opts.labels.employeeSign, m, y);
   pdf.text(opts.labels.supervisorSign, m + 100, y);
-  y += 16;
+  y += 5;
+  pdf.setFontSize(7);
+  pdf.text(opts.labels.signatureDate, m, y);
+  pdf.text(opts.labels.signatureDate, m + 100, y);
+  y += 11;
   pdf.setFontSize(7);
   pdf.setTextColor(120, 120, 120);
   pdf.text(opts.labels.footer, m, 285);

@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS vacation_requests (
 
 -- Perfil empleado (además de las columnas del sprint)
 ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS vacation_days_per_year INTEGER DEFAULT 20,
   ADD COLUMN IF NOT EXISTS vacation_days_allowed INTEGER,
   ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT,
   ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT,

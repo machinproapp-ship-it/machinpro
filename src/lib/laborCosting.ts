@@ -10,9 +10,8 @@ export type LaborEmployeeInput = {
 export function effectiveLaborHourlyRate(e: LaborEmployeeInput): number | null {
   const explicit = e.laborHourlyRate;
   if (explicit != null && Number.isFinite(explicit) && explicit > 0) return explicit;
-  if (e.payType === "hourly" && e.hourlyRate != null && Number.isFinite(e.hourlyRate) && e.hourlyRate > 0) {
-    return e.hourlyRate;
-  }
+  const hr = e.hourlyRate;
+  if (hr != null && Number.isFinite(hr) && hr > 0) return hr;
   return null;
 }
 

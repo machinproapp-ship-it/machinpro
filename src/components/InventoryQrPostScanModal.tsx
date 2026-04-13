@@ -108,7 +108,7 @@ export function InventoryQrPostScanModal({
 
   return (
     <div className="fixed inset-0 z-[10075] flex items-end justify-center bg-black/60 p-3 sm:items-center">
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-slate-600 dark:bg-slate-900">
+      <div className="max-h-[92vh] w-full max-w-none overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-slate-600 dark:bg-slate-900 sm:max-w-lg">
         <div className="flex items-start justify-between gap-2 border-b border-zinc-200 p-4 dark:border-slate-700">
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{item.name}</h3>

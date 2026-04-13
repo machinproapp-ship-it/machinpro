@@ -906,8 +906,8 @@ export function LogisticsModule({
               <div
                 className={`flex flex-col gap-2 ${logisticsInvFiltersOpen ? "" : "max-md:hidden"} md:flex`}
               >
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-xs text-zinc-400 mr-1 w-full md:w-auto">
+              <div className="flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden pb-1 -mx-1 px-1 md:mx-0 md:flex-wrap md:overflow-visible">
+                <span className="shrink-0 text-xs text-zinc-400 mr-1 w-auto">
                   {(t as Record<string, string>).inventory_location ?? "Ubicación"}:
                 </span>
                 {(["all", "warehouse", "onsite"] as const).map((sc) => (
@@ -929,8 +929,8 @@ export function LogisticsModule({
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-xs text-zinc-400 mr-1">
+              <div className="flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden pb-1 -mx-1 px-1 md:mx-0 md:flex-wrap md:overflow-visible">
+                <span className="shrink-0 text-xs text-zinc-400 mr-1">
                   {tlLabels.type ?? "Type"}:
                 </span>
                 {(["all", "consumable", "tool", "equipment"] as const).map((f) => (
@@ -951,8 +951,8 @@ export function LogisticsModule({
                 ))}
               </div>
               {(inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all") && (
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-xs text-zinc-400 mr-1">
+                <div className="flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden pb-1 -mx-1 px-1 md:mx-0 md:flex-wrap md:overflow-visible">
+                  <span className="shrink-0 text-xs text-zinc-400 mr-1">
                     {tlLabels.status ?? "Status"}:
                   </span>
                   {(["all", "available", "in_use", "maintenance", "out_of_service", "lost"] as const).map((s) => (
@@ -982,7 +982,7 @@ export function LogisticsModule({
               )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 justify-end">
+            <div className="grid w-full max-w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
               {flatOrderedInventory.length > 0 && canViewInventoryReports ? (
                 <button
                   type="button"
@@ -1162,7 +1162,7 @@ export function LogisticsModule({
                         </button>
                       )}
                       {item.assignedToEmployeeId && (
-                        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
+                        <span className="hidden sm:inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
                           {getEmployeeName(item.assignedToEmployeeId)}
                         </span>
                       )}
@@ -1182,15 +1182,17 @@ export function LogisticsModule({
                     )}
                   </div>
                   <div className="grid grid-cols-1 gap-2 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
-                    <span className="break-words">{formatInventoryUnitLabel(item, t)}</span>
-                    <span className="break-words">${item.purchasePriceCAD.toFixed(2)}</span>
+                    <span className="break-words font-medium text-zinc-700 dark:text-zinc-200">
+                      {formatInventoryUnitLabel(item, t)}
+                    </span>
+                    <span className="hidden break-words sm:block">${item.purchasePriceCAD.toFixed(2)}</span>
                     {isTrackedAsset(item) && (
                       <span className="col-span-full sm:col-span-2">
                         <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${projectAssignmentChipClass(!!item.assignedToProjectId)}`}>
                           {getProjectName(item.assignedToProjectId)}
                         </span>
                         {item.assignedToEmployeeId && (
-                          <span className="ml-2 inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
+                          <span className="ml-2 hidden sm:inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
                             {getEmployeeName(item.assignedToEmployeeId)}
                           </span>
                         )}
@@ -1586,7 +1588,7 @@ export function LogisticsModule({
           {transferItem && onInventoryTransfer && (
             <>
               <div className="fixed inset-0 z-[10060] bg-black/50" aria-hidden onClick={() => setTransferItem(null)} />
-              <div className="fixed inset-x-0 bottom-0 z-[10061] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
+              <div className="fixed inset-x-0 bottom-0 z-[10061] w-full max-w-none max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-none md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
                   {(t as Record<string, string>).inventory_transfer ?? "Transfer"}
                 </h3>
