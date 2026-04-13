@@ -1205,8 +1205,8 @@ function TimesheetsView({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <span className="w-full text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:w-auto">
+      <div className="min-w-0 -mx-1 flex flex-nowrap items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+        <span className="w-auto shrink-0 text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {labels.weekly ?? "Semanal"} / {labels.biweekly ?? "Quincenal"} / {labels.monthly ?? "Mensual"}
         </span>
         {["weekly", "biweekly", "monthly"].map((p) => (
@@ -1214,7 +1214,7 @@ function TimesheetsView({
             key={p}
             type="button"
             onClick={() => setPeriodType(p as "weekly" | "biweekly" | "monthly")}
-            className={`rounded-lg border px-3 py-2 text-sm min-h-[44px] ${
+            className={`shrink-0 rounded-lg border px-3 py-2 text-sm min-h-[44px] ${
               periodType === p
                 ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
                 : "border-zinc-200 dark:border-slate-700 text-zinc-600 dark:text-zinc-400"
@@ -1471,7 +1471,7 @@ function TimesheetsView({
       {selectedSheet && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSheetId(null)} />
-          <div className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(95vw,calc(100%-2rem))] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:max-w-xl lg:max-w-2xl">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] w-full max-w-full overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[90vh] sm:w-[min(95vw,calc(100%-2rem))] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6 md:max-w-xl lg:max-w-2xl">
             <div className="mb-4 flex items-center justify-between gap-2">
               <h3 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-white sm:text-lg">
                 {getEmployeeName(selectedSheet.employeeId)} · {selectedSheet.weekStart} – {selectedSheet.weekEnd}
@@ -1484,57 +1484,8 @@ function TimesheetsView({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="space-y-2 sm:hidden">
-              {selectedSheet.entries.map((ent) => (
-                <div
-                  key={ent.id}
-                  className="rounded-lg border border-zinc-100 dark:border-zinc-800 p-3 text-sm text-zinc-800 dark:text-zinc-100"
-                >
-                  <p className="font-medium">{ent.date}</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">{ent.projectName ?? "—"}</p>
-                  <p className="mt-1 text-xs">
-                    {formatTimeHm(ent.clockIn, dateLocale, tz)} –{" "}
-                    {ent.clockOut ? formatTimeHm(ent.clockOut, dateLocale, tz) : "—"}
-                  </p>
-                  <p className="mt-1 font-semibold tabular-nums">{ent.hoursWorked.toFixed(1)}h</p>
-                  {showTimesheetCosts ? (
-                    <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 tabular-nums">
-                      {lx.labor_cost_column ?? "Cost"}:{" "}
-                      {selectedSheetEmployeeRate != null && selectedSheetEmployeeRate > 0
-                        ? formatCurrency(
-                            laborCostForHours(ent.hoursWorked, selectedSheetEmployeeRate),
-                            timesheetCostCurrency,
-                            dateLocale
-                          )
-                        : "—"}
-                    </p>
-                  ) : null}
-                  {!viewAll &&
-                  currentUserEmployeeId &&
-                  selectedSheet.employeeId === currentUserEmployeeId &&
-                  effectiveStatus(selectedSheet) === "draft" ? (
-                    <label className="mt-2 block text-xs text-zinc-500">
-                      {lx.timesheet_day_notes ?? "Day notes"}
-                      <textarea
-                        value={dayNotes[`${selectedSheet.employeeId}|${ent.date}`] ?? ""}
-                        onChange={(e) => {
-                          const k = `${selectedSheet.employeeId}|${ent.date}`;
-                          persistDayNotes({ ...dayNotes, [k]: e.target.value });
-                        }}
-                        rows={2}
-                        className="mt-1 w-full min-h-[44px] rounded border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-600 dark:bg-slate-800"
-                      />
-                    </label>
-                  ) : dayNotes[`${selectedSheet.employeeId}|${ent.date}`] ? (
-                    <p className="mt-2 text-xs text-zinc-500">
-                      {lx.timesheet_day_notes ?? "Notes"}: {dayNotes[`${selectedSheet.employeeId}|${ent.date}`]}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full min-w-0 text-sm border-collapse">
+            <div className="overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
+              <table className="w-full min-w-[560px] text-sm border-collapse sm:min-w-0">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-700">
                     <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
@@ -1598,6 +1549,27 @@ function TimesheetsView({
                 </tbody>
               </table>
             </div>
+            {!viewAll &&
+            currentUserEmployeeId &&
+            selectedSheet.employeeId === currentUserEmployeeId &&
+            effectiveStatus(selectedSheet) === "draft" ? (
+              <div className="mt-4 space-y-3 sm:hidden">
+                {selectedSheet.entries.map((ent) => (
+                  <label key={`notes-${ent.id}`} className="block text-xs text-zinc-500">
+                    {lx.timesheet_day_notes ?? "Day notes"} ({ent.date})
+                    <textarea
+                      value={dayNotes[`${selectedSheet.employeeId}|${ent.date}`] ?? ""}
+                      onChange={(e) => {
+                        const k = `${selectedSheet.employeeId}|${ent.date}`;
+                        persistDayNotes({ ...dayNotes, [k]: e.target.value });
+                      }}
+                      rows={2}
+                      className="mt-1 w-full min-h-[44px] rounded border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-600 dark:bg-slate-800"
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : null}
             <p className="mt-3 text-sm font-semibold text-zinc-900 dark:text-white">
               Total: {selectedSheet.totalHours.toFixed(1)}h ({labels.regularHours ?? "Reg."}:{" "}
               {selectedSheet.regularHours.toFixed(1)}h, {labels.overtimeHours ?? "Extra"}:{" "}
@@ -2866,7 +2838,7 @@ export default function ScheduleModule({
                   <select
                     value={vacReqAbsenceKind}
                     onChange={(e) => setVacReqAbsenceKind(e.target.value)}
-                    className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:max-w-xs"
+                    className="mt-1 w-full max-w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:max-w-xs"
                     aria-label={lx.vacation_request_title ?? lx.schedule_vacation_request ?? "Absence"}
                   >
                     <option value="vacation">{lx.vacation_type_vacation ?? "Vacation"}</option>
@@ -2956,7 +2928,7 @@ export default function ScheduleModule({
             </div>
             <HorizontalScrollFade className="-mx-1">
               <div className="min-w-0 overflow-x-auto px-1 pb-1">
-                <div className="grid min-w-[520px] grid-cols-7 gap-0.5 sm:min-w-0">
+                <div className="grid w-full min-w-[min(100%,22rem)] grid-cols-7 gap-px sm:min-w-0 sm:gap-0.5">
                   {vacationTeamCalendarDays.map((day) => {
                     const ymd = toYMD(day);
                     const inMonth = day.getMonth() === vacTeamMonth;
@@ -2967,13 +2939,13 @@ export default function ScheduleModule({
                     return (
                       <div
                         key={ymd}
-                        className={`min-h-[52px] rounded border p-1 text-[10px] sm:min-h-[64px] sm:text-xs ${
+                        className={`min-h-[56px] rounded border p-0.5 text-[11px] leading-tight sm:min-h-[64px] sm:p-1 sm:text-xs ${
                           inMonth
                             ? "border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-900"
                             : "border-transparent opacity-40"
                         }`}
                       >
-                        <p className="font-semibold text-zinc-700 dark:text-zinc-300">{day.getDate()}</p>
+                        <p className="font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{day.getDate()}</p>
                         <div className="mt-0.5 flex flex-wrap gap-0.5">
                           {absent.slice(0, 4).map((v) => (
                             <span
@@ -3521,11 +3493,15 @@ export default function ScheduleModule({
 
       {showPayrollTab && scheduleSubTab === "payroll" && (
         <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-4">
-          <div className="flex flex-wrap gap-2" role="group" aria-label={lx.payroll_title ?? "Nóminas"}>
+          <div
+            className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap"
+            role="group"
+            aria-label={lx.payroll_title ?? "Nóminas"}
+          >
             <button
               type="button"
               onClick={() => setPayrollPayMode("hours")}
-              className={`min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+              className={`min-h-[44px] w-full rounded-xl border px-4 py-2 text-sm font-medium transition-colors sm:w-auto ${
                 payrollPayMode === "hours"
                   ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
                   : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
@@ -3536,7 +3512,7 @@ export default function ScheduleModule({
             <button
               type="button"
               onClick={() => setPayrollPayMode("production")}
-              className={`min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+              className={`min-h-[44px] w-full rounded-xl border px-4 py-2 text-sm font-medium transition-colors sm:w-auto ${
                 payrollPayMode === "production"
                   ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
                   : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"

@@ -689,7 +689,7 @@ export function SettingsModule({
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as Language)}
-                  className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                  className="w-full max-w-full min-w-0 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px] sm:max-w-xs"
                 >
                   {LANGUAGES.map((lang) => (
                     <option key={lang.code} value={lang.code}>
@@ -1306,7 +1306,7 @@ export function SettingsModule({
                   autoComplete="email"
                 />
               </label>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {(
                   [
                     ["quickbooks", tl.integrations_quickbooks ?? "QuickBooks", tl.integrations_quickbooks_desc ?? ""],

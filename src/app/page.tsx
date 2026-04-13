@@ -5661,6 +5661,23 @@ export default function Home() {
                 ) : (
                   <BrandWordmark tone="onLight" className="text-base font-bold tracking-tight sm:text-lg min-w-0" />
                 )}
+                {session && (profile?.fullName || profile?.email || user?.email) ? (
+                  <div className="mt-1 min-w-0 max-w-full sm:hidden">
+                    <p
+                      className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      title={
+                        (profile?.fullName ?? profile?.email ?? user?.email ?? "").trim() || undefined
+                      }
+                    >
+                      {profile?.fullName ?? profile?.email ?? user?.email ?? ""}
+                    </p>
+                    {profile?.role ? (
+                      <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400" title={profile.role}>
+                        {profile.role}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
               <div className="flex w-full min-w-0 max-w-full flex-wrap items-center justify-stretch gap-2 sm:w-auto sm:justify-end sm:gap-3">
@@ -5770,13 +5787,13 @@ export default function Home() {
                   )}
                 </div>
               )}
-              <label className="flex min-w-0 flex-[1_1_8rem] items-center gap-2 sm:flex-initial sm:flex-none">
+              <label className="flex min-w-0 max-w-full shrink flex-[1_1_6rem] items-center gap-2 sm:flex-initial sm:flex-none">
                 <span className="sr-only">{(t as Record<string, string>).language ?? "Language"}</span>
                 <select
                   value={language}
                   onChange={(e) => void applyLanguage(e.target.value as Language)}
                   aria-label={(t as Record<string, string>).language ?? "Language"}
-                  className="min-h-[44px] w-full min-w-0 max-w-[min(100%,9.5rem)] flex-1 rounded-lg border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:max-w-none sm:min-w-[10rem] sm:flex-none sm:px-3 sm:text-sm"
+                  className="min-h-[44px] w-full min-w-0 max-w-[min(100%,8rem)] flex-1 shrink rounded-lg border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:max-w-none sm:min-w-[10rem] sm:flex-none sm:px-3 sm:text-sm"
                 >
                   {LANGUAGES.map((lang) => (
                     <option key={lang.code} value={lang.code}>
@@ -5786,11 +5803,14 @@ export default function Home() {
                 </select>
               </label>
               {session && (
-                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+                <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
                   <span className="hidden sm:block">
                     <BrandWordmark tone="onLight" className="text-xs font-semibold" />
                   </span>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:block">
+                  <span
+                    className="hidden max-w-[12rem] truncate text-xs text-zinc-500 dark:text-zinc-400 sm:block"
+                    title={(profile?.role ?? "").trim() || undefined}
+                  >
                     {profile?.role ?? ""}
                   </span>
                   {profile?.isSuperadmin && (

@@ -1463,6 +1463,14 @@ export function ProjectsModule({
 
         <div className="grid w-full min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 md:gap-6 lg:grid-cols-3 lg:p-8">
           {(projects ?? []).map((proj) => {
+            const typeLabel =
+              proj.type === "residential"
+                ? (tl.projectTypeResidential ?? PM_EN.projectTypeResidential)
+                : proj.type === "commercial"
+                  ? (tl.projectTypeCommercial ?? PM_EN.projectTypeCommercial)
+                  : proj.type === "industrial"
+                    ? (tl.projectTypeIndustrial ?? PM_EN.projectTypeIndustrial)
+                    : proj.type;
             const assigned = (allEmployees ?? []).filter((e) => (proj.assignedEmployeeIds ?? []).includes(e.id));
             const pendingCount = (diaryEntries ?? []).filter(
               (e) => e.projectId === proj.id && e.status === "pending" && (e.photoType === "obra" || !e.photoType)
@@ -1479,11 +1487,20 @@ export function ProjectsModule({
                 onClick={() => { onSelectProject(proj.id); setActiveTab("general"); }}
                 className="group text-left rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/50 p-5 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-all"
               >
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div>
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
+                <div className="flex items-start justify-between gap-2 mb-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <h3
+                      className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors break-words"
+                      title={proj.name}
+                    >
                       {proj.name}
                     </h3>
+                    <p
+                      className="mt-0.5 text-xs font-medium text-amber-800 dark:text-amber-300/90 break-words"
+                      title={typeLabel}
+                    >
+                      {tl.projectFormTypeLabel ?? PM_EN.projectFormTypeLabel}: {typeLabel}
+                    </p>
                     {proj.location && (
                       <p className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                         <MapPin className="h-3 w-3 shrink-0" />{proj.location}
@@ -1637,7 +1654,7 @@ export function ProjectsModule({
           );
         return (
           <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 min-w-0">
-            <div className="flex w-full min-w-0 max-w-full flex-wrap gap-0 px-4 sm:px-6">
+            <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto overflow-y-hidden px-4 pb-0.5 sm:px-6 [scrollbar-width:thin]">
             {TABS.filter((tab) => projectTabAllowed(tab.id)).map((tab) => {
               const label =
                 tab.id === "general"
@@ -2300,7 +2317,7 @@ export function ProjectsModule({
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                   <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? PM_EN.invPhotosTitle}
                 </h3>
-                <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                   {invPhotos.flatMap((entry) =>
                     (entry.photoUrls || []).map((url, i) => (
                       <button
@@ -2556,7 +2573,7 @@ export function ProjectsModule({
                     })}
                   </div>
                 ) : (
-                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                     {filteredPendingObra.map((entry) => {
                       const cat = entry.photoCategory ?? "progress";
                       const catBadgeClass =
@@ -2626,7 +2643,7 @@ export function ProjectsModule({
                   text={t.noApprovedPhotos ?? PM_EN.noApprovedPhotos}
                 />
               ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                   {filteredApprovedObra.map((entry) => {
                     const showDl =
                       selectedProject &&
@@ -2710,7 +2727,7 @@ export function ProjectsModule({
                     }
                   />
                 ) : (
-                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4">
                     {[...inspectionPhotosPool]
                       .sort(
                         (a, b) =>
@@ -3913,7 +3930,7 @@ export function ProjectsModule({
               };
               return (
                 <>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {canViewProjectLaborCosts ? (
                       <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4">
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -3986,13 +4003,13 @@ export function ProjectsModule({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     {canExportProjectCosts ? (
                       <>
                         <button
                           type="button"
                           onClick={() => void exportCsv()}
-                          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-slate-700"
+                          className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-slate-700 sm:w-auto"
                         >
                           <FileDown className="h-4 w-4" />
                           {tl.project_costs_export ?? PM_EN.project_costs_export}
@@ -4010,7 +4027,7 @@ export function ProjectsModule({
                             setCostInvoiceClientFiscal("");
                             setCostInvoiceOpen(true);
                           }}
-                          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-950 dark:text-amber-100"
+                          className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-950 dark:text-amber-100 sm:w-auto"
                         >
                           <FileText className="h-4 w-4" />
                           {tl.invoice_generate ?? "Generate invoice"}
@@ -4025,7 +4042,7 @@ export function ProjectsModule({
                             setBenefitEnd(today);
                             setBenefitOpen(true);
                           }}
-                          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-emerald-400 bg-emerald-50 dark:bg-emerald-950/25 px-4 py-2 text-sm font-medium text-emerald-950 dark:text-emerald-100"
+                          className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-400 bg-emerald-50 dark:bg-emerald-950/25 px-4 py-2 text-sm font-medium text-emerald-950 dark:text-emerald-100 sm:w-auto"
                         >
                           <FileText className="h-4 w-4" />
                           {tl.benefit_report_generate ?? "Generate report"}
@@ -4212,8 +4229,8 @@ export function ProjectsModule({
                   </div>
 
                   {costInvoiceOpen && selectedProject ? (
-                    <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-                      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 space-y-3">
+                    <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/50 p-0 sm:p-4 sm:items-center">
+                      <div className="max-h-[92vh] w-full max-w-full overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 space-y-3 sm:max-w-lg sm:rounded-2xl">
                         <div className="flex items-center justify-between gap-2">
                           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                             {tl.invoice_generate ?? "Generate invoice"}
@@ -4230,7 +4247,7 @@ export function ProjectsModule({
                           {tl.invoice_preview_number ?? "Invoice number"}:{" "}
                           {peekMachinProInvoiceNumber(companyId || "co")}
                         </p>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-2">
                           <label className="block text-xs text-zinc-500">
                             {tl.timesheet_date_from ?? "From"}
                             <input
@@ -4309,10 +4326,10 @@ export function ProjectsModule({
                             className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                           />
                         </label>
-                        <div className="flex flex-wrap gap-2 pt-2">
+                        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:flex-wrap">
                           <button
                             type="button"
-                            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 sm:flex-1"
                             onClick={() => {
                               void (async () => {
                                 if (!selectedProject) return;
@@ -4402,7 +4419,7 @@ export function ProjectsModule({
                           </button>
                           <button
                             type="button"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600"
+                            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600 sm:w-auto"
                             onClick={() => setCostInvoiceOpen(false)}
                           >
                             {tl.common_cancel ?? PM_EN.common_cancel}
@@ -4413,8 +4430,8 @@ export function ProjectsModule({
                   ) : null}
 
                   {benefitOpen && selectedProject ? (
-                    <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-                      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 space-y-3">
+                    <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/50 p-0 sm:p-4 sm:items-center">
+                      <div className="max-h-[92vh] w-full max-w-full overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 space-y-3 sm:max-w-md sm:rounded-2xl">
                         <div className="flex items-center justify-between gap-2">
                           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                             {tl.benefit_report_title ?? "Benefit report"}
@@ -4427,7 +4444,7 @@ export function ProjectsModule({
                             <X className="h-5 w-5" />
                           </button>
                         </div>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-2">
                           <label className="block text-xs text-zinc-500">
                             {tl.timesheet_date_from ?? "From"}
                             <input
@@ -4447,10 +4464,10 @@ export function ProjectsModule({
                             />
                           </label>
                         </div>
-                        <div className="flex flex-wrap gap-2 pt-2">
+                        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:flex-wrap">
                           <button
                             type="button"
-                            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 sm:flex-1"
                             onClick={() => {
                               void (async () => {
                                 if (!selectedProject) return;
@@ -4527,7 +4544,7 @@ export function ProjectsModule({
                           </button>
                           <button
                             type="button"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600"
+                            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600 sm:w-auto"
                             onClick={() => setBenefitOpen(false)}
                           >
                             {tl.common_cancel ?? PM_EN.common_cancel}
@@ -4573,23 +4590,25 @@ export function ProjectsModule({
               </p>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700">
-                  <table className="w-full min-w-[720px] text-sm">
+                <div className="-mx-1 overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700 px-1 sm:mx-0 sm:px-0">
+                  <table className="w-full min-w-0 text-sm md:min-w-[720px]">
                     <thead className="bg-zinc-50 dark:bg-slate-800/80 text-left text-zinc-600 dark:text-zinc-400">
                       <tr>
-                        <th className="px-3 py-2 font-medium">
+                        <th className="px-2 py-2 font-medium sm:px-3">
                           {(t as Record<string, string>).production_catalog_name ?? "Task"}
                         </th>
-                        <th className="px-3 py-2 font-medium">
+                        <th className="hidden px-3 py-2 font-medium md:table-cell">
                           {(t as Record<string, string>).production_catalog_unit ?? "Unit"}
                         </th>
-                        <th className="px-3 py-2 font-medium text-right">
+                        <th className="hidden px-3 py-2 font-medium text-right lg:table-cell">
                           {(t as Record<string, string>).production_catalog_cost_price ?? "Cost"}
                         </th>
-                        <th className="px-3 py-2 font-medium text-right">
+                        <th className="px-2 py-2 font-medium text-right sm:px-3">
                           {(t as Record<string, string>).production_catalog_sell_price ?? "Sell"}
                         </th>
-                        {canManageWorkOrders ? <th className="px-3 py-2 w-28" /> : null}
+                        {canManageWorkOrders ? (
+                          <th className="px-2 py-2 sm:px-3 md:w-36 lg:w-28" />
+                        ) : null}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-slate-800">
@@ -4599,11 +4618,11 @@ export function ProjectsModule({
                           (tl[`production_unit_${ukey}` as keyof typeof tl] as string) || ukey;
                         return (
                           <tr key={o.id}>
-                            <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                            <td className="max-w-[min(55vw,14rem)] px-2 py-2 font-medium text-zinc-900 dark:text-zinc-100 break-words sm:max-w-none sm:px-3 md:max-w-md">
                               {cat.name}
                             </td>
-                            <td className="px-3 py-2">{uLbl}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">
+                            <td className="hidden px-3 py-2 md:table-cell">{uLbl}</td>
+                            <td className="hidden px-3 py-2 text-right tabular-nums lg:table-cell">
                               {o.customCostPrice != null ? (
                                 <>
                                   <span className="line-through opacity-60">
@@ -4617,7 +4636,7 @@ export function ProjectsModule({
                                 `${cat.currency} ${eff.cost.toFixed(4)}`
                               )}
                             </td>
-                            <td className="px-3 py-2 text-right tabular-nums">
+                            <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap sm:px-3">
                               {o.customSellPrice != null ? (
                                 <>
                                   <span className="line-through opacity-60">
@@ -4632,8 +4651,8 @@ export function ProjectsModule({
                               )}
                             </td>
                             {canManageWorkOrders ? (
-                              <td className="px-3 py-2">
-                                <div className="flex flex-wrap gap-2">
+                              <td className="px-2 py-2 sm:px-3">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                   <label className="block min-w-[100px]">
                                     <span className="sr-only">
                                       {(t as Record<string, string>).work_order_override_price ?? ""}

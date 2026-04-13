@@ -1401,8 +1401,8 @@ export function EmployeesModule({
       <div style={{ position: "relative", paddingTop: "60px" }} className="space-y-4 max-w-3xl min-h-0 overflow-visible">
         {backBtn}
 
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-lg font-semibold overflow-hidden">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+          <div className="h-16 w-16 shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-lg font-semibold overflow-hidden">
             {draft.avatar_url || selected.avatar_url ? (
               <img
                 src={(draft.avatar_url || selected.avatar_url) as string}
@@ -2092,7 +2092,7 @@ export function EmployeesModule({
               />
             </label>
           ) : null}
-          <label className="block text-sm max-w-xs">
+          <label className="block w-full max-w-full text-sm sm:max-w-xs">
             <span className="text-xs text-zinc-500">{t.employees_vacation_days_allowed ?? ""}</span>
             <input
               type="number"
@@ -2108,7 +2108,7 @@ export function EmployeesModule({
               className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
             />
           </label>
-          <label className="block text-sm max-w-xs">
+          <label className="block w-full max-w-full text-sm sm:max-w-xs">
             <span className="text-xs text-zinc-500">
               {tl.employees_vacation_days_per_year ?? tl.employees_vacation_days_annual ?? t.employees_vacation_days_allowed ?? ""}
             </span>
@@ -2897,14 +2897,14 @@ export function EmployeesModule({
                   <p className="font-medium text-zinc-900 dark:text-white truncate">
                     {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
                   </p>
-                  <p className="text-xs text-zinc-500 truncate">
-                    {(() => {
-                      const em = (r.email ?? "").trim();
-                      const rl = roleLabel(r);
-                      if (em) return `${em} · ${rl}`;
-                      return rl;
-                    })()}
+                  <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300 truncate" title={roleLabel(r)}>
+                    {roleLabel(r)}
                   </p>
+                  {(r.email ?? "").trim() ? (
+                    <p className="hidden text-xs text-zinc-500 truncate sm:block" title={(r.email ?? "").trim()}>
+                      {(r.email ?? "").trim()}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   {employeeDocFleetBadge(dm, tl as Record<string, string>)}

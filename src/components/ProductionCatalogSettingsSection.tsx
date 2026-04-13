@@ -108,7 +108,7 @@ export function ProductionCatalogSettingsSection({
         <select
           value={catFilter}
           onChange={(e) => setCatFilter(e.target.value)}
-          className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px] min-w-[160px]"
+          className="w-full min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px] sm:w-auto sm:min-w-[160px]"
         >
           <option value="">{L("production_catalog_category", "Category")} —</option>
           {categories.map((c) => (

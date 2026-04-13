@@ -403,8 +403,8 @@ function SignatureCanvas({
       <canvas
         ref={canvasRef}
         width={400}
-        height={120}
-        className={`border border-zinc-300 dark:border-zinc-600 rounded-lg w-full touch-none bg-white dark:bg-slate-800${disabled ? " opacity-70 pointer-events-none" : ""}`}
+        height={200}
+        className={`border border-zinc-300 dark:border-zinc-600 rounded-lg w-full min-h-[200px] touch-none bg-white dark:bg-slate-800${disabled ? " opacity-70 pointer-events-none" : ""}`}
         style={{ maxWidth: "100%", height: "auto" }}
         onMouseDown={start}
         onMouseMove={move}
@@ -820,19 +820,19 @@ export function FormsModule({
       {/* ---------- LIST VIEW ---------- */}
       {view === "list" && (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-              <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <h2 className="text-xl font-semibold text-zinc-900 dark:text-white flex items-center gap-2 min-w-0">
+              <FileText className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               {t.forms}
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
               <select
                 value={selectedProjectId}
                 onChange={(e) => {
                   setSelectedProjectId(e.target.value);
                   setListContextFilter(null);
                 }}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                className="w-full min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] sm:w-auto sm:min-w-[12rem]"
               >
                 <option value="">{l("allProjects")}</option>
                 {projects.map((p) => (
@@ -842,7 +842,7 @@ export function FormsModule({
               <select
                 value={filterAssigneeId}
                 onChange={(e) => setFilterAssigneeId(e.target.value)}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                className="w-full min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] sm:w-auto sm:min-w-[12rem]"
               >
                 <option value="">{l("forms_filter_assignee_all")}</option>
                 {employees.map((e) => (
@@ -879,7 +879,7 @@ export function FormsModule({
                 <button
                   type="button"
                   onClick={() => setView("template")}
-                  className="flex items-center gap-2 rounded-xl bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 min-h-[44px] sm:w-auto"
                 >
                   <Plus className="h-4 w-4" />
                   {t.newForm}
@@ -889,7 +889,7 @@ export function FormsModule({
                 <button
                   type="button"
                   onClick={() => setView("builder")}
-                  className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] sm:w-auto"
                 >
                   <Pencil className="h-4 w-4" />
                   {l("form_builder_title")}
@@ -898,7 +898,7 @@ export function FormsModule({
             </div>
           </div>
 
-          <div className="flex gap-1 border-b border-zinc-200 dark:border-slate-700">
+          <div className="-mx-1 flex gap-1 overflow-x-auto border-b border-zinc-200 px-1 pb-px [scrollbar-width:thin] dark:border-slate-700">
             {(
               [
                 ["pending", t.formDraft],
@@ -911,7 +911,7 @@ export function FormsModule({
                 key={tab}
                 type="button"
                 onClick={() => setListTab(tab)}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg min-h-[44px] ${
+                className={`shrink-0 px-4 py-2 text-sm font-medium rounded-t-lg min-h-[44px] whitespace-nowrap ${
                   listTab === tab
                     ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-b-0 border-zinc-200 dark:border-slate-700"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -959,10 +959,10 @@ export function FormsModule({
                 return (
                   <div
                     key={inst.id}
-                    className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-wrap items-center justify-between gap-3"
+                    className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col gap-3 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
                   >
-                    <div>
-                      <p className="font-medium text-zinc-900 dark:text-white">
+                    <div className="min-w-0">
+                      <p className="font-medium text-zinc-900 dark:text-white break-words">
                         {template ? resolveTemplateName(template, t) : inst.templateId}
                       </p>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -991,14 +991,14 @@ export function FormsModule({
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
                       <button
                         type="button"
                         onClick={() => {
                           setDetailInstanceId(inst.id);
                           setView("detail");
                         }}
-                        className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] sm:w-auto"
                       >
                         {l("forms_view")}
                       </button>
@@ -1011,7 +1011,7 @@ export function FormsModule({
                             setFillDraftAttendees(inst.attendees);
                             setView("fill");
                           }}
-                          className={`rounded-lg px-3 py-2 text-sm font-medium min-h-[44px] ${
+                          className={`w-full rounded-lg px-3 py-2 text-sm font-medium min-h-[44px] sm:w-auto ${
                             canFillForms
                               ? "bg-amber-600 text-white"
                               : "border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300"
@@ -1303,63 +1303,64 @@ export function FormsModule({
             </div>
 
             <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur supports-[padding:max(0px)]:pb-[max(env(safe-area-inset-bottom),8px)]">
-              <div className="mx-auto w-full max-w-6xl flex flex-wrap items-center gap-2 px-4 py-3">
-                <button
-                  type="button"
-                  disabled={safeIdx <= 0}
-                  onClick={() => setFillSectionIndex((i) => Math.max(0, i - 1))}
-                  className="rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] disabled:opacity-40"
-                >
-                  {l("forms_previous")}
-                </button>
-                <button
-                  type="button"
-                  disabled={safeIdx >= sections.length - 1}
-                  onClick={() =>
-                    setFillSectionIndex((i) =>
-                      Math.min(sections.length - 1, i + 1)
-                    )
-                  }
-                  className="rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] disabled:opacity-40"
-                >
-                  {l("next")}
-                </button>
-                <div className="flex-1 min-w-[8px]" />
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="flex w-full gap-2 sm:w-auto">
+                  <button
+                    type="button"
+                    disabled={safeIdx <= 0}
+                    onClick={() => setFillSectionIndex((i) => Math.max(0, i - 1))}
+                    className="flex-1 rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300 min-h-[44px] disabled:opacity-40 sm:flex-initial"
+                  >
+                    {l("forms_previous")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={safeIdx >= sections.length - 1}
+                    onClick={() =>
+                      setFillSectionIndex((i) =>
+                        Math.min(sections.length - 1, i + 1)
+                      )
+                    }
+                    className="flex-1 rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300 min-h-[44px] disabled:opacity-40 sm:flex-initial"
+                  >
+                    {l("next")}
+                  </button>
+                </div>
                 {canFillForms && (
-                  <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUpdateInstance({
-                      ...instance,
-                      status: "draft",
-                      fieldValues: values,
-                      attendees,
-                    });
-                    setView("list");
-                    setFillInstanceId(null);
-                  }}
-                  className="rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]"
-                >
-                  {l("saveDraft")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUpdateInstance({
-                      ...instance,
-                      status: "in_progress",
-                      fieldValues: values,
-                      attendees,
-                    });
-                    setView("list");
-                    setFillInstanceId(null);
-                  }}
-                  className="rounded-xl bg-amber-600 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-amber-500"
-                >
-                  {l("forms_submit")}
-                </button>
-                  </>
+                  <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateInstance({
+                          ...instance,
+                          status: "draft",
+                          fieldValues: values,
+                          attendees,
+                        });
+                        setView("list");
+                        setFillInstanceId(null);
+                      }}
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300 min-h-[44px] sm:w-auto"
+                    >
+                      {l("saveDraft")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateInstance({
+                          ...instance,
+                          status: "in_progress",
+                          fieldValues: values,
+                          attendees,
+                        });
+                        setView("list");
+                        setFillInstanceId(null);
+                      }}
+                      className="w-full rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-medium text-white min-h-[44px] hover:bg-amber-500 sm:w-auto"
+                    >
+                      {l("forms_submit")}
+                    </button>
+                  </div>
                 )}
               </div>
             </footer>

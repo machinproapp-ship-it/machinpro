@@ -443,7 +443,7 @@ export function ProductionPayrollSchedulePanel({
           <select
             value={periodType}
             onChange={(e) => setPeriodType(e.target.value as PayrollPeriod)}
-            className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px] min-w-[160px]"
+            className="w-full min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[44px] sm:w-auto sm:min-w-[160px]"
           >
             <option value="weekly">{L("payroll_period_weekly", "Semanal")}</option>
             <option value="biweekly">{L("payroll_period_biweekly", "Quincenal")}</option>
@@ -496,11 +496,11 @@ export function ProductionPayrollSchedulePanel({
           </div>
         )}
         {canExportPayroll ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               onClick={() => exportCsvDetail()}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium sm:w-auto"
             >
               <Download className="h-4 w-4" />
               {L("payroll_export_csv", "Exportar CSV")}
@@ -508,7 +508,7 @@ export function ProductionPayrollSchedulePanel({
             <button
               type="button"
               onClick={() => exportPdf()}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium sm:w-auto"
             >
               <Download className="h-4 w-4" />
               {L("payroll_production_export_pdf", L("payroll_export_pdf", "Export PDF"))}
@@ -516,7 +516,7 @@ export function ProductionPayrollSchedulePanel({
             <button
               type="button"
               onClick={() => setInvoiceOpen(true)}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-950 dark:text-amber-100"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-950 dark:text-amber-100 sm:w-auto"
             >
               <FileText className="h-4 w-4" />
               {L("invoice_generate_period", L("invoice_generate", "Generate invoice"))}
@@ -540,7 +540,7 @@ export function ProductionPayrollSchedulePanel({
         </div>
       ) : (
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[360px] text-sm md:min-w-[720px]">
           <thead className="bg-zinc-50 dark:bg-slate-800/80 text-left text-zinc-600 dark:text-zinc-400">
             <tr>
               <th className="px-1 py-3 w-10" />
@@ -571,7 +571,9 @@ export function ProductionPayrollSchedulePanel({
                         {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </button>
                     </td>
-                    <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">{r.name}</td>
+                    <td className="max-w-[9rem] px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100 break-words sm:max-w-none">
+                      {r.name}
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.units.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">
                       {currency} {r.amount.toFixed(2)}
@@ -586,12 +588,12 @@ export function ProductionPayrollSchedulePanel({
                       </span>
                     </td>
                     {canManagePayroll ? (
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
+                      <td className="min-w-[8rem] px-3 py-2">
+                        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
                           <button
                             type="button"
                             disabled={busyEmp === r.employeeId || r.reportIds.length === 0}
-                            className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-xs min-h-[44px] disabled:opacity-50"
+                            className="w-full min-h-[44px] rounded-lg border border-zinc-300 px-2 py-1.5 text-xs dark:border-zinc-600 disabled:opacity-50 sm:w-auto"
                             onClick={() => void setEmployeeStatus(r.employeeId, "approved")}
                           >
                             {L("payroll_approve", "Aprobar")}
@@ -599,7 +601,7 @@ export function ProductionPayrollSchedulePanel({
                           <button
                             type="button"
                             disabled={busyEmp === r.employeeId || r.reportIds.length === 0}
-                            className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-2 py-1.5 text-xs min-h-[44px] disabled:opacity-50"
+                            className="w-full min-h-[44px] rounded-lg border border-zinc-300 px-2 py-1.5 text-xs dark:border-zinc-600 disabled:opacity-50 sm:w-auto"
                             onClick={() => void setEmployeeStatus(r.employeeId, "paid")}
                           >
                             {L("payroll_mark_paid", "Marcar pagado")}
@@ -643,8 +645,8 @@ export function ProductionPayrollSchedulePanel({
       )}
 
       {invoiceOpen ? (
-        <div className="fixed inset-0 z-[10060] flex items-end justify-center sm:items-center p-4 bg-black/50">
-          <div className="w-full max-w-lg rounded-2xl border border-zinc-200 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-xl p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+          <div className="max-h-[92vh] w-full max-w-full overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 space-y-3 sm:max-w-lg sm:rounded-2xl">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {L("invoice_generate", "Generate invoice")}
@@ -722,18 +724,18 @@ export function ProductionPayrollSchedulePanel({
                 className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
               />
             </label>
-            <div className="flex flex-wrap gap-2 pt-2">
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => void runInvoicePdf()}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 sm:flex-1"
               >
                 {L("invoice_generate", "Generate invoice")}
               </button>
               <button
                 type="button"
                 onClick={() => setInvoiceOpen(false)}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium"
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-600 sm:w-auto"
               >
                 {L("common_cancel", "Cancel")}
               </button>
