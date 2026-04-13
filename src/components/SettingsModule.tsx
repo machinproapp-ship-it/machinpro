@@ -14,6 +14,7 @@ import {
   CreditCard,
   Shield,
   Factory,
+  Puzzle,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
@@ -105,6 +106,9 @@ export interface SettingsModuleProps {
   productionCatalogItems?: CatalogItem[];
   onRefreshProductionCatalog?: () => void;
   productionCatalogCurrencyDefault?: string;
+  /** Horas regulares semanales para hojas de horas (1–168). */
+  timesheetWeeklyRegularCap?: number;
+  onTimesheetWeeklyRegularCapChange?: (n: number) => void;
 }
 
 export function SettingsModule({
@@ -165,6 +169,8 @@ export function SettingsModule({
   productionCatalogItems = [],
   onRefreshProductionCatalog,
   productionCatalogCurrencyDefault = "CAD",
+  timesheetWeeklyRegularCap = 40,
+  onTimesheetWeeklyRegularCapChange,
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -183,6 +189,9 @@ export function SettingsModule({
   const [timeFormat, setTimeFormat] = useState<string>("24");
   const [weekStart, setWeekStart] = useState<string>("monday");
   const [numberFormat, setNumberFormat] = useState<string>("comma_decimal");
+  const [integrationNotifyEmail, setIntegrationNotifyEmail] = useState("");
+  const [integrationNotifyBusy, setIntegrationNotifyBusy] = useState<string | null>(null);
+  const [integrationNotified, setIntegrationNotified] = useState<Record<string, boolean>>({});
 
   const [mfaVerifiedFactorId, setMfaVerifiedFactorId] = useState<string | null>(null);
   const [mfaEnrolling, setMfaEnrolling] = useState(false);
@@ -204,12 +213,49 @@ export function SettingsModule({
     void refreshMfaFactors();
   }, [refreshMfaFactors]);
 
+  useEffect(() => {
+    setIntegrationNotifyEmail((profileEmail ?? "").trim());
+  }, [profileEmail]);
+
+  const notifyIntegrationWaitlist = useCallback(
+    async (integrationKey: string) => {
+      const email = integrationNotifyEmail.trim();
+      if (!session?.access_token || !email.includes("@")) {
+        showToast("error", tl.toast_error ?? "Error");
+        return;
+      }
+      setIntegrationNotifyBusy(integrationKey);
+      try {
+        const res = await fetch("/api/integrations/waitlist", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ integration: integrationKey, email }),
+        });
+        if (res.ok) {
+          setIntegrationNotified((p) => ({ ...p, [integrationKey]: true }));
+          showToast("success", tl.integrations_notified ?? "OK");
+        } else {
+          showToast("error", tl.toast_error ?? "Error");
+        }
+      } catch {
+        showToast("error", tl.toast_error ?? "Error");
+      } finally {
+        setIntegrationNotifyBusy(null);
+      }
+    },
+    [session?.access_token, integrationNotifyEmail, showToast, tl.toast_error, tl.integrations_notified]
+  );
+
   type SettingsSectionId =
     | "general"
     | "profile"
     | "company"
     | "notifications"
     | "regional"
+    | "integrations"
     | "production"
     | "billing"
     | "help";
@@ -220,6 +266,7 @@ export function SettingsModule({
     company: Building2,
     notifications: Bell,
     regional: Globe,
+    integrations: Puzzle,
     production: Factory,
     billing: CreditCard,
     help: HelpCircle,
@@ -235,6 +282,7 @@ export function SettingsModule({
       ["company", tl.settingsCompany ?? ""] as const,
       ["notifications", tl.settingsNotifications ?? ""] as const,
       ["regional", tl.settings_regional_title ?? tl.settingsRegional ?? ""] as const,
+      ["integrations", tl.integrations_title ?? "Integrations"] as const,
       ["production", tl.production_catalog_title ?? ""] as const,
       ["billing", tl.settingsBilling ?? ""] as const,
       ["help", tl.helpAndTutorials ?? ""] as const,
@@ -244,6 +292,7 @@ export function SettingsModule({
       if (id === "notifications")
         return !!(session?.access_token && companyId && canManageNotifications);
       if (id === "regional") return canManageRegionalConfig || canEditCompanyProfile;
+      if (id === "integrations") return canEditCompanyProfile;
       if (id === "production")
         return !!(canManageProductionCatalog && companyId && onRefreshProductionCatalog);
       if (id === "billing") return showBillingSection && !!billingSection;
@@ -1177,6 +1226,37 @@ export function SettingsModule({
                 </>
               ) : null}
 
+              {canEditCompanyProfile ? (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                    {tl.settings_timesheet_weekly_cap ?? "Weekly regular hours cap"}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={168}
+                    value={timesheetWeeklyRegularCap}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      if (!Number.isFinite(n)) return;
+                      const v = Math.min(168, Math.max(1, n));
+                      onTimesheetWeeklyRegularCapChange?.(v);
+                      if (companyId) {
+                        try {
+                          localStorage.setItem(`machinpro_weekly_regular_cap_${companyId}`, String(v));
+                        } catch {
+                          /* ignore */
+                        }
+                      }
+                    }}
+                    className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                  />
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {tl.settings_timesheet_weekly_cap_hint ?? ""}
+                  </p>
+                </div>
+              ) : null}
+
               {canManageRegionalConfig ? (
                 <div>
                   <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
@@ -1206,6 +1286,57 @@ export function SettingsModule({
                   </select>
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {activeSettingsSection === "integrations" && canEditCompanyProfile ? (
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Puzzle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                {tl.integrations_title ?? "Integrations"}
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">{tl.settings_integrations_desc ?? ""}</p>
+              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                Email
+                <input
+                  type="email"
+                  value={integrationNotifyEmail}
+                  onChange={(e) => setIntegrationNotifyEmail(e.target.value)}
+                  className="mt-1 w-full max-w-md min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  autoComplete="email"
+                />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["quickbooks", tl.integrations_quickbooks ?? "QuickBooks", tl.integrations_quickbooks_desc ?? ""],
+                    ["xero", tl.integrations_xero ?? "Xero", tl.integrations_xero_desc ?? ""],
+                    ["procore", tl.integrations_procore ?? "Procore", tl.integrations_procore_desc ?? ""],
+                    ["google_calendar", tl.integrations_gcal ?? "Google Calendar", tl.integrations_gcal_desc ?? ""],
+                  ] as const
+                ).map(([key, title, desc]) => (
+                  <div
+                    key={key}
+                    className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4 space-y-2"
+                  >
+                    <p className="font-semibold text-zinc-900 dark:text-white">{title}</p>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400">{desc}</p>
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                      {tl.integrations_coming_soon ?? "Coming soon"}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={!!integrationNotified[key] || integrationNotifyBusy === key}
+                      onClick={() => void notifyIntegrationWaitlist(key)}
+                      className="w-full min-h-[44px] rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+                    >
+                      {integrationNotified[key]
+                        ? (tl.integrations_notified ?? "Done")
+                        : (tl.integrations_notify ?? "Notify me")}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -1252,6 +1383,12 @@ export function SettingsModule({
                 className="inline-flex min-h-[44px] items-center text-sm font-semibold text-orange-600 dark:text-orange-400 hover:underline"
               >
                 {tl.help_center_link ?? "Centro de ayuda (machin.pro/help)"}
+              </Link>
+              <Link
+                href="/about"
+                className="inline-flex min-h-[44px] items-center text-sm font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+              >
+                {tl.settings_about_machinpro ?? "About MachinPro"}
               </Link>
 
               <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4 space-y-4">

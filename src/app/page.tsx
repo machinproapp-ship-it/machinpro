@@ -1323,6 +1323,7 @@ export default function Home() {
   const [currency, setCurrency] = useState<Currency>("CAD");
   const currencyManuallyChangedRef = useRef(false);
   const [measurementSystem, setMeasurementSystem] = useState<"metric" | "imperial">("metric");
+  const [timesheetWeeklyRegularCap, setTimesheetWeeklyRegularCap] = useState(40);
   const [companyCountry, setCompanyCountry] = useState<string>("CA");
   const userTimeZone = useMemo(() => resolveUserTimezone(profile?.timezone ?? null), [profile?.timezone]);
   const dateLocaleBcp47 = useMemo(() => dateLocaleForUser(language, companyCountry), [language, companyCountry]);
@@ -1376,6 +1377,19 @@ export default function Home() {
       }
     })();
   }, [supabase, companyId, session]);
+
+  useEffect(() => {
+    if (!companyId || typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(`machinpro_weekly_regular_cap_${companyId}`);
+      if (raw) {
+        const n = parseInt(raw, 10);
+        if (Number.isFinite(n) && n >= 1 && n <= 168) setTimesheetWeeklyRegularCap(n);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [companyId]);
 
   const handleLogoUpload = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -4678,7 +4692,8 @@ export default function Home() {
 
   const handleRejectVacation = useCallback(
     async (id: string, comment: string) => {
-      if (!supabase || !user?.id) return;
+      if (!supabase || !user?.id || !companyId) return;
+      const req = vacationRequests.find((v) => v.id === id);
       const { error } = await supabase
         .from("vacation_requests")
         .update({
@@ -4692,8 +4707,19 @@ export default function Home() {
       setVacationRequests((prev) =>
         prev.map((v) => (v.id === id ? { ...v, status: "rejected" as const } : v))
       );
+      if (req?.user_id) {
+        const tl = t as Record<string, string>;
+        void postAppNotification(supabase, {
+          companyId,
+          targetUserId: req.user_id,
+          type: "vacation_rejected",
+          title: tl.vacation_reject ?? tl.schedule_vacation_pending_list ?? "Vacation rejected",
+          body: (comment || "").trim() || tl.schedule_vacation_comment || null,
+          data: { vacationRequestId: id },
+        });
+      }
     },
-    [supabase, user?.id]
+    [supabase, user?.id, companyId, vacationRequests, t]
   );
 
   const handleCreateVacationRequest = useCallback(
@@ -6975,6 +7001,8 @@ export default function Home() {
                 canRequestVacation={!!session && !!companyId}
                 vacationRequests={vacationRequests}
                 vacationEmployeeNames={vacationEmployeeNames}
+                timesheetWeeklyRegularCap={timesheetWeeklyRegularCap}
+                vacationAllowanceByUserId={{}}
                 currentUserId={user?.id ?? ""}
                 onApproveVacation={handleApproveVacation}
                 onRejectVacation={handleRejectVacation}
@@ -7516,6 +7544,17 @@ export default function Home() {
                 productionCatalogItems={productionCatalogItems}
                 onRefreshProductionCatalog={() => void reloadProductionData()}
                 productionCatalogCurrencyDefault={currency}
+                timesheetWeeklyRegularCap={timesheetWeeklyRegularCap}
+                onTimesheetWeeklyRegularCapChange={(n) => {
+                  setTimesheetWeeklyRegularCap(n);
+                  if (companyId) {
+                    try {
+                      localStorage.setItem(`machinpro_weekly_regular_cap_${companyId}`, String(n));
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                }}
               />
               <ModuleHelpFab
                 moduleKey="settings"

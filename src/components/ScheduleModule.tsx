@@ -34,8 +34,10 @@ import {
   downloadLaborReportExecutivePdf,
   type LaborReportDetailRow,
 } from "@/lib/laborReportExport";
+import { downloadIndividualTimesheetPdf } from "@/lib/timesheetIndividualPdf";
 import { hoursWorkedFromClockFields, laborCostForHours } from "@/lib/laborCosting";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
+import { jsPDF } from "jspdf";
 import { PayrollSchedulePanel } from "@/components/PayrollSchedulePanel";
 import { ProductionPayrollSchedulePanel } from "@/components/ProductionPayrollSchedulePanel";
 import type { ClockEntryForSchedule } from "@/types/homePage";
@@ -406,6 +408,10 @@ export interface ScheduleModuleProps {
   productionReports?: ProductionReport[];
   /** Tras actualizar production_reports (aprobar / pagado). */
   onRefreshProductionReports?: () => void;
+  /** Límite de horas regulares por semana (Ajustes → Regional). Por defecto 40. */
+  timesheetWeeklyRegularCap?: number;
+  /** Días de vacaciones anuales por usuario (perfil auth id); si falta, se usa el default del módulo. */
+  vacationAllowanceByUserId?: Record<string, number>;
 }
 
 function startOfWeek(date: Date): Date {
@@ -661,12 +667,42 @@ function firstAndLastDayOfCurrentMonthYmd(): [string, string] {
   return [start, end];
 }
 
+function countBusinessDaysInclusive(startYmd: string, endYmd: string): number {
+  const a = new Date(startYmd + "T12:00:00");
+  const b = new Date(endYmd + "T12:00:00");
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) || b < a) return 0;
+  let n = 0;
+  for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+    const dw = d.getDay();
+    if (dw !== 0 && dw !== 6) n += 1;
+  }
+  return n;
+}
+
+function absenceKindFromVacationNotes(notes: string | null | undefined): string {
+  const m = /^\[([^\]]+)\]\s*/.exec((notes ?? "").trim());
+  if (!m) return "vacation";
+  return String(m[1] ?? "vacation")
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+}
+
+function absenceDotClass(kind: string): string {
+  if (kind === "sick" || kind.includes("medical") || kind.includes("baja")) return "bg-red-500";
+  if (kind === "permission" || kind === "permiso") return "bg-amber-400";
+  if (kind === "training" || kind === "formación" || kind === "formacion") return "bg-sky-500";
+  if (kind === "other" || kind === "otro") return "bg-zinc-400";
+  return "bg-emerald-500";
+}
+
 const DEFAULT_ANNUAL_VACATION_DAYS = 22;
 
 function generateTimeSheetsFromClock(
   clockEntries: ClockEntryForSchedule[],
-  projects: SchedProject[]
+  projects: SchedProject[],
+  weeklyRegularCap: number
 ): TimeSheetForSchedule[] {
+  const cap = Number.isFinite(weeklyRegularCap) && weeklyRegularCap > 0 ? weeklyRegularCap : 40;
   const byEmployeeWeek = new Map<string, ClockEntryForSchedule[]>();
   for (const e of clockEntries) {
     if (!e.clockOut) continue;
@@ -696,8 +732,8 @@ function generateTimeSheetsFromClock(
       };
     });
     const totalHours = timeEntries.reduce((s, x) => s + x.hoursWorked, 0);
-    const regularHours = Math.min(40, totalHours);
-    const overtimeHours = Math.max(0, totalHours - 40);
+    const regularHours = Math.min(cap, totalHours);
+    const overtimeHours = Math.max(0, totalHours - cap);
     sheets.push({
       id: `ts-${key}`,
       employeeId,
@@ -739,6 +775,7 @@ function TimesheetsView({
   canViewLaborCosting = false,
   timesheetCostCurrency = "CAD",
   employeeLaborRatesByEmployeeId = {},
+  weeklyRegularCap = 40,
 }: {
   clockEntries: ClockEntryForSchedule[];
   employees: SchedEmployee[];
@@ -755,6 +792,7 @@ function TimesheetsView({
   canViewLaborCosting?: boolean;
   timesheetCostCurrency?: string;
   employeeLaborRatesByEmployeeId?: Record<string, number>;
+  weeklyRegularCap?: number;
 }) {
   const { showToast } = useToast();
   const tz = sheetTz ?? resolveUserTimezone(null);
@@ -794,8 +832,59 @@ function TimesheetsView({
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
-  const [sheetStatus, setSheetStatus] = useState<Record<string, { status: "approved" | "rejected"; notes?: string }>>({});
+  type TsFlow = "draft" | "submitted" | "approved" | "rejected";
+  const tsStatusKey = `machinpro_timesheet_flow_${companyIdFallback || "local"}`;
+  const tsNotesKey = `machinpro_timesheet_daynotes_${companyIdFallback || "local"}`;
+  const [sheetStatus, setSheetStatus] = useState<Record<string, { status: TsFlow; notes?: string }>>({});
+  const [dayNotes, setDayNotes] = useState<Record<string, string>>({});
   const [notesDraft, setNotesDraft] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(tsStatusKey);
+      if (raw) setSheetStatus(JSON.parse(raw) as Record<string, { status: TsFlow; notes?: string }>);
+    } catch {
+      /* ignore */
+    }
+    try {
+      const rawN = localStorage.getItem(tsNotesKey);
+      if (rawN) setDayNotes(JSON.parse(rawN) as Record<string, string>);
+    } catch {
+      /* ignore */
+    }
+  }, [tsStatusKey, tsNotesKey]);
+
+  const persistSheetStatus = useCallback(
+    (
+      updater: (
+        prev: Record<string, { status: TsFlow; notes?: string }>
+      ) => Record<string, { status: TsFlow; notes?: string }>
+    ) => {
+      setSheetStatus((prev) => {
+        const next = updater(prev);
+        try {
+          localStorage.setItem(tsStatusKey, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+    },
+    [tsStatusKey]
+  );
+
+  const persistDayNotes = useCallback(
+    (next: Record<string, string>) => {
+      setDayNotes(next);
+      try {
+        localStorage.setItem(tsNotesKey, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+    },
+    [tsNotesKey]
+  );
 
   const filteredClockForTs = useMemo(() => {
     let list = clockEntries.filter((e) => e.clockOut);
@@ -838,10 +927,10 @@ function TimesheetsView({
   }, [filteredClockForTs, showTimesheetCosts, employeeLaborRatesByEmployeeId]);
 
   const sheets = useMemo(() => {
-    let list = generateTimeSheetsFromClock(filteredClockForTs, projects);
+    let list = generateTimeSheetsFromClock(filteredClockForTs, projects, weeklyRegularCap);
     list = list.filter((s) => s.weekEnd >= minDisplayYmd);
     return list;
-  }, [filteredClockForTs, projects, minDisplayYmd]);
+  }, [filteredClockForTs, projects, minDisplayYmd, weeklyRegularCap]);
 
   const weeklySummaries = useMemo(() => {
     type Row = {
@@ -903,8 +992,20 @@ function TimesheetsView({
           ) * 100
         ) / 100
       : 0;
-  const effectiveStatus = (sheet: TimeSheetForSchedule) =>
-    sheetStatus[sheet.id]?.status ?? sheet.status;
+  const effectiveStatus = (sheet: TimeSheetForSchedule): TsFlow => {
+    const s = sheetStatus[sheet.id]?.status;
+    if (s) return s;
+    if (sheet.status === "approved") return "approved";
+    if (sheet.status === "rejected") return "rejected";
+    return "draft";
+  };
+
+  const statusLabel = (st: TsFlow) => {
+    if (st === "approved") return labels.approved ?? "Approved";
+    if (st === "rejected") return labels.rejected ?? "Rejected";
+    if (st === "submitted") return lx.timesheet_submitted ?? "Submitted";
+    return lx.timesheet_draft ?? labels.pending ?? "Draft";
+  };
 
   const CIRCLE_R = 20;
   const CIRCLE_C = 2 * Math.PI * CIRCLE_R;
@@ -1037,15 +1138,10 @@ function TimesheetsView({
         labels.pending ?? "Status",
       ];
       const lines = [headers.map((h) => csvCell(h)).join(",")];
-      const sheetsAll = generateTimeSheetsFromClock(filteredClockForTs, projects);
+      const sheetsAll = generateTimeSheetsFromClock(filteredClockForTs, projects, weeklyRegularCap);
       for (const sheet of sheetsAll) {
         const status = effectiveStatus(sheet);
-        const statusLabel =
-          status === "approved"
-            ? (labels.approved ?? status)
-            : status === "rejected"
-              ? (labels.rejected ?? status)
-              : (labels.pending ?? status);
+        const rowStatusText = statusLabel(status);
         const rowRate = rateFor(sheet.employeeId);
         for (const ent of sheet.entries) {
           if (ent.date < from || ent.date > to) continue;
@@ -1059,7 +1155,7 @@ function TimesheetsView({
                 ? [csvCell(rowCost > 0 ? String(rowCost) : rowRate != null && rowRate > 0 ? "0" : "—")]
                 : []),
               csvCell(ent.projectName ?? "—"),
-              csvCell(statusLabel),
+              csvCell(rowStatusText),
             ].join(",")
           );
         }
@@ -1263,9 +1359,10 @@ function TimesheetsView({
         ) : (
           sheets.map((sheet) => {
             const status = effectiveStatus(sheet);
-            const progress = Math.min(sheet.totalHours / 40, 1);
+            const cap = weeklyRegularCap > 0 ? weeklyRegularCap : 40;
+            const progress = Math.min(sheet.totalHours / cap, 1);
             const dashOffset = CIRCLE_C * (1 - progress);
-            const strokeColor = sheet.totalHours > 40 ? "#ef4444" : "#f59e0b";
+            const strokeColor = sheet.totalHours > cap ? "#ef4444" : "#f59e0b";
             const sheetLaborCost = showTimesheetCosts
               ? laborCostForHours(sheet.totalHours, rateFor(sheet.employeeId))
               : 0;
@@ -1336,14 +1433,12 @@ function TimesheetsView({
                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                           : status === "rejected"
                             ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                            : status === "submitted"
+                              ? "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-200"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                       }`}
                     >
-                      {status === "approved"
-                        ? (labels.approved ?? "Aprobado")
-                        : status === "rejected"
-                          ? (labels.rejected ?? "Rechazado")
-                          : (labels.pending ?? "Pendiente")}
+                      {statusLabel(status)}
                     </span>
                   </div>
                 </div>
@@ -1392,6 +1487,27 @@ function TimesheetsView({
                             dateLocale
                           )
                         : "—"}
+                    </p>
+                  ) : null}
+                  {!viewAll &&
+                  currentUserEmployeeId &&
+                  selectedSheet.employeeId === currentUserEmployeeId &&
+                  effectiveStatus(selectedSheet) === "draft" ? (
+                    <label className="mt-2 block text-xs text-zinc-500">
+                      {lx.timesheet_day_notes ?? "Day notes"}
+                      <textarea
+                        value={dayNotes[`${selectedSheet.employeeId}|${ent.date}`] ?? ""}
+                        onChange={(e) => {
+                          const k = `${selectedSheet.employeeId}|${ent.date}`;
+                          persistDayNotes({ ...dayNotes, [k]: e.target.value });
+                        }}
+                        rows={2}
+                        className="mt-1 w-full min-h-[44px] rounded border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-600 dark:bg-slate-800"
+                      />
+                    </label>
+                  ) : dayNotes[`${selectedSheet.employeeId}|${ent.date}`] ? (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      {lx.timesheet_day_notes ?? "Notes"}: {dayNotes[`${selectedSheet.employeeId}|${ent.date}`]}
                     </p>
                   ) : null}
                 </div>
@@ -1476,35 +1592,120 @@ function TimesheetsView({
                 </>
               ) : null}
             </p>
-            {viewAll && (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const byProjectMap = new Map<string, number>();
+                    for (const ent of selectedSheet.entries) {
+                      const k = ent.projectName ?? "—";
+                      byProjectMap.set(k, (byProjectMap.get(k) ?? 0) + ent.hoursWorked);
+                    }
+                    const byProject = [...byProjectMap.entries()].map(([name, hours]) => ({ name, hours }));
+                    downloadIndividualTimesheetPdf({
+                      employeeName: getEmployeeName(selectedSheet.employeeId),
+                      periodLabel: `${selectedSheet.weekStart} – ${selectedSheet.weekEnd}`,
+                      weekStart: selectedSheet.weekStart,
+                      weekEnd: selectedSheet.weekEnd,
+                      entries: selectedSheet.entries.map((ent) => ({
+                        dateYmd: ent.date,
+                        project: ent.projectName ?? "—",
+                        hours: ent.hoursWorked,
+                        note: dayNotes[`${selectedSheet.employeeId}|${ent.date}`] ?? "",
+                      })),
+                      byProject,
+                      totalHours: selectedSheet.totalHours,
+                      regularHours: selectedSheet.regularHours,
+                      overtimeHours: selectedSheet.overtimeHours,
+                      statusLabel: statusLabel(effectiveStatus(selectedSheet)),
+                      companyName: companyName || "MachinPro",
+                      filenameSlug: fileSlugCompany(companyName, companyIdFallback || "co"),
+                      labels: {
+                        title: lx.timesheet_export_individual ?? "Timesheet",
+                        period: lx.timesheet_date_from ?? "Period",
+                        date: lx.date ?? "Date",
+                        project: lx.project ?? "Project",
+                        hours: lx.hours ?? "Hours",
+                        notes: lx.timesheet_day_notes ?? "Notes",
+                        total: lx.hours ?? "Total",
+                        regular: labels.regularHours ?? "Regular",
+                        overtime: labels.overtimeHours ?? "Overtime",
+                        status: lx.timesheet_approved ?? "Status",
+                        employeeSign: lx.timesheet_signature_employee ?? "Employee signature",
+                        supervisorSign: lx.timesheet_signature_supervisor ?? "Supervisor signature",
+                        footer: "MachinPro · machin.pro",
+                        byProject: lx.timesheet_hours_by_project ?? "By project",
+                      },
+                    });
+                    showToast("success", lx.export_success ?? "OK");
+                  } catch {
+                    showToast("error", lx.export_error ?? "Error");
+                  }
+                }}
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:text-zinc-100 sm:w-auto"
+              >
+                {lx.timesheet_export_individual ?? "PDF"}
+              </button>
+            </div>
+            {!viewAll &&
+            currentUserEmployeeId &&
+            selectedSheet.employeeId === currentUserEmployeeId &&
+            effectiveStatus(selectedSheet) === "draft" ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    persistSheetStatus((s) => ({
+                      ...s,
+                      [selectedSheet.id]: { status: "submitted", notes: s[selectedSheet.id]?.notes },
+                    }));
+                    setSelectedSheetId(null);
+                    showToast("success", lx.timesheet_submitted ?? "Submitted");
+                  }}
+                  className="w-full min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 sm:w-auto"
+                >
+                  {lx.timesheet_submit ?? "Submit"}
+                </button>
+              </div>
+            ) : null}
+            {viewAll && effectiveStatus(selectedSheet) === "submitted" && (
               <div className="mt-4 space-y-3">
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Notas</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {lx.vacation_comment ?? "Notas"}
+                </label>
                 <textarea
                   value={notesDraft}
                   onChange={(e) => setNotesDraft(e.target.value)}
                   rows={2}
                   className="w-full max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                 />
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
-                      setSheetStatus((s) => ({ ...s, [selectedSheet.id]: { status: "approved", notes: notesDraft } }));
+                      persistSheetStatus((s) => ({
+                        ...s,
+                        [selectedSheet.id]: { status: "approved", notes: notesDraft },
+                      }));
                       setSelectedSheetId(null);
                     }}
-                    className="min-h-[44px] rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                    className="min-h-[44px] w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 sm:w-auto"
                   >
-                    {labels.approve ?? "Aprobar"}
+                    {lx.timesheet_approve_hours ?? labels.approve ?? "Approve"}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setSheetStatus((s) => ({ ...s, [selectedSheet.id]: { status: "rejected", notes: notesDraft } }));
+                      persistSheetStatus((s) => ({
+                        ...s,
+                        [selectedSheet.id]: { status: "rejected", notes: notesDraft },
+                      }));
                       setSelectedSheetId(null);
                     }}
-                    className="min-h-[44px] rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
+                    className="min-h-[44px] w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 sm:w-auto"
                   >
-                    {labels.reject ?? "Rechazar"}
+                    {lx.timesheet_reject_hours ?? labels.reject ?? "Reject"}
                   </button>
                 </div>
               </div>
@@ -1577,9 +1778,15 @@ export default function ScheduleModule({
   companyCountryForPayroll = "CA",
   productionReports = [],
   onRefreshProductionReports,
+  timesheetWeeklyRegularCap = 40,
+  vacationAllowanceByUserId = {},
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
+  const allowanceForUser = useCallback(
+    (uid: string) => vacationAllowanceByUserId[uid] ?? DEFAULT_ANNUAL_VACATION_DAYS,
+    [vacationAllowanceByUserId]
+  );
   const scheduleTz = scheduleTimeZoneProp ?? resolveUserTimezone(null);
   void useMachinProDisplayPrefs();
   const wallClockLabel = (s: string) =>
@@ -1711,6 +1918,8 @@ export default function ScheduleModule({
   const [vacFilterUserId, setVacFilterUserId] = useState("");
   const [vacMobileFiltersOpen, setVacMobileFiltersOpen] = useState(false);
   const [vacFilterStatus, setVacFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [vacTeamMonth, setVacTeamMonth] = useState(() => today.getMonth());
+  const [vacTeamYear, setVacTeamYear] = useState(() => today.getFullYear());
   const [teamAvailabilityOpen, setTeamAvailabilityOpen] = useState(true);
   const [availabilityWeekOffset, setAvailabilityWeekOffset] = useState(0);
 
@@ -1791,6 +2000,16 @@ export default function ScheduleModule({
     }
     return m;
   }, [vacationRequests, vacationBalanceYear]);
+
+  const vacReqBizDays = useMemo(() => {
+    if (!vacReqStart || !vacReqEnd) return null;
+    return countBusinessDaysInclusive(vacReqStart, vacReqEnd);
+  }, [vacReqStart, vacReqEnd]);
+
+  const vacationTeamCalendarDays = useMemo(
+    () => getCalendarDays(vacTeamYear, vacTeamMonth),
+    [vacTeamYear, vacTeamMonth]
+  );
 
   const vacationFilterUserOptions = useMemo(() => {
     const ids = new Set<string>();
@@ -2561,7 +2780,8 @@ export default function ScheduleModule({
                 <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {(vacFilterUserId ? [vacFilterUserId] : vacationFilterUserOptions).map((uid) => {
                     const used = approvedVacationDaysByUser.get(uid) ?? 0;
-                    const rem = Math.max(0, DEFAULT_ANNUAL_VACATION_DAYS - used);
+                    const cap = allowanceForUser(uid);
+                    const rem = Math.max(0, cap - used);
                     return (
                       <li
                         key={uid}
@@ -2571,7 +2791,7 @@ export default function ScheduleModule({
                           {vacationEmployeeNames[uid] ?? uid}
                         </p>
                         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-                          {lx.vacations_days_used ?? "Used"}: {used} / {DEFAULT_ANNUAL_VACATION_DAYS}
+                          {lx.vacations_days_used ?? "Used"}: {used} / {cap}
                         </p>
                         <p className="text-amber-700 dark:text-amber-400">
                           {lx.vacations_days_remaining ?? "Remaining"}: {rem}
@@ -2589,7 +2809,7 @@ export default function ScheduleModule({
                 <p className="mt-1 text-zinc-600 dark:text-zinc-400">
                   {lx.vacations_days_used ?? "Used"}:{" "}
                   <span className="tabular-nums font-semibold text-zinc-900 dark:text-white">
-                    {approvedVacationDaysByUser.get(currentUserId) ?? 0} / {DEFAULT_ANNUAL_VACATION_DAYS}
+                    {approvedVacationDaysByUser.get(currentUserId) ?? 0} / {allowanceForUser(currentUserId)}
                   </span>
                 </p>
                 <p className="text-amber-700 dark:text-amber-400">
@@ -2597,7 +2817,7 @@ export default function ScheduleModule({
                   <span className="tabular-nums font-semibold">
                     {Math.max(
                       0,
-                      DEFAULT_ANNUAL_VACATION_DAYS - (approvedVacationDaysByUser.get(currentUserId) ?? 0)
+                      allowanceForUser(currentUserId) - (approvedVacationDaysByUser.get(currentUserId) ?? 0)
                     )}
                   </span>
                 </p>
@@ -2658,8 +2878,160 @@ export default function ScheduleModule({
                     {lx.vacations_request ?? lx.employees_request_vacation ?? ""}
                   </button>
                 </div>
+                {vacReqBizDays != null && vacReqBizDays > 0 ? (
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    {lx.vacation_business_days ?? "Business days"}:{" "}
+                    <span className="font-semibold tabular-nums text-zinc-900 dark:text-white">{vacReqBizDays}</span>
+                  </p>
+                ) : null}
               </div>
             )}
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                {lx.vacation_team_calendar_title ?? "Team absence calendar"}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (vacTeamMonth === 0) {
+                      setVacTeamMonth(11);
+                      setVacTeamYear((y) => y - 1);
+                    } else setVacTeamMonth((m) => m - 1);
+                  }}
+                  className="min-h-[44px] min-w-[44px] rounded-lg border border-zinc-200 px-2 text-sm dark:border-slate-600"
+                  aria-label={labels.previousMonth ?? "Prev"}
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (vacTeamMonth === 11) {
+                      setVacTeamMonth(0);
+                      setVacTeamYear((y) => y + 1);
+                    } else setVacTeamMonth((m) => m + 1);
+                  }}
+                  className="min-h-[44px] min-w-[44px] rounded-lg border border-zinc-200 px-2 text-sm dark:border-slate-600"
+                  aria-label={labels.nextMonth ?? "Next"}
+                >
+                  →
+                </button>
+              </div>
+            </div>
+            <HorizontalScrollFade className="-mx-1">
+              <div className="min-w-0 overflow-x-auto px-1 pb-1">
+                <div className="grid min-w-[520px] grid-cols-7 gap-0.5 sm:min-w-0">
+                  {vacationTeamCalendarDays.map((day) => {
+                    const ymd = toYMD(day);
+                    const inMonth = day.getMonth() === vacTeamMonth;
+                    const absent = vacationRequests.filter((v) => {
+                      if (v.status !== "approved") return false;
+                      return v.start_date <= ymd && v.end_date >= ymd;
+                    });
+                    return (
+                      <div
+                        key={ymd}
+                        className={`min-h-[52px] rounded border p-1 text-[10px] sm:min-h-[64px] sm:text-xs ${
+                          inMonth
+                            ? "border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                            : "border-transparent opacity-40"
+                        }`}
+                      >
+                        <p className="font-semibold text-zinc-700 dark:text-zinc-300">{day.getDate()}</p>
+                        <div className="mt-0.5 flex flex-wrap gap-0.5">
+                          {absent.slice(0, 4).map((v) => (
+                            <span
+                              key={v.id}
+                              className={`h-1.5 w-1.5 rounded-full ${absenceDotClass(absenceKindFromVacationNotes(v.notes))}`}
+                              title={vacationEmployeeNames[v.user_id] ?? v.user_id}
+                            />
+                          ))}
+                          {absent.length > 4 ? (
+                            <span className="text-[9px] text-zinc-500">+{absent.length - 4}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </HorizontalScrollFade>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  const monthStart = `${vacTeamYear}-${String(vacTeamMonth + 1).padStart(2, "0")}-01`;
+                  const lastD = new Date(vacTeamYear, vacTeamMonth + 1, 0).getDate();
+                  const monthEnd = `${vacTeamYear}-${String(vacTeamMonth + 1).padStart(2, "0")}-${String(lastD).padStart(2, "0")}`;
+                  const rows = vacationRequests.filter(
+                    (v) =>
+                      v.status === "approved" && !(v.end_date < monthStart || v.start_date > monthEnd)
+                  );
+                  const lines: string[] = [
+                    [
+                      lx.personnel ?? "User",
+                      lx.date ?? "Start",
+                      lx.date ?? "End",
+                      lx.days ?? "Days",
+                      "Type",
+                    ]
+                      .map((c) => csvCell(c))
+                      .join(","),
+                  ];
+                  for (const v of rows) {
+                    lines.push(
+                      [
+                        csvCell(vacationEmployeeNames[v.user_id] ?? v.user_id),
+                        csvCell(v.start_date),
+                        csvCell(v.end_date),
+                        csvCell(String(v.total_days)),
+                        csvCell(absenceKindFromVacationNotes(v.notes)),
+                      ].join(",")
+                    );
+                  }
+                  downloadCsvUtf8(
+                    `absences_${fileSlugCompany(companyName, companyId || "co")}_${monthStart}.csv`,
+                    lines
+                  );
+                  showToast("success", lx.export_success ?? "OK");
+                }}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-300 px-3 text-sm dark:border-zinc-600"
+              >
+                {lx.vacation_export_csv ?? "CSV"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+                  let y = 14;
+                  pdf.setFontSize(14);
+                  pdf.text(lx.vacation_export_pdf ?? "Absences", 14, y);
+                  y += 8;
+                  pdf.setFontSize(10);
+                  pdf.text(`${vacTeamYear}-${String(vacTeamMonth + 1).padStart(2, "0")}`, 14, y);
+                  y += 6;
+                  for (const v of vacationRequests) {
+                    if (v.status !== "approved") continue;
+                    const line = `${vacationEmployeeNames[v.user_id] ?? v.user_id}: ${v.start_date}–${v.end_date} (${absenceKindFromVacationNotes(v.notes)})`;
+                    pdf.text(line.slice(0, 120), 14, y);
+                    y += 5;
+                    if (y > 280) {
+                      pdf.addPage();
+                      y = 14;
+                    }
+                  }
+                  pdf.save(`absences_${companyId || "co"}_${vacTeamYear}_${vacTeamMonth + 1}.pdf`);
+                  showToast("success", lx.export_success ?? "OK");
+                }}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-amber-500/50 bg-amber-600 px-3 text-sm font-medium text-white hover:bg-amber-500"
+              >
+                {lx.vacation_export_pdf ?? "PDF"}
+              </button>
+            </div>
           </div>
 
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
@@ -2672,7 +3044,8 @@ export default function ScheduleModule({
               <ul className="mt-3 space-y-3">
                 {filteredVacationRequests.map((v) => {
                   const used = approvedVacationDaysByUser.get(v.user_id) ?? 0;
-                  const rem = Math.max(0, DEFAULT_ANNUAL_VACATION_DAYS - used);
+                  const capU = allowanceForUser(v.user_id);
+                  const rem = Math.max(0, capU - used);
                   const stLabel =
                     v.status === "approved"
                       ? (lx.vacations_approved ?? labels.approved ?? "")
@@ -2701,7 +3074,7 @@ export default function ScheduleModule({
                           {v.start_date} → {v.end_date} · {v.total_days} {lx.days ?? ""}
                         </p>
                         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                          {lx.vacations_days_used ?? "Used"}: {used} / {DEFAULT_ANNUAL_VACATION_DAYS} ·{" "}
+                          {lx.vacations_days_used ?? "Used"}: {used} / {capU} ·{" "}
                           {lx.vacations_days_remaining ?? "Remaining"}: {rem}
                         </p>
                         {v.notes ? <p className="mt-1 text-xs text-zinc-500">{v.notes}</p> : null}
@@ -2724,14 +3097,14 @@ export default function ScheduleModule({
                             onClick={() => void onApproveVacation?.(v.id, vacAdminComment[v.id] ?? "")}
                             className="min-h-[44px] min-w-[44px] rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-500"
                           >
-                            {labels.approve ?? ""}
+                            {lx.vacation_approve ?? labels.approve ?? ""}
                           </button>
                           <button
                             type="button"
                             onClick={() => void onRejectVacation?.(v.id, vacAdminComment[v.id] ?? "")}
                             className="min-h-[44px] min-w-[44px] rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-500"
                           >
-                            {labels.reject ?? ""}
+                            {lx.vacation_reject ?? labels.reject ?? ""}
                           </button>
                         </div>
                       ) : null}
@@ -3110,6 +3483,7 @@ export default function ScheduleModule({
           canViewLaborCosting={canViewLaborCosting}
           timesheetCostCurrency={timesheetCostCurrency}
           employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
+          weeklyRegularCap={timesheetWeeklyRegularCap}
         />
       )}
 
