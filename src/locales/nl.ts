@@ -1,4 +1,4 @@
-/** NL — auto-built (value-map); review for domain terms */
+﻿/** NL — auto-built (value-map); review for domain terms */
 export default {
   "office": "Centraal",
   "warehouse": "Logistiek",

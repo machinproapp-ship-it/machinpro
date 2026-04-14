@@ -1,4 +1,4 @@
-/** CS — auto-built (value-map); review for domain terms */
+﻿/** CS — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",
