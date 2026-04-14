@@ -202,11 +202,14 @@ export function PayrollSchedulePanel({
         rate != null
           ? Math.round((regularHours * rate + otHours * rate * 1.5) * 100) / 100
           : 0;
-      const ded = calculateDeductions(gross, countryCode, currency);
-      const td = totalEmployeeDeductions(ded);
-      const ec = totalEmployerContributions(ded);
-      const net = Math.max(0, Math.round((gross - td) * 100) / 100);
+      const isCA = countryCode.trim().toUpperCase() === "CA";
+      const ded = rate != null && isCA ? calculateDeductions(gross, countryCode, currency) : [];
+      const td = rate != null && isCA ? totalEmployeeDeductions(ded) : 0;
+      const ec = rate != null && isCA ? totalEmployerContributions(ded) : 0;
+      const net =
+        rate != null ? Math.max(0, Math.round((gross - td) * 100) / 100) : null;
       const st = statusByEmp[empId] ?? "draft";
+      const hasRate = rate != null;
       return {
         employeeId: empId,
         name: nameById.get(empId) ?? empId,
@@ -217,9 +220,11 @@ export function PayrollSchedulePanel({
         gross,
         deductions: ded,
         totalDeductions: td,
-        net,
+        net: net ?? 0,
         employerCost: ec,
         status: st,
+        hasRate,
+        payrollCountryIsCa: isCA,
       };
     });
   }, [
@@ -274,11 +279,11 @@ export function PayrollSchedulePanel({
           rows: rows.map((r) => ({
             employeeName: r.name,
             hours: r.hours,
-            gross: r.gross,
-            totalDeductions: r.totalDeductions,
-            net: r.net,
-            employerCost: r.employerCost,
-            deductions: r.deductions,
+            gross: r.hasRate ? r.gross : 0,
+            totalDeductions: r.hasRate ? r.totalDeductions : 0,
+            net: r.hasRate ? r.net : 0,
+            employerCost: r.hasRate ? r.employerCost : 0,
+            deductions: r.hasRate ? r.deductions : [],
           })),
         });
         const href = URL.createObjectURL(blob);
@@ -425,12 +430,14 @@ export function PayrollSchedulePanel({
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.hours.toFixed(1)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {r.rate == null
-                        ? L("payroll_no_rate", "Sin tarifa configurada")
-                        : `${currency} ${r.gross.toFixed(2)}`}
+                      {r.hasRate ? `${currency} ${r.gross.toFixed(2)}` : "—"}
                     </td>
-                    <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.totalDeductions.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-medium">{r.net.toFixed(2)}</td>
+                    <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">
+                      {r.hasRate && r.payrollCountryIsCa ? r.totalDeductions.toFixed(2) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">
+                      {r.hasRate ? r.net.toFixed(2) : "—"}
+                    </td>
                     <td className="px-3 py-2">
                       <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs">
                         {r.status === "draft"

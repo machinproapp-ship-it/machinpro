@@ -2,6 +2,8 @@
  * Envío de notificaciones web push (VAPID + tabla `push_subscriptions`).
  * Triggers de negocio (compliance, inventario, hazards, etc.) pueden llamar a estas funciones
  * desde rutas API con `PUSH_SEND_SECRET` o con sesión admin/supervisor.
+ *
+ * Envío server-side a un usuario: usar `sendPushToUser` desde `@/lib/serverWebPush` (no aquí, para no incluir `web-push` en el bundle cliente).
  */
 
 function urlBase64ToUint8Array(base64String: string): BufferSource {

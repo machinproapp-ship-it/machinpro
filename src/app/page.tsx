@@ -129,6 +129,7 @@ import {
   companyHasConfiguredLaborRates,
   type ProjectLaborSummary,
 } from "@/lib/laborCosting";
+import { resolveEmployeeRate } from "@/lib/payroll";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import {
   type CustomRole,
@@ -1682,7 +1683,7 @@ export default function Home() {
     for (const e of employees) o[e.id] = e.name;
     return o;
   }, [employees]);
-  const employeeLaborRateLookup = useMemo(
+  const employeeLaborRateLookupBase = useMemo(
     () => buildLaborRateLookupForClock(employees, userToEmployeeMap),
     [employees, userToEmployeeMap]
   );
@@ -2564,6 +2565,30 @@ export default function Home() {
   const [dailyReports, setDailyReports] = useState<DailyFieldReport[]>([]);
   const [projectExpenses, setProjectExpenses] = useState<ProjectExpenseRow[]>([]);
   const [productionCatalogItems, setProductionCatalogItems] = useState<CatalogItem[]>([]);
+
+  const employeeLaborRateLookup = useMemo(() => {
+    const base = { ...employeeLaborRateLookupBase };
+    const cat = productionCatalogItems.filter((c) => c.isActive !== false);
+    for (const e of employees) {
+      if (base[e.id] != null && Number.isFinite(base[e.id]) && base[e.id]! > 0) continue;
+      const r = resolveEmployeeRate(
+        {
+          id: e.id,
+          laborHourlyRate: e.laborHourlyRate ?? null,
+          hourlyRate: e.hourlyRate,
+          role: e.role,
+          name: e.name,
+        },
+        cat
+      );
+      if (r == null) continue;
+      base[e.id] = r;
+      const leg = userToEmployeeMap[e.id];
+      if (leg) base[leg] = r;
+    }
+    return base;
+  }, [employeeLaborRateLookupBase, productionCatalogItems, employees, userToEmployeeMap]);
+
   const [projectTaskOverrides, setProjectTaskOverrides] = useState<ProjectTaskOverride[]>([]);
   const [productionReports, setProductionReports] = useState<ProductionReport[]>([]);
   const [teamProfiles, setTeamProfiles] = useState<
@@ -4738,6 +4763,22 @@ export default function Home() {
         const { error: insErr } = await supabase.from("schedule_entries").insert(rowsToInsert);
         if (insErr) console.error("schedule_entries vacation insert", insErr);
       }
+      if (companyId && req.user_id) {
+        const tl = t as Record<string, string>;
+        const title =
+          tl.notif_vacation_approved_title ?? tl.vacations_approved ?? "Vacation approved";
+        const bodyTpl =
+          tl.notif_vacation_approved_body ?? "{start} → {end}";
+        const body = bodyTpl.replace(/\{start\}/g, req.start_date).replace(/\{end\}/g, req.end_date);
+        void postAppNotification(supabase, {
+          companyId,
+          targetUserId: req.user_id,
+          type: "vacation_approved",
+          title,
+          body,
+          data: { vacationRequestId: id },
+        });
+      }
     },
     [supabase, user?.id, vacationRequests, t, companyId]
   );
@@ -4761,12 +4802,25 @@ export default function Home() {
       );
       if (req?.user_id) {
         const tl = t as Record<string, string>;
+        const title =
+          tl.notif_vacation_rejected_title ?? tl.vacation_reject ?? tl.schedule_vacation_pending_list ?? "";
+        const bodyTpl = tl.notif_vacation_rejected_body ?? "";
+        const rangeBody = bodyTpl
+          ? bodyTpl
+              .replace(/\{start\}/g, req.start_date)
+              .replace(/\{end\}/g, req.end_date)
+              .replace(/\{comment\}/g, (comment || "").trim())
+          : "";
+        const body =
+          [rangeBody, (comment || "").trim()].filter(Boolean).join(" · ") ||
+          tl.schedule_vacation_comment ||
+          null;
         void postAppNotification(supabase, {
           companyId,
           targetUserId: req.user_id,
           type: "vacation_rejected",
-          title: tl.vacation_reject ?? tl.schedule_vacation_pending_list ?? "Vacation rejected",
-          body: (comment || "").trim() || tl.schedule_vacation_comment || null,
+          title,
+          body,
           data: { vacationRequestId: id },
         });
       }

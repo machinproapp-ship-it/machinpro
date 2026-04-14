@@ -22,6 +22,7 @@ import {
   Clock,
   MapPin,
   LogOut,
+  Trash2,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
@@ -472,6 +473,7 @@ export function EmployeesModule({
     value: string;
   } | null>(null);
   const [employeeDeleteModalOpen, setEmployeeDeleteModalOpen] = useState(false);
+  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false);
   const [hardDeleteConfirmInput, setHardDeleteConfirmInput] = useState("");
   const [hardDeleteBusy, setHardDeleteBusy] = useState(false);
   const [forceLogoutModalOpen, setForceLogoutModalOpen] = useState(false);
@@ -1026,8 +1028,11 @@ export function EmployeesModule({
   const runHardDeleteEmployee = async () => {
     if (!canManageEmployees || !selected || !companyId) return;
     const lx = t as Record<string, string>;
-    const word = (lx.employee_hard_delete_confirm_word ?? "ELIMINAR").trim();
-    if (hardDeleteConfirmInput.trim() !== word) return;
+    const st = (selected.profile_status ?? "").toLowerCase().trim();
+    if (st !== "inactive" && st !== "deleted") return;
+    const expected = (draft.full_name ?? selected.full_name ?? "").trim().replace(/\s+/g, " ");
+    const typed = hardDeleteConfirmInput.trim().replace(/\s+/g, " ");
+    if (!expected || typed !== expected) return;
     setHardDeleteBusy(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -1044,18 +1049,19 @@ export function EmployeesModule({
         },
         body: JSON.stringify({ companyId, userId: selected.id }),
       });
-      const j = (await res.json()) as { error?: string; hint?: string; ok?: boolean };
-      if (!res.ok || !j.ok) {
+      const j = (await res.json()) as { error?: string; hint?: string; ok?: boolean; success?: boolean };
+      if (!res.ok || (!j.ok && !j.success)) {
         window.alert(
           [j.error, j.hint].filter(Boolean).join("\n") || (lx.employees_delete_error ?? "").trim() || "Error"
         );
         return;
       }
       setEmployeeDeleteModalOpen(false);
+      setPermanentDeleteOpen(false);
       setHardDeleteConfirmInput("");
       if (selectedId === selected.id) setSelectedId(null);
       void load();
-      const ok = (lx.employee_hard_delete_success ?? "").trim();
+      const ok = (lx.hard_delete_success ?? lx.employee_hard_delete_success ?? "").trim();
       if (ok) window.alert(ok);
     } finally {
       setHardDeleteBusy(false);
@@ -2373,6 +2379,21 @@ export function EmployeesModule({
               {tl.auth_force_logout_btn ?? ""}
             </button>
           )}
+          {canManageEmployees &&
+            selected.id !== currentUserProfileId &&
+            (selected.profile_status === "inactive" || selected.profile_status === "deleted") && (
+              <button
+                type="button"
+                className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100 dark:hover:bg-red-950/70"
+                onClick={() => {
+                  setHardDeleteConfirmInput("");
+                  setPermanentDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                {tl.hard_delete_title ?? tl.employee_hard_delete ?? ""}
+              </button>
+            )}
         </section>
           </>
         )}
@@ -2534,33 +2555,71 @@ export function EmployeesModule({
                 </button>
               </div>
 
-              {canManageEmployees ? (
-                <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50/80 dark:bg-red-950/25 p-4 space-y-3">
-                  <p className="text-sm font-semibold text-red-900 dark:text-red-100">{tl.employee_hard_delete ?? ""}</p>
-                  <p className="text-sm text-red-900/90 dark:text-red-100/90">{tl.employee_hard_delete_desc ?? ""}</p>
-                  <label className="block text-xs font-medium text-red-900 dark:text-red-100">
-                    {tl.employee_hard_delete_confirm ?? ""}
-                    <input
-                      value={hardDeleteConfirmInput}
-                      onChange={(e) => setHardDeleteConfirmInput(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[44px]"
-                      autoComplete="off"
-                      disabled={hardDeleteBusy}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    disabled={
-                      hardDeleteBusy ||
-                      hardDeleteConfirmInput.trim() !== (tl.employee_hard_delete_confirm_word ?? "ELIMINAR").trim()
-                    }
-                    className="w-full min-h-[44px] rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50"
-                    onClick={() => void runHardDeleteEmployee()}
-                  >
-                    {hardDeleteBusy ? "…" : (tl.employee_hard_delete ?? "")}
-                  </button>
-                </div>
-              ) : null}
+            </div>
+          </>
+        )}
+
+        {permanentDeleteOpen && selected && companyId && (
+          <>
+            <div
+              className="fixed inset-0 z-[62] bg-black/50"
+              aria-hidden
+              onClick={() => !hardDeleteBusy && setPermanentDeleteOpen(false)}
+            />
+            <div
+              className="fixed z-[63] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="permanent-delete-title"
+            >
+              <div className="flex justify-between items-start gap-2">
+                <h3 id="permanent-delete-title" className="text-base font-semibold text-red-900 dark:text-red-100 flex items-center gap-2">
+                  <Trash2 className="h-5 w-5 shrink-0" aria-hidden />
+                  {tl.hard_delete_title ?? tl.employee_hard_delete ?? ""}
+                </h3>
+                <button
+                  type="button"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300"
+                  onClick={() => !hardDeleteBusy && setPermanentDeleteOpen(false)}
+                  aria-label={tl.cancel ?? "Close"}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-red-900/95 dark:text-red-100/90">
+                {(tl.hard_delete_warning ?? "")
+                  .replace(/\{name\}/g, (draft.full_name ?? selected.full_name ?? "").trim() || "—")}
+              </p>
+              <label className="block text-xs font-medium text-red-900 dark:text-red-100">
+                {tl.hard_delete_confirm_placeholder ?? ""}
+                <input
+                  value={hardDeleteConfirmInput}
+                  onChange={(e) => setHardDeleteConfirmInput(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[44px]"
+                  autoComplete="off"
+                  disabled={hardDeleteBusy}
+                  placeholder={(draft.full_name ?? selected.full_name ?? "").trim()}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={
+                  hardDeleteBusy ||
+                  hardDeleteConfirmInput.trim().replace(/\s+/g, " ") !==
+                    (draft.full_name ?? selected.full_name ?? "").trim().replace(/\s+/g, " ")
+                }
+                className="w-full min-h-[44px] rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                onClick={() => void runHardDeleteEmployee()}
+              >
+                {hardDeleteBusy ? (
+                  "…"
+                ) : (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                    {tl.hard_delete_button ?? ""}
+                  </span>
+                )}
+              </button>
             </div>
           </>
         )}

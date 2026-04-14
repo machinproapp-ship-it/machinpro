@@ -474,8 +474,15 @@ export function HazardModule({
       new_value: { details: { payload } },
     });
     showToast("success", t.toast_saved ?? "Saved");
-    const title = t.new_hazard ?? t.push_new_hazard ?? "New hazard";
-    const body = form.title.trim();
+    const title = t.push_hazard_reported_title ?? t.new_hazard ?? t.push_new_hazard ?? "";
+    const projectLabel =
+      (form.project_name ?? "").trim() ||
+      (form.project_id ? projects.find((p) => p.id === form.project_id)?.name?.trim() : "") ||
+      "";
+    const bodyTpl = t.push_hazard_reported_body ?? "{reporter} · {project}";
+    const body = bodyTpl
+      .replace(/\{reporter\}/g, userName)
+      .replace(/\{project\}/g, projectLabel || (t.hazards_no_project ?? "—"));
     for (const emp of employees) {
       const r = (emp.role ?? "").toLowerCase();
       if (r !== "admin" && r !== "supervisor") continue;

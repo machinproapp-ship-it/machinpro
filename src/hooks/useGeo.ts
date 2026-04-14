@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { discountPercentForPppTier, getPppTierFromCountryCode } from "@/lib/geoTier";
 
 const STORAGE_KEY = "machinpro_geo";
 
@@ -26,8 +27,15 @@ function parseCached(raw: string): GeoApiResponse | null {
   return null;
 }
 
+function tierFromCountry(country: string): GeoApiResponse {
+  const c = (country ?? "US").trim().toUpperCase() || "US";
+  const tier = getPppTierFromCountryCode(c) as 1 | 2 | 3;
+  const discount = discountPercentForPppTier(tier);
+  return { country: c, tier, discount };
+}
+
 /**
- * País / tier PPP (headers Vercel/CF vía `/api/geo`). Cache en sessionStorage.
+ * País / tier PPP: primero ipapi.co (cliente), luego `/api/geo`, cache en sessionStorage.
  */
 export function useGeo(): GeoApiResponse & { loading: boolean } {
   const [data, setData] = useState<GeoApiResponse>({
@@ -53,6 +61,26 @@ export function useGeo(): GeoApiResponse & { loading: boolean } {
     }
 
     void (async () => {
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/", { cache: "no-store" });
+        if (ipRes.ok) {
+          const j = (await ipRes.json()) as { country_code?: string; error?: boolean };
+          if (!cancelled && !j.error && typeof j.country_code === "string" && j.country_code.trim()) {
+            const next = tierFromCountry(j.country_code);
+            try {
+              sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            } catch {
+              /* ignore */
+            }
+            setData(next);
+            if (!cancelled) setLoading(false);
+            return;
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+
       try {
         const res = await fetch("/api/geo", { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));

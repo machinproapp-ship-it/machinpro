@@ -2,7 +2,7 @@ export type GeoTier = 1 | 2 | 3;
 
 export type GeoRegion = "uk" | "eu" | "latam_norte" | "latam_sur" | "northam" | "other";
 
-/** Tier 1 — Stripe checkout: sin cupón PPP */
+/** Tier 1 — PPP 100% (AH-17 list; resto → tier 2 explícito o tier 3). */
 export const TIER1_COUNTRIES = new Set([
   "CA",
   "US",
@@ -19,11 +19,6 @@ export const TIER1_COUNTRIES = new Set([
   "CH",
   "IE",
   "LU",
-  "AU",
-  "NZ",
-  "SG",
-  "JP",
-  "KR",
 ]);
 
 /**
@@ -108,7 +103,7 @@ export function resolveRegionTier(countryCode: string | null | undefined): { reg
   if (c === "GB") return { region: "uk", tier: 1 };
   if (c === "CA" || c === "US") return { region: "northam", tier: 1 };
   if (c === "AU" || c === "NZ" || c === "SG" || c === "JP" || c === "KR") {
-    return { region: "other", tier: 1 };
+    return { region: "other", tier: 3 };
   }
   if (LATAM_NORTE.has(c)) return { region: "latam_norte", tier: 3 };
   if (LATAM_SUR.has(c)) return { region: "latam_sur", tier: 2 };

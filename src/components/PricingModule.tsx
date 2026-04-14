@@ -123,6 +123,7 @@ export function PricingModule({
             billingCycle: period,
             priceId: getStripePriceId(plan, period),
             countryCode: geoCountry,
+            country: geoCountry,
             companyId,
             companyName: companyName ?? "",
             email: email ?? "",
@@ -228,6 +229,11 @@ export function PricingModule({
           className="mb-6 flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-center text-sm font-medium text-sky-900 dark:border-sky-800/60 dark:bg-sky-950/20 dark:text-sky-100 max-w-2xl mx-auto"
         >
           <span>{lx.ppp_badge ?? lx.pricing_ppp_applied ?? ""}</span>
+          {lx.pricing_region_adjusted ? (
+            <span className="text-xs font-normal text-sky-800/90 dark:text-sky-200/90">
+              {lx.pricing_region_adjusted}
+            </span>
+          ) : null}
           <span className="text-xs font-medium opacity-90">
             {(lx.ppp_discount ?? "").replace(/\{\{percent\}\}/g, String(pppDiscount))}
           </span>

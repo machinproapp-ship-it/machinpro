@@ -29,6 +29,8 @@ function appPublicOrigin(): string {
 type Body = {
   priceId?: string | null;
   countryCode?: string | null;
+  /** Alias de `countryCode` (AH-17 PPP). */
+  country?: string | null;
   billingCycle?: string | null;
   /** Legacy */
   plan?: PaidPlanKey | string;
@@ -47,6 +49,7 @@ export async function POST(req: NextRequest) {
     const {
       priceId: priceIdRaw,
       countryCode: countryCodeRaw,
+      country: countryBody,
       billingCycle: billingCycleRaw,
       companyId,
       companyName,
@@ -76,7 +79,11 @@ export async function POST(req: NextRequest) {
       .trim()
       .toUpperCase();
     const bodyCountry =
-      typeof countryCodeRaw === "string" ? countryCodeRaw.trim().toUpperCase() : "";
+      typeof countryCodeRaw === "string"
+        ? countryCodeRaw.trim().toUpperCase()
+        : typeof countryBody === "string"
+          ? countryBody.trim().toUpperCase()
+          : "";
     const effectiveCountry = bodyCountry || ipCountry || "US";
     const checkoutTier = getPppTierFromCountryCode(effectiveCountry);
 
@@ -160,7 +167,8 @@ export async function POST(req: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${base}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/pricing`,
-      allow_promotion_codes: false,
+      /** Tier 1 sin cupón PPP: el usuario puede introducir `BETA_FOUNDER`. Con PPP o beta UI, no combinar códigos. */
+      allow_promotion_codes: !betaFounder && checkoutTier === 1,
       automatic_tax: { enabled: true },
       tax_id_collection: { enabled: true },
       billing_address_collection: "required",

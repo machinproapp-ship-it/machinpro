@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ParsedEmployeeCert } from "@/lib/employeeCertificatesJson";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
 import { insertNotificationRow } from "@/lib/notifications-server";
-import { dispatchWebPushToUser } from "@/lib/push-dispatch";
+import { sendPushToUser } from "@/lib/serverWebPush";
 
 export const CERT_NOTIF_TYPES = ["cert_expiring_15", "cert_expiring_7", "cert_expiring_3", "cert_expired"] as const;
 export type CertNotificationType = (typeof CERT_NOTIF_TYPES)[number];
@@ -87,7 +87,7 @@ async function sendCertNotification(
     },
   });
   if (res.ok) {
-    void dispatchWebPushToUser(admin, companyId, userId, {
+    void sendPushToUser(admin, companyId, userId, {
       title: titleEn,
       body: bodyEn,
       url: "/",
@@ -107,13 +107,18 @@ export async function runCertificateNotificationsForCompany(
 
   const { data: profiles, error: profErr } = await admin
     .from("user_profiles")
-    .select("id, certificates")
+    .select("id, certificates, full_name, display_name")
     .eq("company_id", companyId);
   if (profErr) {
     return { created: 0, errors: [profErr.message] };
   }
 
-  const rows = (profiles ?? []) as { id?: string; certificates?: unknown }[];
+  const rows = (profiles ?? []) as {
+    id?: string;
+    certificates?: unknown;
+    full_name?: string | null;
+    display_name?: string | null;
+  }[];
   const { data: adminRows, error: admErr } = await admin
     .from("user_profiles")
     .select("id")
@@ -122,22 +127,13 @@ export async function runCertificateNotificationsForCompany(
   if (admErr) errors.push(admErr.message);
   const adminIds = [...new Set((adminRows ?? []).map((r) => String((r as { id: string }).id)).filter(Boolean))];
 
-  const titleFor = (type: CertNotificationType): string => {
-    if (type === "cert_expiring_15") return "Certificate expiring soon";
-    if (type === "cert_expiring_7") return "Certificate expiring soon";
-    if (type === "cert_expiring_3") return "Certificate expiring soon";
-    return "Certificate expired";
-  };
-  const bodyFor = (type: CertNotificationType, certName: string): string => {
-    if (type === "cert_expiring_15") return `${certName} expires in 15 days`;
-    if (type === "cert_expiring_7") return `${certName} expires in 7 days`;
-    if (type === "cert_expiring_3") return `${certName} expires in 3 days`;
-    return `${certName} has expired`;
-  };
-
   for (const row of rows) {
     const ownerId = row.id != null ? String(row.id) : "";
     if (!ownerId) continue;
+    const employeeDisplayName =
+      (row.full_name != null && String(row.full_name).trim()) ||
+      (row.display_name != null && String(row.display_name).trim()) ||
+      "Employee";
     const certs = parseProfileCertificates(row.certificates);
     for (const cert of certs) {
       const daysLeft = daysUntilExpiry(cert.expiryDate);
@@ -145,13 +141,27 @@ export async function runCertificateNotificationsForCompany(
       const notifType = daysLeft !== null ? classifyCertNotification(daysLeft) : null;
       if (!notifType) continue;
 
-      const titleEn = titleFor(notifType);
-      const bodyEn = bodyFor(notifType, cert.name);
       const targets = new Set<string>([ownerId, ...adminIds]);
+      const expired = notifType === "cert_expired" || (daysLeft != null && daysLeft < 0);
+      const daysPart =
+        expired || daysLeft == null
+          ? "has expired"
+          : `expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
 
       for (const uid of targets) {
         try {
-          const ok = await sendCertNotification(admin, companyId, uid, notifType, cert, titleEn, bodyEn);
+          const isOwner = uid === ownerId;
+          const pushTitle = isOwner
+            ? expired
+              ? "📄 Document expired"
+              : "📄 Document expiring soon"
+            : expired
+              ? "📄 Employee document expired"
+              : "📄 Employee document expiring";
+          const pushBody = isOwner
+            ? `${cert.name} ${daysPart}`
+            : `${cert.name} of ${employeeDisplayName} ${daysPart}`;
+          const ok = await sendCertNotification(admin, companyId, uid, notifType, cert, pushTitle, pushBody);
           if (ok) created += 1;
         } catch (e) {
           errors.push(e instanceof Error ? e.message : String(e));

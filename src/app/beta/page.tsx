@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Copy, Check } from "lucide-react";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
@@ -36,6 +37,7 @@ export default function BetaFounderRequestPage() {
   const [companyType, setCompanyType] = useState<CompanyTypeValue | "">("");
   const [message, setMessage] = useState("");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [couponCopied, setCouponCopied] = useState(false);
 
   const countries = useMemo(
     () => Object.values(COUNTRY_CONFIG).sort((a, b) => a.name.localeCompare(b.name)),
@@ -151,11 +153,51 @@ export default function BetaFounderRequestPage() {
 
           <div className="rounded-2xl border border-white/15 bg-slate-900/45 p-5 shadow-2xl backdrop-blur-sm sm:p-8 dark:bg-slate-950/55">
             {success ? (
-              <div className="py-6 text-center sm:py-8">
-                <p className="text-lg font-semibold text-emerald-300 sm:text-xl">{tx("beta_success", "")}</p>
+              <div className="space-y-6 py-4 text-center sm:py-6">
+                <p className="text-base font-medium text-teal-100/95">{tx("beta_success", "")}</p>
+                <p className="text-xl font-bold text-white sm:text-2xl">{tx("beta_success_welcome", "")}</p>
+                <p className="mx-auto max-w-md text-sm leading-relaxed text-teal-100/90">
+                  {tx("beta_success_intro", "")}
+                </p>
+                <div className="rounded-xl border border-white/15 bg-black/20 px-4 py-4 text-left sm:px-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-teal-200/90">
+                    {tx("beta_success_coupon_label", "")}
+                  </p>
+                  <div className="mt-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <code className="break-all text-lg font-bold text-amber-200 sm:text-xl">
+                      {tx("beta_coupon_code", "BETA_FOUNDER")}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = tx("beta_coupon_code", "BETA_FOUNDER");
+                        void navigator.clipboard.writeText(code).then(() => {
+                          setCouponCopied(true);
+                          window.setTimeout(() => setCouponCopied(false), 2000);
+                        });
+                      }}
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/15"
+                    >
+                      {couponCopied ? (
+                        <Check className="h-4 w-4 text-emerald-300" aria-hidden />
+                      ) : (
+                        <Copy className="h-4 w-4" aria-hidden />
+                      )}
+                      {couponCopied ? tx("beta_copied", "Copied") : tx("beta_copy_coupon", "Copy")}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-teal-100/90">
+                  <a
+                    href={`mailto:${tx("help_support_email_value", "support@machin.pro")}`}
+                    className="font-medium underline underline-offset-2 hover:text-white"
+                  >
+                    {tx("help_support_email_value", "support@machin.pro")}
+                  </a>
+                </p>
                 <Link
                   href="/landing"
-                  className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/25 px-5 text-sm font-semibold text-white hover:bg-white/10"
+                  className="mt-2 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/25 px-5 text-sm font-semibold text-white hover:bg-white/10"
                 >
                   {tx("beta_back", "Back to MachinPro")}
                 </Link>
