@@ -14,6 +14,7 @@ import {
   REGIONAL_COUNTRIES,
   REGIONAL_TZ_BY_COUNTRY,
 } from "@/lib/regionalCountries";
+import { ONBOARDING_INDUSTRY_OPTIONS } from "@/lib/onboardingIndustryOptions";
 
 export type TranslationEntry = Record<string, string>;
 
@@ -26,14 +27,6 @@ const COUNTRY_DEFAULTS: Record<string, { currency: string; measurementSystem: "m
   );
 
 const COUNTRIES = REGIONAL_COUNTRIES;
-
-const ONBOARDING_INDUSTRY_OPTIONS = [
-  { value: "construction", labelKey: "onboarding_industry_construction" },
-  { value: "installation", labelKey: "onboarding_industry_installation" },
-  { value: "services", labelKey: "onboarding_industry_services" },
-  { value: "manufacturing", labelKey: "onboarding_industry_manufacturing" },
-  { value: "other", labelKey: "onboarding_industry_other" },
-] as const;
 
 const ONBOARDING_SIZE_OPTIONS = [
   { value: "1-10", labelKey: "onboarding_size_1_10" },

@@ -1229,6 +1229,9 @@ export default {
   onboarding_finished_subtitle:
     "Il tuo spazio di lavoro è configurato. Inizia a gestire la tua azienda.",
   onboarding_go_dashboard: "Vai alla dashboard",
+  onboarding_step_team: "Il tuo team",
+  loading_saving: "Salvataggio...",
+  error_generic: "Qualcosa è andato storto. Riprova.",
   onboarding_beta_founder_note:
     "Fai parte del programma Beta Founder: il tuo feedback plasma MachinPro.",
   onboarding_invite_message: "Invita il tuo primo dipendente o supervisore",
@@ -2005,7 +2008,7 @@ export default {
   onboarding_go: "Vai",
   onboarding_dismiss: "Riduci",
   onboarding_wizard_title: "Benvenuto su MachinPro",
-  onboarding_wizard_subtitle: "Configuriamo la tua azienda in 2 minuti",
+  onboarding_wizard_subtitle: "Configura la tua azienda in 3 passaggi",
   onboarding_step_ready: "Tutto pronto!",
   onboarding_continue: "Continua",
   onboarding_suggestion_catalog: "Configura il tuo catalogo di produzione nelle Impostazioni",

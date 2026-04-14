@@ -10,6 +10,7 @@ import {
   REGIONAL_COUNTRIES,
 } from "@/lib/regionalCountries";
 import type { CustomRole } from "@/types/roles";
+import { ONBOARDING_INDUSTRY_OPTIONS } from "@/lib/onboardingIndustryOptions";
 
 export interface OnboardingWizardProps {
   session: Session | null;
@@ -59,6 +60,7 @@ export function OnboardingWizard({
   const [coName, setCoName] = useState(companyName);
   const [coCountry, setCoCountry] = useState(companyCountry || "CA");
   const [coCurrency, setCoCurrency] = useState<Currency>(currency);
+  const [coIndustry, setCoIndustry] = useState("");
 
   const [empName, setEmpName] = useState("");
   const [empEmail, setEmpEmail] = useState("");
@@ -81,25 +83,39 @@ export function OnboardingWizard({
 
   const currencies = useMemo(() => Object.keys(CURRENCY_META) as Currency[], []);
 
+  const userFacingError = useCallback(
+    (raw: string) => {
+      const r = raw.trim();
+      if (!r) return lx.error_generic ?? lx.register_error_generic ?? "Error";
+      if (/^(5\d{2}|4\d{2}|40[13]|42\d{2})/.test(r) || r.includes("ECONNREFUSED") || r.includes("fetch")) {
+        return lx.error_generic ?? lx.register_error_generic ?? "Error";
+      }
+      return r;
+    },
+    [lx.error_generic, lx.register_error_generic]
+  );
+
   const patchCompany = useCallback(async () => {
     if (!companyId) return;
     const h = authHeader();
     if (!h) return;
+    const payload: Record<string, unknown> = {
+      companyId,
+      country: coCountry,
+      currency: coCurrency,
+    };
+    if (coName.trim()) payload.name = coName.trim();
+    if (coIndustry.trim()) payload.industry = coIndustry.trim();
     const res = await fetch("/api/onboarding/company", {
       method: "PATCH",
       headers: h,
-      body: JSON.stringify({
-        companyId,
-        name: coName.trim(),
-        country: coCountry,
-        currency: coCurrency,
-      }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const j = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(j.error ?? lx.register_error_generic ?? "Error");
+      throw new Error(j.error ?? lx.error_generic ?? lx.register_error_generic ?? "Error");
     }
-    onCompanyNameChange(coName.trim());
+    if (coName.trim()) onCompanyNameChange(coName.trim());
     onCountryChange(coCountry, {
       currency: coCurrency,
       measurementSystem: REGIONAL_COUNTRY_DEFAULTS[coCountry]?.measurementSystem ?? "metric",
@@ -111,29 +127,33 @@ export function OnboardingWizard({
     coName,
     coCountry,
     coCurrency,
+    coIndustry,
     onCompanyNameChange,
     onCountryChange,
     onCurrencyChange,
+    lx.error_generic,
     lx.register_error_generic,
   ]);
 
+  const skipStep1 = useCallback(() => {
+    setError(null);
+    setStep(2);
+    if (!empRoleId && defaultWorkerRoleId) setEmpRoleId(defaultWorkerRoleId);
+  }, [defaultWorkerRoleId, empRoleId]);
+
   const goStep2 = useCallback(async () => {
     setError(null);
-    if (!coName.trim()) {
-      setError(lx.register_error_generic ?? "");
-      return;
-    }
     setBusy(true);
     try {
       await patchCompany();
       setStep(2);
       if (!empRoleId && defaultWorkerRoleId) setEmpRoleId(defaultWorkerRoleId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(userFacingError(e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
-  }, [coName, patchCompany, empRoleId, defaultWorkerRoleId, lx.register_error_generic]);
+  }, [patchCompany, empRoleId, defaultWorkerRoleId, userFacingError]);
 
   const skipEmployee = useCallback(() => {
     setError(null);
@@ -145,7 +165,7 @@ export function OnboardingWizard({
     const name = empName.trim();
     const email = empEmail.trim().toLowerCase();
     if (!name || !email) {
-      setError(lx.register_error_generic ?? "");
+      setError(lx.error_generic ?? lx.register_error_generic ?? "");
       return;
     }
     if (!companyId) return;
@@ -172,7 +192,7 @@ export function OnboardingWizard({
         /* ignore */
       }
       if (!res.ok) {
-        setError(j.error ?? lx.register_error_generic ?? "");
+        setError(userFacingError(j.error ?? ""));
         return;
       }
       setStep(3);
@@ -186,7 +206,7 @@ export function OnboardingWizard({
     empEmail,
     empRoleId,
     defaultWorkerRoleId,
-    lx.register_error_generic,
+    userFacingError,
   ]);
 
   const skipProject = useCallback(() => {
@@ -198,7 +218,7 @@ export function OnboardingWizard({
     setError(null);
     const name = projName.trim();
     if (!name) {
-      setError(lx.register_error_generic ?? "");
+      setError(lx.error_generic ?? lx.register_error_generic ?? "");
       return;
     }
     if (!companyId) return;
@@ -225,7 +245,7 @@ export function OnboardingWizard({
         /* ignore */
       }
       if (!res.ok || !j.id) {
-        setError(j.error ?? lx.register_error_generic ?? "");
+        setError(userFacingError(j.error ?? ""));
         return;
       }
       onProjectCreated({
@@ -251,7 +271,7 @@ export function OnboardingWizard({
     projLocation,
     projType,
     onProjectCreated,
-    lx.register_error_generic,
+    userFacingError,
   ]);
 
   const finish = useCallback(async () => {
@@ -263,12 +283,22 @@ export function OnboardingWizard({
     }
   }, [onComplete]);
 
+  const spin = useMemo(
+    () => (
+      <span
+        className="inline-block size-4 shrink-0 rounded-full border-2 border-white border-t-transparent animate-spin"
+        aria-hidden
+      />
+    ),
+    []
+  );
+
   if (!companyId || !session) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 px-3 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4 sm:pb-4">
       <div
-        className="flex max-h-[min(100dvh,100svh)] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-h-[min(92dvh,720px)] sm:rounded-2xl"
+        className="flex max-h-[min(100dvh,100svh)] w-full max-w-full flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-h-[min(92dvh,720px)] sm:max-w-lg sm:rounded-2xl"
         role="dialog"
         aria-modal
         aria-labelledby="onboarding-wizard-title"
@@ -277,9 +307,15 @@ export function OnboardingWizard({
           <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-10 w-10 shrink-0" sizes="40px" />
           <div className="min-w-0">
             <p id="onboarding-wizard-title" className="text-lg font-bold text-zinc-900 dark:text-white">
-              <TextWithBrandMarks text={lx.onboarding_wizard_title ?? "MachinPro"} tone="onLight" className="inline" />
+              <TextWithBrandMarks
+                text={lx.onboarding_welcome_title ?? lx.onboarding_wizard_title ?? "MachinPro"}
+                tone="onLight"
+                className="inline"
+              />
             </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">{lx.onboarding_wizard_subtitle ?? ""}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {lx.onboarding_wizard_subtitle ?? lx.onboarding_welcome_subtitle ?? ""}
+            </p>
           </div>
         </div>
 
@@ -334,20 +370,54 @@ export function OnboardingWizard({
                   ))}
                 </select>
               </label>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void goStep2()}
-                className="w-full min-h-[44px] rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
-              >
-                {busy ? "…" : lx.onboarding_continue ?? "Continue"}
-              </button>
+              <label className="block text-sm">
+                <span className="text-zinc-600 dark:text-zinc-400">{lx.onboarding_sector_label ?? ""}</span>
+                <select
+                  className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-600 dark:bg-slate-800 min-h-[44px]"
+                  value={coIndustry}
+                  onChange={(e) => setCoIndustry(e.target.value)}
+                >
+                  <option value="">{lx.onboarding_sector_placeholder ?? "—"}</option>
+                  {ONBOARDING_INDUSTRY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {lx[opt.labelKey] ?? opt.value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={skipStep1}
+                  className="w-full min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-slate-800 sm:w-auto sm:min-w-[44px]"
+                >
+                  {lx.onboarding_skip_step2 ?? lx.onboarding_skip ?? "Skip"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void goStep2()}
+                  className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto sm:min-w-[44px]"
+                >
+                  {busy ? (
+                    <>
+                      {spin}
+                      {lx.loading_saving ?? lx.onboarding_next ?? lx.onboarding_continue ?? "Continue"}
+                    </>
+                  ) : (
+                    lx.onboarding_next ?? lx.onboarding_continue ?? "Continue"
+                  )}
+                </button>
+              </div>
             </div>
           ) : null}
 
           {step === 2 ? (
             <div className="space-y-4">
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">{lx.onboarding_step_employee ?? ""}</p>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                {lx.onboarding_step_team ?? lx.onboarding_step_employee ?? ""}
+              </p>
               <label className="block text-sm">
                 <span className="text-zinc-600 dark:text-zinc-400">{lx.employeeName ?? "Name"}</span>
                 <input
@@ -379,22 +449,29 @@ export function OnboardingWizard({
                   ))}
                 </select>
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   disabled={busy}
                   onClick={skipEmployee}
                   className="w-full min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-slate-800 sm:w-auto sm:min-w-[44px]"
                 >
-                  {lx.onboarding_skip ?? "Skip"}
+                  {lx.onboarding_skip_step2 ?? lx.onboarding_skip ?? "Skip"}
                 </button>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void addEmployee()}
-                  className="w-full min-h-[44px] rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
+                  className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto sm:min-w-[44px]"
                 >
-                  {busy ? "…" : lx.employees_add ?? "Add"}
+                  {busy ? (
+                    <>
+                      {spin}
+                      {lx.loading_saving ?? lx.employees_add ?? "Add"}
+                    </>
+                  ) : (
+                    lx.employees_add ?? "Add"
+                  )}
                 </button>
               </div>
             </div>
@@ -432,22 +509,29 @@ export function OnboardingWizard({
                   onChange={(e) => setProjLocation(e.target.value)}
                 />
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   disabled={busy}
                   onClick={skipProject}
-                  className="w-full min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-slate-800 sm:w-auto"
+                  className="w-full min-h-[44px] rounded-xl border border-zinc-300 px-4 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-slate-800 sm:w-auto sm:min-w-[44px]"
                 >
-                  {lx.onboarding_skip ?? "Skip"}
+                  {lx.onboarding_skip_step2 ?? lx.onboarding_skip ?? "Skip"}
                 </button>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void createProject()}
-                  className="w-full min-h-[44px] rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
+                  className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto sm:min-w-[44px]"
                 >
-                  {busy ? "…" : lx.onboarding_create_project ?? "Create"}
+                  {busy ? (
+                    <>
+                      {spin}
+                      {lx.loading_saving ?? lx.onboarding_create_project ?? "Create"}
+                    </>
+                  ) : (
+                    lx.onboarding_create_project ?? "Create"
+                  )}
                 </button>
               </div>
             </div>
@@ -466,9 +550,16 @@ export function OnboardingWizard({
                 type="button"
                 disabled={busy}
                 onClick={() => void finish()}
-                className="w-full min-h-[44px] rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+                className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
               >
-                {busy ? "…" : lx.onboarding_finish ?? "Dashboard"}
+                {busy ? (
+                  <>
+                    {spin}
+                    {lx.loading_saving ?? lx.onboarding_go_dashboard ?? lx.onboarding_finish ?? "Dashboard"}
+                  </>
+                ) : (
+                  lx.onboarding_go_dashboard ?? lx.onboarding_finish ?? "Dashboard"
+                )}
               </button>
             </div>
           ) : null}
