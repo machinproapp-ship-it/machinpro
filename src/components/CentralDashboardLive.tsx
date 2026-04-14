@@ -59,7 +59,6 @@ import {
   readCentralDashboardConfigCache,
   writeCentralDashboardConfigCache,
 } from "@/lib/centralDashboardCache";
-import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { useDismissOnEscape } from "@/hooks/useDismissOnEscape";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { useToast } from "@/components/Toast";
@@ -153,20 +152,16 @@ function auditActorLabel(
   profileByUserId: Record<string, AuditProfileSnippet>,
   labels: Record<string, string>
 ): string {
-  const localPart = (email: string): string => {
-    const e = email.trim();
-    const at = e.indexOf("@");
-    return at > 0 ? e.slice(0, at) : e;
-  };
+  const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
   const safeName = (raw: string): string => {
     const t = raw.trim();
     if (!t) return "";
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) return localPart(t);
+    if (looksLikeEmail(t)) return "";
     return t;
   };
   const rawName = safeName(row.user_name ?? "");
   const badGeneric =
-    /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName);
+    /^usuario\s+del\s+equipo$/i.test(rawName) || /^team\s+user$/i.test(rawName) || /^usuario$/i.test(rawName);
   const un = rawName && !UUID_RE.test(rawName) && !badGeneric ? rawName : "";
   if (un) return un;
 
@@ -175,8 +170,10 @@ function auditActorLabel(
   const p =
     uid ? profileByUserId[uid] ?? profileByUserId[uidLower] : undefined;
   if (p) {
-    const label = displayNameFromProfile(p.full_name, p.display_name, p.email);
-    if (label) return safeName(label);
+    const fn = typeof p.full_name === "string" ? p.full_name.trim() : "";
+    const dn = typeof p.display_name === "string" ? p.display_name.trim() : "";
+    const fromProfile = fn || dn;
+    if (fromProfile) return safeName(fromProfile);
   }
   return (labels.dashboard_activity_unknown_user ?? "").trim() || "—";
 }
@@ -524,9 +521,9 @@ function buildTeamClockLabelsFromCentralCache(companyId: string, rawIds: string[
   const next: Record<string, string> = {};
   for (const id of ids) {
     const p = centralUserProfileRowsByKey.get(centralProfileRowKey(companyId, id));
-    const label = p
-      ? displayNameFromProfile(p.full_name, p.display_name, p.email) || `${id.slice(0, 8)}…`
-      : `${id.slice(0, 8)}…`;
+    const fn = p && typeof p.full_name === "string" ? p.full_name.trim() : "";
+    const dn = p && typeof p.display_name === "string" ? p.display_name.trim() : "";
+    const label = p ? fn || dn || `${id.slice(0, 8)}…` : `${id.slice(0, 8)}…`;
     next[id] = label;
     next[id.toLowerCase()] = label;
   }

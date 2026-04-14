@@ -251,15 +251,7 @@ export async function POST(req: NextRequest) {
           .maybeSingle();
         const comp = compRow as { name?: string | null; language?: string | null } | null;
         const companyDisplayName = (comp?.name ?? "").trim() || "MachinPro";
-        const { data: inviteeLocaleRow } = await admin
-          .from("user_profiles")
-          .select("locale")
-          .eq("id", userId!)
-          .maybeSingle();
-        const inviteeLocale = (inviteeLocaleRow as { locale?: string | null } | null)?.locale;
-        const emailLang = transactionalEmailLangFromCode(
-          inviteeLocale ?? comp?.language ?? undefined
-        );
+        const emailLang = transactionalEmailLangFromCode("en");
 
         const { data: inviterRow } = await admin
           .from("user_profiles")

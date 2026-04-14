@@ -857,7 +857,7 @@ export default {
   dashboard_not_clocked_in: "Sin fichar",
   dashboard_day_off: "Día libre / festivo",
   dashboard_duration_h_m: "{h}h {m}min",
-  dashboard_activity_unknown_user: "Usuario del equipo",
+  dashboard_activity_unknown_user: "Usuario",
   dashboard_activity_user_fallback: "Usuario",
   dashboard_timeclock_empty: "No hay perfiles de empleados que mostrar.",
   dashboard_drag_handle: "Arrastrar para reordenar",
@@ -2234,6 +2234,9 @@ export default {
   invite_plan_enterprise: "Enterprise",
   invite_error_send: "No se pudo enviar la invitación",
 
+  select_language: "Selecciona tu idioma",
+  accept_invitation_title: "Acepta tu invitación",
+  accept_invitation_subtitle: "Configura tu cuenta para unirte a {company}",
   register_title: "Activa tu cuenta MachinPro",
   register_company: "Nombre de la empresa",
   register_admin_name: "Tu nombre completo",

@@ -55,7 +55,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     employeeInviteCta: "Aceptar invitación",
     employeeInviteExpiry: "Este enlace expira en 7 días.",
     employeeHelp: "¿Necesitas ayuda? Escríbenos a support@machin.pro",
-    employeeFooterLine: "MachinPro · Canariense Inc",
+    employeeFooterLine: "MachinPro · {company}",
   },
   en: {
     welcomeEmailSubject: "Welcome to MachinPro, {name}",
@@ -109,7 +109,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     employeeInviteCta: "Accepter l'invitation",
     employeeInviteExpiry: "Ce lien expire dans 7 jours.",
     employeeHelp: "Besoin d'aide ? Écrivez-nous à support@machin.pro",
-    employeeFooterLine: "MachinPro · Canariense Inc",
+    employeeFooterLine: "MachinPro · {company}",
   },
   de: {
     welcomeEmailSubject: "Willkommen bei MachinPro, {name}",
@@ -136,7 +136,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     employeeInviteCta: "Einladung annehmen",
     employeeInviteExpiry: "Dieser Link läuft in 7 Tagen ab.",
     employeeHelp: "Hilfe benötigt? Schreiben Sie an support@machin.pro",
-    employeeFooterLine: "MachinPro · Canariense Inc",
+    employeeFooterLine: "MachinPro · {company}",
   },
   it: {
     welcomeEmailSubject: "Benvenuto su MachinPro, {name}",
@@ -163,7 +163,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     employeeInviteCta: "Accetta l'invito",
     employeeInviteExpiry: "Questo link scade tra 7 giorni.",
     employeeHelp: "Serve aiuto? Scrivi a support@machin.pro",
-    employeeFooterLine: "MachinPro · Canariense Inc",
+    employeeFooterLine: "MachinPro · {company}",
   },
   pt: {
     welcomeEmailSubject: "Bem-vindo à MachinPro, {name}",
@@ -190,7 +190,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     employeeInviteCta: "Aceitar convite",
     employeeInviteExpiry: "Esta ligação expira em 7 dias.",
     employeeHelp: "Precisa de ajuda? Escreva para support@machin.pro",
-    employeeFooterLine: "MachinPro · Canariense Inc",
+    employeeFooterLine: "MachinPro · {company}",
   },
 };
 

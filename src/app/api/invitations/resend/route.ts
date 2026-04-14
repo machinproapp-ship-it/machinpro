@@ -17,16 +17,16 @@ function planEmailLabel(plan: InvitationPlan): string {
     case "foundation":
     case "starter":
     case "horarios":
-      return "Esencial";
+      return "Essential";
     case "operaciones":
     case "obras":
     case "pro":
-      return "Operaciones";
+      return "Operations";
     case "logistica":
-      return "Logística";
+      return "Logistics";
     case "todo_incluido":
     case "enterprise":
-      return "Todo Incluido";
+      return "All-inclusive";
     default:
       return plan;
   }
@@ -70,7 +70,10 @@ export async function POST(req: NextRequest) {
     company_name: string;
     plan: InvitationPlan;
     message: string | null;
+    invited_by_name?: string | null;
   };
+  const inviterDisplay =
+    (typeof row.invited_by_name === "string" && row.invited_by_name.trim()) || "MachinPro";
 
   if (row.status !== "pending") {
     return NextResponse.json({ error: "Only pending invitations can be resent" }, { status: 400 });
@@ -99,22 +102,21 @@ export async function POST(req: NextRequest) {
 
   const html = buildInvitationEmailHtml({
     companyName: row.company_name,
+    inviterName: inviterDisplay,
     planLabel: planEmailLabel(row.plan),
     message: row.message,
     ctaUrl,
     logoUrl,
-    introLine: "You have been invited to join MachinPro.",
-    planLinePrefix: "Assigned plan:",
-    ctaLabel: "Activate account",
-    expiryLine: "This invitation expires in 7 days.",
   });
 
   const resend = new Resend(resendKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
+  const replyTo = "support@machin.pro";
   const { error: mailErr } = await resend.emails.send({
     from,
     to: row.email,
-    subject: `Invitación a MachinPro — ${row.company_name}`,
+    replyTo,
+    subject: `You've been invited to join ${row.company_name} on MachinPro`,
     html,
   });
 

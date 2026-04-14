@@ -6,24 +6,32 @@ export function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Superadmin invitation email — fixed English copy (no i18n keys).
+ * Preserves layout: logo header, white card, orange CTA.
+ */
 export function buildInvitationEmailHtml(opts: {
   companyName: string;
+  inviterName: string;
   planLabel: string;
   message: string | null;
   ctaUrl: string;
   logoUrl: string;
-  introLine: string;
-  planLinePrefix: string;
-  ctaLabel: string;
-  expiryLine: string;
 }): string {
+  const company = escapeHtml(opts.companyName.trim() || "—");
+  const inviter = escapeHtml(opts.inviterName.trim() || "MachinPro");
+  const plan = escapeHtml(opts.planLabel.trim());
   const msgBlock =
     opts.message && opts.message.trim()
       ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.5;color:#334155;">${escapeHtml(opts.message.trim())}</p>`
       : "";
+  const planBlock = plan
+    ? `<p style="margin:12px 0 0;font-size:14px;color:#64748b;">Assigned plan: <strong>${plan}</strong></p>`
+    : "";
+
   return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
 <body style="margin:0;padding:0;background:#0f172a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0f172a;padding:32px 16px;">
@@ -37,16 +45,16 @@ export function buildInvitationEmailHtml(opts: {
           </tr>
           <tr>
             <td style="padding:24px 28px 32px;">
-              <p style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">${escapeHtml(opts.introLine)}</p>
-              <p style="margin:12px 0 0;font-size:15px;line-height:1.55;color:#475569;">
-                <strong>${escapeHtml(opts.companyName)}</strong>
-              </p>
-              <p style="margin:8px 0 0;font-size:14px;color:#64748b;">${escapeHtml(opts.planLinePrefix)} <strong>${escapeHtml(opts.planLabel)}</strong></p>
+              <p style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">You've been invited to join ${company} on MachinPro</p>
+              <p style="margin:14px 0 0;font-size:15px;line-height:1.55;color:#475569;">${inviter} has invited you to manage ${company} on MachinPro.</p>
+              ${planBlock}
               ${msgBlock}
               <div style="margin:28px 0 0;text-align:center;">
-                <a href="${escapeHtml(opts.ctaUrl)}" style="display:inline-block;padding:14px 28px;background:#d97706;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;border-radius:12px;">${escapeHtml(opts.ctaLabel)}</a>
+                <a href="${escapeHtml(opts.ctaUrl)}" style="display:inline-block;padding:14px 28px;background:#d97706;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;border-radius:12px;">Accept Invitation</a>
               </div>
-              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;text-align:center;">${escapeHtml(opts.expiryLine)}</p>
+              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;text-align:center;">This link expires in 7 days.</p>
+              <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;text-align:center;">Need help? Contact us at <a href="mailto:support@machin.pro" style="color:#64748b;">support@machin.pro</a></p>
+              <p style="margin:20px 0 0;font-size:11px;color:#cbd5e1;text-align:center;">MachinPro · ${company}</p>
             </td>
           </tr>
         </table>

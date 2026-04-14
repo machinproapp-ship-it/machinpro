@@ -901,7 +901,7 @@ export default {
   dashboard_not_clocked_in: "Not clocked in",
   dashboard_day_off: "Day off / holiday",
   dashboard_duration_h_m: "{h}h {m}min",
-  dashboard_activity_unknown_user: "Team member",
+  dashboard_activity_unknown_user: "User",
   dashboard_activity_user_fallback: "User",
   dashboard_timeclock_empty: "No employee profiles to show.",
   dashboard_drag_handle: "Drag to reorder",
@@ -2327,6 +2327,9 @@ export default {
   invite_plan_enterprise: "Enterprise",
   invite_error_send: "Could not send invitation",
 
+  select_language: "Select your language",
+  accept_invitation_title: "Accept your invitation",
+  accept_invitation_subtitle: "Set up your account to join {company}",
   register_title: "Activate your MachinPro account",
   register_company: "Company name",
   register_admin_name: "Your full name",

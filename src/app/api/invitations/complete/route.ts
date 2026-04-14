@@ -7,6 +7,9 @@ import type { InvitationPlan } from "@/types/invitation";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
 import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
 import { buildWelcomeEmailHtml, buildWelcomeEmailSubject } from "@/lib/transactionalEmailHtml";
+import { isValidLanguage } from "@/lib/localePreference";
+import { STATIC_MAIN_LOCALES } from "@/lib/i18n";
+import type { Language } from "@/types/shared";
 
 export const runtime = "nodejs";
 
@@ -108,6 +111,8 @@ export async function POST(req: NextRequest) {
     termsAccepted?: boolean;
     taxId?: string | null;
     locale?: string;
+    /** UI language from invitation register page (6 base locales only). */
+    appLanguage?: string;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -166,11 +171,20 @@ export async function POST(req: NextRequest) {
   }
 
   const countryCfg = getCountryConfig(country);
-  const lang = languageForCountry(countryCfg.code);
+  const countryLang = languageForCountry(countryCfg.code);
+  const appLangRaw =
+    typeof body.appLanguage === "string" ? body.appLanguage.trim().toLowerCase() : "";
+  const uiLang: Language | null =
+    isValidLanguage(appLangRaw) && STATIC_MAIN_LOCALES.has(appLangRaw as Language)
+      ? (appLangRaw as Language)
+      : null;
+  const companyLanguage = uiLang ?? countryLang;
   const localeFromBody = typeof body.locale === "string" ? body.locale.trim() : "";
   const acceptFirst =
     req.headers.get("accept-language")?.split(",")[0]?.split(";")[0]?.trim() ?? "";
-  const emailLang = transactionalEmailLangFromCode(localeFromBody || acceptFirst || lang);
+  const emailLang = transactionalEmailLangFromCode(
+    localeFromBody || (uiLang ?? "") || acceptFirst || companyLanguage
+  );
 
   const limits = getLimitsForPlan(planKeyForLimits(inv.plan));
   const nowIso = new Date().toISOString();
@@ -203,7 +217,7 @@ export async function POST(req: NextRequest) {
         country: countryCfg.code,
         country_code: country,
         tax_id: taxIdNorm,
-        language: lang,
+        language: companyLanguage,
         currency: countryCfg.currency,
         plan: companyPlanColumn(inv.plan),
         is_active: true,
@@ -235,6 +249,7 @@ export async function POST(req: NextRequest) {
         company_id: companyId,
         full_name: fullName,
         display_name: fullName,
+        locale: companyLanguage,
       },
       { onConflict: "id" }
     );

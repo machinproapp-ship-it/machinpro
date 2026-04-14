@@ -1378,6 +1378,13 @@ export default function Home() {
           /* ignore */
         }
         setOnboardingComplete(true);
+      } else {
+        try {
+          localStorage.removeItem(ONBOARDING_LS_KEY);
+        } catch {
+          /* ignore */
+        }
+        setOnboardingComplete(false);
       }
     })();
   }, [supabase, companyId, session]);
@@ -3890,16 +3897,14 @@ export default function Home() {
       : activeEmployees.length;
     const onlySelf = otherEmployees === 0;
     const noProjects = (visibleProjects ?? []).length === 0;
-    if (
-      session &&
+    const shouldLock =
+      !!session &&
       effectiveRole === "admin" &&
       !onboardingComplete &&
-      companyId &&
+      !!companyId &&
       onlySelf &&
-      noProjects
-    ) {
-      setOnboardingWizardLock(true);
-    }
+      noProjects;
+    setOnboardingWizardLock(shouldLock);
   }, [
     session,
     effectiveRole,

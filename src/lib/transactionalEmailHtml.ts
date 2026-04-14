@@ -192,7 +192,7 @@ ${ctaButton(opts.ctaUrl, c.employeeInviteCta)}
         ${escapeHtml(c.employeeHelp)}
       </p>
       <p style="margin:0;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">
-        ${escapeHtml(c.employeeFooterLine)}
+        ${fillHtml(c.employeeFooterLine, { company: opts.companyName.trim() || "—" })}
       </p>
     </td>
   </tr>

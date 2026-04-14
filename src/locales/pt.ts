@@ -2156,6 +2156,9 @@ export default {
   invite_plan_enterprise: "Enterprise",
   invite_error_send: "Não foi possível enviar o convite",
 
+  select_language: "Selecione o idioma",
+  accept_invitation_title: "Aceite o seu convite",
+  accept_invitation_subtitle: "Configure a sua conta para entrar em {company}",
   register_title: "Ative a sua conta MachinPro",
   register_company: "Nome da empresa",
   register_admin_name: "Nome completo",

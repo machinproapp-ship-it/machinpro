@@ -12,7 +12,9 @@ export function useAppLocale() {
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem("machinpro_language");
+      const a = localStorage.getItem("machinpro_lang");
+      const b = localStorage.getItem("machinpro_language");
+      const s = (typeof a === "string" && a.trim() ? a : b) ?? "";
       if (s && typeof s === "string") setLanguage(s as Language);
     } catch {
       /* ignore */
@@ -22,6 +24,7 @@ export function useAppLocale() {
   useEffect(() => {
     try {
       localStorage.setItem("machinpro_language", language);
+      localStorage.setItem("machinpro_lang", language);
     } catch {
       /* ignore */
     }

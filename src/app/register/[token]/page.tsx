@@ -8,10 +8,19 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { COUNTRY_CONFIG } from "@/lib/countryConfig";
 import { registerTaxLabelKey } from "@/lib/registerTaxField";
-import { ALL_TRANSLATIONS, loadLocale, isLazyLocale, type Language } from "@/lib/i18n";
+import {
+  ALL_TRANSLATIONS,
+  loadLocale,
+  isLazyLocale,
+  LANGUAGES,
+  STATIC_MAIN_LOCALES,
+  type Language,
+} from "@/lib/i18n";
 import type { InvitationPlan } from "@/types/invitation";
 
 const TRANSLATIONS = ALL_TRANSLATIONS;
+
+const BASE_LANG_OPTIONS = LANGUAGES.filter((x) => STATIC_MAIN_LOCALES.has(x.code as Language));
 
 type VerifyOk = {
   valid: true;
@@ -35,8 +44,23 @@ export default function RegisterInvitationPage() {
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem("machinpro_language");
-      if (s && typeof s === "string") setLanguage(s as Language);
+      const a = localStorage.getItem("machinpro_lang");
+      const b = localStorage.getItem("machinpro_language");
+      const s = (typeof a === "string" && a.trim() ? a : b) ?? "";
+      if (s && typeof s === "string" && STATIC_MAIN_LOCALES.has(s as Language)) {
+        setLanguage(s as Language);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const persistLanguage = useCallback((code: Language) => {
+    if (!STATIC_MAIN_LOCALES.has(code)) return;
+    setLanguage(code);
+    try {
+      localStorage.setItem("machinpro_language", code);
+      localStorage.setItem("machinpro_lang", code);
     } catch {
       /* ignore */
     }
@@ -236,7 +260,40 @@ export default function RegisterInvitationPage() {
         </button>
       </div>
 
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/90 dark:border-slate-700 p-8 shadow-2xl backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/90 dark:border-slate-700 p-6 shadow-2xl backdrop-blur-sm sm:p-8">
+        <div className="mb-5 flex flex-col gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              {l("select_language", "Select your language")}
+            </p>
+            <div
+              className="flex flex-wrap gap-2 sm:justify-end"
+              role="group"
+              aria-label={l("select_language", "Select your language")}
+            >
+              {BASE_LANG_OPTIONS.map((opt) => {
+                const active = language === opt.code;
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    title={opt.label}
+                    onClick={() => persistLanguage(opt.code as Language)}
+                    className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-xl border px-2.5 text-sm font-semibold transition-colors ${
+                      active
+                        ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-950/50 dark:text-amber-100"
+                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    <span aria-hidden>{opt.flag}</span>
+                    <span className="uppercase">{opt.code}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex justify-center">
             <BrandLogoImage
@@ -249,8 +306,24 @@ export default function RegisterInvitationPage() {
             />
           </div>
           <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
-            <TextWithBrandMarks text={l("register_title", "Create account")} tone="onLight" className="contents" />
+            <TextWithBrandMarks
+              text={
+                verifyOk
+                  ? l("accept_invitation_title", "Accept your invitation")
+                  : l("register_title", "Create account")
+              }
+              tone="onLight"
+              className="contents"
+            />
           </h1>
+          {verifyOk ? (
+            <p className="mt-2 max-w-prose text-sm text-zinc-600 dark:text-zinc-400">
+              {l("accept_invitation_subtitle", "Set up your account to join {company}").replace(
+                /\{company\}/g,
+                verifyOk.invitation.company_name
+              )}
+            </p>
+          ) : null}
         </div>
 
         {verifyLoading ? (

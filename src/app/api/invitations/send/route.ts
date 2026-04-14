@@ -31,16 +31,16 @@ function planEmailLabel(plan: InvitationPlan): string {
     case "foundation":
     case "starter":
     case "horarios":
-      return "Esencial";
+      return "Essential";
     case "operaciones":
     case "obras":
     case "pro":
-      return "Operaciones";
+      return "Operations";
     case "logistica":
-      return "Logística";
+      return "Logistics";
     case "todo_incluido":
     case "enterprise":
-      return "Todo Incluido";
+      return "All-inclusive";
     default:
       return plan;
   }
@@ -119,14 +119,11 @@ export async function POST(req: NextRequest) {
 
   const html = buildInvitationEmailHtml({
     companyName,
+    inviterName: invitedByName,
     planLabel: planEmailLabel(plan),
     message,
     ctaUrl,
     logoUrl,
-    introLine: "You have been invited to join MachinPro.",
-    planLinePrefix: "Assigned plan:",
-    ctaLabel: "Activate account",
-    expiryLine: "This invitation expires in 7 days.",
   });
 
   const resend = new Resend(resendKey);
@@ -136,7 +133,7 @@ export async function POST(req: NextRequest) {
     from,
     to: email,
     replyTo,
-    subject: `Invitación a MachinPro — ${companyName}`,
+    subject: `You've been invited to join ${companyName} on MachinPro`,
     html,
   });
 

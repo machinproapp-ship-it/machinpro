@@ -2156,6 +2156,9 @@ export default {
   invite_plan_enterprise: "Enterprise",
   invite_error_send: "Einladung konnte nicht gesendet werden",
 
+  select_language: "Sprache auswählen",
+  accept_invitation_title: "Einladung annehmen",
+  accept_invitation_subtitle: "Richten Sie Ihr Konto ein, um {company} beizutreten",
   register_title: "MachinPro-Konto aktivieren",
   register_company: "Firmenname",
   register_admin_name: "Vollständiger Name",
