@@ -139,7 +139,39 @@ function HeroDashboardMockup({ tx }: { tx: TxFn }) {
   );
 }
 
-type FeatureRow = { titleKey: string; descKey: string };
+type FeatureRow = { emoji: string; titleKey: string; descKey: string };
+
+const PERSONALIZE_TITLE_FB: Record<string, string> = {
+  feature_payroll_production: "Payroll & production pay",
+  feature_work_orders: "Work orders",
+  feature_inventory_qr: "QR inventory",
+  feature_training_hub: "Training hub",
+  feature_safety_passport: "Safety passport",
+  feature_timesheets_approval: "Timesheets with approval",
+  feature_offline_mode: "Offline mode",
+  feature_push_notifications: "Push notifications",
+  feature_inventory_transfers: "Inventory transfers",
+  feature_benefit_report: "Benefit report",
+};
+
+const PERSONALIZE_DESC_FB: Record<string, string> = {
+  feature_payroll_production_desc:
+    "Calculate payroll by hours or production units. Export for your accountant.",
+  feature_work_orders_desc:
+    "Create work orders with unit price catalog. Adjust prices per job site.",
+  feature_inventory_qr_desc:
+    "Scan materials and tools with QR. Transfer between job sites and warehouse.",
+  feature_training_hub_desc: "Manage team training with expiry dates and certificates.",
+  feature_safety_passport_desc:
+    "Consolidated view of all safety documentation per employee.",
+  feature_timesheets_approval_desc: "Supervisor approves hours before payroll.",
+  feature_offline_mode_desc: "Fill forms without internet. They sync when back online.",
+  feature_push_notifications_desc:
+    "Automatic alerts for compliance, low stock and pending forms.",
+  feature_inventory_transfers_desc:
+    "From warehouse to job site and back. Permanent movement history.",
+  feature_benefit_report_desc: "Income vs costs per job site. Real-time margin. Export PDF.",
+};
 
 function formatMoney(amount: number, currency: string): string {
   const locale =
@@ -273,14 +305,56 @@ export default function LandingPage() {
 
   const features = useMemo(
     (): FeatureRow[] => [
-      { titleKey: "landing_feat_pay_production", descKey: "landing_feat_pay_production_desc" },
-      { titleKey: "landing_feat_work_orders", descKey: "landing_feat_work_orders_desc" },
-      { titleKey: "landing_feat_inventory_qr", descKey: "landing_feat_inventory_qr_desc" },
-      { titleKey: "landing_feat_training_passport", descKey: "landing_feat_training_passport_desc" },
-      { titleKey: "landing_feat_timesheets", descKey: "landing_feat_timesheets_desc" },
-      { titleKey: "landing_feat_push", descKey: "landing_feat_push_desc" },
-      { titleKey: "landing_feat_offline", descKey: "landing_feat_offline_desc" },
-      { titleKey: "landing_feat_langs_regions", descKey: "landing_feat_langs_regions_desc" },
+      {
+        emoji: "💰",
+        titleKey: "feature_payroll_production",
+        descKey: "feature_payroll_production_desc",
+      },
+      {
+        emoji: "📋",
+        titleKey: "feature_work_orders",
+        descKey: "feature_work_orders_desc",
+      },
+      {
+        emoji: "📦",
+        titleKey: "feature_inventory_qr",
+        descKey: "feature_inventory_qr_desc",
+      },
+      {
+        emoji: "🎓",
+        titleKey: "feature_training_hub",
+        descKey: "feature_training_hub_desc",
+      },
+      {
+        emoji: "🛡️",
+        titleKey: "feature_safety_passport",
+        descKey: "feature_safety_passport_desc",
+      },
+      {
+        emoji: "⏱️",
+        titleKey: "feature_timesheets_approval",
+        descKey: "feature_timesheets_approval_desc",
+      },
+      {
+        emoji: "📵",
+        titleKey: "feature_offline_mode",
+        descKey: "feature_offline_mode_desc",
+      },
+      {
+        emoji: "🔔",
+        titleKey: "feature_push_notifications",
+        descKey: "feature_push_notifications_desc",
+      },
+      {
+        emoji: "🔄",
+        titleKey: "feature_inventory_transfers",
+        descKey: "feature_inventory_transfers_desc",
+      },
+      {
+        emoji: "📊",
+        titleKey: "feature_benefit_report",
+        descKey: "feature_benefit_report_desc",
+      },
     ],
     []
   );
@@ -501,8 +575,15 @@ export default function LandingPage() {
                   key={f.titleKey}
                   className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
                 >
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{tx(f.titleKey, "")}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(f.descKey, "")}</p>
+                  <p className="text-2xl" aria-hidden>
+                    {f.emoji}
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
+                    {tx(f.titleKey, PERSONALIZE_TITLE_FB[f.titleKey] ?? "")}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                    {tx(f.descKey, PERSONALIZE_DESC_FB[f.descKey] ?? "")}
+                  </p>
                 </div>
               ))}
             </div>

@@ -147,10 +147,24 @@ export function PayrollSchedulePanel({
 
   const resolveRateKey = useCallback(
     (employeeId: string) => {
-      const r = employeeLaborRatesByEmployeeId[employeeId];
-      if (r != null) return r;
+      const pick = (id: string) => {
+        const v = employeeLaborRatesByEmployeeId[id];
+        if (v != null && Number.isFinite(v) && v > 0) return v;
+        return null;
+      };
+      const direct = pick(employeeId);
+      if (direct != null) return direct;
       const leg = profileToLegacyEmployeeId[employeeId];
-      if (leg && employeeLaborRatesByEmployeeId[leg] != null) return employeeLaborRatesByEmployeeId[leg];
+      if (leg) {
+        const v = pick(leg);
+        if (v != null) return v;
+      }
+      for (const [profileId, legacyId] of Object.entries(profileToLegacyEmployeeId)) {
+        if (legacyId === employeeId) {
+          const v = pick(profileId);
+          if (v != null) return v;
+        }
+      }
       return null;
     },
     [employeeLaborRatesByEmployeeId, profileToLegacyEmployeeId]
@@ -381,8 +395,8 @@ export function PayrollSchedulePanel({
               <th className="px-3 py-3 font-medium w-10" />
               <th className="px-3 py-3 font-medium">{L("employees", "Empleados")}</th>
               <th className="px-3 py-3 font-medium text-right">{L("timesheet_hours", "Horas trabajadas")}</th>
-              <th className="hidden px-3 py-3 font-medium text-right md:table-cell">{L("payroll_gross", "Bruto")}</th>
-              <th className="hidden px-3 py-3 font-medium text-right md:table-cell">{L("payroll_deductions", "Deducciones")}</th>
+              <th className="px-3 py-3 font-medium text-right">{L("payroll_gross", "Bruto")}</th>
+              <th className="hidden px-3 py-3 font-medium text-right sm:table-cell">{L("payroll_deductions", "Deducciones")}</th>
               <th className="px-3 py-3 font-medium text-right">{L("payroll_net", "Neto")}</th>
               <th className="px-3 py-3 font-medium">{L("common_status", "Estado")}</th>
               {canManagePayroll ? (
@@ -410,12 +424,12 @@ export function PayrollSchedulePanel({
                       {r.name}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.hours.toFixed(1)}</td>
-                    <td className="hidden px-3 py-2 text-right tabular-nums md:table-cell">
+                    <td className="px-3 py-2 text-right tabular-nums">
                       {r.rate == null
                         ? L("payroll_no_rate", "Sin tarifa configurada")
                         : `${currency} ${r.gross.toFixed(2)}`}
                     </td>
-                    <td className="hidden px-3 py-2 text-right tabular-nums md:table-cell">{r.totalDeductions.toFixed(2)}</td>
+                    <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.totalDeductions.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">{r.net.toFixed(2)}</td>
                     <td className="px-3 py-2">
                       <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs">

@@ -898,7 +898,7 @@ export function HazardModule({
               className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-2 min-h-[44px]"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <span className="min-w-0 flex-1 font-semibold leading-snug text-gray-900 dark:text-white">
+                <span className="min-w-0 flex-1 break-words font-semibold leading-snug text-gray-900 dark:text-white">
                   {h.title}
                 </span>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
@@ -1055,7 +1055,7 @@ export function HazardModule({
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               />
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <label className="block text-sm">
                 <span className="text-gray-600 dark:text-gray-400">{t.hazards_category ?? "Category"}</span>
                 <select

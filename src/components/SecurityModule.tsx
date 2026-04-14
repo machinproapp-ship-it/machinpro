@@ -287,7 +287,7 @@ export function SecurityModule({
         </div>
       </HorizontalScrollFade>
 
-      <div role="tabpanel">
+      <div role="tabpanel" className="min-w-0 overflow-x-hidden">
         {tab === "hazards" && showHazardsTab && (
           <HazardModule
             t={t}

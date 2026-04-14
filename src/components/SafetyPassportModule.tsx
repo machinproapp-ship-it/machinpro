@@ -89,7 +89,7 @@ export function SafetyPassportModule({
   }, [companyId, empId, selectedName]);
 
   return (
-    <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+    <div className="min-w-0 space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
       <div className="flex flex-wrap items-center gap-2">
         <Shield className="h-5 w-5 text-amber-600" aria-hidden />
         <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
@@ -141,7 +141,7 @@ export function SafetyPassportModule({
             <li className="text-zinc-400">{L("noEntries", "—")}</li>
           ) : (
             docsFor.map((d) => (
-              <li key={d.id}>
+              <li key={d.id} className="break-words">
                 · {d.title} ({d.type})
               </li>
             ))

@@ -2327,6 +2327,40 @@ export default {
   landing_feat_offline_desc: "Sigue trabajando sin cobertura; sincroniza después.",
   landing_feat_langs_regions: "21 idiomas y monedas",
   landing_feat_langs_regions_desc: "CA · US · MX · ES · UK · EU · AU · NZ · CAD USD MXN EUR GBP AUD NZD",
+  feature_payroll_production: "Nóminas y pago por producción",
+  feature_payroll_production_desc:
+    "Calcula nóminas por horas o por unidades producidas. Exporta para tu gestoría.",
+  feature_work_orders: "Órdenes de trabajo",
+  feature_work_orders_desc:
+    "Crea órdenes de trabajo con catálogo de precios por unidad. Ajusta precios por obra.",
+  feature_inventory_qr: "Inventario con QR",
+  feature_inventory_qr_desc:
+    "Escanea materiales y herramientas con QR. Transfiere entre obras y almacén.",
+  feature_training_hub: "Centro de formación",
+  feature_training_hub_desc:
+    "Gestiona formaciones del equipo con fechas de vencimiento y certificados.",
+  feature_safety_passport: "Pasaporte de Seguridad",
+  feature_safety_passport_desc:
+    "Vista consolidada de toda la documentación de seguridad de cada empleado.",
+  feature_timesheets_approval: "Hojas de horas con aprobación",
+  feature_timesheets_approval_desc: "El supervisor aprueba las horas antes de ir a nóminas.",
+  feature_offline_mode: "Modo offline",
+  feature_offline_mode_desc: "Rellena formularios sin internet. Se sincronizan automáticamente al volver.",
+  feature_push_notifications: "Notificaciones push",
+  feature_push_notifications_desc:
+    "Alertas automáticas de compliance, stock bajo y formularios pendientes.",
+  feature_inventory_transfers: "Transferencias de inventario",
+  feature_inventory_transfers_desc:
+    "Del almacén a la obra y de vuelta. Historial permanente de cada movimiento.",
+  feature_benefit_report: "Informe de rentabilidad",
+  feature_benefit_report_desc: "Ingresos vs costes por obra. Margen en tiempo real. Exportar PDF.",
+  audit_action_clock_in: "Fichó entrada",
+  audit_action_clock_out: "Fichó salida",
+  audit_action_form_submitted: "Envió un formulario",
+  audit_action_production_reported: "Reportó producción",
+  audit_action_inventory_transfer: "Transferencia de inventario",
+  audit_action_vacation_approved: "Aprobó vacaciones",
+  audit_action_hazard_reported: "Reportó un hazard",
   landing_features_title: "Personaliza tu MachinPro.",
   landing_feat_employees: "👥 Empleados con roles y permisos",
   landing_feat_employees_desc: "Define quién accede a qué en cada módulo de la app.",
