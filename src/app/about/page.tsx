@@ -157,6 +157,20 @@ export default function AboutPage() {
           </div>
         </section>
 
+        <section className="mt-14 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-white/10 dark:bg-slate-900/50 sm:p-8 sm:text-left">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tx("about_company_heading", "")}</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{tx("about_company_intro", "")}</p>
+          <p className="mt-4 text-sm font-medium text-slate-800 dark:text-slate-200">
+            {tx("about_contact_general", "")}{" "}
+            <a
+              href={`mailto:${tx("contact_email", "info@machin.pro")}`}
+              className="text-teal-700 underline underline-offset-2 hover:text-teal-900 dark:text-teal-300 dark:hover:text-teal-100"
+            >
+              {tx("contact_email", "info@machin.pro")}
+            </a>
+          </p>
+        </section>
+
         <section className="mt-20">
           <h2 className="text-center text-xl font-semibold text-slate-900 sm:text-2xl dark:text-white">
             {tx("about_modules_heading", "Modules")}

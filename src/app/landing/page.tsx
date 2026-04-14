@@ -509,7 +509,7 @@ export default function LandingPage() {
                 </button>
               </div>
               <p className="mt-4 max-w-2xl text-center text-xs text-teal-200/85 dark:text-teal-200/70 sm:text-sm">
-                {tx("landing_countries_languages", "")}
+                {tx("landing_availability", tx("landing_countries_languages", ""))}
               </p>
               <p className="mt-2 max-w-2xl text-center text-[11px] text-teal-200/75 dark:text-teal-200/60 sm:text-xs">
                 {tx("landing_currencies_badge", "CAD · USD · MXN · EUR · GBP · AUD · NZD")}
@@ -537,7 +537,7 @@ export default function LandingPage() {
                 </h2>
                 <p className="text-lg font-semibold text-amber-200/95">{betaHeadline}</p>
                 <p className="text-base font-semibold text-white/95">{tx("landing_beta_social_proof", "")}</p>
-                <p className="text-sm text-teal-100/85">{tx("landing_beta_countries", "")}</p>
+                <p className="text-sm text-teal-100/85">{tx("landing_beta_regions", tx("landing_beta_countries", ""))}</p>
                 <p className="text-sm leading-relaxed text-teal-100/90 sm:text-base">
                   {tx("beta_founders_benefit", "")}
                 </p>

@@ -13,6 +13,31 @@ import type { Language } from "@/types/shared";
 const COMPANY_TYPE_VALUES = ["construction", "engineering", "architecture", "other"] as const;
 type CompanyTypeValue = (typeof COMPANY_TYPE_VALUES)[number];
 
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 function companyTypeTxKey(v: CompanyTypeValue): string {
   const m: Record<CompanyTypeValue, string> = {
     construction: "beta_company_construction",
@@ -38,6 +63,7 @@ export default function BetaFounderRequestPage() {
   const [message, setMessage] = useState("");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [couponCopied, setCouponCopied] = useState(false);
+  const [couponBannerCopied, setCouponBannerCopied] = useState(false);
 
   const countries = useMemo(
     () => Object.values(COUNTRY_CONFIG).sort((a, b) => a.name.localeCompare(b.name)),
@@ -171,7 +197,8 @@ export default function BetaFounderRequestPage() {
                       type="button"
                       onClick={() => {
                         const code = tx("beta_coupon_code", "BETA_FOUNDER");
-                        void navigator.clipboard.writeText(code).then(() => {
+                        void copyTextToClipboard(code).then((ok) => {
+                          if (!ok) return;
                           setCouponCopied(true);
                           window.setTimeout(() => setCouponCopied(false), 2000);
                         });
@@ -203,6 +230,37 @@ export default function BetaFounderRequestPage() {
                 </Link>
               </div>
             ) : (
+              <div className="space-y-6">
+                <div className="rounded-xl border border-white/15 bg-black/20 px-4 py-4 text-left sm:px-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-teal-200/90">
+                    {tx("beta_success_coupon_label", "")}
+                  </p>
+                  <p className="mt-1 text-xs text-teal-100/80">{tx("beta_public_coupon_hint", "")}</p>
+                  <div className="mt-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <code className="break-all text-lg font-bold text-amber-200 sm:text-xl">
+                      {tx("beta_coupon_code", "BETA_FOUNDER")}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = tx("beta_coupon_code", "BETA_FOUNDER");
+                        void copyTextToClipboard(code).then((ok) => {
+                          if (!ok) return;
+                          setCouponBannerCopied(true);
+                          window.setTimeout(() => setCouponBannerCopied(false), 2000);
+                        });
+                      }}
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/15"
+                    >
+                      {couponBannerCopied ? (
+                        <Check className="h-4 w-4 text-emerald-300" aria-hidden />
+                      ) : (
+                        <Copy className="h-4 w-4" aria-hidden />
+                      )}
+                      {couponBannerCopied ? tx("beta_copied", "Copied") : tx("beta_copy_coupon", "Copy")}
+                    </button>
+                  </div>
+                </div>
               <form
                 className="space-y-4 sm:space-y-5"
                 onSubmit={(e) => {
@@ -338,7 +396,16 @@ export default function BetaFounderRequestPage() {
                 >
                   {submitting ? tx("beta_form_submitting", "Sending…") : tx("beta_form_submit", "Submit request")}
                 </button>
+                <p className="text-center text-sm text-teal-100/90">
+                  <a
+                    href={`mailto:${tx("help_support_email_value", "support@machin.pro")}`}
+                    className="font-medium underline underline-offset-2 hover:text-white"
+                  >
+                    {tx("help_support_email_value", "support@machin.pro")}
+                  </a>
+                </p>
               </form>
+              </div>
             )}
           </div>
         </div>

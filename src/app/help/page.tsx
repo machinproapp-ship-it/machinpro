@@ -67,11 +67,14 @@ function HelpPageInner() {
   const faqItems = useMemo(
     () =>
       [
-        { q: "help_faq_invite", a: "help_faq_invite_answer" },
-        { q: "help_faq_project", a: "help_faq_project_answer" },
-        { q: "help_faq_daily", a: "help_faq_daily_answer" },
-        { q: "help_faq_language", a: "help_faq_language_answer" },
-        { q: "help_faq_support", a: "help_faq_support_answer" },
+        { q: "help_faq_what_is", a: "help_faq_what_is_answer" },
+        { q: "help_faq_how_start", a: "help_faq_how_start_answer" },
+        { q: "help_faq_users_limit", a: "help_faq_users_limit_answer" },
+        { q: "help_faq_mobile", a: "help_faq_mobile_answer" },
+        { q: "help_faq_offline_use", a: "help_faq_offline_use_answer" },
+        { q: "help_faq_cancel_plan", a: "help_faq_cancel_plan_answer" },
+        { q: "help_faq_data_safe", a: "help_faq_data_safe_answer" },
+        { q: "help_faq_what_countries", a: "help_faq_what_countries_answer" },
       ] as const,
     []
   );

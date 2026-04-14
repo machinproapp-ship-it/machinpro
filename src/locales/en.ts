@@ -575,6 +575,30 @@ export default {
   help_faq_support: "How do I contact support?",
   help_faq_support_answer:
     "Email us at support@machin.pro and we will respond within 24 hours.",
+  help_faq_what_is: "What is MachinPro?",
+  help_faq_what_is_answer:
+    "A construction operations platform: employees, projects, scheduling, logistics, safety, forms and payroll in one place — for field and office teams.",
+  help_faq_how_start: "How do I get started?",
+  help_faq_how_start_answer:
+    "Register your company, complete onboarding, invite people from Central → Employees, then create your first project. Use the in-app checklist to track progress.",
+  help_faq_users_limit: "How many users can I add?",
+  help_faq_users_limit_answer:
+    "It depends on your plan. Essential includes a set number of seats; higher tiers add more. You can invite users until you reach your plan limit, then upgrade or add seats where available.",
+  help_faq_mobile: "Does it work on mobile?",
+  help_faq_mobile_answer:
+    "Yes. MachinPro is responsive and PWA-friendly so supervisors and crews can use phones and tablets on site.",
+  help_faq_offline_use: "Can I use MachinPro offline?",
+  help_faq_offline_use_answer:
+    "Many flows work offline (for example forms); data syncs when you are back online. Keep the app installed for the best experience.",
+  help_faq_cancel_plan: "How do I cancel my subscription?",
+  help_faq_cancel_plan_answer:
+    "Use Billing in the app or email support@machin.pro. Cancellation terms follow your plan and applicable law.",
+  help_faq_data_safe: "Is my data secure?",
+  help_faq_data_safe_answer:
+    "We use industry-standard encryption, access controls and hosting practices. See the privacy policy for details and regional rights (GDPR, PIPEDA, etc.).",
+  help_faq_what_countries: "In which countries is MachinPro available?",
+  help_faq_what_countries_answer:
+    "Teams use MachinPro across North America, Central and South America, Europe, the UK and Oceania. Billing and features may vary by region.",
   getting_started_title: "Getting started",
   getting_started_subtitle: "Complete these steps to get the most out of MachinPro",
   getting_started_dismiss: "Dismiss",
@@ -2108,6 +2132,7 @@ export default {
   beta_success_intro:
     "Check your email in the next 24–48h. Meanwhile you can explore the site and prepare your team.",
   beta_success_coupon_label: "Your checkout coupon",
+  beta_public_coupon_hint: "Use this code in Stripe checkout (promotion code field).",
   beta_coupon_code: "BETA_FOUNDER",
   beta_copy_coupon: "Copy code",
   beta_copied: "Copied",
@@ -2414,13 +2439,17 @@ export default {
   landing_beta_spots: "Limited spots available",
   landing_beta_urgency: "Private beta open — limited spots.",
   landing_beta_social_proof: "Construction companies are already in the private beta.",
-  landing_beta_countries: "Teams in Canada, Spain, Mexico, and the UK.",
+  landing_beta_countries: "Teams in America, Europe, UK and Oceania",
+  landing_beta_regions: "Teams in America, Europe, UK and Oceania",
   landing_pricing_trial_banner: "14-day free trial — no credit card required.",
-  landing_languages_badge: "🌍 Available in 21 languages · Americas · Europe · UK",
+  landing_languages_badge:
+    "🌍 Available in 21 languages · North America · Central America · South America · Europe · UK · Oceania",
   landing_hero_subtitle_full:
     "People, projects, schedule, logistics, safety, forms and payroll. All from your phone.",
+  landing_availability:
+    "Available in 21 languages · North America · Central America · South America · Europe · UK · Oceania",
   landing_countries_languages:
-    "21 languages · Canada · USA · Mexico · Spain · UK · Europe · Australia · New Zealand",
+    "Available in 21 languages · North America · Central America · South America · Europe · UK · Oceania",
   landing_currencies_badge: "CAD · USD · MXN · EUR · GBP · AUD · NZD",
   landing_logistics_section_title: "Never lose a material or tool again",
   landing_logistics_section_subtitle: "Full inventory control on site and in the warehouse",
@@ -3535,6 +3564,10 @@ export default {
 
   about_title: "Everything you need to manage your construction company",
   about_subtitle: "One platform. All modules. From anywhere.",
+  about_company_heading: "MachinPro & Canariense Inc.",
+  about_company_intro:
+    "MachinPro is developed by Canariense Inc., headquartered in Ottawa, Canada. Our mission is to give construction companies one connected workspace for people, projects, logistics, safety, forms and payroll — so teams stay aligned from bid to closeout.",
+  about_contact_general: "General inquiries:",
   about_cta_plans: "View plans",
   about_cta_beta: "Start free",
   about_modules_heading: "Modules",
