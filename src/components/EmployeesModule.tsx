@@ -23,6 +23,7 @@ import {
   MapPin,
   LogOut,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
@@ -2567,7 +2568,7 @@ export function EmployeesModule({
               onClick={() => !hardDeleteBusy && setPermanentDeleteOpen(false)}
             />
             <div
-              className="fixed z-[63] inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+              className="fixed z-[63] inset-x-0 bottom-0 max-h-[90vh] w-full max-w-[calc(100vw-2rem)] overflow-y-auto rounded-t-2xl border border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 p-4 shadow-xl space-y-4 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
               role="dialog"
               aria-modal="true"
               aria-labelledby="permanent-delete-title"
@@ -2601,25 +2602,38 @@ export function EmployeesModule({
                   placeholder={(draft.full_name ?? selected.full_name ?? "").trim()}
                 />
               </label>
-              <button
-                type="button"
-                disabled={
-                  hardDeleteBusy ||
-                  hardDeleteConfirmInput.trim().replace(/\s+/g, " ") !==
-                    (draft.full_name ?? selected.full_name ?? "").trim().replace(/\s+/g, " ")
-                }
-                className="w-full min-h-[44px] rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2"
-                onClick={() => void runHardDeleteEmployee()}
-              >
-                {hardDeleteBusy ? (
-                  "…"
-                ) : (
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
-                    {tl.hard_delete_button ?? ""}
-                  </span>
-                )}
-              </button>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <button
+                  type="button"
+                  disabled={hardDeleteBusy}
+                  onClick={() => setPermanentDeleteOpen(false)}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-slate-800 sm:w-auto"
+                >
+                  {tl.cancel ?? t.cancel ?? "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    hardDeleteBusy ||
+                    hardDeleteConfirmInput.trim().replace(/\s+/g, " ") !==
+                      (draft.full_name ?? selected.full_name ?? "").trim().replace(/\s+/g, " ")
+                  }
+                  className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 sm:w-auto sm:min-w-[44px]"
+                  onClick={() => void runHardDeleteEmployee()}
+                >
+                  {hardDeleteBusy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                      <span>{tl.loading_saving ?? "…"}</span>
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                      {tl.hard_delete_button ?? ""}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -2636,10 +2650,10 @@ export function EmployeesModule({
                 className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 min-h-[44px]"
                 placeholder={t.email ?? ""}
               />
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="button"
-                  className="min-h-[44px] px-4 rounded-lg border"
+                  className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 sm:w-auto"
                   onClick={() => setInviteOpen(false)}
                 >
                   {t.cancel ?? ""}
@@ -2647,7 +2661,7 @@ export function EmployeesModule({
                 <button
                   type="button"
                   disabled={!inviteEmail.includes("@")}
-                  className="min-h-[44px] px-4 rounded-lg bg-amber-600 text-white disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2.5 text-white disabled:opacity-50 sm:w-auto sm:min-w-[44px]"
                   onClick={() => openInviteMailto()}
                 >
                   {tl.employees_invite_send ?? ""}
@@ -2677,12 +2691,12 @@ export function EmployeesModule({
         </div>
       ) : null}
       <section className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-6 lg:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          {t.employees_title ?? ""}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-white">
+          <Users className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 break-words">{t.employees_title ?? ""}</span>
         </h2>
-        <div className="flex flex-wrap gap-2 justify-end">
+        <div className="flex flex-wrap gap-2 sm:justify-end">
         {canManageEmployees && (
           <button
             type="button"
@@ -2953,14 +2967,14 @@ export function EmployeesModule({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-zinc-900 dark:text-white truncate">
+                  <p className="break-words font-medium text-zinc-900 dark:text-white">
                     {employeeDisplayLabel(r, tl, currentUserProfileId ?? null)}
                   </p>
-                  <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300 truncate" title={roleLabel(r)}>
+                  <p className="break-words text-xs font-medium text-zinc-600 dark:text-zinc-300" title={roleLabel(r)}>
                     {roleLabel(r)}
                   </p>
                   {(r.email ?? "").trim() ? (
-                    <p className="hidden text-xs text-zinc-500 truncate sm:block" title={(r.email ?? "").trim()}>
+                    <p className="hidden break-words text-xs text-zinc-500 sm:block" title={(r.email ?? "").trim()}>
                       {(r.email ?? "").trim()}
                     </p>
                   ) : null}
@@ -3236,10 +3250,10 @@ export function EmployeesModule({
                 />
               </label>
             ) : null}
-            <div className="flex gap-2 justify-end pt-2">
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-3">
               <button
                 type="button"
-                className="min-h-[44px] px-4 rounded-lg border border-zinc-300 dark:border-zinc-600"
+                className="min-h-[44px] w-full rounded-lg border border-zinc-300 px-4 py-2.5 dark:border-zinc-600 sm:w-auto"
                 disabled={createSaving}
                 onClick={() => setCreateOpen(false)}
               >
@@ -3247,11 +3261,18 @@ export function EmployeesModule({
               </button>
               <button
                 type="button"
-                className="min-h-[44px] px-4 rounded-lg bg-amber-600 text-white disabled:opacity-50"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-white disabled:opacity-50 sm:w-auto sm:min-w-[44px]"
                 disabled={createSaving}
                 onClick={() => void submitCreateEmployee()}
               >
-                {createSaving ? "…" : tl.employees_create_submit ?? t.save ?? ""}
+                {createSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                    <span>{tl.loading_saving ?? "…"}</span>
+                  </>
+                ) : (
+                  tl.employees_create_submit ?? t.save ?? ""
+                )}
               </button>
             </div>
           </div>
@@ -3270,10 +3291,10 @@ export function EmployeesModule({
               className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 min-h-[44px]"
               placeholder={t.email ?? ""}
             />
-            <div className="flex gap-2 justify-end">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
               <button
                 type="button"
-                className="min-h-[44px] px-4 rounded-lg border"
+                className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 sm:w-auto"
                 onClick={() => setInviteOpen(false)}
               >
                 {t.cancel ?? ""}
@@ -3281,7 +3302,7 @@ export function EmployeesModule({
               <button
                 type="button"
                 disabled={!inviteEmail.includes("@")}
-                className="min-h-[44px] px-4 rounded-lg bg-amber-600 text-white disabled:opacity-50"
+                className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2.5 text-white disabled:opacity-50 sm:w-auto sm:min-w-[44px]"
                 onClick={() => openInviteMailto()}
               >
                 {tl.employees_invite_send ?? ""}

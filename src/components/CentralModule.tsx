@@ -1389,8 +1389,8 @@ export function CentralModule({
 
       {centralView === "roles" && (canManageRoles || canViewRoles) && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
-          <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex flex-wrap justify-between items-center gap-3">
-            <h3 className="font-semibold">{labels.roles ?? "Roles"}</h3>
+          <div className="flex flex-col gap-3 border-b border-zinc-200 p-4 dark:border-white/10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <h3 className="min-w-0 break-words font-semibold">{labels.roles ?? "Roles"}</h3>
             {canManageRoles && onAddRole && (
               <button type="button" onClick={openCreateRole} className="flex items-center gap-1.5 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-3 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-400 min-h-[44px]">
                 <Plus className="h-4 w-4" />{" "}
@@ -1587,8 +1587,8 @@ export function CentralModule({
 
       {centralView === "projects" && dashboardCanViewProjectsManagement && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
-          <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex flex-wrap justify-between items-center gap-3">
-            <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+          <div className="flex flex-col gap-3 border-b border-zinc-200 p-4 dark:border-white/10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <h3 className="min-w-0 break-words text-base font-semibold text-zinc-900 dark:text-white">
               {(labels as Record<string, string>).projects_management ?? "Project management"}
             </h3>
             {canCreateProjects && onAddProject ? (

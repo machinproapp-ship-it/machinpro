@@ -19,6 +19,7 @@ type Body = {
   userId?: string;
   companyId?: string;
   page?: string;
+  module?: string;
 };
 
 export async function POST(req: NextRequest) {
@@ -56,6 +57,18 @@ export async function POST(req: NextRequest) {
   const type = typeof body.type === "string" ? body.type.trim().slice(0, 32) : "";
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const page = typeof body.page === "string" ? body.page.trim().slice(0, 2000) : "";
+  const moduleRaw = typeof body.module === "string" ? body.module.trim().slice(0, 64) : "";
+  const allowedModules = new Set([
+    "central",
+    "operations",
+    "schedule",
+    "logistics",
+    "security",
+    "settings",
+    "general",
+    "",
+  ]);
+  const module = allowedModules.has(moduleRaw) ? (moduleRaw || null) : null;
 
   if (!userId || user.id !== userId) {
     return NextResponse.json({ ok: false, error: "Invalid user" }, { status: 403 });
@@ -98,10 +111,37 @@ export async function POST(req: NextRequest) {
     user.email ||
     "";
 
+  const feedbackType = (type || "suggestion").slice(0, 32);
+
+  const { data: fbRow, error: fbErr } = await admin
+    .from("feedback")
+    .insert({
+      company_id: effectiveCompanyId,
+      user_id: user.id,
+      type: feedbackType,
+      description: message,
+      module,
+      url: page || null,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (fbErr) {
+    console.error("[api/feedback] feedback insert", fbErr);
+    if (fbErr.code === "42P01" || fbErr.message?.includes("does not exist")) {
+      return NextResponse.json({ ok: false, error: "feedback_table_missing" }, { status: 503 });
+    }
+    return NextResponse.json({ ok: false, error: "Could not save feedback" }, { status: 500 });
+  }
+
+  const feedbackId = (fbRow as { id?: string } | null)?.id ?? null;
+
   const newValue = {
-    feedback_type: type || "unknown",
+    feedback_id: feedbackId,
+    feedback_type: feedbackType,
     message,
     page: page || null,
+    module,
     user_id: user.id,
     company_id: effectiveCompanyId,
   };
@@ -112,13 +152,12 @@ export async function POST(req: NextRequest) {
     user_name: userName || null,
     action: "feedback_submitted",
     entity_type: "feedback",
-    entity_id: user.id,
+    entity_id: feedbackId ?? user.id,
     new_value: newValue,
   });
 
   if (auditErr) {
     console.error("[api/feedback] audit_logs", auditErr);
-    return NextResponse.json({ ok: false, error: "Could not save feedback" }, { status: 500 });
   }
 
   const resendKey = process.env.RESEND_API_KEY;
@@ -126,13 +165,15 @@ export async function POST(req: NextRequest) {
     try {
       const resend = new Resend(resendKey);
       const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
-      const subject = `[MachinPro Feedback] ${type || "general"} — ${userName || user.id}`;
+      const subject = `[MachinPro Feedback] ${feedbackType} — ${userName || user.id}`;
       const html = `<p><strong>MachinPro — feedback (beta)</strong></p>
 <ul>
-<li><strong>Tipo:</strong> ${escapeHtml(type || "—")}</li>
+<li><strong>Tipo:</strong> ${escapeHtml(feedbackType || "—")}</li>
+<li><strong>Módulo:</strong> ${escapeHtml(module ?? "—")}</li>
 <li><strong>Usuario:</strong> ${escapeHtml(userName)} (${escapeHtml(user.id)})</li>
 <li><strong>Empresa:</strong> ${escapeHtml(effectiveCompanyId ?? "—")}</li>
 <li><strong>Página:</strong> ${page ? escapeHtml(page) : "—"}</li>
+<li><strong>Id feedback:</strong> ${escapeHtml(feedbackId ?? "—")}</li>
 </ul>
 <p><strong>Mensaje:</strong></p>
 <p>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>`;

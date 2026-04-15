@@ -2487,7 +2487,7 @@ export default function ScheduleModule({
                       type="button"
                       onClick={() => onClockIn?.()}
                       disabled={gpsStatus === "locating"}
-                      className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base min-h-[44px] min-w-[44px]"
+                      className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
                     >
                       {gpsStatus === "locating"
                         ? (labels.gpsLocating ?? "…")
@@ -2502,7 +2502,7 @@ export default function ScheduleModule({
                     type="button"
                     onClick={onClockOut}
                     disabled={gpsStatus === "locating"}
-                    className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base min-h-[44px] min-w-[44px]"
+                    className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
                   >
                     {gpsStatus === "locating"
                       ? (labels.gpsLocating ?? "…")
@@ -3772,7 +3772,7 @@ export default function ScheduleModule({
                           type="button"
                           onClick={() => onClockIn?.()}
                           disabled={gpsStatus === "locating"}
-                          className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base"
+                          className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
                         >
                           {gpsStatus === "locating"
                             ? (labels.gpsLocating ?? "Obteniendo ubicación…")
@@ -3787,7 +3787,7 @@ export default function ScheduleModule({
                         type="button"
                         onClick={onClockOut}
                         disabled={gpsStatus === "locating"}
-                        className="flex h-20 w-20 max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:w-full md:rounded-2xl md:text-base"
+                        className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
                       >
                         {gpsStatus === "locating"
                           ? (labels.gpsLocating ?? "Obteniendo ubicación…")
