@@ -10,6 +10,7 @@ import {
   mapCatalogRow,
 } from "@/lib/productionCatalog";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 
 function unitLabel(u: ProductionUnit, tl: Record<string, string>): string {
   const k = `production_unit_${u}` as const;
@@ -69,13 +70,13 @@ export function ProductionCatalogSettingsSection({
         .eq("company_id", companyId);
       setBusy(false);
       if (error) {
-        showToast("error", error.message);
+        showToast("error", userFacingErrorMessage(tl, error));
         return;
       }
-      showToast("success", L("toast_saved", "Saved"));
+      showToast("success", L("saved_successfully", L("toast_saved", "Saved")));
       onRefresh();
     },
-    [companyId, L, onRefresh, showToast]
+    [companyId, L, onRefresh, showToast, tl]
   );
 
   return (
@@ -238,7 +239,7 @@ function CatalogItemModal({
     const cp = Number.parseFloat(cost.replace(",", "."));
     const sp = Number.parseFloat(sell.replace(",", "."));
     if (!name.trim() || !Number.isFinite(cp) || !Number.isFinite(sp)) {
-      showToast("error", L("toast_error", "Error"));
+      showToast("error", L("error_validation", L("toast_error", "Error")));
       return;
     }
     setBusy(true);
@@ -262,11 +263,11 @@ function CatalogItemModal({
     const { data, error } = await q;
     setBusy(false);
     if (error) {
-      showToast("error", error.message);
+      showToast("error", userFacingErrorMessage(tl, error));
       return;
     }
     if (data && mapCatalogRow(data as Record<string, unknown>)) {
-      showToast("success", L("toast_saved", "Saved"));
+      showToast("success", L("saved_successfully", L("toast_saved", "Saved")));
       onSaved();
     }
   };

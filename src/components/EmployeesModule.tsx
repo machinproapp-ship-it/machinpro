@@ -28,6 +28,7 @@ import {
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { supabase } from "@/lib/supabase";
 import {
@@ -1015,15 +1016,17 @@ export function EmployeesModule({
       .eq("company_id", companyId);
     if (error) {
       console.error("[EmployeesModule] softDeactivateEmployee", error);
-      window.alert((lx.employees_delete_error ?? "").trim() || error.message || "Could not update profile.");
+      showToast("error", userFacingErrorMessage(lx, error));
       return;
     }
     setEmployeeDeleteModalOpen(false);
     setHardDeleteConfirmInput("");
     if (selectedId === selected.id) setSelectedId(null);
     void load();
-    const ok = (lx.employee_deactivate_success ?? "").trim();
-    if (ok) window.alert(ok);
+    showToast(
+      "success",
+      (lx.employee_deactivate_success ?? "").trim() || (lx.saved_successfully ?? "").trim() || "OK"
+    );
   };
 
   const runHardDeleteEmployee = async () => {
@@ -1039,7 +1042,10 @@ export function EmployeesModule({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) {
-        window.alert((lx.employees_delete_error ?? "").trim() || "Session required");
+        showToast(
+          "error",
+          (lx.employees_delete_error ?? "").trim() || userFacingErrorMessage(lx, undefined)
+        );
         return;
       }
       const res = await fetch("/api/employees/hard-delete", {
@@ -1052,8 +1058,9 @@ export function EmployeesModule({
       });
       const j = (await res.json()) as { error?: string; hint?: string; ok?: boolean; success?: boolean };
       if (!res.ok || (!j.ok && !j.success)) {
-        window.alert(
-          [j.error, j.hint].filter(Boolean).join("\n") || (lx.employees_delete_error ?? "").trim() || "Error"
+        showToast(
+          "error",
+          userFacingErrorMessage(lx, new Error([j.error, j.hint].filter(Boolean).join(" ") || "request failed"))
         );
         return;
       }
@@ -1062,8 +1069,12 @@ export function EmployeesModule({
       setHardDeleteConfirmInput("");
       if (selectedId === selected.id) setSelectedId(null);
       void load();
-      const ok = (lx.hard_delete_success ?? lx.employee_hard_delete_success ?? "").trim();
-      if (ok) window.alert(ok);
+      showToast(
+        "success",
+        (lx.hard_delete_success ?? lx.employee_hard_delete_success ?? "").trim() ||
+          (lx.saved_successfully ?? "").trim() ||
+          "OK"
+      );
     } finally {
       setHardDeleteBusy(false);
     }

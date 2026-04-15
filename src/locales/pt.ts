@@ -1232,6 +1232,10 @@ export default {
   onboarding_step_team: "A sua equipa",
   loading_saving: "A guardar...",
   error_generic: "Algo correu mal. Tente novamente.",
+  error_network: "Sem ligação. Tente novamente.",
+  error_server: "Erro do servidor. Tente mais tarde.",
+  error_validation: "Verifique os campos assinalados.",
+  saved_successfully: "Guardado com sucesso",
   onboarding_beta_founder_note:
     "Faz parte do programa Beta Founder — o seu feedback molda o MachinPro.",
   onboarding_invite_message: "Convide o seu primeiro colaborador ou supervisor",

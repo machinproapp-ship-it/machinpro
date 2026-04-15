@@ -64,6 +64,7 @@ import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { countOperationallyActiveProjects } from "@/lib/projectFilters";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
   LogOut,
@@ -1573,14 +1574,17 @@ export default function Home() {
         .maybeSingle();
       if (error) {
         console.error("[page] project_expenses insert", error);
-        return { ok: false as const, error: error.message };
+        return {
+          ok: false as const,
+          error: userFacingErrorMessage(t as Record<string, string>, error),
+        };
       }
       const mapped = data ? mapDbProjectExpense(data as Record<string, unknown>) : null;
       if (mapped) setProjectExpenses((prev) => [mapped, ...prev.filter((e) => e.id !== mapped.id)]);
       invalidateDashboardCache();
       return { ok: true as const };
     },
-    [supabase, companyId, invalidateDashboardCache]
+    [supabase, companyId, invalidateDashboardCache, t]
   );
 
   const handleDeleteProjectExpense = useCallback(
@@ -1595,13 +1599,16 @@ export default function Home() {
         .eq("company_id", companyId);
       if (error) {
         console.error("[page] project_expenses soft-delete", error);
-        return { ok: false as const, error: error.message };
+        return {
+          ok: false as const,
+          error: userFacingErrorMessage(t as Record<string, string>, error),
+        };
       }
       setProjectExpenses((prev) => prev.filter((e) => e.id !== id));
       invalidateDashboardCache();
       return { ok: true as const };
     },
-    [supabase, companyId, invalidateDashboardCache]
+    [supabase, companyId, invalidateDashboardCache, t]
   );
 
   const handleUpdateProjectSafetyRequirements = useCallback(
@@ -4123,7 +4130,7 @@ export default function Home() {
       .eq("id", user.id);
     setProfileSaveBusy(false);
     if (error) {
-      showToast("error", error.message);
+      showToast("error", userFacingErrorMessage(t as Record<string, string>, error));
       return;
     }
     await syncSession();
@@ -4163,7 +4170,7 @@ export default function Home() {
     });
     setPasswordResetBusy(false);
     if (error) {
-      showToast("error", error.message);
+      showToast("error", userFacingErrorMessage(t as Record<string, string>, error));
       return;
     }
     showToast(

@@ -1399,6 +1399,10 @@ export default {
   onboarding_step_team: "Your team",
   loading_saving: "Saving...",
   error_generic: "Something went wrong. Please try again.",
+  error_network: "No connection. Please try again.",
+  error_server: "Server error. Please try again later.",
+  error_validation: "Please check the highlighted fields.",
+  saved_successfully: "Saved successfully",
   onboarding_beta_founder_note:
     "You are in the Beta Founder program — your feedback shapes MachinPro.",
   onboarding_invite_message: "Invite your first employee or supervisor",

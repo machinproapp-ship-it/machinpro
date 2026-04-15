@@ -23,6 +23,7 @@ import {
   trainingDisplayStatus,
 } from "@/types/training";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 
 export type TrainingEmployeeOption = {
@@ -228,7 +229,7 @@ export function TrainingHubModule({
       .eq("id", assignmentId);
     setSaving(false);
     if (error) {
-      showToast("error", error.message);
+      showToast("error", userFacingErrorMessage(t, error));
       return;
     }
     showToast("success", L(t, "training_saved", "Saved"));
@@ -244,9 +245,10 @@ export function TrainingHubModule({
       .eq("id", c.id);
     setSaving(false);
     if (error) {
-      showToast("error", error.message);
+      showToast("error", userFacingErrorMessage(t, error));
       return;
     }
+    showToast("success", L(t, "saved_successfully", L(t, "training_saved", "Saved")));
     void load();
   };
 
@@ -275,7 +277,7 @@ export function TrainingHubModule({
     if (payload.id) {
       const { error } = await supabase.from("training_courses").update(base).eq("id", payload.id);
       setSaving(false);
-      if (error) showToast("error", error.message);
+      if (error) showToast("error", userFacingErrorMessage(t, error));
       else {
         showToast("success", L(t, "training_saved", "Saved"));
         setCourseModal(null);
@@ -289,7 +291,7 @@ export function TrainingHubModule({
       created_by: userProfileId,
     });
     setSaving(false);
-    if (error) showToast("error", error.message);
+    if (error) showToast("error", userFacingErrorMessage(t, error));
     else {
       showToast("success", L(t, "training_saved", "Saved"));
       setCourseModal(null);
@@ -341,7 +343,7 @@ export function TrainingHubModule({
     const { error } = await supabase.from("training_assignments").insert(rows);
     setSaving(false);
     if (error) {
-      showToast("error", error.message);
+      showToast("error", userFacingErrorMessage(t, error));
       return;
     }
     showToast("success", L(t, "training_saved", "Saved"));

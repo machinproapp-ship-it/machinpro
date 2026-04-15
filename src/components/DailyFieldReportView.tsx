@@ -35,6 +35,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 
 const WEATHER_OPTIONS: { value: DailyReportWeather; Icon: typeof Sun }[] = [
   { value: "sunny", Icon: Sun },
@@ -557,7 +558,7 @@ export function DailyFieldReportView({
       });
       const j = (await res.json()) as { secure_url?: string; public_id?: string; error?: { message?: string } };
       if (!j.secure_url) {
-        setErrMsg(j.error?.message ?? tl.dailyReportPhotoError ?? "Upload failed");
+        setErrMsg(userFacingErrorMessage(tl, new Error(j.error?.message ?? "")));
         return;
       }
       setDraft((d) => ({
@@ -573,7 +574,7 @@ export function DailyFieldReportView({
         ],
       }));
     },
-    [cloudinaryCloudName, cloudinaryUploadPreset, draft.photos.length, readOnly, tl.dailyReportPhotoError]
+    [cloudinaryCloudName, cloudinaryUploadPreset, draft.photos.length, readOnly, tl]
   );
 
   const persist = useCallback(
@@ -588,7 +589,7 @@ export function DailyFieldReportView({
       const { error } = await saveDailyReportFull(supabase, next);
       setBusy(false);
       if (error) {
-        setErrMsg(error.message);
+        setErrMsg(userFacingErrorMessage(tl, error));
         return;
       }
       if (next.status === "published" && prevStatus !== "published") {
@@ -611,6 +612,7 @@ export function DailyFieldReportView({
       onReportCreated,
       onReportPublished,
       report?.id,
+      tl,
       tl.dailyReportOffline,
       syncProductionReport,
     ]
@@ -667,7 +669,7 @@ export function DailyFieldReportView({
       const { error } = await patchTaskCompleted(supabase, taskId, completed);
       setBusy(false);
       if (error) {
-        setErrMsg(error.message);
+        setErrMsg(userFacingErrorMessage(tl, error));
         return;
       }
       setDraft((d) => ({
@@ -676,7 +678,7 @@ export function DailyFieldReportView({
       }));
       onRefreshList?.();
     },
-    [draft.status, onRefreshList]
+    [draft.status, onRefreshList, tl]
   );
 
   const submitSignature = useCallback(
@@ -694,7 +696,7 @@ export function DailyFieldReportView({
       });
       setBusy(false);
       if (error) {
-        setErrMsg(error.message);
+        setErrMsg(userFacingErrorMessage(tl, error));
         return;
       }
       const row = {
@@ -709,7 +711,7 @@ export function DailyFieldReportView({
       setSignModal("none");
       onRefreshList?.();
     },
-    [currentUserName, currentUserProfileId, draft.id, draft.status, onRefreshList]
+    [currentUserName, currentUserProfileId, draft.id, draft.status, onRefreshList, tl]
   );
 
   const startDraw = useCallback(() => {

@@ -12,6 +12,7 @@ import { buildVisitorCheckInUrl, buildVisitorProjectCheckInUrl } from "@/lib/vis
 import type { VisitorFormData } from "@/types/visitor";
 import { formatDateTime, resolveUserTimezone } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import {
   defaultVisitorRequirements,
   labelVisitorRequirements,
@@ -408,7 +409,7 @@ export default function VisitorCheckInPage() {
 
     setLoading(false);
     if (error) {
-      setSubmitError(error.message);
+      setSubmitError(userFacingErrorMessage(lx, error));
       return;
     }
     if (data) {

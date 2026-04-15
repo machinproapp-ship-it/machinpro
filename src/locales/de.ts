@@ -1232,6 +1232,10 @@ export default {
   onboarding_step_team: "Ihr Team",
   loading_saving: "Speichern...",
   error_generic: "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+  error_network: "Keine Verbindung. Bitte versuchen Sie es erneut.",
+  error_server: "Serverfehler. Bitte versuchen Sie es später.",
+  error_validation: "Bitte überprüfen Sie die markierten Felder.",
+  saved_successfully: "Erfolgreich gespeichert",
   onboarding_beta_founder_note:
     "Sie sind Teil des Beta-Founder-Programms — Ihr Feedback prägt MachinPro.",
   onboarding_invite_message: "Laden Sie Ihren ersten Mitarbeiter ein",

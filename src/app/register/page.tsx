@@ -7,12 +7,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppLocale } from "@/hooks/useAppLocale";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { LANGUAGES } from "@/lib/i18n";
 import { REGIONAL_COUNTRIES } from "@/lib/regionalCountries";
 import type { Language } from "@/types/shared";
 
 export default function RegisterPublicPage() {
-  const { language, setLanguage, tx } = useAppLocale();
+  const { language, setLanguage, tx, t } = useAppLocale();
   const router = useRouter();
   const [dark, setDark] = useState(false);
 
@@ -101,7 +102,7 @@ export default function RegisterPublicPage() {
     setSubmitting(false);
 
     if (error) {
-      setFormError(error.message);
+      setFormError(userFacingErrorMessage(t, error));
       return;
     }
 

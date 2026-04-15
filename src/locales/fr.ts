@@ -1227,6 +1227,10 @@ export default {
   onboarding_step_team: "Votre équipe",
   loading_saving: "Enregistrement...",
   error_generic: "Quelque chose s'est mal passé. Veuillez réessayer.",
+  error_network: "Pas de connexion. Veuillez réessayer.",
+  error_server: "Erreur serveur. Veuillez réessayer plus tard.",
+  error_validation: "Vérifiez les champs indiqués.",
+  saved_successfully: "Enregistré avec succès",
   onboarding_beta_founder_note:
     "Vous faites partie du programme Beta Founder : vos retours façonnent MachinPro.",
   onboarding_invite_message: "Invitez votre premier employé ou superviseur",

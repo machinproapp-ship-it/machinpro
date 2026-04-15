@@ -27,7 +27,9 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const MAX_VISIBLE = 3;
-const DISMISS_MS = 3000;
+const DISMISS_MS_SUCCESS = 3000;
+const DISMISS_MS_ERROR = 5000;
+const DISMISS_MS_DEFAULT = 3000;
 
 function iconFor(v: ToastVariant) {
   switch (v) {
@@ -75,12 +77,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const next = [...prev, { id, variant, message }];
       return next.slice(-MAX_VISIBLE);
     });
+    const dismissMs =
+      variant === "error" ? DISMISS_MS_ERROR : variant === "success" ? DISMISS_MS_SUCCESS : DISMISS_MS_DEFAULT;
     const dismissTimer = setTimeout(() => {
       setItems((prev) =>
         prev.map((x) => (x.id === id ? { ...x, exiting: true } : x))
       );
       setTimeout(() => remove(id), 220);
-    }, DISMISS_MS);
+    }, dismissMs);
     timers.current.set(id, dismissTimer);
   }, [remove]);
 

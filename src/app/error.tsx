@@ -19,7 +19,7 @@ export default function Error({
         Algo ha fallado
       </h1>
       <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4 max-w-md text-center">
-        {error.message}
+        Inténtalo de nuevo. Si el problema continúa, vuelve más tarde o contacta con soporte.
       </p>
       <button
         type="button"

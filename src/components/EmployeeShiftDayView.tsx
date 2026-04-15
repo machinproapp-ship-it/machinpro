@@ -7,6 +7,7 @@ import type { ProjectTask } from "@/types/projectTask";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import { supabase } from "@/lib/supabase";
 import { insertSignature } from "@/lib/dailyReportsDb";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
 import { formatDateLong, formatTime, formatTimeHm, resolveUserTimezone } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
@@ -213,11 +214,11 @@ export function EmployeeShiftDayView({
     });
     setSignBusy(false);
     if (error) {
-      setSignErr(error.message);
+      setSignErr(userFacingErrorMessage(labels, error));
       return;
     }
     onDailyReportSigned?.();
-  }, [dailyReport, currentUserProfileId, mySignature, onDailyReportSigned]);
+  }, [dailyReport, currentUserProfileId, labels, mySignature, onDailyReportSigned]);
 
   const signedAtLabel = useMemo(() => {
     if (!mySignature?.signedAt) return "";

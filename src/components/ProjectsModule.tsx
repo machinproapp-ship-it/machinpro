@@ -87,6 +87,7 @@ import type { ProjectLaborSummary } from "@/lib/laborCosting";
 import { VisitorModule } from "@/components/VisitorModule";
 import { ProjectEpiSafetyTab } from "@/components/ProjectEpiSafetyTab";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { supabase } from "@/lib/supabase";
 import {
   type CatalogItem,
@@ -1451,12 +1452,12 @@ export function ProjectsModule({
   if (!selectedProject) {
     return (
       <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
-        <div className="border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5 lg:px-8 min-w-0">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-amber-500" />
-            {t.siteAdminView ?? PM_EN.siteAdminView}
+        <div className="min-w-0 border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5 lg:px-8">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-white">
+            <Building2 className="h-5 w-5 shrink-0 text-amber-500" />
+            <span className="min-w-0 break-words">{t.siteAdminView ?? PM_EN.siteAdminView}</span>
           </h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 break-words">
+          <p className="mt-0.5 break-words text-sm text-zinc-500 dark:text-zinc-400">
             {t.projects_select_detail_hint ?? PM_EN.projects_select_detail_hint}
           </p>
         </div>
@@ -1577,7 +1578,7 @@ export function ProjectsModule({
               <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{selectedProject.name}</h2>
+              <h2 className="break-words text-xl font-bold text-zinc-900 dark:text-white">{selectedProject.name}</h2>
               <div className="flex flex-wrap items-center gap-3 mt-1">
                 {selectedProject.location && (
                   <span className="flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -4676,7 +4677,7 @@ export function ProjectsModule({
                                             .update({ custom_sell_price: v })
                                             .eq("id", o.id)
                                             .eq("company_id", companyId);
-                                          if (error) showToast("error", error.message);
+                                          if (error) showToast("error", userFacingErrorMessage(tl, error));
                                           else {
                                             showToast(
                                               "success",
@@ -4700,7 +4701,7 @@ export function ProjectsModule({
                                           .update({ is_active: false })
                                           .eq("id", o.id)
                                           .eq("company_id", companyId);
-                                        if (error) showToast("error", error.message);
+                                        if (error) showToast("error", userFacingErrorMessage(tl, error));
                                         else onRefreshProductionData?.();
                                       })();
                                     }}
@@ -4768,7 +4769,7 @@ export function ProjectsModule({
                           URL.revokeObjectURL(href);
                           showToast("success", tl.toast_saved ?? PM_EN.export_success);
                         } catch (err) {
-                          showToast("error", (err as Error)?.message ?? (tl.export_error ?? PM_EN.export_error));
+                          showToast("error", userFacingErrorMessage(tl, err));
                         }
                       })()
                     }
@@ -4823,7 +4824,7 @@ export function ProjectsModule({
                             is_active: true,
                           });
                           if (error) {
-                            showToast("error", error.message);
+                            showToast("error", userFacingErrorMessage(tl, error));
                             return;
                           }
                         }

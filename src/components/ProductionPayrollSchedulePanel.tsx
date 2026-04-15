@@ -14,6 +14,7 @@ import {
   defaultInvoiceTaxPercent,
 } from "@/lib/generateInvoicePdf";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { supabase } from "@/lib/supabase";
 import { invertProfileToLegacy } from "@/lib/laborCosting";
 
@@ -266,7 +267,7 @@ export function ProductionPayrollSchedulePanel({
       if (!canManagePayroll || reportIds.length === 0) return;
       const { error } = await supabase.from("production_reports").update({ status }).in("id", reportIds);
       if (error) {
-        showToast("error", L("toast_error", error.message));
+        showToast("error", userFacingErrorMessage(lx, error));
         return;
       }
       showToast("success", L("toast_saved", "Saved"));
