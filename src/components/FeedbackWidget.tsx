@@ -200,7 +200,7 @@ export function FeedbackWidget({ labels: t, accessToken, userId, companyId }: Fe
                 {sending ? (
                   <>
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-                    <span>{L(t, "loading_saving", "Saving…")}</span>
+                    <span>{L(t, "feedback_sending", L(t, "loading_saving", "Sending…"))}</span>
                   </>
                 ) : (
                   L(t, "feedback_send", "Enviar")

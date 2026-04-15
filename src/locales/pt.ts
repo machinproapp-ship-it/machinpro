@@ -3204,6 +3204,7 @@ export default {
   feedback_module_general: "Geral",
   feedback_message_label: "Descreva a sua sugestão ou problema",
   feedback_send: "Enviar",
+  feedback_sending: "A enviar…",
   feedback_sent: "Obrigado pelo seu feedback!",
   feedback_error: "Não foi possível enviar. Tente novamente.",
   feedback_error_offline: "Sem ligação. As alterações serão guardadas quando voltar a estar online.",

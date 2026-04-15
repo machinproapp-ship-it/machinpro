@@ -3203,6 +3203,7 @@ export default {
   feedback_module_general: "Generale",
   feedback_message_label: "Descrivi il tuo suggerimento o problema",
   feedback_send: "Invia",
+  feedback_sending: "Invio in corso…",
   feedback_sent: "Grazie per il tuo feedback!",
   feedback_error: "Impossibile inviare. Riprova.",
   feedback_error_offline: "Offline. Le modifiche verranno salvate quando tornerai online.",

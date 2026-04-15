@@ -3190,6 +3190,7 @@ export default {
   feedback_module_general: "Général",
   feedback_message_label: "Décrivez votre suggestion ou problème",
   feedback_send: "Envoyer",
+  feedback_sending: "Envoi…",
   feedback_sent: "Merci pour votre retour !",
   feedback_error: "Impossible d'envoyer. Réessayez.",
   feedback_error_offline: "Hors ligne. Les changements seront enregistrés une fois reconnecté.",

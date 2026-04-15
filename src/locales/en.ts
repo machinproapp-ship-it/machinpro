@@ -3384,6 +3384,7 @@ export default {
   feedback_module_general: "General",
   feedback_message_label: "Describe your suggestion or issue",
   feedback_send: "Send",
+  feedback_sending: "Sending…",
   feedback_sent: "Thanks for your feedback!",
   feedback_error: "Could not send. Please try again.",
   feedback_error_offline: "Offline. Changes will sync when you are back online.",

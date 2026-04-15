@@ -3181,6 +3181,7 @@ export default {
   feedback_module_general: "Allgemein",
   feedback_message_label: "Beschreiben Sie Ihren Vorschlag oder das Problem",
   feedback_send: "Senden",
+  feedback_sending: "Wird gesendet…",
   feedback_sent: "Danke für Ihr Feedback!",
   feedback_error: "Konnte nicht gesendet werden. Bitte erneut versuchen.",
   feedback_error_offline: "Offline. Änderungen werden gespeichert, sobald Sie wieder online sind.",
