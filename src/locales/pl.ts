@@ -1,4 +1,4 @@
-﻿/** PL — auto-built (value-map); review for domain terms */
+/** PL — auto-built (value-map); review for domain terms */
 export default {
   "office": "Centralny",
   "warehouse": "Logistyka",
@@ -99,6 +99,9 @@ export default {
   "photoNotesPlaceholder": "Opcjonalne uwagi do następnego zdjęcia…",
   "noAssignedPersonnel": "Brak personelu przypisanego do tego projektu.",
   "noProjectMaterials": "Brak materiałów przypisanych do tego projektu.",
+  "projects_inv_materials_assigned": "Przypisane materiały",
+  "projects_new_project": "Nowy projekt",
+  "inv_photo_alt": "Zdjęcie z inwentarza",
   "whToolsOnSite": "Narzędzia na miejscu",
   "noProjectTools": "Brak narzędzi przypisanych do tego projektu.",
   "invPhotosTitle": "Zdjęcia zasobów/rekord logistyczny",

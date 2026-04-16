@@ -1,4 +1,4 @@
-﻿/** DE — migrated from page.tsx (Sprint AF) */
+/** DE — migrated from page.tsx (Sprint AF) */
 export default {
   office: "Zentrale",
   warehouse: "Logistik",
@@ -309,6 +309,9 @@ export default {
   photoNotesPlaceholder: "Optionale Notizen für das nächste Foto…",
   noAssignedPersonnel: "Diesem Projekt ist kein Personal zugewiesen.",
   noProjectMaterials: "Diesem Projekt sind keine Materialien zugewiesen.",
+  projects_inv_materials_assigned: "Zugewiesene Materialien",
+  projects_new_project: "Neues Projekt",
+  inv_photo_alt: "Inventarfoto",
   whToolsOnSite: "Werkzeuge auf der Baustelle",
   noProjectTools: "Diesem Projekt sind keine Werkzeuge zugewiesen.",
   invPhotosTitle: "Aktivenfotos / Logistiknachweis",

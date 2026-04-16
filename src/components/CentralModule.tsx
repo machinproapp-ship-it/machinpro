@@ -32,6 +32,8 @@ import {
 } from '@/lib/dateUtils';
 import { useMachinProDisplayPrefs } from '@/hooks/useMachinProDisplayPrefs';
 import { isProjectOperationallyActive, resolveProjectLifecycleStatus } from '@/lib/projectFilters';
+import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 
 interface Certificate {
   id: string;
@@ -526,7 +528,12 @@ export function CentralModule({
   const [edDocExpiry, setEdDocExpiry] = useState("");
   const [edDocNotes, setEdDocNotes] = useState("");
   const [edDocUploading, setEdDocUploading] = useState(false);
+  const [roleDeleteConfirmId, setRoleDeleteConfirmId] = useState<string | null>(null);
+  const [roleDeleteBusy, setRoleDeleteBusy] = useState(false);
+  const [employeeDeleteConfirmId, setEmployeeDeleteConfirmId] = useState<string | null>(null);
+  const [employeeDeleteBusy, setEmployeeDeleteBusy] = useState(false);
   const edDocFileRef = useRef<HTMLInputElement>(null);
+  const { showToast } = useToast();
   const [roleDraft, setRoleDraft] = useState<{ name: string; color: string; permissions: RolePermissions }>({
     name: "",
     color: "#b45309",
@@ -1465,7 +1472,7 @@ export function CentralModule({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (typeof window !== "undefined" && window.confirm(labels.confirmDeleteRole ?? "?Eliminar este rol?")) onDeleteRole(role.id);
+                                  setRoleDeleteConfirmId(role.id);
                                 }}
                                 className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                 title={labels["delete"] ?? "Eliminar"}
@@ -2373,8 +2380,7 @@ export function CentralModule({
                         <button
                           type="button"
                           onClick={() => {
-                            setEmployeePanelId(null);
-                            onConfirmDeleteEmployee(emp.id);
+                            setEmployeeDeleteConfirmId(emp.id);
                           }}
                           className="flex items-center gap-2 rounded-xl bg-red-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-red-500 min-h-[44px]"
                         >
@@ -2742,6 +2748,123 @@ export function CentralModule({
                 </button>
                 <button type="button" onClick={saveRecord} className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]">
                   {t.save ?? "Guardar"}
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {roleDeleteConfirmId && onDeleteRole && (() => {
+        const lx = labels as Record<string, string>;
+        const roleRow = customRoles.find((r) => r.id === roleDeleteConfirmId);
+        if (!roleRow) return null;
+        return (
+          <>
+            <div
+              className="fixed inset-0 z-[10050] bg-black/50 touch-none"
+              aria-hidden
+              onClick={() => !roleDeleteBusy && setRoleDeleteConfirmId(null)}
+            />
+            <div
+              role="dialog"
+              aria-modal
+              className="fixed z-[10051] w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            >
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white break-words">
+                {lx.confirmDeleteRole ?? "Delete this role?"}
+              </h3>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 break-words">
+                {roleRow.name}
+              </p>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-3">
+                <button
+                  type="button"
+                  disabled={roleDeleteBusy}
+                  onClick={() => setRoleDeleteConfirmId(null)}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 transition-opacity disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-100 sm:w-auto"
+                >
+                  {lx.cancel ?? "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  disabled={roleDeleteBusy}
+                  onClick={() => {
+                    void (async () => {
+                      setRoleDeleteBusy(true);
+                      try {
+                        await Promise.resolve(onDeleteRole(roleDeleteConfirmId));
+                        showToast("success", lx.toast_deleted ?? "Deleted");
+                        setRoleDeleteConfirmId(null);
+                      } catch (e) {
+                        showToast("error", userFacingErrorMessage(lx, e));
+                      } finally {
+                        setRoleDeleteBusy(false);
+                      }
+                    })();
+                  }}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:bg-red-500 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                >
+                  {roleDeleteBusy ? <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden /> : null}
+                  {lx.common_delete ?? lx["delete"] ?? "Delete"}
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {employeeDeleteConfirmId && onConfirmDeleteEmployee && (() => {
+        const lx = labels as Record<string, string>;
+        const empRow = (safeEmployees ?? []).find((e) => e.id === employeeDeleteConfirmId);
+        if (!empRow) return null;
+        return (
+          <>
+            <div
+              className="fixed inset-0 z-[10050] bg-black/50 touch-none"
+              aria-hidden
+              onClick={() => !employeeDeleteBusy && setEmployeeDeleteConfirmId(null)}
+            />
+            <div
+              role="dialog"
+              aria-modal
+              className="fixed z-[10051] w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            >
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white break-words">
+                {lx.common_confirm_delete ?? "Delete this item?"}
+              </h3>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 break-words">{empRow.name}</p>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-3">
+                <button
+                  type="button"
+                  disabled={employeeDeleteBusy}
+                  onClick={() => setEmployeeDeleteConfirmId(null)}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 transition-opacity disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-100 sm:w-auto"
+                >
+                  {lx.cancel ?? "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  disabled={employeeDeleteBusy}
+                  onClick={() => {
+                    void (async () => {
+                      setEmployeeDeleteBusy(true);
+                      try {
+                        setEmployeePanelId(null);
+                        onConfirmDeleteEmployee(employeeDeleteConfirmId);
+                        showToast("success", lx.toast_deleted ?? "Deleted");
+                        setEmployeeDeleteConfirmId(null);
+                      } catch (e) {
+                        showToast("error", userFacingErrorMessage(lx, e));
+                      } finally {
+                        setEmployeeDeleteBusy(false);
+                      }
+                    })();
+                  }}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:bg-red-500 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                >
+                  {employeeDeleteBusy ? <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden /> : null}
+                  {lx.common_delete ?? lx["delete"] ?? "Delete"}
                 </button>
               </div>
             </div>

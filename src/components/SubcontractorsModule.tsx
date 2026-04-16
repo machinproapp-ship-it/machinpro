@@ -14,8 +14,12 @@ import {
   Star,
   X,
   UserPlus,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
 import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
 import type { EmployeeDocument } from "@/lib/employeeDocumentUtils";
@@ -209,6 +213,7 @@ export function SubcontractorsModule({
   onBackToOffice,
 }: SubcontractorsModuleProps) {
   const canDeleteSub = canDeleteSubProp !== undefined ? canDeleteSubProp : canManage;
+  const { showToast } = useToast();
   const [list, setList] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -253,6 +258,8 @@ export function SubcontractorsModule({
   const [ddRating, setDdRating] = useState(3);
   const [ddEmName, setDdEmName] = useState("");
   const [ddEmPhone, setDdEmPhone] = useState("");
+  const [deleteSubConfirm, setDeleteSubConfirm] = useState<{ id: string; displayName: string } | null>(null);
+  const [deleteSubBusy, setDeleteSubBusy] = useState(false);
 
   const activeProjects = useMemo(() => projects.filter((p) => !p.archived), [projects]);
 
@@ -417,6 +424,7 @@ export function SubcontractorsModule({
     if (error || !ins) {
       console.error(error);
       setSavingModal(false);
+      showToast("error", userFacingErrorMessage(t as Record<string, string>, error ?? undefined));
       return;
     }
     const sid = (ins as { id: string }).id;
@@ -456,6 +464,7 @@ export function SubcontractorsModule({
     setModalOpen(false);
     void load();
     setSelectedId(sid);
+    showToast("success", (t as Record<string, string>).saved_successfully ?? (t as Record<string, string>).toast_saved ?? "Saved");
   };
 
   const appendWorkHistoryEntry = async (entry: WorkHistoryEntry) => {
@@ -466,20 +475,26 @@ export function SubcontractorsModule({
     void load();
   };
 
-  const deleteSubcontractor = async (id: string, displayName: string) => {
+  const confirmDeleteSubcontractor = async () => {
     const lx = t as Record<string, string>;
-    if (!supabase || !canDeleteSub) return;
-    const msg =
-      (lx.subcontractors_delete_confirm?.replace(/\{name\}/g, displayName) ?? "").trim() ||
-      lx.common_confirm_delete ||
-      "";
-    if (typeof window !== "undefined" && !window.confirm(msg)) return;
-    await supabase.from("subcontractors").delete().eq("id", id);
-    if (selectedId === id) setSelectedId(null);
-    void load();
+    if (!supabase || !canDeleteSub || !deleteSubConfirm) return;
+    setDeleteSubBusy(true);
+    try {
+      const { error } = await supabase.from("subcontractors").delete().eq("id", deleteSubConfirm.id);
+      if (error) throw error;
+      showToast("success", lx.toast_deleted ?? "Deleted");
+      if (selectedId === deleteSubConfirm.id) setSelectedId(null);
+      setDeleteSubConfirm(null);
+      void load();
+    } catch (e) {
+      showToast("error", userFacingErrorMessage(lx, e));
+    } finally {
+      setDeleteSubBusy(false);
+    }
   };
 
   const saveSubcontractorDetail = async () => {
+    const lx = t as Record<string, string>;
     if (!supabase || !canManage || !selectedId) return;
     setDetailSaving(true);
     try {
@@ -498,8 +513,15 @@ export function SubcontractorsModule({
           emergency_contact_phone: ddEmPhone.trim() || null,
         })
         .eq("id", selectedId);
-      if (error) console.error(error);
-      else void load();
+      if (error) {
+        console.error(error);
+        showToast("error", userFacingErrorMessage(lx, error));
+      } else {
+        showToast("success", lx.saved_successfully ?? lx.toast_saved ?? "Saved");
+        void load();
+      }
+    } catch (e) {
+      showToast("error", userFacingErrorMessage(lx, e));
     } finally {
       setDetailSaving(false);
     }
@@ -834,15 +856,21 @@ export function SubcontractorsModule({
               type="button"
               disabled={detailSaving || !ddName.trim()}
               onClick={() => void saveSubcontractorDetail()}
-              className="min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:pointer-events-none disabled:opacity-50"
             >
-              {detailSaving ? "…" : (tl.employees_save_changes ?? t.save ?? "")}
+              {detailSaving ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : null}
+              {tl.employees_save_changes ?? t.save ?? ""}
             </button>
             {canDeleteSub && (
               <button
                 type="button"
-                className="min-h-[44px] rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 text-sm font-medium"
-                onClick={() => void deleteSubcontractor(selected.id, ddName.trim() || selected.name)}
+                className="min-h-[44px] rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 dark:border-red-800 dark:text-red-300"
+                onClick={() =>
+                  setDeleteSubConfirm({
+                    id: selected.id,
+                    displayName: ddName.trim() || selected.name,
+                  })
+                }
               >
                 {tl.subcontractors_delete_action ?? tl.common_delete ?? ""}
               </button>
@@ -954,6 +982,50 @@ export function SubcontractorsModule({
             </div>
           </>
         )}
+
+        {deleteSubConfirm && (
+          <>
+            <div
+              className="fixed inset-0 z-[10050] bg-black/50 touch-none"
+              aria-hidden
+              onClick={() => !deleteSubBusy && setDeleteSubConfirm(null)}
+            />
+            <div
+              role="dialog"
+              aria-modal
+              className="fixed left-1/2 top-1/2 z-[10051] w-full max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-md"
+            >
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white break-words">
+                {(tl.subcontractors_delete_confirm?.replace(/\{name\}/g, deleteSubConfirm.displayName) ?? "").trim() ||
+                  tl.common_confirm_delete ||
+                  ""}
+              </h3>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-3">
+                <button
+                  type="button"
+                  disabled={deleteSubBusy}
+                  onClick={() => setDeleteSubConfirm(null)}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 transition-opacity disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-100 sm:w-auto"
+                >
+                  {t.cancel ?? ""}
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteSubBusy}
+                  onClick={() => void confirmDeleteSubcontractor()}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:bg-red-500 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                >
+                  {deleteSubBusy ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                  ) : (
+                    <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                  )}
+                  {tl.common_delete ?? tl.subcontractors_delete_action ?? ""}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -973,18 +1045,18 @@ export function SubcontractorsModule({
         </div>
       ) : null}
       <section className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-6 lg:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-          <Building2 className="h-5 w-5" />
-          {t.subcontractors_title ?? ""}
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-white">
+          <Building2 className="h-5 w-5 shrink-0" />
+          <span className="break-words">{t.subcontractors_title ?? ""}</span>
         </h2>
         {canManage && (
           <button
             type="button"
             onClick={openNewModal}
-            className="min-h-[44px] inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
+            className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 sm:w-auto"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 shrink-0" />
             {tl.newSubcontractor ?? tl.subcontractors_new_modal ?? t.subcontractors_new ?? ""}
           </button>
         )}
@@ -1341,9 +1413,10 @@ export function SubcontractorsModule({
               type="button"
               disabled={savingModal || !formName.trim()}
               onClick={() => void saveNewSubcontractor()}
-              className="w-full min-h-[44px] rounded-lg bg-amber-600 text-white font-medium disabled:opacity-50"
+              className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg bg-amber-600 font-medium text-white disabled:pointer-events-none disabled:opacity-50"
             >
-              {savingModal ? "…" : (t.accept ?? "")}
+              {savingModal ? <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden /> : null}
+              {t.accept ?? ""}
             </button>
           </div>
         </>

@@ -1,4 +1,4 @@
-﻿/** NL — auto-built (value-map); review for domain terms */
+/** NL — auto-built (value-map); review for domain terms */
 export default {
   "office": "Centraal",
   "warehouse": "Logistiek",
@@ -99,6 +99,9 @@ export default {
   "photoNotesPlaceholder": "Optionele opmerkingen voor de volgende foto...",
   "noAssignedPersonnel": "Geen personeel toegewezen aan dit project.",
   "noProjectMaterials": "Geen materialen toegewezen aan dit project.",
+  "projects_inv_materials_assigned": "Toegewezen materialen",
+  "projects_new_project": "Nieuw project",
+  "inv_photo_alt": "Inventarisfoto",
   "whToolsOnSite": "Gereedschap ter plaatse",
   "noProjectTools": "Geen tools toegewezen aan dit project.",
   "invPhotosTitle": "Activafoto's / logistiek dossier",

@@ -43,6 +43,7 @@ import {
   Download,
   Shield,
   Factory,
+  Loader2,
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
@@ -399,6 +400,9 @@ export interface ProjectsModuleProps {
   /** Producción global (filtrado por proyecto en Costes). */
   productionReports?: ProductionReport[];
   rentals?: Rental[];
+  /** Operaciones: abrir formulario nuevo proyecto (Central usa el mismo flujo). */
+  canCreateProjects?: boolean;
+  onOpenNewProject?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -536,6 +540,19 @@ type TabId =
   | "costes"
   | "work_order"
   | "mapa";
+
+function projectToolStatusLabel(
+  status: ToolStatus | undefined,
+  lx: Record<string, string>
+): string {
+  const s = status ?? "available";
+  if (s === "available") return lx.available ?? PM_EN.available;
+  if (s === "in_use") return lx.inUse ?? PM_EN.inUse;
+  if (s === "maintenance") return lx.maintenance ?? PM_EN.maintenance;
+  if (s === "out_of_service") return lx.outOfService ?? PM_EN.outOfService;
+  if (s === "lost") return lx.lost ?? PM_EN.lost;
+  return lx.available ?? PM_EN.available;
+}
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "general", icon: <Info className="h-4 w-4" /> },
@@ -684,6 +701,8 @@ export function ProjectsModule({
   onRefreshProductionData,
   productionReports = [],
   rentals = [],
+  canCreateProjects = false,
+  onOpenNewProject,
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -754,6 +773,7 @@ export function ProjectsModule({
   const [benefitEnd, setBenefitEnd] = useState("");
   const [workOrderImportOpen, setWorkOrderImportOpen] = useState(false);
   const [workOrderImportPick, setWorkOrderImportPick] = useState<Record<string, boolean>>({});
+  const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
 
   const projectExpensesForProject = useMemo(() => {
     if (!selectedProjectId) return [];
@@ -1284,26 +1304,38 @@ export function ProjectsModule({
       formData.append("file", file);
       formData.append("upload_preset", uploadPreset);
       formData.append("folder", "machinpro/photos");
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = (await res.json()) as { secure_url?: string };
-      const url = data.secure_url;
-      if (url) {
-        const fromModal = pendingUploadCategoryRef.current;
-        pendingUploadCategoryRef.current = null;
-        const category =
-          fromModal ??
-          (galleryCategoryFilter === "all" ? "progress" : galleryCategoryFilter);
-        onPhotoObra?.(
-          selectedProjectId!,
-          category as "progress" | "incident" | "health_safety",
-          url
+      setGalleryUploadBusy(true);
+      try {
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          { method: "POST", body: formData }
         );
+        const data = (await res.json()) as { secure_url?: string; error?: { message?: string } };
+        const url = data.secure_url;
+        if (url) {
+          const fromModal = pendingUploadCategoryRef.current;
+          pendingUploadCategoryRef.current = null;
+          const category =
+            fromModal ??
+            (galleryCategoryFilter === "all" ? "progress" : galleryCategoryFilter);
+          onPhotoObra?.(
+            selectedProjectId!,
+            category as "progress" | "incident" | "health_safety",
+            url
+          );
+          showToast("success", tl.saved_successfully ?? PM_EN.toast_saved);
+        } else if (data.error?.message) {
+          showToast("error", userFacingErrorMessage(tl, new Error(data.error.message)));
+        } else {
+          showToast("error", userFacingErrorMessage(tl, undefined));
+        }
+      } catch (err) {
+        showToast("error", userFacingErrorMessage(tl, err));
+      } finally {
+        setGalleryUploadBusy(false);
       }
     },
-    [selectedProjectId, galleryCategoryFilter, onPhotoObra]
+    [selectedProjectId, galleryCategoryFilter, onPhotoObra, showToast, tl]
   );
 
   const openGalleryFilePickerAfterCategory = useCallback((cat: PhotoCategory) => {
@@ -1453,13 +1485,27 @@ export function ProjectsModule({
     return (
       <section className="w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
         <div className="min-w-0 border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5 lg:px-8">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-white">
-            <Building2 className="h-5 w-5 shrink-0 text-amber-500" />
-            <span className="min-w-0 break-words">{t.siteAdminView ?? PM_EN.siteAdminView}</span>
-          </h2>
-          <p className="mt-0.5 break-words text-sm text-zinc-500 dark:text-zinc-400">
-            {t.projects_select_detail_hint ?? PM_EN.projects_select_detail_hint}
-          </p>
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-white">
+                <Building2 className="h-5 w-5 shrink-0 text-amber-500" />
+                <span className="min-w-0 break-words">{t.siteAdminView ?? PM_EN.siteAdminView}</span>
+              </h2>
+              <p className="mt-0.5 break-words text-sm text-zinc-500 dark:text-zinc-400">
+                {t.projects_select_detail_hint ?? PM_EN.projects_select_detail_hint}
+              </p>
+            </div>
+            {canCreateProjects && onOpenNewProject ? (
+              <button
+                type="button"
+                onClick={onOpenNewProject}
+                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 sm:w-auto"
+              >
+                <Plus className="h-5 w-5 shrink-0" aria-hidden />
+                {(t as Record<string, string>).projects_new_project ?? PM_EN.projects_new_project}
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="grid w-full min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 md:gap-6 lg:grid-cols-3 lg:p-8">
@@ -1635,8 +1681,13 @@ export function ProjectsModule({
               </p>
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{assignedEmployees.length}</p>
               {pendingObraPhotos.length > 0 && canApprove && (
-                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                  {pendingObraPhotos.length} foto{pendingObraPhotos.length !== 1 ? "s" : ""} pendiente{pendingObraPhotos.length !== 1 ? "s" : ""}
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 break-words">
+                  {pendingObraPhotos.length === 1
+                    ? (tl.project_photos_pending_one ?? PM_EN.project_photos_pending_one)
+                    : (tl.project_photos_pending_many ?? PM_EN.project_photos_pending_many).replace(
+                        /\{\{n\}\}/g,
+                        String(pendingObraPhotos.length)
+                      )}
                 </p>
               )}
             </div>
@@ -1684,7 +1735,7 @@ export function ProjectsModule({
                   : tab.id === "costes"
                     ? (t as Record<string, string>).project_costs_title ?? PM_EN.project_costs_title
                   : tab.id === "work_order"
-                    ? (t as Record<string, string>).work_order_title ?? "Orden de trabajo"
+                    ? (t as Record<string, string>).work_order_title ?? PM_EN.work_order_title
                   : tab.id === "mapa"
                     ? (t as Record<string, string>).map ??
                       (t as Record<string, string>).tab_map ??
@@ -2194,45 +2245,78 @@ export function ProjectsModule({
             {/* Materiales */}
             <div>
               <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
-                <Boxes className="h-4 w-4 text-amber-500" /> Materiales asignados
+                <Boxes className="h-4 w-4 text-amber-500 shrink-0" />
+                {tl.projects_inv_materials_assigned ?? PM_EN.projects_inv_materials_assigned}
               </h3>
               {projectMaterials.length === 0 ? (
                 <p className="text-sm text-zinc-400 italic">
                   {t.noProjectMaterials ?? PM_EN.noProjectMaterials}
                 </p>
               ) : (
-                <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[320px]">
-                    <thead className="bg-zinc-50 dark:bg-slate-800">
-                      <tr className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                        <th className="px-4 py-2.5 text-left">Material</th>
-                        <th className="px-4 py-2.5 text-right">Cantidad</th>
-                        {canEdit && <th className="px-4 py-2.5 w-12" />}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-slate-800">
-                      {projectMaterials.map((item) => (
-                        <tr key={item.id} className="hover:bg-zinc-50 dark:hover:bg-slate-800/40">
-                          <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{item.name}</td>
-                          <td className="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400">{item.quantity} {item.unit}</td>
-                          {canEdit && (
-                            <td className="px-4 py-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => onUpdateItemProject?.(item.id, null)}
-                                className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center inline-flex"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <>
+                  <div className="space-y-2 md:hidden">
+                    {projectMaterials.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex min-w-0 items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/40"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-medium text-zinc-900 dark:text-zinc-100">{item.name}</p>
+                          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                            {tl.quantity ?? PM_EN.quantity}: {item.quantity} {item.unit}
+                          </p>
+                        </div>
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateItemProject?.(item.id, null)}
+                            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                            aria-label={tl.common_delete ?? PM_EN.common_delete}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
-                </div>
+                  <div className="hidden overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-700 md:block">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[320px] text-sm">
+                        <thead className="bg-zinc-50 dark:bg-slate-800">
+                          <tr className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            <th className="px-4 py-2.5 text-left">{tl.material ?? PM_EN.material}</th>
+                            <th className="px-4 py-2.5 text-right">{tl.quantity ?? PM_EN.quantity}</th>
+                            {canEdit && <th className="w-12 px-4 py-2.5" />}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100 dark:divide-slate-800">
+                          {projectMaterials.map((item) => (
+                            <tr key={item.id} className="hover:bg-zinc-50 dark:hover:bg-slate-800/40">
+                              <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100 break-words">
+                                {item.name}
+                              </td>
+                              <td className="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                                {item.quantity} {item.unit}
+                              </td>
+                              {canEdit && (
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdateItemProject?.(item.id, null)}
+                                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                                    aria-label={tl.common_delete ?? PM_EN.common_delete}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
@@ -2261,12 +2345,7 @@ export function ProjectsModule({
                         : tool.toolStatus === "lost"
                         ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                         : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300";
-                    const statusLabel =
-                      tool.toolStatus === "available" ? "Disponible" :
-                      tool.toolStatus === "in_use" ? "En uso" :
-                      tool.toolStatus === "maintenance" ? "En mantenimiento" :
-                      tool.toolStatus === "out_of_service" ? "Fuera de servicio" :
-                      tool.toolStatus === "lost" ? "Extraviado" : "Disponible";
+                    const statusLabel = projectToolStatusLabel(tool.toolStatus, tl);
                     return (
                       <div key={tool.id} className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -2290,7 +2369,7 @@ export function ProjectsModule({
                             <button
                               type="button"
                               onClick={() => onReturnToolFromProject(tool.id)}
-                              className="text-xs rounded-lg border border-amber-300 dark:border-amber-600 text-amber-600 dark:text-amber-400 px-2 py-1 hover:bg-amber-50 dark:hover:bg-amber-950/30 min-h-[36px] transition-colors"
+                              className="text-xs rounded-lg border border-amber-300 dark:border-amber-600 text-amber-600 dark:text-amber-400 px-2 py-1 hover:bg-amber-50 dark:hover:bg-amber-950/30 min-h-[44px] min-w-[44px] transition-colors"
                             >
                               {(t as Record<string, string>).returnToWarehouse ?? PM_EN.returnToWarehouse}
                             </button>
@@ -2318,7 +2397,7 @@ export function ProjectsModule({
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                   <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? PM_EN.invPhotosTitle}
                 </h3>
-                <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
                   {invPhotos.flatMap((entry) =>
                     (entry.photoUrls || []).map((url, i) => (
                       <button
@@ -2327,7 +2406,11 @@ export function ProjectsModule({
                         onClick={() => setLightbox({ src: url, fallback: url })}
                         className="group relative aspect-square rounded-xl overflow-hidden border border-zinc-200 dark:border-slate-700 bg-zinc-100 dark:bg-slate-800"
                       >
-                        <img src={url} alt="Foto inventario" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <img
+                          src={url}
+                          alt={tl.inv_photo_alt ?? PM_EN.inv_photo_alt}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
                         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
                           <p className="text-white text-xs truncate">{entry.date}</p>
                         </div>
@@ -2407,10 +2490,14 @@ export function ProjectsModule({
                   pendingUploadCategoryRef.current = null;
                   if (selectedProjectId) setShowCategoryModal(true);
                 }}
-                disabled={!selectedProjectId}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 min-h-[44px] transition-colors hover:bg-amber-100 disabled:pointer-events-none disabled:opacity-50 dark:border-amber-600/60 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60 sm:w-auto sm:justify-start"
+                disabled={!selectedProjectId || galleryUploadBusy}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 min-h-[44px] min-w-[44px] transition-colors hover:bg-amber-100 disabled:pointer-events-none disabled:opacity-50 dark:border-amber-600/60 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60 sm:w-auto sm:justify-start ${galleryUploadBusy ? "opacity-50" : ""}`}
               >
-                <Camera className="h-5 w-5 shrink-0" aria-hidden />
+                {galleryUploadBusy ? (
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Camera className="h-5 w-5 shrink-0" aria-hidden />
+                )}
                 {(t as Record<string, string>).uploadPhoto ?? PM_EN.uploadPhoto}
               </button>
               {pdfSourcePhotos.length > 0 && selectedProject && (
@@ -2574,7 +2661,7 @@ export function ProjectsModule({
                     })}
                   </div>
                 ) : (
-                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
                     {filteredPendingObra.map((entry) => {
                       const cat = entry.photoCategory ?? "progress";
                       const catBadgeClass =
@@ -2644,7 +2731,7 @@ export function ProjectsModule({
                   text={t.noApprovedPhotos ?? PM_EN.noApprovedPhotos}
                 />
               ) : (
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
                   {filteredApprovedObra.map((entry) => {
                     const showDl =
                       selectedProject &&
@@ -2728,7 +2815,7 @@ export function ProjectsModule({
                     }
                   />
                 ) : (
-                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
                     {[...inspectionPhotosPool]
                       .sort(
                         (a, b) =>
@@ -4411,7 +4498,7 @@ export function ProjectsModule({
                                   showToast("success", tl.export_success ?? PM_EN.export_success);
                                   setCostInvoiceOpen(false);
                                 } catch (e) {
-                                  showToast("error", (e as Error)?.message ?? (tl.export_error ?? PM_EN.toast_error));
+                                  showToast("error", userFacingErrorMessage(tl, e));
                                 }
                               })();
                             }}
@@ -4536,7 +4623,7 @@ export function ProjectsModule({
                                   showToast("success", tl.export_success ?? PM_EN.export_success);
                                   setBenefitOpen(false);
                                 } catch (e) {
-                                  showToast("error", (e as Error)?.message ?? (tl.export_error ?? PM_EN.toast_error));
+                                  showToast("error", userFacingErrorMessage(tl, e));
                                 }
                               })();
                             }}

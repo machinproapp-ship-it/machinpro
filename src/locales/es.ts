@@ -1,4 +1,4 @@
-﻿/** ES — migrated from page.tsx (Sprint AF) */
+/** ES — migrated from page.tsx (Sprint AF) */
 export default {
   office: "Central",
   warehouse: "Logística",
@@ -318,6 +318,9 @@ export default {
   projects_inv_assign: "Asignar",
   splash_aria_loading: "Cargando",
   noProjectMaterials: "Sin materiales asignados a este proyecto.",
+  projects_inv_materials_assigned: "Materiales asignados",
+  projects_new_project: "Nuevo proyecto",
+  inv_photo_alt: "Foto de inventario",
   whToolsOnSite: "Herramientas en obra",
   noProjectTools: "Sin herramientas asignadas a este proyecto.",
   invPhotosTitle: "Fotos de activos / registro logístico",

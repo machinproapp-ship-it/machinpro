@@ -5984,23 +5984,21 @@ export default function Home() {
                   setProjects((prev) => prev.map((p) => p.id === id ? { ...p, archived: !p.archived } : p));
                 }}
                 onDeleteProject={(id) => {
-                  if (window.confirm("¿Eliminar este proyecto?")) setProjects((prev) => prev.filter((p) => p.id !== id));
+                  setProjects((prev) => prev.filter((p) => p.id !== id));
                 }}
                 onAddEmployee={() => openEmployeeForm("new")}
                 onUpdateEmployee={(id, upd) => updateEmployee(id, upd as Partial<Employee>)}
                 onConfirmDeleteEmployee={(id) => {
-                  if (window.confirm("¿Eliminar este empleado?")) {
-                    void logAuditEvent({
-                      company_id: companyId ?? "",
-                      user_id: user?.id ?? "",
-                      user_name: profile?.fullName ?? profile?.email ?? "admin",
-                      action: "employee_deleted",
-                      entity_type: "employee",
-                      entity_id: id,
-                    });
-                    setEmployees((prev) => prev.filter((e) => e.id !== id));
-                    invalidateDashboardCache();
-                  }
+                  void logAuditEvent({
+                    company_id: companyId ?? "",
+                    user_id: user?.id ?? "",
+                    user_name: profile?.fullName ?? profile?.email ?? "admin",
+                    action: "employee_deleted",
+                    entity_type: "employee",
+                    entity_id: id,
+                  });
+                  setEmployees((prev) => prev.filter((e) => e.id !== id));
+                  invalidateDashboardCache();
                 }}
                 subcontractorCountryCode={subcontractorCountryCode}
                 taxIdLabel={countryConfig.taxIdLabel}
@@ -6008,8 +6006,7 @@ export default function Home() {
                 onAddSubcontractor={(sub) => setSubcontractors((prev) => [...prev, sub])}
                 onUpdateSubcontractor={(sub) => setSubcontractors((prev) => prev.map((s) => (s.id === sub.id ? sub : s)))}
                 onConfirmDeleteSubcontractor={(id) => {
-                  if (typeof window !== "undefined" && window.confirm((t as Record<string, string>).confirmDeleteSubcontractor ?? "¿Eliminar este subcontratista?"))
-                    setSubcontractors((prev) => prev.filter((s) => s.id !== id));
+                  setSubcontractors((prev) => prev.filter((s) => s.id !== id));
                 }}
                 onOpenProjectForm={(proj) => openProjectForm(projects.find((p) => p.id === proj.id) ?? proj)}
                 onOpenProjectInOperations={(proj) => {
@@ -6080,7 +6077,7 @@ export default function Home() {
                     .eq("company_id", companyId);
                   if (error) {
                     console.error("[page] roles delete", error);
-                    return;
+                    throw error;
                   }
                   setCustomRoles((prev) => prev.filter((r) => r.id !== id));
                 }}
@@ -7012,6 +7009,8 @@ export default function Home() {
                 onRefreshProductionData={() => void reloadProductionData()}
                 productionReports={productionReports}
                 rentals={rentals}
+                canCreateProjects={!!rolePerms.canCreateProjects}
+                onOpenNewProject={() => openProjectForm()}
               />
                 )}
               <ModuleHelpFab

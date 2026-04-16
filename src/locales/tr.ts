@@ -1,4 +1,4 @@
-﻿/** TR — auto-built (value-map); review for domain terms */
+/** TR — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",
@@ -99,6 +99,9 @@ export default {
   "photoNotesPlaceholder": "Optional notes for the next photo…",
   "noAssignedPersonnel": "No personnel assigned to this project.",
   "noProjectMaterials": "No materials assigned to this project.",
+  "projects_inv_materials_assigned": "Assigned materials",
+  "projects_new_project": "New project",
+  "inv_photo_alt": "Inventory photo",
   "whToolsOnSite": "Tools on site",
   "noProjectTools": "No tools assigned to this project.",
   "invPhotosTitle": "Asset photos / logistics record",
