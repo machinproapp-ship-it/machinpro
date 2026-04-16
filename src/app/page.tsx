@@ -6320,15 +6320,14 @@ export default function Home() {
                   setEditInventoryDraft({ name: item.name, type: item.type, quantity: item.quantity, unit: item.unit, purchasePriceCAD: item.purchasePriceCAD, assignedToProjectId: item.assignedToProjectId, assignedToEmployeeId: item.assignedToEmployeeId });
                 }}
                 onDeleteInventory={(id) => {
-                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
-                  if (typeof window !== "undefined" && window.confirm(msg)) {
-                    const now = new Date().toISOString();
-                    setInventoryItems((prev) => {
-                      const next = prev.map((i) => (i.id === id ? { ...i, deletedAt: now } : i));
-                      try { localStorage.setItem("machinpro_inventory", JSON.stringify(next)); } catch {}
-                      return next;
-                    });
-                  }
+                  const now = new Date().toISOString();
+                  setInventoryItems((prev) => {
+                    const next = prev.map((i) => (i.id === id ? { ...i, deletedAt: now } : i));
+                    try {
+                      localStorage.setItem("machinpro_inventory", JSON.stringify(next));
+                    } catch {}
+                    return next;
+                  });
                 }}
                 onAddFleet={() => {
                   setVehicleFormOpen(true);
@@ -6346,9 +6345,7 @@ export default function Home() {
                   setVehicleFormOpen(true);
                 }}
                 onDeleteFleet={(id) => {
-                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
-                  if (typeof window !== "undefined" && window.confirm(msg))
-                    setVehicles((prev) => prev.filter((v) => v.id !== id));
+                  setVehicles((prev) => prev.filter((v) => v.id !== id));
                 }}
                 onAddRental={() => {
                   setRentalFormOpen(true);
@@ -6368,38 +6365,33 @@ export default function Home() {
                   setRentalFormOpen(true);
                 }}
                 onDeleteRental={(id) => {
-                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
-                  if (typeof window !== "undefined" && window.confirm(msg)) {
-                    const deleted = rentals.find((x) => x.id === id);
-                    setRentals((prev) => {
-                      const next = prev.filter((r) => r.id !== id);
-                      persistRentalsLocal(next);
-                      return next;
-                    });
-                    void logAuditEvent({
-                      company_id: companyId ?? "",
-                      user_id: user?.id ?? "",
-                      user_name: profile?.fullName ?? profile?.email ?? "admin",
-                      action: "rental_deleted",
-                      entity_type: "rental",
-                      entity_id: id,
-                      entity_name: deleted?.name,
-                    });
-                    if (supabase && companyId && isUuidString(id)) {
-                      void supabase
-                        .from("rentals")
-                        .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-                        .eq("id", id)
-                        .eq("company_id", companyId);
-                    }
+                  const deleted = rentals.find((x) => x.id === id);
+                  setRentals((prev) => {
+                    const next = prev.filter((r) => r.id !== id);
+                    persistRentalsLocal(next);
+                    return next;
+                  });
+                  void logAuditEvent({
+                    company_id: companyId ?? "",
+                    user_id: user?.id ?? "",
+                    user_name: profile?.fullName ?? profile?.email ?? "admin",
+                    action: "rental_deleted",
+                    entity_type: "rental",
+                    entity_id: id,
+                    entity_name: deleted?.name,
+                  });
+                  if (supabase && companyId && isUuidString(id)) {
+                    void supabase
+                      .from("rentals")
+                      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                      .eq("id", id)
+                      .eq("company_id", companyId);
                   }
                 }}
                 onAddSupplier={() => { setSupplierFormOpen(true); setEditingSupplierId(null); setSupplierDraft({}); }}
                 onEditSupplier={(s) => { setEditingSupplierId(s.id); setSupplierDraft({ ...s }); setSupplierFormOpen(true); }}
                 onDeleteSupplier={(id) => {
-                  const msg = (t as Record<string, string>).common_confirm_delete ?? "";
-                  if (typeof window !== "undefined" && window.confirm(msg))
-                    setSuppliers((prev) => prev.filter((s) => s.id !== id));
+                  setSuppliers((prev) => prev.filter((s) => s.id !== id));
                 }}
                 canViewInventory={!!rolePerms.canViewInventory}
                 canManageInventory={!!rolePerms.canManageInventory}

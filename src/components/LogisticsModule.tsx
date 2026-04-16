@@ -25,6 +25,7 @@ import {
   ChevronDown,
   Search,
   Download,
+  Loader2,
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import type { InventoryLedgerRow, InventoryMovementKind } from "@/types/inventoryLedger";
@@ -35,6 +36,7 @@ import { generateInventoryQrLabelPdf } from "@/lib/generateInventoryQrLabelPdf";
 import Papa from "papaparse";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { useToast } from "@/components/Toast";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
@@ -51,6 +53,8 @@ const InventoryQrScannerModal = dynamic(
 );
 
 export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
+
+type LogisticsDeleteKind = "inventory" | "fleet" | "rental" | "supplier";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
 
 export type ToolStatus = "available" | "in_use" | "maintenance" | "out_of_service" | "lost";
@@ -565,8 +569,20 @@ export function LogisticsModule({
   const [returnCondition, setReturnCondition] = useState<"good" | "damaged" | "maintenance">("good");
   const [returnNotes, setReturnNotes] = useState("");
   const [returnPhotoUrl, setReturnPhotoUrl] = useState<string | null>(null);
-  const [returnToast, setReturnToast] = useState<string | null>(null);
   const returnFileInputRef = useRef<HTMLInputElement>(null);
+  const [deletePrompt, setDeletePrompt] = useState<{ kind: LogisticsDeleteKind; id: string; label: string } | null>(
+    null
+  );
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [adjustSubmitting, setAdjustSubmitting] = useState(false);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [returnPhotoUploading, setReturnPhotoUploading] = useState(false);
+  const [importSubmitting, setImportSubmitting] = useState(false);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [inventoryQrPdfLoading, setInventoryQrPdfLoading] = useState(false);
+  const [complianceSaveSubmitting, setComplianceSaveSubmitting] = useState(false);
+  const [orderActionKey, setOrderActionKey] = useState<string | null>(null);
+  const [incidentMarkingId, setIncidentMarkingId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [assetDrawerTab, setAssetDrawerTab] = useState<"info" | "history" | "gallery">("info");
   useEffect(() => { setAssetDrawerTab("info"); }, [selectedAsset]);
@@ -637,15 +653,21 @@ export function LogisticsModule({
     formData.append("file", file);
     formData.append("upload_preset", cloudinaryUploadPreset);
     formData.append("folder", "machinpro/assets");
+    setReturnPhotoUploading(true);
     try {
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${cloudinaryCloudName}/image/upload`,
         { method: "POST", body: formData }
       );
-      const data = (await res.json()) as { secure_url?: string };
+      const data = (await res.json()) as { secure_url?: string; error?: { message?: string } };
       if (data.secure_url) setReturnPhotoUrl(data.secure_url);
+      else if (data.error?.message)
+        showToast("error", userFacingErrorMessage(tlLabels, new Error(data.error.message)));
+      else showToast("error", userFacingErrorMessage(tlLabels, undefined));
     } catch (err) {
-      console.error("Upload error:", err);
+      showToast("error", userFacingErrorMessage(tlLabels, err));
+    } finally {
+      setReturnPhotoUploading(false);
     }
   };
 
@@ -716,22 +738,43 @@ export function LogisticsModule({
     out_of_service: toolsForStatusCount.filter((i) => (i.toolStatus ?? "available") === "out_of_service").length,
     lost: toolsForStatusCount.filter((i) => (i.toolStatus ?? "available") === "lost").length,
   };
-  const confirmReturn = () => {
-    if (!returnModalItem || !onReturnTool) return;
-    onReturnTool(returnModalItem.id, returnCondition, returnNotes, returnPhotoUrl ?? undefined);
-    setReturnModalItem(null);
-    setReturnNotes("");
-    setReturnCondition("good");
-    setReturnPhotoUrl(null);
-    setReturnToast(tlLabels.toolReturnedToast ?? "Tool returned to warehouse");
-    setTimeout(() => setReturnToast(null), 3000);
-  };
-
   const closeReturnModal = () => {
     setReturnModalItem(null);
     setReturnNotes("");
     setReturnCondition("good");
     setReturnPhotoUrl(null);
+  };
+
+  const confirmReturn = async () => {
+    if (!returnModalItem || !onReturnTool || returnSubmitting) return;
+    setReturnSubmitting(true);
+    try {
+      onReturnTool(returnModalItem.id, returnCondition, returnNotes, returnPhotoUrl ?? undefined);
+      closeReturnModal();
+      showToast("success", tlLabels.saved_successfully ?? "Guardado");
+    } catch (err) {
+      showToast("error", userFacingErrorMessage(tlLabels, err));
+    } finally {
+      setReturnSubmitting(false);
+    }
+  };
+
+  const commitDelete = async () => {
+    if (!deletePrompt || deleteSubmitting) return;
+    const { kind, id } = deletePrompt;
+    setDeleteSubmitting(true);
+    try {
+      if (kind === "inventory") onDeleteInventory(id);
+      else if (kind === "fleet") onDeleteFleet(id);
+      else if (kind === "rental") onDeleteRental(id);
+      else onDeleteSupplier(id);
+      setDeletePrompt(null);
+      showToast("success", tlLabels.saved_successfully ?? "Guardado");
+    } catch (err) {
+      showToast("error", userFacingErrorMessage(tlLabels, err));
+    } finally {
+      setDeleteSubmitting(false);
+    }
   };
   const vehicleStatusCounts = {
     all: (vehicles ?? []).length,
@@ -982,7 +1025,7 @@ export function LogisticsModule({
               )}
               </div>
             </div>
-            <div className="grid w-full max-w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="grid w-full max-w-full grid-cols-1 gap-2 min-[768px]:grid-cols-2 min-[768px]:flex min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-end">
               {flatOrderedInventory.length > 0 && canViewInventoryReports ? (
                 <button
                   type="button"
@@ -1148,7 +1191,7 @@ export function LogisticsModule({
                         <button
                           type="button"
                           onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
-                          className="text-sm font-medium text-left text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                          className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-white dark:hover:text-amber-400"
                         >
                           {item.name}
                         </button>
@@ -1156,7 +1199,7 @@ export function LogisticsModule({
                         <button
                           type="button"
                           onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
-                          className="text-sm font-medium text-left text-zinc-900 dark:text-zinc-100 hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                          className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-zinc-100 dark:hover:text-amber-400"
                         >
                           {item.name}
                         </button>
@@ -1246,7 +1289,12 @@ export function LogisticsModule({
                           <Pencil className="h-4 w-4" />
                         </button>
                         {(!isTrackedAsset(item) || (item.toolStatus === "available") || (item.toolStatus === "out_of_service") || (item.toolStatus === "lost")) && (
-                          <button type="button" onClick={() => onDeleteInventory(item.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.delete}>
+                          <button type="button" onClick={() =>
+                            setDeletePrompt({ kind: "inventory", id: item.id, label: item.name })
+                          }
+                          className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          title={t.delete}
+                        >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -1260,11 +1308,6 @@ export function LogisticsModule({
                   </div>
                 );
               })}
-              {returnToast && (
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] rounded-xl bg-amber-600 text-white px-4 py-3 text-sm font-medium shadow-lg">
-                  {returnToast}
-                </div>
-              )}
             </div>
             {/* Tabla desde md (768px+) */}
             <div className="hidden md:block overflow-x-auto">
@@ -1320,14 +1363,14 @@ export function LogisticsModule({
                       <tbody className="divide-y divide-zinc-200 dark:divide-slate-700">
                         {secItems.map((item) => (
                   <tr key={item.id} className="bg-white dark:bg-slate-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 max-w-[min(100vw,20rem)] min-[768px]:max-w-none">
+                      <div className="flex min-w-0 items-center gap-2">
                         {(item.type === "tool" || item.type === "equipment") ? <Wrench className="h-4 w-4 text-zinc-400 shrink-0" /> : <Package className="h-4 w-4 text-zinc-400 shrink-0" />}
                         {(item.type === "tool" || item.type === "equipment") ? (
                           <button
                             type="button"
                             onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
-                            className="text-sm font-medium text-left text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                            className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-white dark:hover:text-amber-400"
                           >
                             {item.name}
                           </button>
@@ -1335,7 +1378,7 @@ export function LogisticsModule({
                           <button
                             type="button"
                             onClick={() => setSelectedAsset({ type: "inventory", id: item.id })}
-                            className="text-sm font-medium text-left text-zinc-900 dark:text-zinc-100 hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                            className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-zinc-100 dark:hover:text-amber-400"
                           >
                             {item.name}
                           </button>
@@ -1439,7 +1482,14 @@ export function LogisticsModule({
                               <Pencil className="h-4 w-4" />
                             </button>
                             {(!isTrackedAsset(item) || item.toolStatus === "available" || item.toolStatus === "out_of_service" || item.toolStatus === "lost") && (
-                              <button type="button" onClick={() => onDeleteInventory(item.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center" title={t.delete}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDeletePrompt({ kind: "inventory", id: item.id, label: item.name })
+                                }
+                                className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                title={t.delete}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             )}
@@ -1497,7 +1547,7 @@ export function LogisticsModule({
                           {mov.quantity != null && mov.quantity > 0 ? ` · ${mov.quantity}` : ""}
                         </span>
                         {mov.notes ? (
-                          <span className="text-zinc-500 dark:text-zinc-400 truncate max-w-full sm:max-w-[200px]">
+                          <span className="text-zinc-500 dark:text-zinc-400 break-words max-w-full">
                             {mov.notes}
                           </span>
                         ) : null}
@@ -1531,16 +1581,23 @@ export function LogisticsModule({
           ) : null}
           {importOpen && (
             <>
-              <div className="fixed inset-0 z-[10060] bg-black/50" aria-hidden onClick={() => setImportOpen(false)} />
-              <div className="fixed inset-x-0 bottom-0 z-[10061] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
+              <div
+                className="fixed inset-0 z-[10060] bg-black/50"
+                aria-hidden
+                onClick={() => {
+                  if (!importSubmitting) setImportOpen(false);
+                }}
+              />
+              <div className="fixed inset-x-0 bottom-0 z-[10061] mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {(t as Record<string, string>).inventory_import_preview ?? "Import preview"}
                   </h3>
                   <button
                     type="button"
+                    disabled={importSubmitting}
                     onClick={() => setImportOpen(false)}
-                    className="min-h-[44px] min-w-[44px] rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    className="min-h-[44px] min-w-[44px] rounded-lg text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800"
                   >
                     <X className="h-5 w-5 mx-auto" />
                   </button>
@@ -1556,29 +1613,42 @@ export function LogisticsModule({
                     </li>
                   ))}
                 </ul>
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-end">
                   <button
                     type="button"
+                    disabled={importSubmitting}
                     onClick={() => setImportOpen(false)}
-                    className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600"
+                    className="order-1 min-h-[44px] w-full rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
                   >
                     {t.whClose ?? t.cancel ?? "Cancel"}
                   </button>
                   <button
                     type="button"
+                    disabled={importSubmitting || !importPreviewRows.length}
                     onClick={() => {
-                      if (onBulkInventoryImport && importPreviewRows.length) {
-                        void onBulkInventoryImport(importPreviewRows);
-                        showToast(
-                          "success",
-                          `${importPreviewRows.length} ${(t as Record<string, string>).inventory_import_success ?? "imported"}`
-                        );
-                      }
-                      setImportOpen(false);
-                      setImportPreviewRows([]);
+                      if (!onBulkInventoryImport || !importPreviewRows.length) return;
+                      void (async () => {
+                        setImportSubmitting(true);
+                        try {
+                          await onBulkInventoryImport(importPreviewRows);
+                          showToast(
+                            "success",
+                            `${importPreviewRows.length} ${(t as Record<string, string>).inventory_import_success ?? "imported"}`
+                          );
+                          setImportOpen(false);
+                          setImportPreviewRows([]);
+                        } catch (err) {
+                          showToast("error", userFacingErrorMessage(tlLabels, err));
+                        } finally {
+                          setImportSubmitting(false);
+                        }
+                      })();
                     }}
-                    className="min-h-[44px] rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600"
+                    className="order-2 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
                   >
+                    {importSubmitting ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                    ) : null}
                     {(t as Record<string, string>).inventory_import_confirm ?? "Confirm"}
                   </button>
                 </div>
@@ -1587,12 +1657,18 @@ export function LogisticsModule({
           )}
           {transferItem && onInventoryTransfer && (
             <>
-              <div className="fixed inset-0 z-[10060] bg-black/50" aria-hidden onClick={() => setTransferItem(null)} />
-              <div className="fixed inset-x-0 bottom-0 z-[10061] w-full max-w-none max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-none md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl">
+              <div
+                className="fixed inset-0 z-[10060] bg-black/50"
+                aria-hidden
+                onClick={() => {
+                  if (!transferSubmitting) setTransferItem(null);
+                }}
+              />
+              <div className="fixed inset-x-0 bottom-0 z-[10061] mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
                   {(t as Record<string, string>).inventory_transfer ?? "Transfer"}
                 </h3>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">{transferItem.name}</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3 break-words">{transferItem.name}</p>
                 {!isTrackedAsset(transferItem) ? (
                   <div className="mb-3">
                     <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
@@ -1654,16 +1730,18 @@ export function LogisticsModule({
                     className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]"
                   />
                 </div>
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-end">
                   <button
                     type="button"
+                    disabled={transferSubmitting}
                     onClick={() => setTransferItem(null)}
-                    className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600"
+                    className="order-1 min-h-[44px] w-full rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
                   >
                     {t.whClose ?? t.cancel ?? "Cancel"}
                   </button>
                   <button
                     type="button"
+                    disabled={transferSubmitting}
                     onClick={() => {
                       const qty = isTrackedAsset(transferItem)
                         ? 1
@@ -1672,20 +1750,33 @@ export function LogisticsModule({
                         showToast("error", (t as Record<string, string>).filterByProject ?? "Select project");
                         return;
                       }
-                      onInventoryTransfer({
-                        itemId: transferItem.id,
-                        quantity: qty,
-                        fromProjectId: transferItem.assignedToProjectId ?? null,
-                        toProjectId: transferToWarehouse ? null : transferDestProjectId || null,
-                        fromLocation: transferItem.location ?? "warehouse",
-                        toLocation: transferToWarehouse ? "warehouse" : "onsite",
-                        notes: transferNoteStr.trim() || null,
-                      });
-                      setTransferItem(null);
-                      showToast("success", (t as Record<string, string>).inventory_transfer_confirm ?? "OK");
+                      void (async () => {
+                        setTransferSubmitting(true);
+                        try {
+                          await new Promise((r) => setTimeout(r, 0));
+                          onInventoryTransfer({
+                            itemId: transferItem.id,
+                            quantity: qty,
+                            fromProjectId: transferItem.assignedToProjectId ?? null,
+                            toProjectId: transferToWarehouse ? null : transferDestProjectId || null,
+                            fromLocation: transferItem.location ?? "warehouse",
+                            toLocation: transferToWarehouse ? "warehouse" : "onsite",
+                            notes: transferNoteStr.trim() || null,
+                          });
+                          setTransferItem(null);
+                          showToast("success", tlLabels.saved_successfully ?? "Guardado");
+                        } catch (err) {
+                          showToast("error", userFacingErrorMessage(tlLabels, err));
+                        } finally {
+                          setTransferSubmitting(false);
+                        }
+                      })();
                     }}
-                    className="min-h-[44px] rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600"
+                    className="order-2 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
                   >
+                    {transferSubmitting ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                    ) : null}
                     {(t as Record<string, string>).inventory_transfer_confirm ?? "Confirm"}
                   </button>
                 </div>
@@ -1696,7 +1787,7 @@ export function LogisticsModule({
           {adjustModal && (
             <>
               <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={onCloseAdjustModal} />
-              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
+              <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {adjustModal.type === "add" ? (t.addUnits ?? "Add units") : (t.removeUnits ?? "Remove units")}
@@ -1705,7 +1796,7 @@ export function LogisticsModule({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3 break-words">
                   {(inventoryItems ?? []).find((i) => i.id === adjustModal.itemId)?.name ?? "—"}
                 </p>
                 <div className="space-y-3">
@@ -1730,11 +1821,43 @@ export function LogisticsModule({
                     />
                   </div>
                 </div>
-                <div className="mt-4 flex justify-end gap-2">
-                  <button type="button" onClick={onCloseAdjustModal} className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">
+                <div className="mt-4 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-end">
+                  <button
+                    type="button"
+                    disabled={adjustSubmitting}
+                    onClick={onCloseAdjustModal}
+                    className="order-1 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300 min-h-[44px] min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
+                  >
                     {t.whClose ?? t.cancel ?? "Cancel"}
                   </button>
-                  <button type="button" onClick={onApplyAdjustment} className="rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
+                  <button
+                    type="button"
+                    disabled={adjustSubmitting}
+                    onClick={() => {
+                      void (async () => {
+                        if (adjustSubmitting || !adjustModal) return;
+                        const qty = Math.max(0, parseFloat(String(adjustQuantity).replace(",", ".")) || 0);
+                        if (qty <= 0) {
+                          onCloseAdjustModal();
+                          return;
+                        }
+                        setAdjustSubmitting(true);
+                        try {
+                          await new Promise((r) => setTimeout(r, 0));
+                          await Promise.resolve(onApplyAdjustment());
+                          showToast("success", tlLabels.saved_successfully ?? "Guardado");
+                        } catch (err) {
+                          showToast("error", userFacingErrorMessage(tlLabels, err));
+                        } finally {
+                          setAdjustSubmitting(false);
+                        }
+                      })();
+                    }}
+                    className="order-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px] hover:bg-orange-600 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
+                  >
+                    {adjustSubmitting ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                    ) : null}
                     {t.accept ?? "Apply"}
                   </button>
                 </div>
@@ -1752,22 +1875,29 @@ export function LogisticsModule({
                 className="hidden"
                 onChange={handleReturnPhotoChange}
               />
-              <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeReturnModal} />
-              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl space-y-4 dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
+              <div
+                className="fixed inset-0 z-50 bg-black/50 touch-none"
+                aria-hidden
+                onClick={() => {
+                  if (!returnSubmitting && !returnPhotoUploading) closeReturnModal();
+                }}
+              />
+              <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl space-y-4 dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
                     {tlLabels.returnToWarehouse ?? "Return to warehouse"}
                   </h3>
                   <button
                     type="button"
+                    disabled={returnSubmitting || returnPhotoUploading}
                     onClick={closeReturnModal}
-                    className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
                     aria-label={tlLabels.whClose ?? tlLabels.cancel ?? "Close"}
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">{returnModalItem.name}</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 break-words">{returnModalItem.name}</p>
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                     {tlLabels.conditionOnReturn ?? "Condition on return"}
@@ -1821,27 +1951,37 @@ export function LogisticsModule({
                   ) : (
                     <button
                       type="button"
+                      disabled={returnPhotoUploading || returnSubmitting}
                       onClick={openReturnPhotoCapture}
-                      className="w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 py-4 text-sm text-zinc-500 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-600 dark:hover:text-orange-400 flex items-center justify-center gap-2 min-h-[44px]"
+                      className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 py-4 text-sm text-zinc-500 hover:border-orange-400 hover:text-orange-600 dark:border-zinc-600 dark:text-zinc-400 dark:hover:text-orange-400 disabled:opacity-50"
                     >
-                      <Camera className="h-4 w-4" />
+                      {returnPhotoUploading ? (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                      ) : (
+                        <Camera className="h-4 w-4" aria-hidden />
+                      )}
                       {tlLabels.takePhoto ?? "Take photo"}
                     </button>
                   )}
                 </div>
-                <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+                <div className="flex flex-col gap-2 pt-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-end">
                   <button
                     type="button"
+                    disabled={returnSubmitting || returnPhotoUploading}
                     onClick={closeReturnModal}
-                    className="w-full sm:w-auto rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    className="order-1 w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800 min-h-[44px] min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
                   >
                     {tlLabels.whClose ?? tlLabels.cancel ?? "Cancel"}
                   </button>
                   <button
                     type="button"
-                    onClick={confirmReturn}
-                    className="w-full sm:w-auto rounded-xl bg-orange-500 text-white py-3 px-4 font-medium min-h-[44px] hover:bg-orange-600"
+                    disabled={returnSubmitting || returnPhotoUploading}
+                    onClick={() => void confirmReturn()}
+                    className="order-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 font-medium text-white min-h-[44px] hover:bg-orange-600 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
                   >
+                    {returnSubmitting ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                    ) : null}
                     {tlLabels.confirmReturn ?? "Confirm return"}
                   </button>
                 </div>
@@ -1894,8 +2034,8 @@ export function LogisticsModule({
                     className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-sm">
+                      <div className="min-w-0 pr-2">
+                        <p className="text-sm font-semibold break-words">
                           {(projects ?? []).find((p) => p.id === request.projectId)?.name ?? request.projectId}
                         </p>
                         <p className="text-xs text-zinc-500 mt-0.5">
@@ -1917,13 +2057,13 @@ export function LogisticsModule({
                       {request.items.map((item: ResourceRequestItem) => (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between text-sm"
+                          className="flex flex-col gap-2 text-sm min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between"
                         >
                           <span
                             className={
                               item.status === "ready"
-                                ? "line-through text-zinc-400"
-                                : "text-zinc-700 dark:text-zinc-300"
+                                ? "line-through text-zinc-400 break-words"
+                                : "text-zinc-700 break-words dark:text-zinc-300"
                             }
                           >
                             {item.quantity}x {item.name}
@@ -1933,18 +2073,31 @@ export function LogisticsModule({
                             request.status !== "received" && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  onMarkResourceItemReady?.(
-                                    request.id,
-                                    item.id
-                                  )
-                                }
-                                className={`text-xs rounded-full px-3 py-2 min-h-[44px] inline-flex items-center transition-colors ${
+                                disabled={orderActionKey !== null}
+                                onClick={() => {
+                                  const k = `ord-line-${request.id}-${item.id}`;
+                                  void (async () => {
+                                    setOrderActionKey(k);
+                                    try {
+                                      await new Promise((r) => setTimeout(r, 0));
+                                      onMarkResourceItemReady?.(request.id, item.id);
+                                      showToast("success", tlLabels.saved_successfully ?? "Guardado");
+                                    } catch (err) {
+                                      showToast("error", userFacingErrorMessage(tlLabels, err));
+                                    } finally {
+                                      setOrderActionKey(null);
+                                    }
+                                  })();
+                                }}
+                                className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-3 py-2 text-xs transition-colors disabled:opacity-50 ${
                                   item.status === "ready"
                                     ? "bg-emerald-100 text-emerald-700"
                                     : "bg-zinc-100 text-zinc-600 hover:bg-emerald-100 hover:text-emerald-700"
                                 }`}
                               >
+                                {orderActionKey === `ord-line-${request.id}-${item.id}` ? (
+                                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                                ) : null}
                                 {item.status === "ready"
                                   ? `✓ ${tlLabels.resource_order_line_ready ?? "Ready"}`
                                   : (tlLabels.resource_order_line_mark ?? "Mark ready")}
@@ -1955,46 +2108,85 @@ export function LogisticsModule({
                     </div>
 
                     {canFulfillOrders && (
-                      <div className="flex gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800 min-[480px]:flex-row">
                         {request.status === "pending" && (
                           <button
                             type="button"
-                            onClick={() =>
-                              onUpdateResourceRequestStatus?.(
-                                request.id,
-                                "preparing"
-                              )
-                            }
-                            className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 py-2.5 text-sm min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            disabled={orderActionKey !== null}
+                            onClick={() => {
+                              const k = `ord-${request.id}-preparing`;
+                              void (async () => {
+                                setOrderActionKey(k);
+                                try {
+                                  await new Promise((r) => setTimeout(r, 0));
+                                  onUpdateResourceRequestStatus?.(request.id, "preparing");
+                                  showToast("success", tlLabels.saved_successfully ?? "Guardado");
+                                } catch (err) {
+                                  showToast("error", userFacingErrorMessage(tlLabels, err));
+                                } finally {
+                                  setOrderActionKey(null);
+                                }
+                              })();
+                            }}
+                            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-300 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
                           >
+                            {orderActionKey === `ord-${request.id}-preparing` ? (
+                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                            ) : null}
                             {tlLabels.startPreparing ?? "Start preparing"}
                           </button>
                         )}
                         {request.status === "preparing" && (
                           <button
                             type="button"
-                            onClick={() =>
-                              onUpdateResourceRequestStatus?.(
-                                request.id,
-                                "ready"
-                              )
-                            }
-                            className="flex-1 rounded-xl border border-emerald-300 text-emerald-600 py-2.5 text-sm min-h-[44px] hover:bg-emerald-50 transition-colors"
+                            disabled={orderActionKey !== null}
+                            onClick={() => {
+                              const k = `ord-${request.id}-ready`;
+                              void (async () => {
+                                setOrderActionKey(k);
+                                try {
+                                  await new Promise((r) => setTimeout(r, 0));
+                                  onUpdateResourceRequestStatus?.(request.id, "ready");
+                                  showToast("success", tlLabels.saved_successfully ?? "Guardado");
+                                } catch (err) {
+                                  showToast("error", userFacingErrorMessage(tlLabels, err));
+                                } finally {
+                                  setOrderActionKey(null);
+                                }
+                              })();
+                            }}
+                            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-300 py-2.5 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50"
                           >
+                            {orderActionKey === `ord-${request.id}-ready` ? (
+                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                            ) : null}
                             {tlLabels.markReady ?? "Mark as ready"}
                           </button>
                         )}
                         {request.status === "ready" && (
                           <button
                             type="button"
-                            onClick={() =>
-                              onUpdateResourceRequestStatus?.(
-                                request.id,
-                                "dispatched"
-                              )
-                            }
-                            className="flex-1 rounded-xl bg-orange-500 text-white py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600 transition-colors"
+                            disabled={orderActionKey !== null}
+                            onClick={() => {
+                              const k = `ord-${request.id}-dispatched`;
+                              void (async () => {
+                                setOrderActionKey(k);
+                                try {
+                                  await new Promise((r) => setTimeout(r, 0));
+                                  onUpdateResourceRequestStatus?.(request.id, "dispatched");
+                                  showToast("success", tlLabels.saved_successfully ?? "Guardado");
+                                } catch (err) {
+                                  showToast("error", userFacingErrorMessage(tlLabels, err));
+                                } finally {
+                                  setOrderActionKey(null);
+                                }
+                              })();
+                            }}
+                            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
                           >
+                            {orderActionKey === `ord-${request.id}-dispatched` ? (
+                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                            ) : null}
                             🚚 {tlLabels.dispatch ?? "Dispatch"}
                           </button>
                         )}
@@ -2055,7 +2247,7 @@ export function LogisticsModule({
             </div>
           ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <button
                 type="button"
@@ -2081,7 +2273,11 @@ export function LogisticsModule({
               </div>
             </div>
             {canManageFleet && (
-              <button type="button" onClick={onAddFleet} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
+              <button
+                type="button"
+                onClick={onAddFleet}
+                className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 min-[768px]:w-auto"
+              >
                 <Plus className="h-4 w-4" />
                 {t.addNew ?? "Add vehicle"}
               </button>
@@ -2098,13 +2294,13 @@ export function LogisticsModule({
               const maintenanceWarning = daysUntil != null && daysUntil <= 30 && daysUntil > 7;
               return (
                 <div key={v.id} className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-5 w-5 text-zinc-400 shrink-0" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Truck className="h-5 w-5 shrink-0 text-zinc-400" />
                       <button
                         type="button"
                         onClick={() => setSelectedAsset({ type: "vehicle", id: v.id })}
-                        className="text-sm font-medium text-left text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                        className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-white dark:hover:text-amber-400"
                       >
                         {v.plate}
                       </button>
@@ -2196,7 +2392,13 @@ export function LogisticsModule({
                     {canManageFleet && (
                       <>
                         <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
-                        <button type="button" onClick={() => onDeleteFleet(v.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
+                        <button
+                        type="button"
+                        onClick={() => setDeletePrompt({ kind: "fleet", id: v.id, label: v.plate })}
+                        className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                       </>
                     )}
                   </div>
@@ -2235,11 +2437,11 @@ export function LogisticsModule({
                   const maintenanceWarning = daysUntil != null && daysUntil <= 30 && daysUntil > 7;
                   return (
                     <tr key={v.id} className="bg-white dark:bg-slate-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 max-w-[min(100vw,14rem)] min-[768px]:max-w-none">
                         <button
                           type="button"
                           onClick={() => setSelectedAsset({ type: "vehicle", id: v.id })}
-                          className="text-sm font-medium text-left text-zinc-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors hover:underline underline-offset-2"
+                          className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-white dark:hover:text-amber-400"
                         >
                           {v.plate}
                         </button>
@@ -2313,7 +2515,13 @@ export function LogisticsModule({
                           {canManageFleet && (
                             <>
                               <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
-                              <button type="button" onClick={() => onDeleteFleet(v.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
+                              <button
+                        type="button"
+                        onClick={() => setDeletePrompt({ kind: "fleet", id: v.id, label: v.plate })}
+                        className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                             </>
                           )}
                         </div>
@@ -2337,8 +2545,12 @@ export function LogisticsModule({
       {warehouseSubTab === "rentals" && (
         <div className="space-y-4">
           {canManageRentals && (
-          <div className="flex justify-end">
-            <button type="button" onClick={onAddRental} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
+          <div className="flex w-full justify-stretch min-[768px]:justify-end">
+            <button
+              type="button"
+              onClick={onAddRental}
+              className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 min-[768px]:w-auto"
+            >
               <Plus className="h-4 w-4" />
               {t.addNew ?? "Add rental"}
             </button>
@@ -2349,10 +2561,10 @@ export function LogisticsModule({
               const rentalAmount = r.cost ?? r.costCAD ?? 0;
               const rentalCur = (r.currency ?? "CAD").trim() || "CAD";
               return (
-              <div key={r.id} className="flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <div>
+              <div key={r.id} className="flex flex-col gap-3 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
+                <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{r.name}</p>
+                    <p className="font-medium text-zinc-900 dark:text-zinc-100 break-words">{r.name}</p>
                     {canViewForms &&
                     (activeFormsTodayByRentalId[r.id] ?? 0) > 0 &&
                     onOpenFormsFilteredByRental ? (
@@ -2366,16 +2578,26 @@ export function LogisticsModule({
                       </button>
                     ) : null}
                   </div>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whSupplier}: {r.supplier}</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.whReturnDate}: {r.returnDate} · {t.whRentalCost}: {rentalCur} {rentalAmount.toFixed(2)}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 break-words">
+                    {t.whSupplier}: {r.supplier}
+                  </p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 break-words">
+                    {t.whReturnDate}: {r.returnDate} · {t.whRentalCost}: {rentalCur} {rentalAmount.toFixed(2)}
+                  </p>
                   <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium mt-1 ${projectAssignmentChipClass(!!r.projectId)}`}>
                     {getProjectName(r.projectId)}
                   </span>
                 </div>
                 {canManageRentals && (
-                <div className="flex gap-1">
+                <div className="flex shrink-0 gap-1 self-end min-[640px]:self-auto">
                   <button type="button" onClick={() => onEditRental(r)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
-                  <button type="button" onClick={() => onDeleteRental(r.id)} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
+                  <button
+                  type="button"
+                  onClick={() => setDeletePrompt({ kind: "rental", id: r.id, label: r.name })}
+                  className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
                 </div>
                 )}
               </div>
@@ -2397,7 +2619,7 @@ export function LogisticsModule({
             <select
               value={filterProjectId}
               onChange={(e) => setFilterProjectId(e.target.value)}
-              className="w-full max-w-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-zinc-900 dark:text-zinc-100"
+              className="w-full max-w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 min-[768px]:max-w-xs"
             >
               <option value="">{t.allProjects ?? "Todos los proyectos"}</option>
               {(projects ?? []).map((p) => (
@@ -2475,8 +2697,12 @@ export function LogisticsModule({
       {warehouseSubTab === "suppliers" && (
         <div className="space-y-4">
           {canManageSuppliers && (
-          <div className="flex justify-end">
-            <button type="button" onClick={onAddSupplier} className="flex items-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-orange-600">
+          <div className="flex w-full justify-stretch min-[768px]:justify-end">
+            <button
+              type="button"
+              onClick={onAddSupplier}
+              className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 min-[768px]:w-auto"
+            >
               <Plus className="h-4 w-4" />
               {t.addNew ?? "Add supplier"}
             </button>
@@ -2484,16 +2710,28 @@ export function LogisticsModule({
           )}
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 divide-y divide-zinc-200 dark:divide-slate-700">
             {(suppliers ?? []).map((s) => (
-              <div key={s.id} className="flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <button type="button" onClick={() => setSelectedSupplierId(s.id)} className="flex-1 text-left min-w-0">
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{s.name}</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{s.phone} · {s.email}</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{s.address}</p>
+              <div
+                key={s.id}
+                className="flex flex-col gap-3 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between"
+              >
+                <button type="button" onClick={() => setSelectedSupplierId(s.id)} className="min-w-0 flex-1 text-left">
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100 break-words">{s.name}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 break-words">{s.phone} · {s.email}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 break-words">{s.address}</p>
                 </button>
                 {canManageSuppliers && (
-                <div className="flex gap-1 shrink-0">
+                <div className="flex shrink-0 gap-1 self-end min-[640px]:self-auto">
                   <button type="button" onClick={(e) => { e.stopPropagation(); onEditSupplier(s); }} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteSupplier(s.id); }} className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
+                  <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeletePrompt({ kind: "supplier", id: s.id, label: s.name });
+                  }}
+                  className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
                 </div>
                 )}
               </div>
@@ -2558,9 +2796,26 @@ export function LogisticsModule({
                         {canManageInventory && onMarkIncidentReviewed && (
                           <button
                             type="button"
-                            onClick={() => onMarkIncidentReviewed(item.id)}
-                            className="flex-1 rounded-xl border border-emerald-300 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 py-2 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-h-[44px] transition-colors"
+                            onClick={() => {
+                              void (async () => {
+                                setIncidentMarkingId(item.id);
+                                try {
+                                  await new Promise((r) => setTimeout(r, 0));
+                                  onMarkIncidentReviewed(item.id);
+                                  showToast("success", tlLabels.saved_successfully ?? "Guardado");
+                                } catch (err) {
+                                  showToast("error", userFacingErrorMessage(tlLabels, err));
+                                } finally {
+                                  setIncidentMarkingId(null);
+                                }
+                              })();
+                            }}
+                            disabled={incidentMarkingId !== null}
+                            className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-300 py-2 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
                           >
+                            {incidentMarkingId === item.id ? (
+                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                            ) : null}
                             ✓ {tlLabels.markReviewed ?? "Mark reviewed"}
                           </button>
                         )}
@@ -2592,7 +2847,7 @@ export function LogisticsModule({
         return (
           <>
             <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSupplierId(null)} />
-            <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-md border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 md:max-w-lg lg:max-w-xl">
+            <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-[calc(100vw-2rem)] border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 min-[480px]:max-w-md md:max-w-lg lg:max-w-xl">
               <div className="p-4 border-b border-zinc-200 dark:border-slate-700 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{s.name}</h3>
                 <button type="button" onClick={() => setSelectedSupplierId(null)} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center">
@@ -2658,10 +2913,10 @@ export function LogisticsModule({
       {selectedAsset && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedAsset(null)} />
-          <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-md border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 md:max-w-lg lg:max-w-xl">
+          <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-[calc(100vw-2rem)] border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 min-[480px]:max-w-md md:max-w-lg lg:max-w-xl">
             <div className="p-4 border-b border-zinc-200 dark:border-slate-700 flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white truncate">
+                <h3 className="text-lg font-semibold text-zinc-900 break-words dark:text-white">
                   {selectedAsset.type === "inventory"
                     ? (inventoryItems ?? []).find((i) => i.id === selectedAsset.id)?.name ?? selectedAsset.id
                     : (vehicles ?? []).find((v) => v.id === selectedAsset.id)?.plate ?? selectedAsset.id}
@@ -2710,18 +2965,28 @@ export function LogisticsModule({
                   <div className="flex border-b border-zinc-200 dark:border-slate-700 p-2 gap-1">
                     {(["info", "history", "gallery"] as const).map((tabId) => (
                       <button key={tabId} type="button" onClick={() => setAssetDrawerTab(tabId)} className={`min-h-[44px] flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${assetDrawerTab === tabId ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
-                        {tabId === "info" ? "Info" : tabId === "history" ? (t.usageHistory ?? "Historial") : (tl.assetGallery ?? "Galería")}
+                        {tabId === "info"
+                          ? ((t as Record<string, string>).settings_general_title ?? "Info")
+                          : tabId === "history"
+                            ? (t.usageHistory ?? "Historial")
+                            : (tl.assetGallery ?? "Galería")}
                       </button>
                     ))}
                   </div>
                   {assetDrawerTab === "info" && (
                     <div className="p-4 border-b border-zinc-200 dark:border-slate-700 space-y-3">
-                      <img src={qrUrl} alt="QR Code" className="h-24 w-24 rounded-lg object-contain bg-white" />
+                      <img
+                        src={qrUrl}
+                        alt={(t as Record<string, string>).inventory_qr_print ?? (t as Record<string, string>).inventory_qr_scan ?? "QR"}
+                        className="h-24 w-24 rounded-lg object-contain bg-white"
+                      />
                       {canPrintInventoryQR ? (
                         <button
                           type="button"
+                          disabled={inventoryQrPdfLoading}
                           onClick={() => {
                             void (async () => {
+                              setInventoryQrPdfLoading(true);
                               try {
                                 const statusLbl =
                                   item?.toolStatus === "in_use"
@@ -2747,13 +3012,19 @@ export function LogisticsModule({
                                 a.download = filename;
                                 a.click();
                                 URL.revokeObjectURL(href);
+                                showToast("success", tlLabels.saved_successfully ?? "Guardado");
                               } catch (e) {
-                                showToast("error", (e as Error)?.message ?? "PDF");
+                                showToast("error", userFacingErrorMessage(tlLabels, e));
+                              } finally {
+                                setInventoryQrPdfLoading(false);
                               }
                             })();
                           }}
-                          className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                          className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-300 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
                         >
+                          {inventoryQrPdfLoading ? (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                          ) : null}
                           {(t as Record<string, string>).inventory_qr_print ?? tl.printLabel ?? "Print QR"}
                         </button>
                       ) : (
@@ -2808,7 +3079,11 @@ export function LogisticsModule({
               return (
                 <>
                   <div className="p-4 border-b border-zinc-200 dark:border-slate-700 space-y-2">
-                    <img src={qrUrl} alt="QR Code" className="h-24 w-24 rounded-lg object-contain bg-white" />
+                    <img
+                      src={qrUrl}
+                      alt={(t as Record<string, string>).inventory_qr_print ?? (t as Record<string, string>).inventory_qr_scan ?? "QR"}
+                      className="h-24 w-24 rounded-lg object-contain bg-white"
+                    />
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">{v?.internalId ?? v?.serialNumber ?? v?.id}</p>
                     <button type="button" onClick={() => window.open(qrUrl, "_blank")} className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px] hover:bg-zinc-50 dark:hover:bg-zinc-800">
                       {tl.printLabel ?? "Imprimir etiqueta"}
@@ -2988,40 +3263,74 @@ export function LogisticsModule({
           (r) => r.fieldId === field.id && r.targetType === "vehicle" && r.targetId === targetId
         );
         const saveRecord = () => {
-          const expiryDate = field.fieldType === "date" ? (vehicleComplianceDraft.expiryDate || undefined) : undefined;
-          const documentUrl = field.fieldType === "document" ? (vehicleComplianceDraft.documentUrl || undefined) : undefined;
-          const value = field.fieldType === "text" ? (vehicleComplianceDraft.value || undefined) : field.fieldType === "checkbox" ? (vehicleComplianceDraft.value === "true" ? "true" : "false") : undefined;
-          let status: ComplianceRecord["status"] = "missing";
-          if (field.fieldType === "date" && expiryDate) {
-            status = computeVehicleComplianceStatus(expiryDate, field.alertDaysBefore, field.fieldType);
-          } else if (field.fieldType === "checkbox") {
-            status = value === "true" ? "valid" : "missing";
-          } else if ((field.fieldType === "document" && documentUrl) || (field.fieldType === "text" && value)) {
-            status = "valid";
-          }
-          const updated: ComplianceRecord = {
-            id: existing?.id ?? "cr-" + Date.now() + "-" + Math.random().toString(36).slice(2, 9),
-            fieldId: field.id,
-            targetType: "vehicle",
-            targetId,
-            value,
-            expiryDate,
-            documentUrl,
-            status,
-            updatedAt: new Date().toISOString(),
-          };
-          const rest = (complianceRecords ?? []).filter(
-            (r) => !(r.fieldId === field.id && r.targetType === "vehicle" && r.targetId === targetId)
-          );
-          onComplianceRecordsChange([...rest, updated]);
-          setEditingVehicleCompliance(null);
-          setVehicleComplianceDraft({});
+          void (async () => {
+            if (complianceSaveSubmitting) return;
+            setComplianceSaveSubmitting(true);
+            try {
+              const expiryDate =
+                field.fieldType === "date" ? (vehicleComplianceDraft.expiryDate || undefined) : undefined;
+              const documentUrl =
+                field.fieldType === "document" ? (vehicleComplianceDraft.documentUrl || undefined) : undefined;
+              const value =
+                field.fieldType === "text"
+                  ? (vehicleComplianceDraft.value || undefined)
+                  : field.fieldType === "checkbox"
+                    ? vehicleComplianceDraft.value === "true"
+                      ? "true"
+                      : "false"
+                    : undefined;
+              let status: ComplianceRecord["status"] = "missing";
+              if (field.fieldType === "date" && expiryDate) {
+                status = computeVehicleComplianceStatus(expiryDate, field.alertDaysBefore, field.fieldType);
+              } else if (field.fieldType === "checkbox") {
+                status = value === "true" ? "valid" : "missing";
+              } else if ((field.fieldType === "document" && documentUrl) || (field.fieldType === "text" && value)) {
+                status = "valid";
+              }
+              const updated: ComplianceRecord = {
+                id: existing?.id ?? "cr-" + Date.now() + "-" + Math.random().toString(36).slice(2, 9),
+                fieldId: field.id,
+                targetType: "vehicle",
+                targetId,
+                value,
+                expiryDate,
+                documentUrl,
+                status,
+                updatedAt: new Date().toISOString(),
+              };
+              const rest = (complianceRecords ?? []).filter(
+                (r) => !(r.fieldId === field.id && r.targetType === "vehicle" && r.targetId === targetId)
+              );
+              await Promise.resolve(onComplianceRecordsChange([...rest, updated]));
+              setEditingVehicleCompliance(null);
+              setVehicleComplianceDraft({});
+              showToast("success", tlLabels.saved_successfully ?? "Guardado");
+            } catch (err) {
+              showToast("error", userFacingErrorMessage(tl, err));
+            } finally {
+              setComplianceSaveSubmitting(false);
+            }
+          })();
         };
         return (
           <>
-            <div className="fixed inset-0 z-50 bg-black/50" aria-hidden onClick={() => { setEditingVehicleCompliance(null); setVehicleComplianceDraft({}); }} />
-            <div role="dialog" aria-modal className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-lg lg:max-w-xl" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{field.name}</h3>
+            <div
+              className="fixed inset-0 z-50 bg-black/50"
+              aria-hidden
+              onClick={() => {
+                if (!complianceSaveSubmitting) {
+                  setEditingVehicleCompliance(null);
+                  setVehicleComplianceDraft({});
+                }
+              }}
+            />
+            <div
+              role="dialog"
+              aria-modal
+              className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:max-w-lg lg:max-w-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="mb-4 text-lg font-semibold text-zinc-900 break-words dark:text-white">{field.name}</h3>
               <div className="space-y-4">
                 {field.fieldType === "date" && (
                   <div>
@@ -3031,7 +3340,9 @@ export function LogisticsModule({
                 )}
                 {field.fieldType === "document" && (
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">URL</label>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                      {tl.training_document_url ?? "URL"}
+                    </label>
                     <input type="url" value={vehicleComplianceDraft.documentUrl ?? ""} onChange={(e) => setVehicleComplianceDraft((d) => ({ ...d, documentUrl: e.target.value || undefined }))} placeholder="https://" className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[44px]" />
                   </div>
                 )}
@@ -3048,14 +3359,83 @@ export function LogisticsModule({
                   </div>
                 )}
               </div>
-              <div className="mt-6 flex justify-end gap-2">
-                <button type="button" onClick={() => { setEditingVehicleCompliance(null); setVehicleComplianceDraft({}); }} className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">{tl.cancel ?? "Cancelar"}</button>
-                <button type="button" onClick={saveRecord} className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]">{tl.save ?? "Guardar"}</button>
+              <div className="mt-6 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-end">
+                <button
+                  type="button"
+                  disabled={complianceSaveSubmitting}
+                  onClick={() => {
+                    setEditingVehicleCompliance(null);
+                    setVehicleComplianceDraft({});
+                  }}
+                  className="order-1 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 min-h-[44px] min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300"
+                >
+                  {tl.cancel ?? "Cancelar"}
+                </button>
+                <button
+                  type="button"
+                  disabled={complianceSaveSubmitting}
+                  onClick={saveRecord}
+                  className="order-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white min-h-[44px] hover:bg-amber-500 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
+                >
+                  {complianceSaveSubmitting ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                  ) : null}
+                  {tl.save ?? "Guardar"}
+                </button>
               </div>
             </div>
           </>
         );
       })()}
+
+      {deletePrompt && (
+        <>
+          <div
+            className="fixed inset-0 z-[10070] bg-black/50"
+            aria-hidden
+            onClick={() => {
+              if (!deleteSubmitting) setDeletePrompt(null);
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            className="fixed left-1/2 top-1/2 z-[10071] max-h-[90vh] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              {tlLabels.common_delete ?? tlLabels.delete ?? "Delete"}
+            </h3>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              {tlLabels.common_confirm_delete ?? "Delete this item?"}
+            </p>
+            <p className="mt-1 text-sm font-medium text-zinc-800 break-words dark:text-zinc-200">
+              {deletePrompt.label}
+            </p>
+            <div className="mt-6 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between">
+              <button
+                type="button"
+                disabled={deleteSubmitting}
+                onClick={() => setDeletePrompt(null)}
+                className="order-1 w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 min-h-[44px] min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200"
+              >
+                {tlLabels.cancel ?? tlLabels.whClose ?? "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={deleteSubmitting}
+                onClick={() => void commitDelete()}
+                className="order-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-sm font-medium text-white min-h-[44px] hover:bg-red-700 min-[480px]:order-none min-[480px]:w-auto disabled:opacity-50"
+              >
+                {deleteSubmitting ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : null}
+                {tlLabels.common_delete ?? tlLabels.delete ?? "Delete"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Lightbox foto */}
       {lightboxUrl && (
