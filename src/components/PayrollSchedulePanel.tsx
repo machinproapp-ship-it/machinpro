@@ -302,6 +302,9 @@ export function PayrollSchedulePanel({
   const setStatus = (empId: string, st: RowStatus) => {
     if (!canManagePayroll) return;
     setStatusByEmp((prev) => ({ ...prev, [empId]: st }));
+    if (st === "approved" || st === "paid") {
+      showToast("success", L("toast_saved", "Saved"));
+    }
   };
 
   return (

@@ -1,5 +1,8 @@
 import Stripe from "stripe";
 import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
+import { STRIPE_PRICE_EXTRA_SEAT_ID, STRIPE_PRICES } from "@/lib/stripe-prices";
+
+export { STRIPE_PRICE_EXTRA_SEAT_ID } from "@/lib/stripe-prices";
 
 /** Paid product keys (Stripe checkout + subscription) — Pricing 3.0 */
 export type PaidPlanKey = "esencial" | "operaciones" | "logistica" | "todo_incluido";
@@ -16,9 +19,6 @@ export type PlanKey =
   | "horarios";
 
 export type BillingPeriod = "monthly" | "annual";
-
-/** Add-on: extra seat (subscription item). */
-export const STRIPE_PRICE_EXTRA_SEAT_ID = "price_1TG3eEHskIYiyc3EpCXpgXnT";
 
 /** Stripe coupon ID — create in Dashboard with id `BETA_FOUNDER` (e.g. 100% 3 months). */
 export const STRIPE_COUPON_BETA_FOUNDER_ID = "BETA_FOUNDER";
@@ -111,8 +111,8 @@ export type PlanDefinition = {
 export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
   esencial: {
     labelKey: "plan_esencial",
-    monthly: { priceId: "price_1THiu4HskIYiyc3Erls1elC9" },
-    annual: { priceId: "price_1THiu4HskIYiyc3EH98ZjVsN" },
+    monthly: { priceId: STRIPE_PRICES.essential_monthly },
+    annual: { priceId: STRIPE_PRICES.essential_annual },
     seats: 15,
     projects: null,
     storageGb: 15,
@@ -122,8 +122,8 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
   },
   operaciones: {
     labelKey: "plan_operaciones",
-    monthly: { priceId: "price_1THiv5HskIYiyc3Eun5AOLu7" },
-    annual: { priceId: "price_1THiv5HskIYiyc3Ehqmch8mB" },
+    monthly: { priceId: STRIPE_PRICES.operations_monthly },
+    annual: { priceId: STRIPE_PRICES.operations_annual },
     seats: 30,
     projects: null,
     storageGb: 30,
@@ -133,8 +133,8 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
   },
   logistica: {
     labelKey: "pricing_plan_logistics",
-    monthly: { priceId: "price_1THiw2HskIYiyc3EEVZh13pt" },
-    annual: { priceId: "price_1THiw2HskIYiyc3EXSUNCS3E" },
+    monthly: { priceId: STRIPE_PRICES.logistics_monthly },
+    annual: { priceId: STRIPE_PRICES.logistics_annual },
     seats: 30,
     projects: null,
     storageGb: 30,
@@ -144,8 +144,8 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
   },
   todo_incluido: {
     labelKey: "plan_todo_incluido",
-    monthly: { priceId: "price_1THiwsHskIYiyc3ER6Mlken8" },
-    annual: { priceId: "price_1THiwsHskIYiyc3Eg2DrbW1m" },
+    monthly: { priceId: STRIPE_PRICES.todo_incluido_monthly },
+    annual: { priceId: STRIPE_PRICES.todo_incluido_annual },
     seats: 999_999,
     projects: null,
     storageGb: 200,

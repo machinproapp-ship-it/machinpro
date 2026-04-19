@@ -108,6 +108,13 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <script dangerouslySetInnerHTML={{ __html: MACHINPRO_THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: MACHINPRO_SW_REGISTER }} />
+        {process.env.NODE_ENV === "production" ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function(){window.dataLayer=window.dataLayer||[];})();`,
+            }}
+          />
+        ) : null}
         {enableGtm && gtmJs ? (
           <script dangerouslySetInnerHTML={{ __html: gtmJs }} />
         ) : null}

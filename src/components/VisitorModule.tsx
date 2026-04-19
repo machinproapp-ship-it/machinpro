@@ -460,72 +460,124 @@ export function VisitorModule({
             </button>
           </div>
         ) : (
-          <table className="w-full text-sm text-left min-w-[720px]">
-            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-              <tr>
-                <th className="px-4 py-3 font-medium">{l("visitors_name")}</th>
-                <th className="px-4 py-3 font-medium">{l("visitors_company")}</th>
-                <th className="px-4 py-3 font-medium">{l("visitors_purpose")}</th>
-                <th className="px-4 py-3 font-medium">{l("visitors_host")}</th>
-                <th className="px-4 py-3 font-medium">{l("visitors_checkin")}</th>
-                <th className="px-4 py-3 font-medium">{l("visitors_checkout")}</th>
-                <th className="px-4 py-3 font-medium">{l("visitors_table_status")}</th>
-                <th className="px-4 py-3 font-medium w-40" />
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700 md:hidden">
               {filtered.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
-                    {r.visitor_name}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {r.visitor_company ?? l("common_dash")}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
-                    {r.purpose ?? l("common_dash")}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.host_name ?? l("common_dash")}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 tabular-nums">
-                    {requirementsMetSummary(r)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {formatDateTime(r.check_in, dateLocale, timeZone)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {r.check_out ? formatDateTime(r.check_out, dateLocale, timeZone) : l("common_dash")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        r.status === "checked_in"
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-                          : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                      }`}
-                    >
-                      {r.status === "checked_in"
-                        ? (lx.visitor_status_inside ?? lx.visitors_status_in ?? PM_EN.visitor_status_inside)
-                        : (lx.visitor_status_outside ?? lx.visitors_status_out ?? PM_EN.visitor_status_outside)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
+                <li key={r.id} className="p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="font-medium text-gray-900 dark:text-white break-words">{r.visitor_name}</p>
+                      <span
+                        className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          r.status === "checked_in"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                            : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                        }`}
+                      >
+                        {r.status === "checked_in"
+                          ? (lx.visitor_status_inside ?? lx.visitors_status_in ?? PM_EN.visitor_status_inside)
+                          : (lx.visitor_status_outside ?? lx.visitors_status_out ?? PM_EN.visitor_status_outside)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className="font-medium">{l("visitors_company")}:</span>{" "}
+                      {r.visitor_company ?? l("common_dash")}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 break-words">
+                      <span className="font-medium">{l("visitors_purpose")}:</span> {r.purpose ?? l("common_dash")}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className="font-medium">{l("visitors_host")}:</span> {r.host_name ?? l("common_dash")}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {l("visitors_checkin")}: {formatDateTime(r.check_in, dateLocale, timeZone)}
+                      {r.check_out
+                        ? ` · ${l("visitors_checkout")}: ${formatDateTime(r.check_out, dateLocale, timeZone)}`
+                        : ""}{" "}
+                      · {l("visitors_table_status")}: {requirementsMetSummary(r)}
+                    </p>
                     {r.status === "checked_in" ? (
                       <button
                         type="button"
                         onClick={() => void manualCheckout(r.id)}
-                        className="min-h-[44px] px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                        className="min-h-[44px] w-full rounded-lg border border-amber-300 px-3 text-sm font-medium text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-950/40 sm:w-auto"
                       >
                         {l("visitors_checkout_manual")}
                       </button>
                     ) : null}
-                  </td>
-                </tr>
+                  </div>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm text-left min-w-[720px]">
+                <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">{l("visitors_name")}</th>
+                    <th className="px-4 py-3 font-medium">{l("visitors_company")}</th>
+                    <th className="px-4 py-3 font-medium">{l("visitors_purpose")}</th>
+                    <th className="px-4 py-3 font-medium">{l("visitors_host")}</th>
+                    <th className="px-4 py-3 font-medium">{l("visitors_checkin")}</th>
+                    <th className="px-4 py-3 font-medium">{l("visitors_checkout")}</th>
+                    <th className="px-4 py-3 font-medium">{l("visitors_table_status")}</th>
+                    <th className="px-4 py-3 font-medium w-40" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                        {r.visitor_name}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                        {r.visitor_company ?? l("common_dash")}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
+                        {r.purpose ?? l("common_dash")}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.host_name ?? l("common_dash")}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 tabular-nums">
+                        {requirementsMetSummary(r)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {formatDateTime(r.check_in, dateLocale, timeZone)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {r.check_out ? formatDateTime(r.check_out, dateLocale, timeZone) : l("common_dash")}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            r.status === "checked_in"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                              : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                          }`}
+                        >
+                          {r.status === "checked_in"
+                            ? (lx.visitor_status_inside ?? lx.visitors_status_in ?? PM_EN.visitor_status_inside)
+                            : (lx.visitor_status_outside ?? lx.visitors_status_out ?? PM_EN.visitor_status_outside)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {r.status === "checked_in" ? (
+                          <button
+                            type="button"
+                            onClick={() => void manualCheckout(r.id)}
+                            className="min-h-[44px] px-3 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                          >
+                            {l("visitors_checkout_manual")}
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -535,7 +587,7 @@ export function VisitorModule({
           role="dialog"
           aria-modal
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4">
+          <div className="mx-auto w-full max-w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-800 space-y-4">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {lx.visitor_qr_title ?? lx.visitors_qr_modal_title ?? PM_EN.visitors_qr_modal_title}

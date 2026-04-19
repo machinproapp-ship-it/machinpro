@@ -1659,7 +1659,7 @@ export function FormsModule({
             }}
             aria-hidden
           />
-          <div className="fixed inset-x-4 bottom-4 z-50 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-sm">
+          <div className="fixed inset-x-4 bottom-4 z-50 mx-auto w-[min(100%,calc(100vw-2rem))] max-w-sm rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-1">
               {l("signHere")}
             </h3>
@@ -1669,8 +1669,8 @@ export function FormsModule({
             <canvas
               ref={directSignCanvasRef}
               width={320}
-              height={150}
-              className="w-full rounded-xl border-2 border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800 touch-none cursor-crosshair"
+              height={200}
+              className="h-[min(200px,40vh)] w-full min-h-[160px] rounded-xl border-2 border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800 touch-none cursor-crosshair"
               onPointerDown={startDirectSign}
               onPointerMove={continueDirectSign}
               onPointerUp={endDirectSign}
@@ -1710,7 +1710,7 @@ export function FormsModule({
             onClick={() => setAddVisitorModalOpen(false)}
             aria-hidden
           />
-          <div className="fixed inset-x-4 bottom-4 z-50 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-sm">
+          <div className="fixed inset-x-4 bottom-4 z-50 mx-auto w-[min(100%,calc(100vw-2rem))] max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-4">
               {l("addVisitor")}
             </h3>
@@ -1766,8 +1766,8 @@ export function FormsModule({
               <canvas
                 ref={visitorSignCanvasRef}
                 width={320}
-                height={120}
-                className="w-full rounded-xl border-2 border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800 touch-none cursor-crosshair"
+                height={160}
+                className="h-[min(160px,36vh)] w-full min-h-[140px] rounded-xl border-2 border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800 touch-none cursor-crosshair"
                 onPointerDown={startVisitorSign}
                 onPointerMove={continueVisitorSign}
                 onPointerUp={() => setIsDrawingVisitor(false)}

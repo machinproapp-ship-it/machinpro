@@ -2679,7 +2679,7 @@ export default {
 
   legal_privacy_h_intro: "Resumen",
   legal_privacy_intro:
-    "Esta Política describe cómo Canariense Inc. (“nosotros”) trata datos personales de MachinPro (https://machin.pro). Operamos en Canadá, Europa, Reino Unido, EE. UU., México y Latinoamérica. Contacto: info@machin.pro.",
+    "Esta Política describe cómo Canariense Inc. (“nosotros”) trata datos personales de MachinPro (https://machin.pro). Operamos en Canadá, Europa, Reino Unido, EE. UU., México y Latinoamérica. Contacto: info@machin.pro. Usamos cookies y tecnologías similares; puedes gestionar preferencias en el banner. El tratamiento puede estar sujeto a RGPD, PIPEDA y otros marcos que se indican a continuación.",
   legal_privacy_h_gdpr: "RGPD (UE / EEE)",
   legal_gdpr:
     "Si estás en la UE/EEE aplica el RGPD. Bases legales: contrato, interés legítimo (seguridad, mejora del servicio) y consentimiento cuando proceda. Derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición, y reclamación ante autoridad. Contacto DPO: info@machin.pro.",
@@ -2701,6 +2701,10 @@ export default {
     "Proveedores: Supabase (AWS), Stripe (PCI DSS L1), Cloudinary, Resend (AWS SES), Vercel, ipapi.co (solo país aproximado desde IP; sin almacenamiento prolongado de consultas salvo logs habituales de seguridad). La lista puede actualizarse.",
 
   cookie_banner_text: "Cookies y privacidad",
+  cookie_message: "Usamos cookies para mejorar tu experiencia.",
+  cookie_accept: "Aceptar todas",
+  cookie_necessary: "Solo necesarias",
+  cookie_learn_more: "Más información",
   cookie_accept_all: "Aceptar todo",
   cookie_essential_only: "Solo esenciales",
   cookie_view_policy: "Ver política",
@@ -2733,6 +2737,11 @@ export default {
   landing_seo_extra_latam_norte: "Obra, trabajadores y normativa local (p. ej. STPS).",
   landing_seo_extra_latam_sur: "Obra, trabajadores y normativa local de SST.",
   landing_seo_extra_other: "Operaciones de construcción, equipos y documentación de seguridad.",
+  maintenance_title: "MachinPro",
+  maintenance_body: "Estamos mejorando MachinPro. Volvemos pronto.",
+  maintenance_contact_label: "¿Necesitas ayuda?",
+  maintenance_home: "Ir al inicio",
+
   landing_lang_select: "Idioma",
   landing_brl_usd_approx: "≈ {usd} USD / mes",
 

@@ -2619,6 +2619,10 @@ export default {
     "We use trusted providers including: Supabase (hosting on AWS), Stripe (payments, PCI DSS Level 1), Cloudinary (media), Resend (email via AWS SES), Vercel (application hosting), and ipapi.co (approximate country detection from IP; we do not store IP lookups from ipapi beyond normal server logs unless needed for security). Sub-processors may change; material changes will be reflected in this policy.",
 
   cookie_banner_text: "Cookie e privacy",
+  cookie_message: "Utilizziamo i cookie per migliorare la tua esperienza.",
+  cookie_accept: "Accetta tutto",
+  cookie_necessary: "Solo necessari",
+  cookie_learn_more: "Scopri di più",
   cookie_accept_all: "Accetta tutto",
   cookie_essential_only: "Solo essenziali",
   cookie_view_policy: "Vedi informativa",

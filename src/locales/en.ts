@@ -2766,7 +2766,7 @@ export default {
 
   legal_privacy_h_intro: "Overview",
   legal_privacy_intro:
-    "This Privacy Policy describes how Canariense Inc. (“we”, “us”) processes personal data for MachinPro (https://machin.pro). We operate in Canada, Europe, the United Kingdom, the United States, Mexico, and Latin America. Contact: info@machin.pro.",
+    "This Privacy Policy describes how Canariense Inc. (“we”, “us”) processes personal data for MachinPro (https://machin.pro). We operate in Canada, Europe, the United Kingdom, the United States, Mexico, and Latin America. Contact: info@machin.pro. We use cookies and similar technologies; you can manage preferences via the cookie banner. Processing may be subject to GDPR, PIPEDA, and other frameworks below.",
   legal_privacy_h_gdpr: "GDPR (EU / EEA)",
   legal_gdpr:
     "If you are in the EU/EEA, the GDPR applies. Legal bases include contract, legitimate interests (security, service improvement), and consent where required. You have rights of access, rectification, erasure, restriction, portability, and objection, and the right to lodge a complaint with your supervisory authority. For GDPR requests, contact our data protection contact at info@machin.pro.",
@@ -2788,6 +2788,10 @@ export default {
     "We use trusted providers including: Supabase (hosting on AWS), Stripe (payments, PCI DSS Level 1), Cloudinary (media), Resend (email via AWS SES), Vercel (application hosting), and ipapi.co (approximate country detection from IP; we do not store IP lookups from ipapi beyond normal server logs unless needed for security). Sub-processors may change; material changes will be reflected in this policy.",
 
   cookie_banner_text: "Cookies & privacy",
+  cookie_message: "We use cookies to improve your experience.",
+  cookie_accept: "Accept all",
+  cookie_necessary: "Necessary only",
+  cookie_learn_more: "Learn more",
   cookie_accept_all: "Accept all",
   cookie_essential_only: "Essential only",
   cookie_view_policy: "View policy",
@@ -2820,6 +2824,12 @@ export default {
   landing_seo_extra_latam_norte: "Obra, trabajadores y cumplimiento normativo local (p. ej. STPS en México).",
   landing_seo_extra_latam_sur: "Obra, trabajadores y normativa local de seguridad y salud ocupacional.",
   landing_seo_extra_other: "Construction operations, teams, and safety documentation.",
+  maintenance_title: "MachinPro",
+  maintenance_body:
+    "We're improving MachinPro. We'll be back soon.",
+  maintenance_contact_label: "Need help?",
+  maintenance_home: "Back to home",
+
   landing_lang_select: "Language",
   landing_brl_usd_approx: "≈ {usd} USD / mo",
 

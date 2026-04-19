@@ -406,56 +406,89 @@ export function RFIModule({
             </p>
           </div>
         ) : (
-          <table className="w-full text-sm text-left min-w-[720px]">
-            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-              <tr>
-                <th className="px-4 py-3 font-medium">{l("rfi_number")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_list_title")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_category")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_priority")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_status")}</th>
-                <th className="px-4 py-3 font-medium">{l("rfi_due_date")}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700 md:hidden">
               {filtered.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                  onClick={() => {
-                    setDetail(r);
-                    setAnswerDraft(r.answer ?? "");
-                    setAnswerNameDraft(r.answered_by_name ?? userName);
-                  }}
-                >
-                  <td className="px-4 py-3 font-mono text-gray-900 dark:text-white">{r.rfi_number}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-[220px] truncate">
-                    {r.title}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {r.category ? l(`rfi_cat_${r.category}`) : l("common_dash")}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {l(`rfi_pri_${r.priority}`)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badge(r.status)}`}>
-                      {l(`rfi_${r.status}`)}
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    className="flex w-full flex-col gap-2 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/80"
+                    onClick={() => {
+                      setDetail(r);
+                      setAnswerDraft(r.answer ?? "");
+                      setAnswerNameDraft(r.answered_by_name ?? userName);
+                    }}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{r.rfi_number}</span>
+                      <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badge(r.status)}`}>
+                        {l(`rfi_${r.status}`)}
+                      </span>
+                    </div>
+                    <span className="font-medium text-gray-900 dark:text-white break-words">{r.title}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      {r.category ? l(`rfi_cat_${r.category}`) : l("common_dash")} · {l(`rfi_pri_${r.priority}`)}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {r.due_date ?? l("common_dash")}
-                  </td>
-                </tr>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {l("rfi_due_date")}: {r.due_date ?? l("common_dash")}
+                    </span>
+                  </button>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm text-left min-w-[720px]">
+                <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">{l("rfi_number")}</th>
+                    <th className="px-4 py-3 font-medium">{l("rfi_list_title")}</th>
+                    <th className="px-4 py-3 font-medium">{l("rfi_category")}</th>
+                    <th className="px-4 py-3 font-medium">{l("rfi_priority")}</th>
+                    <th className="px-4 py-3 font-medium">{l("rfi_status")}</th>
+                    <th className="px-4 py-3 font-medium">{l("rfi_due_date")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-t border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                      onClick={() => {
+                        setDetail(r);
+                        setAnswerDraft(r.answer ?? "");
+                        setAnswerNameDraft(r.answered_by_name ?? userName);
+                      }}
+                    >
+                      <td className="px-4 py-3 font-mono text-gray-900 dark:text-white">{r.rfi_number}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-[220px] truncate">
+                        {r.title}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                        {r.category ? l(`rfi_cat_${r.category}`) : l("common_dash")}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                        {l(`rfi_pri_${r.priority}`)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badge(r.status)}`}>
+                          {l(`rfi_${r.status}`)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {r.due_date ?? l("common_dash")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4 bg-black/50">
-          <div className="w-full max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 shadow-xl space-y-4 sm:max-w-lg">
+          <div className="mx-auto w-full max-h-[100dvh] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900 sm:max-h-[90vh] sm:rounded-2xl space-y-4 sm:max-w-lg">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{l("rfi_new")}</h3>
               <button
@@ -521,7 +554,7 @@ export function RFIModule({
                 ))}
               </select>
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-sm">
                 <span className="text-gray-600 dark:text-gray-400">{l("rfi_category")}</span>
                 <select

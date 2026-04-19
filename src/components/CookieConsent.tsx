@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { detectGeo, type GeoDetect } from "@/lib/geoTier";
 import { ALL_TRANSLATIONS, type Language } from "@/lib/i18n";
 
@@ -18,11 +19,14 @@ function cookieTextKey(geo: GeoDetect): string {
 }
 
 export function CookieConsent() {
+  const pathname = usePathname();
+  const onLanding = pathname === "/landing" || pathname.startsWith("/landing/");
   const [visible, setVisible] = useState(false);
   const [geo, setGeo] = useState<GeoDetect | null>(null);
   const [lang, setLang] = useState<Language>("es");
 
   useEffect(() => {
+    if (!onLanding) return;
     try {
       const v = localStorage.getItem(STORAGE_KEY);
       if (v === "all" || v === "essential") return;
@@ -37,7 +41,7 @@ export function CookieConsent() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onLanding]);
 
   useEffect(() => {
     try {
@@ -59,7 +63,9 @@ export function CookieConsent() {
   const tx = (k: string, fb: string) => t[k] ?? fb;
 
   const messageKey = geo ? cookieTextKey(geo) : "cookie_pipeda_text";
-  const body = tx(messageKey, tx("cookie_banner_text", ""));
+  const regional = tx(messageKey, "");
+  const simple = tx("cookie_message", "");
+  const body = simple.trim() !== "" ? simple : regional || tx("cookie_banner_text", "");
 
   const persist = (mode: "all" | "essential") => {
     try {
@@ -70,7 +76,7 @@ export function CookieConsent() {
     setVisible(false);
   };
 
-  if (!visible) return null;
+  if (!onLanding || !visible) return null;
 
   return (
     <div
@@ -86,20 +92,20 @@ export function CookieConsent() {
             className="min-h-[44px] rounded-xl bg-[#1a4f5e] px-4 text-sm font-semibold text-white hover:bg-[#134e5e] dark:bg-teal-800 dark:hover:bg-teal-700"
             onClick={() => persist("all")}
           >
-            {tx("cookie_accept_all", "Accept all")}
+            {tx("cookie_accept", "") || tx("cookie_accept_all", "Accept all")}
           </button>
           <button
             type="button"
             className="min-h-[44px] rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800"
             onClick={() => persist("essential")}
           >
-            {tx("cookie_essential_only", "Essential only")}
+            {tx("cookie_necessary", "") || tx("cookie_essential_only", "Essential only")}
           </button>
           <Link
             href="/legal/privacy"
             className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[#b8860b] px-4 text-sm font-semibold text-[#b8860b] hover:bg-amber-50 dark:hover:bg-amber-950/30"
           >
-            {tx("cookie_view_policy", "Privacy policy")}
+            {tx("cookie_learn_more", "") || tx("cookie_view_policy", "Privacy policy")}
           </Link>
         </div>
       </div>
