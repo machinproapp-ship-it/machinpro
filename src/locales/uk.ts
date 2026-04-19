@@ -1,4 +1,4 @@
-/** UK — auto-built (value-map); review for domain terms */
+﻿/** UK — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",

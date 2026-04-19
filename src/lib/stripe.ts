@@ -100,9 +100,11 @@ export type PlanDefinition = {
   /** null = sin tope práctico en UI */
   projects: number | null;
   storageGb: number;
-  /** clave i18n para la línea de usuarios del plan (p. ej. plan_users_esencial) */
+  /** clave i18n: línea de usuarios (p. ej. pricing_essential_users) */
   usersDescriptionKey: string;
-  /** claves i18n (pricing_feat_*) */
+  /** clave i18n: línea de almacenamiento (p. ej. pricing_essential_storage) */
+  storageDescriptionKey: string;
+  /** claves i18n: resumen de módulos incluidos */
   featureKeys: string[];
 };
 
@@ -114,14 +116,9 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     seats: 15,
     projects: null,
     storageGb: 15,
-    usersDescriptionKey: "plan_users_esencial",
-    featureKeys: [
-      "pricing_feat_esencial_1",
-      "pricing_feat_esencial_2",
-      "pricing_feat_esencial_3",
-      "pricing_feat_esencial_4",
-      "pricing_feat_esencial_5",
-    ],
+    usersDescriptionKey: "pricing_essential_users",
+    storageDescriptionKey: "pricing_essential_storage",
+    featureKeys: ["pricing_essential_includes"],
   },
   operaciones: {
     labelKey: "plan_operaciones",
@@ -129,35 +126,21 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     annual: { priceId: "price_1THiv5HskIYiyc3Ehqmch8mB" },
     seats: 30,
     projects: null,
-    storageGb: 10,
-    usersDescriptionKey: "plan_users_operaciones",
-    featureKeys: [
-      "pricing_feat_operaciones_1",
-      "pricing_feat_operaciones_2",
-      "pricing_feat_operaciones_3",
-      "pricing_feat_operaciones_4",
-      "pricing_feat_operaciones_5",
-      "pricing_feat_operaciones_6",
-      "pricing_feat_operaciones_7",
-      "pricing_feat_operaciones_8",
-    ],
+    storageGb: 30,
+    usersDescriptionKey: "pricing_operations_users",
+    storageDescriptionKey: "pricing_operations_storage",
+    featureKeys: ["pricing_operations_includes"],
   },
   logistica: {
-    labelKey: "plan_logistica",
+    labelKey: "pricing_plan_logistics",
     monthly: { priceId: "price_1THiw2HskIYiyc3EEVZh13pt" },
     annual: { priceId: "price_1THiw2HskIYiyc3EXSUNCS3E" },
     seats: 30,
     projects: null,
     storageGb: 30,
-    usersDescriptionKey: "plan_users_logistica",
-    featureKeys: [
-      "pricing_feat_logistica_1",
-      "pricing_feat_logistica_2",
-      "pricing_feat_logistica_3",
-      "pricing_feat_logistica_4",
-      "pricing_feat_logistica_5",
-      "pricing_feat_logistica_6",
-    ],
+    usersDescriptionKey: "pricing_logistics_users",
+    storageDescriptionKey: "pricing_logistics_storage",
+    featureKeys: ["pricing_logistics_includes"],
   },
   todo_incluido: {
     labelKey: "plan_todo_incluido",
@@ -166,15 +149,9 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     seats: 999_999,
     projects: null,
     storageGb: 200,
-    usersDescriptionKey: "plan_users_todo_incluido",
-    featureKeys: [
-      "pricing_feat_all_1",
-      "pricing_feat_all_2",
-      "pricing_feat_all_3",
-      "pricing_feat_all_4",
-      "pricing_feat_all_5",
-      "pricing_feat_all_6",
-    ],
+    usersDescriptionKey: "pricing_all_inclusive_users",
+    storageDescriptionKey: "pricing_all_inclusive_storage",
+    featureKeys: ["pricing_all_inclusive_includes"],
   },
 };
 

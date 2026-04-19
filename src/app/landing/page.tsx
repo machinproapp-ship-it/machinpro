@@ -20,10 +20,16 @@ import {
 type TxFn = (key: string, fallback: string) => string;
 
 const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
-  plan_users_esencial: "15 users included",
-  plan_users_operaciones: "30 users included",
-  plan_users_logistica: "30 users included",
-  plan_users_todo_incluido: "Unlimited users",
+  pricing_essential_users: "15 users included",
+  pricing_operations_users: "30 users included",
+  pricing_logistics_users: "30 users included",
+  pricing_all_inclusive_users: "Unlimited users",
+};
+const PLAN_STORAGE_DESCRIPTION_FALLBACK: Record<string, string> = {
+  pricing_essential_storage: "15 GB storage",
+  pricing_operations_storage: "30 GB storage",
+  pricing_logistics_storage: "30 GB storage",
+  pricing_all_inclusive_storage: "200 GB storage",
 };
 
 function useFadeIn() {
@@ -796,7 +802,11 @@ export default function LandingPage() {
                           ✓
                         </span>
                         <span>
-                          {plan.storageGb} GB {tx("pricing_storage", "storage")}
+                          {tx(
+                            plan.storageDescriptionKey,
+                            PLAN_STORAGE_DESCRIPTION_FALLBACK[plan.storageDescriptionKey] ??
+                              `${plan.storageGb} GB ${tx("pricing_storage", "storage")}`
+                          )}
                         </span>
                       </li>
                       <li className="flex gap-2 leading-snug">

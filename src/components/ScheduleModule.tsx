@@ -1471,7 +1471,7 @@ function TimesheetsView({
       {selectedSheet && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSheetId(null)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] w-full max-w-full overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[90vh] sm:w-[min(95vw,calc(100%-2rem))] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6 md:max-w-xl lg:max-w-2xl">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] w-full max-w-[calc(100vw-2rem)] mx-auto overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:mx-0 sm:max-h-[90vh] sm:w-[min(95vw,calc(100%-2rem))] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6 md:max-w-xl lg:max-w-2xl">
             <div className="mb-4 flex items-center justify-between gap-2">
               <h3 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-white sm:text-lg">
                 {getEmployeeName(selectedSheet.employeeId)} · {selectedSheet.weekStart} – {selectedSheet.weekEnd}
@@ -1682,6 +1682,10 @@ function TimesheetsView({
                         [selectedSheet.id]: { status: "approved", notes: notesDraft },
                       }));
                       setSelectedSheetId(null);
+                      showToast(
+                        "success",
+                        lx.timesheet_approved_toast ?? labels.approved ?? "Approved"
+                      );
                     }}
                     className="min-h-[44px] w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 sm:w-auto"
                   >
@@ -1695,6 +1699,10 @@ function TimesheetsView({
                         [selectedSheet.id]: { status: "rejected", notes: notesDraft },
                       }));
                       setSelectedSheetId(null);
+                      showToast(
+                        "success",
+                        lx.timesheet_rejected_toast ?? labels.rejected ?? "Rejected"
+                      );
                     }}
                     className="min-h-[44px] w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 sm:w-auto"
                   >
@@ -3328,7 +3336,7 @@ export default function ScheduleModule({
                       <button
                         type="button"
                         onClick={() => setAvailabilityWeekOffset((o) => o - 1)}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
                         aria-label={
                           (labels as Record<string, string>).schedule_prev_week ??
                           ALL_TRANSLATIONS.es.schedule_prev_week ??
@@ -3343,7 +3351,7 @@ export default function ScheduleModule({
                       <button
                         type="button"
                         onClick={() => setAvailabilityWeekOffset((o) => o + 1)}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
+                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-200 dark:hover:bg-slate-700"
                         aria-label={
                           (labels as Record<string, string>).schedule_next_week ??
                           ALL_TRANSLATIONS.es.schedule_next_week ??

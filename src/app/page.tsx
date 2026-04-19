@@ -4334,6 +4334,12 @@ export default function Home() {
         alertMeters?: number
       ) => {
         await persistServer(lat, lng, alert, alertMeters);
+        showToast(
+          "success",
+          (t as Record<string, string>).clock_in_success ??
+            (t as Record<string, string>).clockInDone ??
+            "Clock-in recorded"
+        );
         if (alert && alertMeters != null) {
           setClockInGpsStatus("alert");
           const msg =
@@ -4386,6 +4392,7 @@ export default function Home() {
       supabase,
       user?.id,
       companyId,
+      showToast,
     ]
   );
 
@@ -4429,6 +4436,12 @@ export default function Home() {
             prev.map((e) => (e.id === openEntry.id ? { ...e, clockOut: outTime } : e))
           );
           setClockInGpsStatus("ok");
+          showToast(
+            "success",
+            (t as Record<string, string>).clock_out_success ??
+              (t as Record<string, string>).clockOut ??
+              "Clock-out recorded"
+          );
         })();
         return;
       }
@@ -4445,6 +4458,12 @@ export default function Home() {
         )
       );
       setClockInGpsStatus("ok");
+      showToast(
+        "success",
+        (t as Record<string, string>).clock_out_success ??
+          (t as Record<string, string>).clockOut ??
+          "Clock-out recorded"
+      );
     };
 
     setClockInGpsStatus("locating");
@@ -4463,7 +4482,15 @@ export default function Home() {
       },
       { timeout: 8000, maximumAge: 60000 }
     );
-  }, [displayClockEntries, currentUserEmployeeId, supabase, dateLocaleBcp47, userTimeZone]);
+  }, [
+    displayClockEntries,
+    currentUserEmployeeId,
+    supabase,
+    dateLocaleBcp47,
+    userTimeZone,
+    showToast,
+    t,
+  ]);
 
   const handleManualClockIn = useCallback(
     async (params: {
@@ -7403,6 +7430,8 @@ export default function Home() {
                   canManageTrainingHub={!!rolePerms.canManageTrainingHub || effectiveRole === "admin"}
                   canViewSafetyPassport={!!rolePerms.canViewSafetyPassport}
                   canManageSafetyPassport={!!rolePerms.canManageSafetyPassport || effectiveRole === "admin"}
+                  canViewSwp
+                  canManageSwp={effectiveRole === "admin" || !!rolePerms.canManageHazards}
                   employeeDocs={employeeDocs}
                   complianceRecords={complianceRecords}
                   cloudinaryCloudName={

@@ -66,10 +66,16 @@ function normalizeCurrentPlan(raw: string | null | undefined): PaidPlanKey | nul
 }
 
 const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
-  plan_users_esencial: "15 users included",
-  plan_users_operaciones: "Everything in Essential plus 15 additional users (30 total)",
-  plan_users_logistica: "Everything in Essential plus 15 additional users (30 total)",
-  plan_users_todo_incluido: "Unlimited users",
+  pricing_essential_users: "15 users included",
+  pricing_operations_users: "30 users included",
+  pricing_logistics_users: "30 users included",
+  pricing_all_inclusive_users: "Unlimited users",
+};
+const PLAN_STORAGE_DESCRIPTION_FALLBACK: Record<string, string> = {
+  pricing_essential_storage: "15 GB storage",
+  pricing_operations_storage: "30 GB storage",
+  pricing_logistics_storage: "30 GB storage",
+  pricing_all_inclusive_storage: "200 GB storage",
 };
 
 export function PricingModule({
@@ -241,7 +247,7 @@ export function PricingModule({
       ) : null}
 
       <p className="text-center text-sm text-zinc-600 dark:text-zinc-400 mb-8 max-w-xl mx-auto">
-        {lx.pricing_extra_user_note ?? lx.pricing_extra_user ?? ""}
+        {lx.pricing_extra_user_note ?? lx.pricing_additional_user ?? lx.pricing_extra_user ?? ""}
       </p>
 
       {error && (
@@ -314,7 +320,9 @@ export function PricingModule({
                 <li className="flex gap-2">
                   <Check className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />
                   <span>
-                    {plan.storageGb} GB {lx.pricing_storage ?? lx.billing_limit_storage ?? "storage"}
+                    {lx[plan.storageDescriptionKey] ??
+                      PLAN_STORAGE_DESCRIPTION_FALLBACK[plan.storageDescriptionKey] ??
+                      `${plan.storageGb} GB ${lx.pricing_storage ?? lx.billing_limit_storage ?? "storage"}`}
                   </span>
                 </li>
                 {plan.featureKeys.map((fk) => (

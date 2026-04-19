@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Camera,
   ClipboardCheck,
+  ClipboardList,
   Download,
   FileText,
   FolderOpen,
@@ -27,6 +28,7 @@ import { BindersModule } from "@/components/BindersModule";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { TrainingHubModule, type TrainingEmployeeOption } from "@/components/TrainingHubModule";
 import { SafetyPassportModule } from "@/components/SafetyPassportModule";
+import { SwpModule } from "@/components/SwpModule";
 import type { EmployeeDocument, ComplianceRecord } from "@/types/homePage";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
@@ -34,7 +36,7 @@ import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
-export type SecurityTabId = "hazards" | "actions" | "documents" | "audit" | "training" | "passport";
+export type SecurityTabId = "hazards" | "actions" | "documents" | "swp" | "audit" | "training" | "passport";
 
 export interface SecurityModuleProps {
   t: Record<string, string>;
@@ -73,6 +75,9 @@ export interface SecurityModuleProps {
   canManageTrainingHub: boolean;
   canViewSafetyPassport: boolean;
   canManageSafetyPassport: boolean;
+  /** Safe Work Procedures — visible to all roles that can open Security; manage = admins / hazard managers */
+  canViewSwp?: boolean;
+  canManageSwp?: boolean;
   employeeDocs: EmployeeDocument[];
   complianceRecords: ComplianceRecord[];
   cloudinaryCloudName: string;
@@ -99,6 +104,7 @@ const TAB_CONFIG: { id: SecurityTabId; icon: typeof AlertTriangle; labelKey: str
   { id: "hazards", icon: AlertTriangle, labelKey: "security_tab_hazards" },
   { id: "actions", icon: ClipboardCheck, labelKey: "security_tab_actions" },
   { id: "documents", icon: FolderOpen, labelKey: "security_tab_documents" },
+  { id: "swp", icon: ClipboardList, labelKey: "swp_title" },
   { id: "audit", icon: ScrollText, labelKey: "security_tab_audit" },
   { id: "training", icon: GraduationCap, labelKey: "training_hub_title" },
   { id: "passport", icon: Shield, labelKey: "safety_passport_title" },
@@ -141,6 +147,8 @@ export function SecurityModule({
   canManageTrainingHub,
   canViewSafetyPassport,
   canManageSafetyPassport,
+  canViewSwp = true,
+  canManageSwp = false,
   employeeDocs,
   complianceRecords,
   cloudinaryCloudName,
@@ -161,11 +169,13 @@ export function SecurityModule({
   const showActionsTab = canViewCorrectiveActions || canManageCorrectiveActions;
   const showDocumentsTab = canViewSecurityDocs || canManageSecurityDocs;
   const showAuditTab = canViewSecurityAudit;
+  const showSwpTab = canViewSwp;
 
   const firstAllowed =
     (showHazardsTab ? "hazards" : null) ||
     (showActionsTab ? "actions" : null) ||
     (showDocumentsTab ? "documents" : null) ||
+    (showSwpTab ? "swp" : null) ||
     (showAuditTab ? "audit" : null) ||
     (canViewTrainingHub ? "training" : null) ||
     (canViewSafetyPassport ? "passport" : null) ||
@@ -178,6 +188,7 @@ export function SecurityModule({
       (id === "hazards" && showHazardsTab) ||
       (id === "actions" && showActionsTab) ||
       (id === "documents" && showDocumentsTab) ||
+      (id === "swp" && showSwpTab) ||
       (id === "audit" && showAuditTab) ||
       (id === "training" && canViewTrainingHub) ||
       (id === "passport" && canViewSafetyPassport),
@@ -185,6 +196,7 @@ export function SecurityModule({
       showHazardsTab,
       showActionsTab,
       showDocumentsTab,
+      showSwpTab,
       showAuditTab,
       canViewTrainingHub,
       canViewSafetyPassport,
@@ -331,6 +343,16 @@ export function SecurityModule({
             dateLocale={dateLocale}
             timeZone={timeZone}
             manageCorrectiveActions={canManageCorrectiveActions}
+          />
+        )}
+
+        {tab === "swp" && showSwpTab && companyId && (
+          <SwpModule
+            t={t}
+            companyId={companyId}
+            userProfileId={userProfileId}
+            canManage={canManageSwp}
+            employees={employees}
           />
         )}
 
