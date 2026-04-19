@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FileQuestion,
   Plus,
@@ -56,6 +56,8 @@ export interface RFIModuleProps {
   projects: { id: string; name: string }[];
   /** When set, list and new RFI are scoped to this project (e.g. pestaña en obra). */
   projectIdFilter?: string | null;
+  /** Increment from parent to open the create modal (e.g. quick action). */
+  openCreateSignal?: number;
 }
 
 export function RFIModule({
@@ -67,6 +69,7 @@ export function RFIModule({
   userProfileId,
   projects,
   projectIdFilter = null,
+  openCreateSignal = 0,
 }: RFIModuleProps) {
   const l = (k: string) => t[k] ?? PM_EN[k] ?? k;
   const rfiCatLabel = (c: RfiCategory) => l(`rfi_cat_${c}`);
@@ -89,6 +92,7 @@ export function RFIModule({
   const [saving, setSaving] = useState(false);
   const [answerDraft, setAnswerDraft] = useState("");
   const [answerNameDraft, setAnswerNameDraft] = useState("");
+  const lastCreateSig = useRef(0);
 
   const load = useCallback(async () => {
     if (!supabase || !companyId) {
@@ -114,6 +118,16 @@ export function RFIModule({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (openCreateSignal <= lastCreateSig.current || !canEdit) return;
+    lastCreateSig.current = openCreateSignal;
+    if (projectIdFilter) {
+      const pn = projects.find((p) => p.id === projectIdFilter)?.name ?? "";
+      setForm((f) => ({ ...f, project_id: projectIdFilter, project_name: pn }));
+    }
+    setCreateOpen(true);
+  }, [openCreateSignal, canEdit, projectIdFilter, projects]);
 
   useEffect(() => {
     if (projectIdFilter) setFilterProject(projectIdFilter);

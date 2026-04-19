@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AlertTriangle,
   Camera,
@@ -10,6 +10,8 @@ import {
   FileText,
   FolderOpen,
   GraduationCap,
+  LayoutDashboard,
+  Loader2,
   ScrollText,
   Shield,
   Users,
@@ -35,8 +37,22 @@ import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/li
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
+import { SecurityOverviewPanel } from "@/components/SecurityOverviewPanel";
+import { buildSafetyReportPdf, slugSafetyPdfName } from "@/lib/safetyExportPdf";
+import { supabase } from "@/lib/supabase";
+import type { Hazard } from "@/types/hazard";
+import type { CorrectiveAction } from "@/types/correctiveAction";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 
-export type SecurityTabId = "hazards" | "actions" | "documents" | "swp" | "audit" | "training" | "passport";
+export type SecurityTabId =
+  | "overview"
+  | "hazards"
+  | "actions"
+  | "documents"
+  | "swp"
+  | "audit"
+  | "training"
+  | "passport";
 
 export interface SecurityModuleProps {
   t: Record<string, string>;
@@ -101,6 +117,7 @@ export interface SecurityModuleProps {
 }
 
 const TAB_CONFIG: { id: SecurityTabId; icon: typeof AlertTriangle; labelKey: string }[] = [
+  { id: "overview", icon: LayoutDashboard, labelKey: "security_tab_overview" },
   { id: "hazards", icon: AlertTriangle, labelKey: "security_tab_hazards" },
   { id: "actions", icon: ClipboardCheck, labelKey: "security_tab_actions" },
   { id: "documents", icon: FolderOpen, labelKey: "security_tab_documents" },
@@ -171,20 +188,13 @@ export function SecurityModule({
   const showAuditTab = canViewSecurityAudit;
   const showSwpTab = canViewSwp;
 
-  const firstAllowed =
-    (showHazardsTab ? "hazards" : null) ||
-    (showActionsTab ? "actions" : null) ||
-    (showDocumentsTab ? "documents" : null) ||
-    (showSwpTab ? "swp" : null) ||
-    (showAuditTab ? "audit" : null) ||
-    (canViewTrainingHub ? "training" : null) ||
-    (canViewSafetyPassport ? "passport" : null) ||
-    "hazards";
+  const [safetyPdfBusy, setSafetyPdfBusy] = useState(false);
 
-  const [tab, setTab] = useState<SecurityTabId>(firstAllowed as SecurityTabId);
+  const [tab, setTab] = useState<SecurityTabId>("overview");
 
   const allowed = useCallback(
     (id: SecurityTabId) =>
+      (id === "overview") ||
       (id === "hazards" && showHazardsTab) ||
       (id === "actions" && showActionsTab) ||
       (id === "documents" && showDocumentsTab) ||
@@ -202,6 +212,23 @@ export function SecurityModule({
       canViewSafetyPassport,
     ]
   );
+
+  const firstAllowed = useMemo((): SecurityTabId => {
+    const order: SecurityTabId[] = [
+      "overview",
+      "hazards",
+      "actions",
+      "documents",
+      "swp",
+      "audit",
+      "training",
+      "passport",
+    ];
+    for (const id of order) {
+      if (allowed(id)) return id;
+    }
+    return "overview";
+  }, [allowed]);
 
   const selectSecurityTab = useCallback(
     (id: SecurityTabId) => {
@@ -264,6 +291,113 @@ export function SecurityModule({
     }
   }, [auditLogs, companyId, companyName, dateLocale, timeZone, t, showToast]);
 
+  const exportSafetyPdf = useCallback(async () => {
+    const labels = t as Record<string, string>;
+    const TL = (k: string, fb: string) =>
+      (t[k] as string | undefined) ||
+      (ALL_TRANSLATIONS.en as Record<string, string>)[k] ||
+      fb;
+    if (!supabase || !companyId) {
+      showToast("error", TL("export_error", "Export error"));
+      return;
+    }
+    setSafetyPdfBusy(true);
+    try {
+      const genIso = new Date().toISOString();
+      const todayStr = genIso.slice(0, 10);
+      const soonStr = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
+      const [hzRes, caRes, swpRes, sigRes, docRes] = await Promise.all([
+        supabase.from("hazards").select("*").eq("company_id", companyId),
+        supabase.from("corrective_actions").select("*").eq("company_id", companyId),
+        supabase.from("safe_work_procedures").select("id, title").eq("company_id", companyId).is("deleted_at", null),
+        supabase.from("swp_signatures").select("swp_id, user_id").eq("company_id", companyId),
+        supabase
+          .from("employee_documents")
+          .select("id, name, expiry_date, user_id, deleted_at")
+          .eq("company_id", companyId)
+          .not("expiry_date", "is", null),
+      ]);
+
+      if (hzRes.error) throw hzRes.error;
+      if (caRes.error) throw caRes.error;
+      if (swpRes.error) throw swpRes.error;
+      if (sigRes.error) throw sigRes.error;
+      if (docRes.error) throw docRes.error;
+
+      const hzList = (hzRes.data ?? []) as Hazard[];
+      const caList = (caRes.data ?? []) as CorrectiveAction[];
+      const swps = (swpRes.data ?? []) as { id: string; title: string }[];
+      const sigs = (sigRes.data ?? []) as { swp_id: string; user_id: string }[];
+
+      const activeCount = hzList.filter((h) => h.status === "open" || h.status === "in_progress").length;
+      const resolvedCount = hzList.filter((h) => h.status === "resolved" || h.status === "closed").length;
+
+      const hazardsPdf = hzList.map((h) => ({
+        description: [h.title, h.description ?? ""].filter(Boolean).join(" — ").slice(0, 200),
+        severity: h.severity,
+        status: h.status,
+        date: h.created_at?.slice(0, 10) ?? "—",
+        owner: h.assigned_to_name ?? h.reported_by_name ?? "—",
+      }));
+
+      const correctivePdf = caList.map((c) => ({
+        description: c.title,
+        status: c.status,
+        due: c.due_date?.slice(0, 10) ?? "—",
+      }));
+
+      const empById = new Map(employees.map((e) => [e.id, e.name] as const));
+      const swpLines: string[] = [];
+      for (const w of swps) {
+        const signedUids = new Set(sigs.filter((s) => s.swp_id === w.id).map((s) => s.user_id));
+        const signedNames = [...signedUids].map((id) => empById.get(id) ?? `${id.slice(0, 8)}…`);
+        const pendingNames = employees.filter((e) => !signedUids.has(e.id)).map((e) => e.name);
+        swpLines.push(
+          `${w.title}: ${TL("pdf_swp_signed_by", "Signed")}: ${signedNames.join(", ") || "—"} · ${TL(
+            "pdf_swp_pending_list",
+            "Pending"
+          )}: ${pendingNames.join(", ") || "—"}`
+        );
+      }
+
+      const rawDocs = (docRes.data ?? []) as {
+        expiry_date: string;
+        name: string;
+        user_id: string;
+        deleted_at?: string | null;
+      }[];
+      const certLines = rawDocs
+        .filter((d) => !d.deleted_at && d.expiry_date >= todayStr && d.expiry_date <= soonStr)
+        .map((d) => {
+          const nm = empById.get(d.user_id) ?? `${d.user_id.slice(0, 8)}…`;
+          return `${nm} — ${d.name} (${d.expiry_date})`;
+        });
+
+      const doc = buildSafetyReportPdf({
+        labels,
+        companyName,
+        totals: {
+          hazards: hzList.length,
+          active: activeCount,
+          resolved: resolvedCount,
+        },
+        hazards: hazardsPdf,
+        corrective: correctivePdf,
+        swpLines,
+        certLines,
+        generationIso: genIso,
+      });
+
+      doc.save(slugSafetyPdfName(companyName, genIso));
+      showToast("success", TL("export_success", "Export completed"));
+    } catch (err) {
+      showToast("error", userFacingErrorMessage(labels, err));
+    } finally {
+      setSafetyPdfBusy(false);
+    }
+  }, [companyId, companyName, employees, showToast, t]);
+
   const visibleTabs = TAB_CONFIG.filter((x) => allowed(x.id));
 
   return (
@@ -300,6 +434,35 @@ export function SecurityModule({
       </HorizontalScrollFade>
 
       <div role="tabpanel" className="min-w-0 overflow-x-hidden">
+        {tab === "overview" && (
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {L("security_overview_intro", "Company-wide safety metrics and recent activity.")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void exportSafetyPdf()}
+                disabled={safetyPdfBusy || !companyId}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 self-start rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 sm:self-auto"
+              >
+                {safetyPdfBusy ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                {L("safety_report_pdf_btn", "Safety report")}
+              </button>
+            </div>
+            <SecurityOverviewPanel
+              companyId={companyId}
+              labels={t as Record<string, string>}
+              dateLocale={dateLocale}
+              timeZone={timeZone}
+            />
+          </div>
+        )}
+
         {tab === "hazards" && showHazardsTab && (
           <HazardModule
             t={t}

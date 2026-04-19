@@ -3,6 +3,16 @@
 import dynamic from "next/dynamic";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { arrayMove, SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   Users,
   UserCheck,
   AlertTriangle,
@@ -47,6 +57,7 @@ import type { MainSection } from "@/types/shared";
 import type { UserRole } from "@/types/shared";
 import {
   buildDashboardConfigPayload,
+  DASHBOARD_WIDGET_IDS,
   DEFAULT_DASHBOARD_WIDGET_ORDER,
   mergeDashboardRaw,
   parseDashboardConfig,
@@ -115,6 +126,76 @@ type VisitorWidgetRow = {
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const LS_WIDGET_ORDER_KEY = "machinpro_dashboard_widget_order";
+
+function applyLocalStorageWidgetOrder(parsed: ResolvedDashboardConfig): ResolvedDashboardConfig {
+  if (typeof window === "undefined") return parsed;
+  try {
+    const raw = localStorage.getItem(LS_WIDGET_ORDER_KEY);
+    if (!raw) return parsed;
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return parsed;
+    const base = parsed.orderedWidgets;
+    const baseSet = new Set(base);
+    const preferred = arr.filter(
+      (x): x is DashboardWidgetId =>
+        typeof x === "string" &&
+        (DASHBOARD_WIDGET_IDS as readonly string[]).includes(x) &&
+        baseSet.has(x as DashboardWidgetId)
+    );
+    if (preferred.length === 0) return parsed;
+    const tail = base.filter((id) => !preferred.includes(id));
+    return { ...parsed, orderedWidgets: [...preferred, ...tail] };
+  } catch {
+    return parsed;
+  }
+}
+
+function DashboardSortableShell({
+  id,
+  className,
+  dragDisabled,
+  dragHint,
+  children,
+}: {
+  id: DashboardWidgetId;
+  className?: string;
+  dragDisabled?: boolean;
+  dragHint: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled: dragDisabled,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group ${className ?? ""} ${isDragging ? "z-[55] opacity-95 shadow-xl ring-2 ring-amber-400/40" : ""}`}
+    >
+      <div className="relative">
+        {!dragDisabled ? (
+          <button
+            type="button"
+            className="absolute left-1 top-1 z-10 hidden min-h-[44px] min-w-[44px] cursor-grab touch-none items-center justify-center rounded-lg border border-gray-200 bg-white/95 text-gray-500 opacity-0 transition-opacity hover:bg-gray-50 hover:opacity-100 md:flex md:group-hover:opacity-100 dark:border-gray-600 dark:bg-gray-900/95 dark:hover:bg-gray-800"
+            {...attributes}
+            {...listeners}
+            aria-label={dragHint}
+          >
+            <GripVertical className="h-5 w-5 shrink-0" aria-hidden />
+          </button>
+        ) : null}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /** Evita huecos en grid 2 columnas (md+): último impar a ancho completo; antes de `quick_access` (ancho completo) también. */
 function mdColSpanForOperationsWidget(ids: DashboardWidgetId[], index: number): string {
@@ -655,6 +736,17 @@ function CentralDashboardBody(
   const [manualProjectId, setManualProjectId] = useState("");
   const [manualNotes, setManualNotes] = useState("");
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
+  const [narrowViewport, setNarrowViewport] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => setNarrowViewport(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const openManualClockModal = useCallback(() => {
     const pad2 = (n: number) => String(n).padStart(2, "0");
     const d = new Date();
@@ -793,7 +885,7 @@ function CentralDashboardBody(
     try {
       const cached = readCentralDashboardConfigCache(companyId, currentUserId);
       if (cached != null) {
-        const parsed = parseDashboardConfig(cached);
+        const parsed = applyLocalStorageWidgetOrder(parseDashboardConfig(cached));
         setResolvedConfig(parsed);
         return parsed;
       }
@@ -806,13 +898,13 @@ function CentralDashboardBody(
       const userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
       const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
       writeCentralDashboardConfigCache(companyId, currentUserId, merged);
-      const parsed = parseDashboardConfig(merged);
+      const parsed = applyLocalStorageWidgetOrder(parseDashboardConfig(merged));
       setResolvedConfig(parsed);
       return parsed;
     } catch (e) {
       console.error("[CentralDashboard] loadDashboardConfig", e);
       setLoadErrors((prev) => [...prev, errMessage(e)]);
-      const fallback = parseDashboardConfig(null);
+      const fallback = applyLocalStorageWidgetOrder(parseDashboardConfig(null));
       setResolvedConfig(fallback);
       return fallback;
     }
@@ -1439,6 +1531,38 @@ function CentralDashboardBody(
     [orderedVisibleWidgets, canShowWidget, resolvedConfig, persistConfig, loadDashboardConfig]
   );
 
+  const handleOperationsDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      if (!canManageEmployees) return;
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const order = orderedVisibleWidgets.filter((w) => canShowWidget(w));
+      const oldIndex = order.indexOf(active.id as DashboardWidgetId);
+      const newIndex = order.indexOf(over.id as DashboardWidgetId);
+      if (oldIndex < 0 || newIndex < 0) return;
+      const nextOrder = arrayMove(order, oldIndex, newIndex);
+      const full = DEFAULT_DASHBOARD_WIDGET_ORDER.filter(
+        (w) => canShowWidget(w) && !nextOrder.includes(w as DashboardWidgetId)
+      );
+      const merged = [...nextOrder, ...full];
+      const next = { ...resolvedConfig, orderedWidgets: merged };
+      setResolvedConfig(next);
+      const ok = await persistConfig(next);
+      if (!ok) void loadDashboardConfig();
+    },
+    [canManageEmployees, orderedVisibleWidgets, canShowWidget, resolvedConfig, persistConfig, loadDashboardConfig]
+  );
+
+  const resetDashboardLayout = useCallback(async () => {
+    try {
+      localStorage.removeItem(LS_WIDGET_ORDER_KEY);
+    } catch {
+      /* ignore */
+    }
+    clearCentralDashboardConfigCache();
+    await loadDashboardConfig();
+  }, [loadDashboardConfig]);
+
   const toggleWidgetInDraft = (id: DashboardWidgetId) => {
     const has = draftConfig.orderedWidgets.includes(id);
     let order = [...draftConfig.orderedWidgets];
@@ -1567,7 +1691,7 @@ function CentralDashboardBody(
 
   const widgetChrome = (id: DashboardWidgetId, children: React.ReactNode) => (
     <div className="relative min-w-0 max-w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-      {canManageEmployees ? (
+      {canManageEmployees && narrowViewport ? (
         <div className="absolute top-2 right-2 flex items-center gap-1">
           <button
             type="button"
@@ -2385,17 +2509,44 @@ function CentralDashboardBody(
 
       {canViewDashboardWidgets ? (
         <>
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_operations_panel")}</h2>
-          <div className="grid grid-cols-1 gap-3 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense">
-            {(() => {
-              const opsIds = orderedVisibleWidgets.filter(canShowWidget);
-              return opsIds.map((id, index) => (
-                <div key={id} className={`min-w-0 ${mdColSpanForOperationsWidget(opsIds, index)}`}>
-                  {renderWidget(id)}
-                </div>
-              ));
-            })()}
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">{L("dashboard_operations_panel")}</h2>
+            {canManageEmployees ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="hidden text-xs text-gray-500 dark:text-gray-400 md:inline">{L("dashboard_drag_hint")}</span>
+                <button
+                  type="button"
+                  onClick={() => void resetDashboardLayout()}
+                  className="min-h-[44px] rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  {L("dashboard_reset_layout")}
+                </button>
+              </div>
+            ) : null}
           </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleOperationsDragEnd(e)}>
+            <SortableContext
+              items={orderedVisibleWidgets.filter(canShowWidget)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 gap-3 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense">
+                {(() => {
+                  const opsIds = orderedVisibleWidgets.filter(canShowWidget);
+                  return opsIds.map((id, index) => (
+                    <DashboardSortableShell
+                      key={id}
+                      id={id}
+                      dragDisabled={!canManageEmployees || narrowViewport}
+                      dragHint={L("dashboard_drag_hint")}
+                      className={`min-w-0 ${mdColSpanForOperationsWidget(opsIds, index)}`}
+                    >
+                      {renderWidget(id)}
+                    </DashboardSortableShell>
+                  ));
+                })()}
+              </div>
+            </SortableContext>
+          </DndContext>
         </>
       ) : null}
 

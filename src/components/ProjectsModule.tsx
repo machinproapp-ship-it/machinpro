@@ -30,11 +30,13 @@ import {
   FileText,
   Truck,
   ClipboardList,
+  UserPlus,
   Plus,
   Trash2,
   FileDown,
   List,
   LayoutGrid,
+  Map as MapViewIcon,
   HardHat,
   Circle,
   FileQuestion,
@@ -129,6 +131,10 @@ const TeamGpsMapWidget = dynamic(
   () => import("@/components/TeamGpsMapWidget").then((m) => m.TeamGpsMapWidget),
   { ssr: false }
 );
+const ProjectsMapDynamic = dynamic(
+  () => import("@/components/maps/ProjectsMapDynamic").then((m) => ({ default: m.ProjectsMapDynamic })),
+  { ssr: false }
+);
 
 export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 
@@ -190,6 +196,10 @@ export interface Project {
   assignedEmployeeIds: string[];
   supervisorName?: string;
   safetyRequirements?: unknown;
+  locationLat?: number;
+  locationLng?: number;
+  archived?: boolean;
+  lifecycleStatus?: "active" | "paused" | "completed";
 }
 
 export type ProjectForm = {
@@ -774,6 +784,12 @@ export function ProjectsModule({
   const [workOrderImportOpen, setWorkOrderImportOpen] = useState(false);
   const [workOrderImportPick, setWorkOrderImportPick] = useState<Record<string, boolean>>({});
   const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
+  const [pdfExportBusy, setPdfExportBusy] = useState(false);
+  const [rfiSummary, setRfiSummary] = useState<{ total: number; pending: number; answered: number } | null>(null);
+  const [rfiSummaryLoading, setRfiSummaryLoading] = useState(false);
+  const [rfiQuickCreateSig, setRfiQuickCreateSig] = useState(0);
+  const [projectsBrowseView, setProjectsBrowseView] = useState<"list" | "map">("list");
+  const [projectsMapDark, setProjectsMapDark] = useState(false);
 
   const projectExpensesForProject = useMemo(() => {
     if (!selectedProjectId) return [];
@@ -1102,6 +1118,79 @@ export function ProjectsModule({
   const selectedProject = selectedProjectId
     ? (projects ?? []).find((p) => p.id === selectedProjectId)
     : null;
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const sync = () => setProjectsMapDark(el.classList.contains("dark"));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+
+  const projectsForMap = useMemo(
+    () =>
+      (projects ?? []).map((proj) => ({
+        id: proj.id,
+        name: proj.name,
+        locationLat: proj.locationLat,
+        locationLng: proj.locationLng,
+        budgetCAD: proj.budgetCAD,
+        spentCAD: proj.spentCAD,
+        archived: proj.archived,
+        lifecycleStatus: proj.lifecycleStatus,
+        teamCount: (proj.assignedEmployeeIds ?? []).length,
+      })),
+    [projects]
+  );
+
+  const projectsWithCoordsCount = useMemo(
+    () =>
+      projectsForMap.filter(
+        (p) =>
+          typeof p.locationLat === "number" &&
+          typeof p.locationLng === "number" &&
+          !Number.isNaN(p.locationLat) &&
+          !Number.isNaN(p.locationLng)
+      ).length,
+    [projectsForMap]
+  );
+
+  useEffect(() => {
+    if (!supabase || !companyId || !selectedProjectId || activeTab !== "general") return;
+    let cancelled = false;
+    setRfiSummaryLoading(true);
+    void (async () => {
+      const { data, error } = await supabase.from("rfis").select("status").eq("company_id", companyId).eq("project_id", selectedProjectId);
+      if (cancelled) return;
+      if (error || !data) {
+        setRfiSummary(null);
+        setRfiSummaryLoading(false);
+        return;
+      }
+      const rows = data as { status: string }[];
+      let pending = 0;
+      let answered = 0;
+      for (const r of rows) {
+        const s = String(r.status ?? "");
+        if (s === "answered" || s === "closed") answered += 1;
+        else pending += 1;
+      }
+      setRfiSummary({ total: rows.length, pending, answered });
+      setRfiSummaryLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, selectedProjectId, activeTab]);
+
+  const recentGalleryPhotos = useMemo(() => {
+    if (!selectedProjectId || !(projectPhotos ?? []).length) return [];
+    const list = (projectPhotos ?? []).filter((p) => p.project_id === selectedProjectId);
+    return [...list]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 4);
+  }, [projectPhotos, selectedProjectId]);
 
   const assignedEmployees = (allEmployees ?? []).filter((e) =>
     (selectedProject?.assignedEmployeeIds ?? []).includes(e.id)
@@ -1480,6 +1569,102 @@ export function ProjectsModule({
       )
     : [];
 
+  const canCreateRfiQuick = currentUserRole === "admin" || currentUserRole === "supervisor";
+  const budgetBarToneClass =
+    progress < 70 ? "bg-emerald-500" : progress <= 90 ? "bg-amber-500" : "bg-red-500";
+
+  const handleExportProjectPdf = useCallback(async () => {
+    const tlPdf = t as Record<string, string>;
+    if (!supabase || !companyId || !selectedProjectId) {
+      showToast("error", tlPdf.export_error ?? PM_EN.export_error ?? "Export error");
+      return;
+    }
+    const proj = (projects ?? []).find((p) => p.id === selectedProjectId);
+    if (!proj) return;
+    setPdfExportBusy(true);
+    try {
+      const { buildProjectReportPdf, slugProjectPdfName } = await import("@/lib/projectExportPdf");
+      const genIso = new Date().toISOString();
+      const { data: hz } = await supabase
+        .from("hazards")
+        .select("title,description,severity,status,created_at")
+        .eq("company_id", companyId)
+        .eq("project_id", proj.id)
+        .in("status", ["open", "in_progress"]);
+      const hazardRows =
+        ((hz ?? []) as { title: string; description: string | null; severity: string; status: string; created_at: string }[]).map((h) => ({
+          description: `${h.title}${h.description?.trim() ? ` — ${h.description}` : ""}`.slice(0, 220),
+          severity: h.severity,
+          status: h.status,
+          date: h.created_at?.slice(0, 10) ?? "—",
+        }));
+      const laborSum = projectLaborSummaries[proj.id];
+      const teamPdf =
+        (laborSum?.byEmployee ?? []).map((row) => ({
+          name: row.name,
+          role: allEmployees?.find((e) => e.id === row.employeeId)?.role ?? "—",
+          hours: row.hours,
+        })) ?? [];
+      const costsPdf = (projectExpenses ?? [])
+        .filter((e) => e.projectId === proj.id)
+        .map((e) => ({
+          description: e.name,
+          quantity: 1,
+          amountCad: Number.isFinite(e.amount) ? e.amount : 0,
+        }));
+      const typeLbl =
+        proj.type === "residential"
+          ? (tlPdf.projectTypeResidential ?? PM_EN.projectTypeResidential)
+          : proj.type === "commercial"
+            ? (tlPdf.projectTypeCommercial ?? PM_EN.projectTypeCommercial)
+            : proj.type === "industrial"
+              ? (tlPdf.projectTypeIndustrial ?? PM_EN.projectTypeIndustrial)
+              : proj.type;
+      const lifeLbl =
+        proj.archived || proj.lifecycleStatus === "completed"
+          ? (tlPdf.projects_status_completed ?? "Completed")
+          : proj.lifecycleStatus === "paused"
+            ? (tlPdf.projects_status_paused ?? "Paused")
+            : (tlPdf.projects_status_active ?? "Active");
+      const consumedPct =
+        proj.budgetCAD && proj.budgetCAD > 0 ? Math.min(100, Math.round(((proj.spentCAD ?? 0) / proj.budgetCAD) * 100)) : null;
+      const doc = buildProjectReportPdf({
+        labels: tlPdf,
+        companyName: companyName || "",
+        projectName: proj.name,
+        projectTypeLabel: typeLbl,
+        location: proj.location || "",
+        dateStart: proj.estimatedStart?.slice?.(0, 10) ?? String(proj.estimatedStart ?? ""),
+        dateEnd: proj.estimatedEnd?.slice?.(0, 10) ?? String(proj.estimatedEnd ?? ""),
+        lifecycleStatusLabel: lifeLbl,
+        budgetCad: proj.budgetCAD ?? null,
+        spentCad: proj.spentCAD ?? null,
+        consumedPct,
+        team: teamPdf,
+        costs: costsPdf,
+        hazards: hazardRows,
+        generationIso: genIso,
+      });
+      doc.save(slugProjectPdfName(proj.name, genIso));
+      showToast("success", tlPdf.export_success ?? PM_EN.export_success ?? "Done");
+    } catch (err) {
+      showToast("error", userFacingErrorMessage(t as Record<string, string>, err));
+    } finally {
+      setPdfExportBusy(false);
+    }
+  }, [
+    supabase,
+    companyId,
+    selectedProjectId,
+    projects,
+    projectLaborSummaries,
+    projectExpenses,
+    allEmployees,
+    companyName,
+    showToast,
+    t,
+  ]);
+
   // ── Vista: lista de proyectos ───────────────────────────────────────────────
   if (!selectedProject) {
     return (
@@ -1506,8 +1691,49 @@ export function ProjectsModule({
               </button>
             ) : null}
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 dark:border-slate-700/80" role="group" aria-label={tl.projects_view_toggle_group ?? "View"}>
+            <button
+              type="button"
+              onClick={() => setProjectsBrowseView("list")}
+              aria-pressed={projectsBrowseView === "list"}
+              className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                projectsBrowseView === "list"
+                  ? "bg-amber-100 text-amber-950 ring-2 ring-amber-400/70 dark:bg-amber-900/40 dark:text-amber-50 dark:ring-amber-500/50"
+                  : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-200 dark:hover:bg-slate-800"
+              }`}
+            >
+              <List className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.projects_view_list ?? PM_EN.projects_view_list}
+            </button>
+            <button
+              type="button"
+              onClick={() => setProjectsBrowseView("map")}
+              aria-pressed={projectsBrowseView === "map"}
+              className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                projectsBrowseView === "map"
+                  ? "bg-amber-100 text-amber-950 ring-2 ring-amber-400/70 dark:bg-amber-900/40 dark:text-amber-50 dark:ring-amber-500/50"
+                  : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-200 dark:hover:bg-slate-800"
+              }`}
+            >
+              <MapViewIcon className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.projects_view_map ?? PM_EN.projects_view_map}
+            </button>
+          </div>
         </div>
 
+        {projectsBrowseView === "map" ? (
+          <div className="w-full min-w-0 p-4 sm:p-6 lg:p-8">
+            {projectsWithCoordsCount === 0 ? (
+              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                {tl.projects_map_no_coords ?? PM_EN.projects_map_no_coords}
+              </p>
+            ) : null}
+            <div className="h-[400px] w-full overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-700 md:h-[600px]">
+              <ProjectsMapDynamic projects={projectsForMap} labels={tl} isDark={projectsMapDark} />
+            </div>
+          </div>
+        ) : (
         <div className="grid w-full min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 md:gap-6 lg:grid-cols-3 lg:p-8">
           {(projects ?? []).map((proj) => {
             const typeLabel =
@@ -1598,6 +1824,7 @@ export function ProjectsModule({
             </div>
           )}
         </div>
+        )}
       </section>
     );
   }
@@ -1692,6 +1919,75 @@ export function ProjectsModule({
               )}
             </div>
           </div>
+
+          {(canUploadPhotos ||
+            showProjectFormsTab ||
+            (showProjectRfiTab && canCreateRfiQuick) ||
+            showProjectVisitorsTab) && (
+            <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-slate-700">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                {tl.project_quick_actions ?? PM_EN.project_quick_actions}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {canUploadPhotos ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoCategoryModal({ projectId: selectedProject.id });
+                      setPhotoCategoryToSubmit("progress");
+                    }}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <Camera className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">{tl.progressPhotos ?? PM_EN.progressPhotos}</span>
+                  </button>
+                ) : null}
+                {showProjectFormsTab ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("formularios");
+                      setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
+                      setOpenDailyReportKey("new");
+                    }}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">
+                      {(t as Record<string, string>).daily_report_summary ?? PM_EN.daily_report_summary ?? "Daily report"}
+                    </span>
+                  </button>
+                ) : null}
+                {showProjectRfiTab && canCreateRfiQuick ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("rfi");
+                      setRfiQuickCreateSig((n) => n + 1);
+                    }}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <FileQuestion className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">{tl.rfi_new ?? PM_EN.rfi_new ?? "RFI"}</span>
+                  </button>
+                ) : null}
+                {showProjectVisitorsTab ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("visitantes")}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <UserPlus className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">
+                      {(t as Record<string, string>).siteTabVisitors ??
+                        (t as Record<string, string>).visitors_menu ??
+                        "Visitors"}
+                    </span>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1819,6 +2115,134 @@ export function ProjectsModule({
         {/* ══ TAB GENERAL ══ */}
         {activeTab === "general" && (
           <div className="space-y-6">
+            {selectedProject.budgetCAD != null && (
+              <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+                  <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                    {tl.project_budget_progress_label ?? PM_EN.project_budget_progress_label}
+                  </span>
+                  <span className="text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
+                    {(tl.project_budget_consumed_detail ?? "CAD {{spent}} consumed of CAD {{budget}} ({{pct}}%)")
+                      .replace(
+                        "{{spent}}",
+                        formatCurrency(selectedProject.spentCAD ?? 0, companyCurrency, dateLoc)
+                      )
+                      .replace("{{budget}}", formatCurrency(selectedProject.budgetCAD ?? 0, companyCurrency, dateLoc))
+                      .replace("{{pct}}", String(progress))}
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-slate-700">
+                  <div
+                    className={`h-full rounded-full transition-all ${budgetBarToneClass}`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                {progress > 90 && (
+                  <p className="mt-2 flex items-center gap-1 text-xs text-red-500">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {(tl.project_budget_alert_capacity ?? PM_EN.project_budget_alert_capacity).replace(
+                      /\{\{pct\}\}/g,
+                      String(progress)
+                    )}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {companyId && showProjectRfiTab && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("rfi")}
+                disabled={rfiSummaryLoading}
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-sm transition-colors hover:border-amber-400 hover:bg-amber-50/60 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-amber-500 dark:hover:bg-amber-950/20 min-h-[44px]"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  {tl.project_rfi_summary ?? PM_EN.project_rfi_summary}
+                </p>
+                {rfiSummaryLoading ? (
+                  <div className="mt-2 flex items-center gap-2 text-zinc-500">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    <span>{tl.loading ?? "…"}</span>
+                  </div>
+                ) : rfiSummary ? (
+                  <p className="mt-1 text-base font-semibold text-zinc-900 dark:text-white">
+                    {(tl.project_rfi_counts ?? "RFIs: {{total}} total · {{pending}} pending · {{answered}} answered")
+                      .replace("{{total}}", String(rfiSummary.total))
+                      .replace("{{pending}}", String(rfiSummary.pending))
+                      .replace("{{answered}}", String(rfiSummary.answered))}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-zinc-500">{tl.common_dash ?? "—"}</p>
+                )}
+              </button>
+            )}
+
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  {tl.project_recent_photos ?? PM_EN.project_recent_photos}
+                </h3>
+                {showProjectGalleryTab ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("galeria")}
+                    className="min-h-[44px] rounded-lg px-3 text-sm font-medium text-amber-700 hover:underline dark:text-amber-400"
+                  >
+                    {tl.project_see_all_photos ?? PM_EN.project_see_all_photos}
+                  </button>
+                ) : null}
+              </div>
+              {recentGalleryPhotos.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-slate-600 dark:text-zinc-400">
+                  {tl.project_no_recent_photos ?? PM_EN.project_no_recent_photos ?? PM_EN.noProjectsAssigned}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  {recentGalleryPhotos.map((ph) => (
+                    <button
+                      key={ph.id}
+                      type="button"
+                      onClick={() =>
+                        setLightbox({
+                          src: ph.photo_url,
+                          fallback: ph.photo_url,
+                        })
+                      }
+                      className="relative aspect-square overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 dark:border-slate-700 dark:bg-slate-800"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={ph.photo_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleExportProjectPdf()}
+                disabled={pdfExportBusy || !companyId}
+                className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+              >
+                {pdfExportBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                ) : (
+                  <FileDown className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                {tl.project_export_pdf ?? PM_EN.project_export_pdf}
+              </button>
+              {pdfExportBusy ? (
+                <span className="self-center text-xs text-zinc-500 dark:text-zinc-400">
+                  {tl.project_pdf_generating ?? PM_EN.project_pdf_generating}
+                </span>
+              ) : null}
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
               <InfoRow
                 label={tl.projectFormTypeLabel ?? PM_EN.projectFormTypeLabel}
@@ -1966,30 +2390,6 @@ export function ProjectsModule({
                 })()}
               </section>
             ) : null}
-
-            {selectedProject.budgetCAD != null && (
-              <div>
-                <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
-                  <span>{tl.project_budget_progress_label ?? PM_EN.project_budget_progress_label}</span>
-                  <span className="font-medium">{progress}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${progress > 80 ? "bg-red-500" : progress > 50 ? "bg-amber-500" : "bg-emerald-500"}`}
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                {progress > 80 && (
-                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {(tl.project_budget_alert_capacity ?? PM_EN.project_budget_alert_capacity).replace(
-                      /\{\{pct\}\}/g,
-                      String(progress)
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
 
             {canUploadPhotos && (
               <div>
@@ -3904,6 +4304,7 @@ export function ProjectsModule({
               userProfileId={currentUserProfileId}
               projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
               projectIdFilter={selectedProject.id}
+              openCreateSignal={rfiQuickCreateSig}
             />
           </div>
         )}

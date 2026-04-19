@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   AlertTriangle,
   Plus,
@@ -8,6 +9,8 @@ import {
   X,
   ImagePlus,
   ClipboardList,
+  List,
+  Map as MapViewIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { logAuditEvent } from "@/lib/useAuditLog";
@@ -31,6 +34,11 @@ import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 const CLOUDINARY_CLOUD = "dwdlmxmkt";
 const CLOUDINARY_PRESET = "i5dmd07o";
 const MAX_PHOTOS = 5;
+
+const HazardsMapDynamic = dynamic(
+  () => import("@/components/maps/HazardsMapDynamic").then((m) => ({ default: m.HazardsMapDynamic })),
+  { ssr: false }
+);
 
 const SEVERITIES: HazardSeverity[] = ["low", "medium", "high", "critical"];
 const PROBS: HazardProbability[] = ["low", "medium", "high"];
@@ -192,6 +200,8 @@ export function HazardModule({
   const [statusDraft, setStatusDraft] = useState<HazardStatus>("open");
   const [resolutionDraft, setResolutionDraft] = useState("");
   const [correctiveDraft, setCorrectiveDraft] = useState("");
+  const [hazardViewMode, setHazardViewMode] = useState<"list" | "map">("list");
+  const [hazardMapDark, setHazardMapDark] = useState(false);
 
   const load = useCallback(async () => {
     if (!supabase || !companyId) {
@@ -340,6 +350,27 @@ export function HazardModule({
     });
     return copy;
   }, [filtered, sortKey]);
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const sync = () => setHazardMapDark(el.classList.contains("dark"));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+
+  const hazardsWithGpsCount = useMemo(
+    () =>
+      sorted.filter(
+        (h) =>
+          h.latitude != null &&
+          h.longitude != null &&
+          !Number.isNaN(Number(h.latitude)) &&
+          !Number.isNaN(Number(h.longitude))
+      ).length,
+    [sorted]
+  );
 
   const activeHazards = useMemo(
     () => rowsScoped.filter((r) => r.status === "open" || r.status === "in_progress"),
@@ -867,6 +898,48 @@ export function HazardModule({
         </label>
       </FilterGrid>
 
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t.projects_view_toggle_group ?? "View"}>
+        <button
+          type="button"
+          onClick={() => setHazardViewMode("list")}
+          aria-pressed={hazardViewMode === "list"}
+          className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            hazardViewMode === "list"
+              ? "bg-orange-100 text-orange-950 ring-2 ring-orange-400/80 dark:bg-orange-900/40 dark:text-orange-50 dark:ring-orange-500/50"
+              : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          }`}
+        >
+          <List className="h-4 w-4 shrink-0" aria-hidden />
+          {t.projects_view_list ?? "List"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setHazardViewMode("map")}
+          aria-pressed={hazardViewMode === "map"}
+          className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            hazardViewMode === "map"
+              ? "bg-orange-100 text-orange-950 ring-2 ring-orange-400/80 dark:bg-orange-900/40 dark:text-orange-50 dark:ring-orange-500/50"
+              : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          }`}
+        >
+          <MapViewIcon className="h-4 w-4 shrink-0" aria-hidden />
+          {t.projects_view_map ?? "Map"}
+        </button>
+      </div>
+
+      {hazardViewMode === "map" ? (
+        <div className="space-y-3">
+          {hazardsWithGpsCount === 0 ? (
+            <p className="rounded-xl border border-amber-300/80 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              {t.hazards_map_no_coords ?? "No hazards with GPS coordinates match the current filters."}
+            </p>
+          ) : null}
+          <div className="h-[400px] w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 md:h-[600px]">
+            <HazardsMapDynamic hazards={sorted} labels={t} isDark={hazardMapDark} />
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="md:hidden space-y-3">
         {loading ? (
           <div className="space-y-3 py-2">
@@ -1029,6 +1102,9 @@ export function HazardModule({
           </table>
         )}
       </div>
+
+      </>
+      )}
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50">

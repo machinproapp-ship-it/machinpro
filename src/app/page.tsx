@@ -1701,6 +1701,13 @@ export default function Home() {
     }
     return o;
   }, [employees]);
+  const employeeIdToUserId = useMemo(() => {
+    const o: Record<string, string> = {};
+    for (const [uid, eid] of Object.entries(userToEmployeeMap)) {
+      if (typeof eid === "string" && eid.length > 0) o[eid] = uid;
+    }
+    return o;
+  }, [userToEmployeeMap]);
   const projectLaborSummaries = useMemo(() => {
     const names: Record<string, string> = {};
     for (const e of employees) names[e.id] = e.name;
@@ -2816,6 +2823,16 @@ export default function Home() {
             locationLat: p.location_lat != null ? Number(p.location_lat) : undefined,
             locationLng: p.location_lng != null ? Number(p.location_lng) : undefined,
             archived: Boolean(p.archived),
+            lifecycleStatus: (() => {
+              const raw = (p as Record<string, unknown>).lifecycle_status;
+              if (typeof raw === "string") {
+                const s = raw.toLowerCase().trim();
+                if (s === "paused") return "paused" as const;
+                if (s === "completed") return "completed" as const;
+                if (s === "active") return "active" as const;
+              }
+              return Boolean((p as Record<string, unknown>).archived) ? ("completed" as const) : ("active" as const);
+            })(),
             assignedEmployeeIds: Array.isArray(p.assigned_employee_ids)
               ? (p.assigned_employee_ids as string[])
               : [],
@@ -6171,6 +6188,9 @@ export default function Home() {
                   setCustomRoles((prev) => prev.filter((r) => r.id !== id));
                 }}
                 clockEntries={displayClockEntries}
+                vacationRequests={vacationRequests}
+                vacationAllowanceByEmployeeId={vacationAllowanceByUserId}
+                employeeIdToUserId={employeeIdToUserId}
                 formInstances={formInstances}
                 language={language}
                 timeZone={userTimeZone}

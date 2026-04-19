@@ -14,7 +14,14 @@ import {
 import type { CentralEmployee } from '@/types/shared';
 import type { Subcontractor } from '@/types/subcontractor';
 import { getTaxIdLabel, getComplianceCertLabel, SUBCONTRACTOR_SPECIALTIES } from '@/types/subcontractor';
-import type { ComplianceField, ComplianceRecord, EmployeeDocument } from "@/types/homePage";
+import type { ComplianceField, ComplianceRecord, EmployeeDocument, VacationRequestRow } from "@/types/homePage";
+import type { ClockEntry } from "@/components/OperationsModule";
+import {
+  EmployeeDetailClockSection,
+  EmployeeDetailTimesheetSection,
+  EmployeeDetailVacationSection,
+  EmployeeDetailSwpSection,
+} from "@/components/EmployeeDetailPanelSections";
 import type { AuditLogEntry } from '@/lib/useAuditLog';
 import { watchdogSubjectLabel, type ComplianceAlert } from '@/lib/complianceWatchdog';
 import type { UserRole } from '@/types/shared';
@@ -197,7 +204,10 @@ interface CentralModuleProps {
   regionCountryCode?: string;
   taxIdLabel?: string;
   complianceCertLabel?: string;
-  clockEntries?: Array<{ date: string; clockIn?: string; employeeId?: string }>;
+  clockEntries?: Array<{ date: string; clockIn?: string; clockOut?: string; employeeId?: string; id?: string }>;
+  vacationRequests?: VacationRequestRow[];
+  vacationAllowanceByEmployeeId?: Record<string, number>;
+  employeeIdToUserId?: Record<string, string>;
   formInstances?: Array<{ id: string; status: string; createdAt: string; date?: string }>;
   language?: string;
   /** IANA timezone for audit logs / dates (defaults: profile → browser → America/Toronto). */
@@ -390,6 +400,9 @@ export function CentralModule({
   taxIdLabel: taxIdLabelProp,
   complianceCertLabel: complianceCertLabelProp,
   clockEntries = [],
+  vacationRequests = [],
+  vacationAllowanceByEmployeeId = {},
+  employeeIdToUserId = {},
   formInstances = [],
   language = "es",
   timeZone: timeZoneProp,
@@ -1950,11 +1963,11 @@ export function CentralModule({
             />
             <div
               className="
-              fixed bottom-0 left-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden
+              fixed inset-x-0 bottom-0 z-50 max-h-[min(90vh,100dvh)] w-full max-w-full overflow-y-auto overflow-x-hidden
               rounded-t-2xl border border-zinc-200 bg-white shadow-xl
               dark:border-slate-700 dark:bg-slate-900
-              sm:inset-x-0 sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:max-h-full sm:w-auto sm:max-w-none sm:translate-x-0
-              sm:max-w-lg sm:rounded-none sm:rounded-l-2xl lg:max-w-xl xl:max-w-2xl
+              sm:inset-x-auto sm:inset-y-0 sm:left-auto sm:right-0 sm:top-0 sm:max-h-full sm:w-[min(100vw,480px)] sm:max-w-[480px]
+              sm:rounded-none sm:rounded-l-2xl
             "
             >
               <div className="flex justify-center pb-1 pt-3 sm:hidden">
@@ -1963,14 +1976,28 @@ export function CentralModule({
 
               <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-sm font-bold text-amber-700 dark:text-amber-400 shrink-0">
-                    {emp.name?.charAt(0).toUpperCase() ?? "?"}
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    {initialsFromName(emp.name ?? "")}
                   </div>
-                  <div>
-                    <h4 className="text-base font-semibold text-zinc-900 dark:text-white leading-tight">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                      {(labels as Record<string, string>).employee_detail_title ?? ""}
+                    </p>
+                    <h4 className="text-base font-semibold leading-tight text-zinc-900 dark:text-white">
                       {emp.name ?? "?"}
                     </h4>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">{emp.role ?? ""}</p>
+                    <span
+                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        (emp.profileStatus ?? "active").toLowerCase().trim() === "active"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                          : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      {(emp.profileStatus ?? "active").toLowerCase().trim() === "active"
+                        ? (labels as Record<string, string>).common_active ?? "Active"
+                        : (labels as Record<string, string>).common_inactive ?? "Inactive"}
+                    </span>
                     {emp.customRoleId && (() => {
                       const role = customRoles.find((r) => r.id === emp.customRoleId);
                       return role ? (
@@ -1982,6 +2009,20 @@ export function CentralModule({
                         </span>
                       ) : null;
                     })()}
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(safeDisplayProjects ?? [])
+                        .filter((p) => !p.archived && (p.assignedEmployeeIds ?? []).includes(emp.id))
+                        .slice(0, 16)
+                        .map((p) => (
+                          <span
+                            key={p.id}
+                            title={p.name ?? ""}
+                            className="max-w-[160px] truncate rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-slate-700 dark:text-zinc-200"
+                          >
+                            {p.name ?? p.id}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 </div>
                 <button
@@ -1994,25 +2035,6 @@ export function CentralModule({
               </div>
 
               <div className="space-y-5 px-4 py-5 sm:px-6">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-zinc-50 dark:bg-slate-800/50 px-4 py-3">
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">
-                      {t.hoursLogged ?? "Horas / mes"}
-                    </p>
-                    <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                      {emp.hours ?? 0}h
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-zinc-50 dark:bg-slate-800/50 px-4 py-3">
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">
-                      {t.certificates ?? "Certificados"}
-                    </p>
-                    <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                      {certs.length}
-                    </p>
-                  </div>
-                </div>
-
                 {emp.payType && (
                   <div className="border-t border-zinc-100 py-3 dark:border-slate-800">
                     <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -2047,9 +2069,36 @@ export function CentralModule({
                   </div>
                 )}
 
+                <EmployeeDetailClockSection
+                  employeeId={emp.id}
+                  labels={labels as Record<string, string>}
+                  clockEntries={(clockEntries ?? []) as ClockEntry[]}
+                  language={language}
+                  countryCode={countryForDates}
+                  timeZone={timeZone}
+                />
+                <EmployeeDetailTimesheetSection
+                  labels={labels as Record<string, string>}
+                  clockEntries={(clockEntries ?? []) as ClockEntry[]}
+                  employeeId={emp.id}
+                />
+                <EmployeeDetailVacationSection
+                  companyId={companyId}
+                  employeeUserId={employeeIdToUserId[emp.id] ?? null}
+                  labels={labels as Record<string, string>}
+                  vacationRequests={vacationRequests}
+                  vacationAllowance={vacationAllowanceByEmployeeId[emp.id]}
+                />
+                <EmployeeDetailSwpSection
+                  companyId={companyId}
+                  employeeUserId={employeeIdToUserId[emp.id] ?? null}
+                  labels={labels as Record<string, string>}
+                  onOpenSecuritySwp={() => onOpenOperationsSecurity?.()}
+                />
+
                 <div>
                   <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-3">
-                    {t.certificates ?? "Certificados de seguridad"}
+                    {(labels as Record<string, string>).employee_detail_certificates ?? t.certificates ?? ""}
                   </h5>
 
                   {certs.length === 0 ? (
