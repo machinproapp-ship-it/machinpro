@@ -785,7 +785,8 @@ export function ProjectsModule({
   const [workOrderImportPick, setWorkOrderImportPick] = useState<Record<string, boolean>>({});
   const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
   const [pdfExportBusy, setPdfExportBusy] = useState(false);
-  const [rfiSummary, setRfiSummary] = useState<{ total: number; pending: number; answered: number } | null>(null);
+  const [rfiSummary, setRfiSummary] = useState<{ total: number; open: number; closed: number } | null>(null);
+  const [generalPhotosSkeleton, setGeneralPhotosSkeleton] = useState(false);
   const [rfiSummaryLoading, setRfiSummaryLoading] = useState(false);
   const [rfiQuickCreateSig, setRfiQuickCreateSig] = useState(0);
   const [projectsBrowseView, setProjectsBrowseView] = useState<"list" | "map">("list");
@@ -1169,20 +1170,27 @@ export function ProjectsModule({
         return;
       }
       const rows = data as { status: string }[];
-      let pending = 0;
-      let answered = 0;
+      let closed = 0;
+      let openCount = 0;
       for (const r of rows) {
         const s = String(r.status ?? "");
-        if (s === "answered" || s === "closed") answered += 1;
-        else pending += 1;
+        if (s === "closed") closed += 1;
+        else openCount += 1;
       }
-      setRfiSummary({ total: rows.length, pending, answered });
+      setRfiSummary({ total: rows.length, open: openCount, closed });
       setRfiSummaryLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [companyId, selectedProjectId, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "general" || !selectedProjectId) return;
+    setGeneralPhotosSkeleton(true);
+    const tid = window.setTimeout(() => setGeneralPhotosSkeleton(false), 380);
+    return () => window.clearTimeout(tid);
+  }, [activeTab, selectedProjectId]);
 
   const recentGalleryPhotos = useMemo(() => {
     if (!selectedProjectId || !(projectPhotos ?? []).length) return [];
@@ -1587,16 +1595,41 @@ export function ProjectsModule({
       const genIso = new Date().toISOString();
       const { data: hz } = await supabase
         .from("hazards")
-        .select("title,description,severity,status,created_at")
+        .select("title,description,severity,status,created_at,reported_by_name")
         .eq("company_id", companyId)
         .eq("project_id", proj.id)
         .in("status", ["open", "in_progress"]);
       const hazardRows =
-        ((hz ?? []) as { title: string; description: string | null; severity: string; status: string; created_at: string }[]).map((h) => ({
+        ((hz ?? []) as {
+          title: string;
+          description: string | null;
+          severity: string;
+          status: string;
+          created_at: string;
+          reported_by_name: string | null;
+        }[]).map((h) => ({
           description: `${h.title}${h.description?.trim() ? ` — ${h.description}` : ""}`.slice(0, 220),
           severity: h.severity,
           status: h.status,
           date: h.created_at?.slice(0, 10) ?? "—",
+          reportedBy: (h.reported_by_name ?? "—").trim() || "—",
+        }));
+      const { data: caData } = await supabase
+        .from("corrective_actions")
+        .select("title,description,status,due_date")
+        .eq("company_id", companyId)
+        .eq("project_id", proj.id)
+        .in("status", ["open", "in_progress", "pending_review"]);
+      const correctivePdf =
+        ((caData ?? []) as {
+          title: string;
+          description: string | null;
+          status: string;
+          due_date: string | null;
+        }[]).map((c) => ({
+          description: `${c.title}${c.description?.trim() ? ` — ${c.description}` : ""}`.slice(0, 160),
+          status: c.status,
+          dueDate: c.due_date?.slice(0, 10) ?? "",
         }));
       const laborSum = projectLaborSummaries[proj.id];
       const teamPdf =
@@ -1604,13 +1637,14 @@ export function ProjectsModule({
           name: row.name,
           role: allEmployees?.find((e) => e.id === row.employeeId)?.role ?? "—",
           hours: row.hours,
+          costCad: row.cost,
         })) ?? [];
       const costsPdf = (projectExpenses ?? [])
         .filter((e) => e.projectId === proj.id)
         .map((e) => ({
           description: e.name,
-          quantity: 1,
           amountCad: Number.isFinite(e.amount) ? e.amount : 0,
+          date: e.expenseDate?.slice(0, 10) ?? "—",
         }));
       const typeLbl =
         proj.type === "residential"
@@ -1643,10 +1677,14 @@ export function ProjectsModule({
         team: teamPdf,
         costs: costsPdf,
         hazards: hazardRows,
+        correctives: correctivePdf,
         generationIso: genIso,
       });
       doc.save(slugProjectPdfName(proj.name, genIso));
-      showToast("success", tlPdf.export_success ?? PM_EN.export_success ?? "Done");
+      showToast(
+        "success",
+        tlPdf.project_pdf_download_success ?? tlPdf.export_success ?? PM_EN.export_success ?? "Done"
+      );
     } catch (err) {
       showToast("error", userFacingErrorMessage(t as Record<string, string>, err));
     } finally {
@@ -1845,34 +1883,129 @@ export function ProjectsModule({
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-amber-100 dark:bg-amber-900/30 p-2.5 shrink-0">
-              <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <h2 className="break-words text-xl font-bold text-zinc-900 dark:text-white">{selectedProject.name}</h2>
-              <div className="flex flex-wrap items-center gap-3 mt-1">
-                {selectedProject.location && (
-                  <span className="flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400">
-                    <MapPin className="h-3.5 w-3.5 shrink-0" />{selectedProject.location}
-                  </span>
-                )}
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedProject.location)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-lg px-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden /> {tl.openInMaps ?? PM_EN.openInMaps}
-                </a>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <div className="rounded-xl bg-amber-100 dark:bg-amber-900/30 p-2.5 shrink-0">
+                <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
+              <div className="min-w-0">
+                <h2 className="break-words text-xl font-bold text-zinc-900 dark:text-white">{selectedProject.name}</h2>
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  {selectedProject.location && (
+                    <span className="flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      {selectedProject.location}
+                    </span>
+                  )}
+                  {selectedProject.location ? (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedProject.location)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-lg px-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3 shrink-0" aria-hidden /> {tl.openInMaps ?? PM_EN.openInMaps}
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => void handleExportProjectPdf()}
+                disabled={pdfExportBusy || !companyId}
+                className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-amber-600 bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50 dark:border-amber-500 dark:bg-amber-600 dark:hover:bg-amber-500"
+              >
+                {pdfExportBusy ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <FileDown className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                {(tl as Record<string, string>).project_export_pdf_btn ?? tl.project_export_pdf ?? PM_EN.project_export_pdf}
+              </button>
             </div>
           </div>
 
+          {(canUploadPhotos ||
+            showProjectFormsTab ||
+            (showProjectRfiTab && canCreateRfiQuick) ||
+            showProjectVisitorsTab) && (
+            <div className="min-w-0 border-t border-zinc-200 pt-3 dark:border-slate-700">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                {tl.project_quick_actions ?? PM_EN.project_quick_actions}
+              </p>
+              <div className="-mx-4 flex min-w-0 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:thin] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+                {canUploadPhotos ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoCategoryModal({ projectId: selectedProject.id });
+                      setPhotoCategoryToSubmit("progress");
+                    }}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <Camera className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="whitespace-nowrap">
+                      {(tl as Record<string, string>).project_quick_action_photo ?? tl.progressPhotos ?? PM_EN.progressPhotos}
+                    </span>
+                  </button>
+                ) : null}
+                {showProjectFormsTab ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("formularios");
+                      setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
+                      setOpenDailyReportKey("new");
+                    }}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="whitespace-nowrap">
+                      {(tl as Record<string, string>).project_quick_action_daily ??
+                        (t as Record<string, string>).daily_report_summary ??
+                        PM_EN.daily_report_summary ??
+                        "Daily report"}
+                    </span>
+                  </button>
+                ) : null}
+                {showProjectRfiTab && canCreateRfiQuick ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("rfi");
+                      setRfiQuickCreateSig((n) => n + 1);
+                    }}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <FileQuestion className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="whitespace-nowrap">{tl.rfi_new ?? PM_EN.rfi_new ?? "RFI"}</span>
+                  </button>
+                ) : null}
+                {showProjectVisitorsTab ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("visitantes")}
+                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
+                  >
+                    <UserPlus className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="whitespace-nowrap">
+                      {(tl as Record<string, string>).project_quick_action_visitor ??
+                        (t as Record<string, string>).siteTabVisitors ??
+                        (t as Record<string, string>).visitors_menu ??
+                        "Visitors"}
+                    </span>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          )}
+
           {/* KPIs rápidos — 1 col en móvil estrecho, 2–3 columnas en tablet+ */}
-          <div className="grid w-full auto-rows-fr grid-cols-1 gap-3 sm:max-w-none sm:w-auto sm:grid-cols-2 sm:gap-4 md:grid-cols-3 md:gap-4 lg:gap-5">
-            {selectedProject.budgetCAD != null && (
+          <div className="grid w-full auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 md:gap-4 lg:gap-5">
+            {selectedProject.budgetCAD != null && selectedProject.budgetCAD > 0 && (
               <div className="rounded-lg border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 min-w-0">
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5 flex items-center gap-1">
                   <DollarSign className="h-3 w-3" aria-hidden /> {tl.project_budget_short_label ?? PM_EN.project_budget_short_label}
@@ -1919,75 +2052,6 @@ export function ProjectsModule({
               )}
             </div>
           </div>
-
-          {(canUploadPhotos ||
-            showProjectFormsTab ||
-            (showProjectRfiTab && canCreateRfiQuick) ||
-            showProjectVisitorsTab) && (
-            <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-slate-700">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                {tl.project_quick_actions ?? PM_EN.project_quick_actions}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {canUploadPhotos ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhotoCategoryModal({ projectId: selectedProject.id });
-                      setPhotoCategoryToSubmit("progress");
-                    }}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <Camera className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">{tl.progressPhotos ?? PM_EN.progressPhotos}</span>
-                  </button>
-                ) : null}
-                {showProjectFormsTab ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("formularios");
-                      setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
-                      setOpenDailyReportKey("new");
-                    }}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">
-                      {(t as Record<string, string>).daily_report_summary ?? PM_EN.daily_report_summary ?? "Daily report"}
-                    </span>
-                  </button>
-                ) : null}
-                {showProjectRfiTab && canCreateRfiQuick ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("rfi");
-                      setRfiQuickCreateSig((n) => n + 1);
-                    }}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <FileQuestion className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">{tl.rfi_new ?? PM_EN.rfi_new ?? "RFI"}</span>
-                  </button>
-                ) : null}
-                {showProjectVisitorsTab ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("visitantes")}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <UserPlus className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">
-                      {(t as Record<string, string>).siteTabVisitors ??
-                        (t as Record<string, string>).visitors_menu ??
-                        "Visitors"}
-                    </span>
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -2115,19 +2179,20 @@ export function ProjectsModule({
         {/* ══ TAB GENERAL ══ */}
         {activeTab === "general" && (
           <div className="space-y-6">
-            {selectedProject.budgetCAD != null && (
+            {selectedProject.budgetCAD != null && selectedProject.budgetCAD > 0 && (
               <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
                 <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                   <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                     {tl.project_budget_progress_label ?? PM_EN.project_budget_progress_label}
                   </span>
                   <span className="text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
-                    {(tl.project_budget_consumed_detail ?? "CAD {{spent}} consumed of CAD {{budget}} ({{pct}}%)")
+                    {(tl.project_budget_consumed_total ?? tl.project_budget_consumed_detail ?? "")
                       .replace(
                         "{{spent}}",
                         formatCurrency(selectedProject.spentCAD ?? 0, companyCurrency, dateLoc)
                       )
-                      .replace("{{budget}}", formatCurrency(selectedProject.budgetCAD ?? 0, companyCurrency, dateLoc))
+                      .replace(/\{\{total\}\}/g, formatCurrency(selectedProject.budgetCAD ?? 0, companyCurrency, dateLoc))
+                      .replace(/\{\{budget\}\}/g, formatCurrency(selectedProject.budgetCAD ?? 0, companyCurrency, dateLoc))
                       .replace("{{pct}}", String(progress))}
                   </span>
                 </div>
@@ -2160,17 +2225,25 @@ export function ProjectsModule({
                   {tl.project_rfi_summary ?? PM_EN.project_rfi_summary}
                 </p>
                 {rfiSummaryLoading ? (
-                  <div className="mt-2 flex items-center gap-2 text-zinc-500">
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    <span>{tl.loading ?? "…"}</span>
+                  <div className="mt-3 space-y-2">
+                    <div className="h-4 w-48 animate-pulse rounded bg-zinc-200 dark:bg-slate-600" />
+                    <div className="h-4 w-36 animate-pulse rounded bg-zinc-200 dark:bg-slate-600" />
                   </div>
                 ) : rfiSummary ? (
-                  <p className="mt-1 text-base font-semibold text-zinc-900 dark:text-white">
-                    {(tl.project_rfi_counts ?? "RFIs: {{total}} total · {{pending}} pending · {{answered}} answered")
-                      .replace("{{total}}", String(rfiSummary.total))
-                      .replace("{{pending}}", String(rfiSummary.pending))
-                      .replace("{{answered}}", String(rfiSummary.answered))}
-                  </p>
+                  rfiSummary.total > 0 ? (
+                    <p className="mt-1 text-base font-semibold text-zinc-900 dark:text-white">
+                      {(tl.project_rfi_counts_open_closed ?? tl.project_rfi_counts ?? "")
+                        .replace("{{total}}", String(rfiSummary.total))
+                        .replace("{{open}}", String(rfiSummary.open))
+                        .replace("{{closed}}", String(rfiSummary.closed))
+                        .replace("{{pending}}", String(rfiSummary.open))
+                        .replace("{{answered}}", String(rfiSummary.closed))}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                      {tl.project_no_rfis_yet ?? tl.project_rfi_empty ?? "—"}
+                    </p>
+                  )
                 ) : (
                   <p className="mt-1 text-sm text-zinc-500">{tl.common_dash ?? "—"}</p>
                 )}
@@ -2192,9 +2265,21 @@ export function ProjectsModule({
                   </button>
                 ) : null}
               </div>
-              {recentGalleryPhotos.length === 0 ? (
+              {generalPhotosSkeleton ? (
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="aspect-square animate-pulse rounded-xl bg-zinc-200 dark:bg-slate-700"
+                    />
+                  ))}
+                </div>
+              ) : recentGalleryPhotos.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-slate-600 dark:text-zinc-400">
-                  {tl.project_no_recent_photos ?? PM_EN.project_no_recent_photos ?? PM_EN.noProjectsAssigned}
+                  <p>{tl.project_photos_empty_line1 ?? tl.project_no_recent_photos ?? PM_EN.project_no_recent_photos}</p>
+                  {tl.project_photos_empty_line2 ? (
+                    <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">{tl.project_photos_empty_line2}</p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -2214,6 +2299,7 @@ export function ProjectsModule({
                       <img
                         src={ph.photo_url}
                         alt=""
+                        loading="lazy"
                         className="h-full w-full object-cover"
                       />
                     </button>
@@ -2221,27 +2307,6 @@ export function ProjectsModule({
                 </div>
               )}
             </section>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void handleExportProjectPdf()}
-                disabled={pdfExportBusy || !companyId}
-                className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
-              >
-                {pdfExportBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
-                ) : (
-                  <FileDown className="h-4 w-4 shrink-0" aria-hidden />
-                )}
-                {tl.project_export_pdf ?? PM_EN.project_export_pdf}
-              </button>
-              {pdfExportBusy ? (
-                <span className="self-center text-xs text-zinc-500 dark:text-zinc-400">
-                  {tl.project_pdf_generating ?? PM_EN.project_pdf_generating}
-                </span>
-              ) : null}
-            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
               <InfoRow
