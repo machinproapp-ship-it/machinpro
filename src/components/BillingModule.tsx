@@ -372,13 +372,17 @@ export function BillingModule({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-6 text-center">
+      <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4 text-center sm:p-6">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
           {t.billing_invoices_title ?? "Invoices"}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          {t.billing_invoices_placeholder ?? "Invoice history will appear here."}
-        </p>
+        <div className="mt-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin]">
+          <div className="flex min-w-0 snap-x snap-mandatory gap-3 pb-2 sm:block sm:snap-none">
+            <div className="min-w-[min(100%,280px)] shrink-0 snap-start rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm text-gray-600 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:min-w-0 sm:snap-align-none">
+              <p className="leading-snug">{t.billing_invoices_placeholder ?? "Invoice history will appear here."}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {pricingOpen && (

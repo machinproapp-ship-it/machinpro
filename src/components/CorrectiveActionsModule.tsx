@@ -880,7 +880,7 @@ export function CorrectiveActionsModule({
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50">
-          <div className="max-h-[95vh] w-full space-y-4 overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:max-w-lg sm:rounded-2xl md:max-w-xl lg:max-w-2xl">
+          <div className="mx-auto max-h-[95vh] w-full max-w-[calc(100vw-2rem)] space-y-4 overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:max-w-lg sm:rounded-2xl md:max-w-xl lg:max-w-2xl">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t.actions_new ?? "New"}
@@ -1062,7 +1062,7 @@ export function CorrectiveActionsModule({
 
       {detail && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
-          <div className="h-full w-full max-w-md min-w-0 space-y-4 overflow-y-auto overflow-x-hidden border-l border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:p-6 md:max-w-lg lg:max-w-xl xl:max-w-2xl lg:p-8">
+          <div className="h-full w-full min-w-0 max-w-[min(28rem,calc(100vw-2rem))] space-y-4 overflow-y-auto overflow-x-hidden border-l border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:max-w-md sm:p-6 md:max-w-lg lg:max-w-xl xl:max-w-2xl lg:p-8">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-2">{detail.title}</h3>
               <button

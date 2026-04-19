@@ -571,6 +571,7 @@ export function CentralModule({
 
   const saveRole = async () => {
     if (!roleDraft.name.trim()) return;
+    const lx = labels as Record<string, string>;
     try {
       if (editingRoleId && onUpdateRole) {
         const existing = customRoles.find((r) => r.id === editingRoleId);
@@ -595,9 +596,11 @@ export function CentralModule({
           })
         );
       }
+      showToast("success", lx.toast_saved ?? "Saved");
       setRoleModalOpen(false);
     } catch (e) {
       console.error("[CentralModule] saveRole", e);
+      showToast("error", userFacingErrorMessage(lx, e));
     }
   };
 
@@ -1405,7 +1408,67 @@ export function CentralModule({
               </button>
             )}
           </div>
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-white/5 dark:border-white/10 md:hidden">
+            {customRoles.map((role) => {
+              const count = ROLE_PERMISSION_KEYS.filter((k) => role.permissions[k]).length;
+              const base = isProtectedCustomRole(role);
+              const tl = labels as Record<string, string>;
+              return (
+                <li key={role.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    onClick={() => setRoleDetailDrawerId(role.id)}
+                  >
+                    <span
+                      className="inline-flex h-9 w-9 shrink-0 rounded-full border-2 border-white shadow dark:border-zinc-800"
+                      style={{ backgroundColor: role.color }}
+                      aria-hidden
+                    />
+                    <span className="min-w-0">
+                      <span className="block break-words font-medium text-zinc-900 dark:text-white">{role.name}</span>
+                      <span className="text-xs text-zinc-500">
+                        {count} {tl.rolePermissions ?? labels.rolePermissions ?? ""}
+                      </span>
+                    </span>
+                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {canManageRoles ? (
+                      <button
+                        type="button"
+                        onClick={() => openEditRole(role)}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                        title={labels.editRole ?? "Editar"}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                    {base ? (
+                      <span
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400"
+                        title={labels.roleBaseCannotDelete ?? ""}
+                      >
+                        <Lock className="h-4 w-4" />
+                      </span>
+                    ) : (
+                      canManageRoles &&
+                      onDeleteRole && (
+                        <button
+                          type="button"
+                          onClick={() => setRoleDeleteConfirmId(role.id)}
+                          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          title={labels["delete"] ?? "Eliminar"}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50">
@@ -1738,13 +1801,13 @@ export function CentralModule({
       {centralView === "personnel" && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-white/10">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 {labels.personnel ?? labels.recentStaff ?? "Personal"}
               </h3>
               {canEdit && onAddEmployee && (
-                <button type="button" onClick={onAddEmployee} className="flex items-center gap-2 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-600 min-h-[44px]">
+                <button type="button" onClick={onAddEmployee} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-600 min-h-[44px] sm:w-auto">
                   <UserPlus className="h-4 w-4" />
                   {labels.addNew ?? "A?adir empleado"}
                 </button>
@@ -1804,10 +1867,10 @@ export function CentralModule({
             />
             <div
               className="
-              fixed inset-x-4 bottom-0 z-50 max-h-[90vh] overflow-y-auto overflow-x-hidden
+              fixed bottom-0 left-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden
               rounded-t-2xl border border-zinc-200 bg-white shadow-xl
               dark:border-slate-700 dark:bg-slate-900
-              sm:inset-x-0 sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:max-h-full
+              sm:inset-x-0 sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:max-h-full sm:w-auto sm:max-w-none sm:translate-x-0
               sm:max-w-lg sm:rounded-none sm:rounded-l-2xl lg:max-w-xl xl:max-w-2xl
             "
             >
@@ -2554,7 +2617,7 @@ export function CentralModule({
       {roleModalOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setRoleModalOpen(false)} />
-          <div className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-1rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-xl lg:max-w-2xl">
+          <div className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(100%,calc(100vw-2rem))] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-xl lg:max-w-2xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {editingRoleId

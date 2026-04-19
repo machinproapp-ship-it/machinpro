@@ -1032,7 +1032,7 @@ export function HazardModule({
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50">
-          <div className="max-h-[90vh] w-full space-y-4 overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:max-w-lg sm:rounded-2xl md:max-w-xl lg:max-w-2xl">
+          <div className="mx-auto max-h-[90vh] w-full max-w-[calc(100vw-2rem)] space-y-4 overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:max-w-lg sm:rounded-2xl md:max-w-xl lg:max-w-2xl">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t.hazards_new ?? "New"}

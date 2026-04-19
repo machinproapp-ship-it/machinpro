@@ -237,7 +237,7 @@ function SkeletonLoader() {
     <div className="space-y-6 animate-pulse" aria-busy="true" aria-live="polite">
       <div className="h-7 w-56 max-w-[80%] rounded-lg bg-gray-200 dark:bg-gray-600" />
       <div className="h-4 w-full max-w-md rounded bg-gray-100 dark:bg-gray-700" />
-      <div className="grid grid-cols-2 gap-3 md:gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-6">
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
@@ -1831,7 +1831,7 @@ function CentralDashboardBody(
                   return (
                     <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 min-w-0">
                       <span className="text-xs text-gray-500">{formatRelative(row.created_at, dateLoc)}</span>
-                      <p className="mt-0.5 min-w-0 max-w-full truncate text-ellipsis" title={line}>
+                      <p className="mt-0.5 min-w-0 max-w-full whitespace-normal break-words leading-snug" title={line}>
                         {line}
                       </p>
                     </li>
@@ -2193,7 +2193,7 @@ function CentralDashboardBody(
       {showZone1 ? (
         <section id="dashboard-management-cards" className="scroll-mt-24">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
-          <div className="mb-6 grid min-w-0 grid-cols-2 gap-3 md:gap-6 items-stretch">
+          <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:gap-6 items-stretch">
             {(
               (canViewEmployees || canManageEmployees
                 ? [

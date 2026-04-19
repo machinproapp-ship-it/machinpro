@@ -697,7 +697,7 @@ export function TrainingHubModule({
           aria-modal
           aria-labelledby="assign-training-title"
         >
-          <div className="max-h-[min(90dvh,100svh)] w-full min-w-0 max-w-none overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:max-w-lg sm:rounded-2xl">
+          <div className="mx-auto max-h-[min(90dvh,100svh)] w-full min-w-0 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:max-w-lg sm:rounded-2xl">
             <div className="flex items-start justify-between gap-2">
               <h4 id="assign-training-title" className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {L(t, "training_assign", "Assign")}: {assignModalCourse.title}
@@ -790,11 +790,11 @@ export function TrainingHubModule({
                 <p className="mt-2 text-xs text-zinc-500">{L(t, "training_role_hint", "")}</p>
               </div>
             )}
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setAssignModalCourse(null)}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm"
+                className="min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium"
               >
                 {L(t, "common_cancel", "Cancel")}
               </button>
@@ -802,7 +802,7 @@ export function TrainingHubModule({
                 type="button"
                 disabled={saving}
                 onClick={() => void submitAssign()}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                className="min-h-[44px] rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
               >
                 {L(t, "training_assign", "Assign")}
               </button>
@@ -866,7 +866,7 @@ function CourseEditModal({
       role="dialog"
       aria-modal
     >
-      <div className="max-h-[min(92dvh,100svh)] w-full min-w-0 max-w-none overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:max-w-lg sm:rounded-2xl">
+      <div className="mx-auto max-h-[min(92dvh,100svh)] w-full min-w-0 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:max-w-lg sm:rounded-2xl">
         <div className="flex items-start justify-between gap-2">
           <h4 className="text-lg font-semibold text-zinc-900 dark:text-white">
             {initial ? L(t, "common_edit", "Edit") : L(t, "training_new_course", "New course")}

@@ -313,17 +313,21 @@ export function SettingsModule({
     onRefreshProductionCatalog,
   ]);
 
-  const persistPushPref = useCallback((key: "hazard" | "action" | "visitor", on: boolean) => {
-    const map = { hazard: "machinpro_push_hazard", action: "machinpro_push_action", visitor: "machinpro_push_visitor" };
-    try {
-      localStorage.setItem(map[key], on ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-    if (key === "hazard") setPrefHazard(on);
-    if (key === "action") setPrefAction(on);
-    if (key === "visitor") setPrefVisitor(on);
-  }, []);
+  const persistPushPref = useCallback(
+    (key: "hazard" | "action" | "visitor", on: boolean) => {
+      const map = { hazard: "machinpro_push_hazard", action: "machinpro_push_action", visitor: "machinpro_push_visitor" };
+      try {
+        localStorage.setItem(map[key], on ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      if (key === "hazard") setPrefHazard(on);
+      if (key === "action") setPrefAction(on);
+      if (key === "visitor") setPrefVisitor(on);
+      showToast("success", tl.toast_saved ?? tl.push_saved ?? "Saved");
+    },
+    [showToast, tl.push_saved, tl.toast_saved]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -385,22 +389,27 @@ export function SettingsModule({
         /* ignore */
       }
       void onPersistUserTimeZone?.(tz);
+      showToast("success", tl.toast_saved ?? "Saved");
     },
-    [onPersistUserTimeZone]
+    [onPersistUserTimeZone, showToast, tl.toast_saved]
   );
 
   const groupedZoneList = useMemo(() => allGroupedTimezones(), []);
 
-  const persistLocalePref = useCallback((key: string, value: string) => {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      /* ignore */
-    }
-    if (typeof window !== "undefined" && (key === "machinpro_date_format" || key === "machinpro_time_format")) {
-      window.dispatchEvent(new Event("machinpro-display-prefs"));
-    }
-  }, []);
+  const persistLocalePref = useCallback(
+    (key: string, value: string) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        /* ignore */
+      }
+      if (typeof window !== "undefined" && (key === "machinpro_date_format" || key === "machinpro_time_format")) {
+        window.dispatchEvent(new Event("machinpro-display-prefs"));
+      }
+      showToast("success", tl.toast_saved ?? "Saved");
+    },
+    [showToast, tl.toast_saved]
+  );
 
   const handleCountryChange = (country: string) => {
     const defaults = COUNTRY_DEFAULTS[country];
@@ -531,7 +540,7 @@ export function SettingsModule({
             <select
               value={measurementSystem}
               onChange={(e) => setMeasurementSystem(e.target.value as "metric" | "imperial")}
-              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
+              className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
             >
               <option value="metric">{tl.settings_metric ?? t.settingsMetric ?? "Metric"}</option>
               <option value="imperial">{tl.settings_imperial ?? t.settingsImperial ?? "Imperial"}</option>
@@ -549,7 +558,7 @@ export function SettingsModule({
                 setDateFormat(v);
                 persistLocalePref("machinpro_date_format", v);
               }}
-              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+              className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
             >
               <option value="dmy">DD/MM/YYYY</option>
               <option value="mdy">MM/DD/YYYY</option>
@@ -568,7 +577,7 @@ export function SettingsModule({
                 setTimeFormat(v);
                 persistLocalePref("machinpro_time_format", v);
               }}
-              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+              className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
             >
               <option value="24">{tl.settings_time_24 ?? "24h"}</option>
               <option value="12">{tl.settings_time_12 ?? "12h"}</option>
@@ -586,7 +595,7 @@ export function SettingsModule({
                 setWeekStart(v);
                 persistLocalePref("machinpro_week_start", v);
               }}
-              className="w-full max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+              className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
             >
               <option value="monday">{tl.settings_monday ?? "Monday"}</option>
               <option value="sunday">{tl.settings_sunday ?? "Sunday"}</option>
@@ -640,7 +649,7 @@ export function SettingsModule({
                   type="text"
                   value={profileFullName}
                   onChange={(e) => setProfileFullName(e.target.value)}
-                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                  className="w-full min-w-0 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px] sm:max-w-md"
                 />
               </div>
               <div>
@@ -654,7 +663,7 @@ export function SettingsModule({
                   type="email"
                   value={profileEmail}
                   readOnly
-                  className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-slate-600 bg-zinc-100 dark:bg-slate-800/50 px-4 py-3 text-sm text-zinc-500 min-h-[44px]"
+                  className="w-full min-w-0 rounded-xl border border-zinc-200 dark:border-slate-600 bg-zinc-100 dark:bg-slate-800/50 px-4 py-3 text-sm text-zinc-500 min-h-[44px] sm:max-w-md"
                 />
               </div>
               <div>
@@ -665,10 +674,10 @@ export function SettingsModule({
                   type="tel"
                   value={profilePhone}
                   onChange={(e) => setProfilePhone(e.target.value)}
-                  className="w-full max-w-md rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                  className="w-full min-w-0 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px] sm:max-w-md"
                 />
               </div>
-              <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/40 px-4 py-3 space-y-2 max-w-md">
+              <div className="w-full space-y-2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/40 px-4 py-3 sm:max-w-md">
                 <label className="flex items-center justify-between gap-3 cursor-pointer min-h-[44px]">
                   <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
                     {tl.gps_location_sharing ?? ""}
@@ -698,8 +707,8 @@ export function SettingsModule({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              <div className="flex flex-col items-center gap-3 sm:items-start">
+                <label className="block w-full text-center text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:text-left">
                   {tl.profilePhoto ??
                     tl.avatar ??
                     tl.companyLogo ??
@@ -709,14 +718,14 @@ export function SettingsModule({
                   <img
                     src={profileAvatarUrl}
                     alt=""
-                    className="mb-3 h-20 w-20 rounded-full object-cover border border-zinc-200 dark:border-slate-700"
+                    className="mb-1 h-20 w-20 rounded-full border border-zinc-200 object-cover dark:border-slate-700 sm:mb-3"
                   />
                 ) : null}
                 {onProfileAvatarUpload ? (
                   <button
                     type="button"
                     onClick={onProfileAvatarUpload}
-                    className="w-full max-w-md min-h-[44px] rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm"
+                    className="w-full min-h-[44px] max-w-md rounded-xl border-2 border-dashed border-zinc-300 px-4 py-3 text-sm dark:border-zinc-600 sm:max-w-md"
                   >
                     {tl.profilePhoto ?? "Profile photo"}
                   </button>
@@ -1072,13 +1081,15 @@ export function SettingsModule({
                       className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.companyLogo ?? "Company logo"}</label>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+                  <div className="flex flex-col items-center gap-2 sm:items-stretch">
+                    <label className="mb-1 block w-full text-center text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:text-left">
+                      {t.companyLogo ?? "Company logo"}
+                    </label>
+                    <p className="mb-2 text-center text-xs text-zinc-500 dark:text-zinc-400 sm:text-left">
                       {t.logoHint ?? "Logo will appear in reports and PDF forms"}
                     </p>
                     {logoUrl ? (
-                      <div className="mb-3 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+                      <div className="mb-1 flex w-full justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-800 sm:mb-3 sm:justify-start">
                         <BrandLogoImage
                           src={logoUrl}
                           alt={t.companyLogo ?? "Logo"}
@@ -1091,7 +1102,7 @@ export function SettingsModule({
                     <button
                       type="button"
                       onClick={onLogoUpload}
-                      className="rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-500 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-colors min-h-[44px] w-full"
+                      className="min-h-[44px] w-full rounded-xl border-2 border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-500 transition-colors hover:border-amber-400 hover:text-amber-500 dark:border-zinc-600 dark:text-zinc-400 dark:hover:border-amber-500 dark:hover:text-amber-400"
                     >
                       {t.uploadLogo ?? "Upload logo"}
                     </button>
