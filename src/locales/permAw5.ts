@@ -561,6 +561,9 @@ const BODY_PT: Record<keyof RolePermissions, string> = {
   canManageSafetyPassport: "Gerir passaporte de segurança",
 };
 
+/** English capability phrases for role toggles — used for permission tooltips fallback. */
+export const PERMISSION_BODY_EN: Record<keyof RolePermissions, string> = BODY_EN;
+
 export const PERMISSION_LABELS_ES = flatFromRole(GROUPS_ES, ROLE_PERMISSION_LABELS);
 export const PERMISSION_LABELS_EN = flatFromRole(GROUPS_EN, BODY_EN);
 export const PERMISSION_LABELS_FR = flatFromRole(GROUPS_FR, BODY_FR);

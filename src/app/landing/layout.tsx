@@ -18,13 +18,26 @@ export const metadata: Metadata = {
     "field management",
   ],
   alternates: {
-    canonical: site,
+    canonical: `${site}/landing`,
+    languages: {
+      "x-default": `${site}/landing`,
+      en: `${site}/landing`,
+      es: `${site}/landing`,
+      fr: `${site}/landing`,
+      de: `${site}/landing`,
+      pt: `${site}/landing`,
+    },
+  },
+  appleWebApp: {
+    capable: true,
+    title: "MachinPro",
+    statusBarStyle: "black-translucent",
   },
   openGraph: {
     title: "MachinPro — Build Without Chaos | Construction Management Software",
     description:
       "Manage your construction company from your phone. Projects, team, schedules, logistics and safety. All in one place.",
-    url: site,
+    url: `${site}/landing`,
     siteName: "MachinPro",
     locale: "en_US",
     type: "website",

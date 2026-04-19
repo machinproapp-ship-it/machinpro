@@ -1,7 +1,12 @@
 /**
  * i18n: metadatos, tipos y traducciones unificadas (src/locales/*.ts).
  * Los 6 idiomas principales van en bundle inicial; el resto se cargan con loadLocale().
- * Cualquier clave ausente en un idioma se rellena desde inglés (mergeWithEn).
+ *
+ * **mergeWithEn:** Los 15 idiomas “lazy” (nl, pl, sv, …) pueden definir solo las claves que cambian.
+ * `mergeWithEn` parte del objeto inglés (`en.ts`) y lo sobrescribe con el locale cargado, así que
+ * cualquier clave nueva añadida solo en inglés sigue disponible automáticamente en todos los idiomas
+ * hasta que se traduzca de forma nativa. No hace falta duplicar claves en los 15 ficheros si el texto en
+ * inglés es aceptable como fallback.
  */
 
 import type { Language } from "@/types/shared";
@@ -50,6 +55,7 @@ type LocaleModule = Record<string, string>;
 
 const EN: LocaleModule = { ...(en as object) } as LocaleModule;
 
+/** Une un locale parcial con la plantilla en inglés (claves faltantes = EN). */
 function mergeWithEn(locale: LocaleModule): LocaleModule {
   return { ...EN, ...locale };
 }

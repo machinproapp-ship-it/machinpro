@@ -1,4 +1,4 @@
-﻿/** PT — migrated from page.tsx (Sprint AF) */
+/** PT — migrated from page.tsx (Sprint AF) */
 export default {
   office: "Central",
   warehouse: "Logística",

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { TextWithBrandMarks } from "@/components/BrandWordmark";
+import { useToast } from "@/components/Toast";
 import { CURRENCY_META, type Currency } from "@/lib/i18n";
 import {
   REGIONAL_COUNTRY_DEFAULTS,
@@ -11,6 +12,13 @@ import {
 } from "@/lib/regionalCountries";
 import type { CustomRole } from "@/types/roles";
 import { ONBOARDING_INDUSTRY_OPTIONS } from "@/lib/onboardingIndustryOptions";
+
+function deriveDisplayNameFromEmail(email: string): string {
+  const local = email.split("@")[0]?.trim().toLowerCase() ?? "";
+  const spaced = local.replace(/[._-]+/g, " ").trim();
+  if (!spaced) return "Team member";
+  return spaced.replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export interface OnboardingWizardProps {
   session: Session | null;
@@ -53,6 +61,8 @@ export function OnboardingWizard({
   onComplete,
 }: OnboardingWizardProps) {
   const lx = t;
+  const { showToast } = useToast();
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,10 +71,9 @@ export function OnboardingWizard({
   const [coCountry, setCoCountry] = useState(companyCountry || "CA");
   const [coCurrency, setCoCurrency] = useState<Currency>(currency);
   const [coIndustry, setCoIndustry] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
 
-  const [empName, setEmpName] = useState("");
   const [empEmail, setEmpEmail] = useState("");
-  const [empRoleId, setEmpRoleId] = useState("");
 
   const [projName, setProjName] = useState("");
   const [projType, setProjType] = useState("residential");
@@ -106,6 +115,7 @@ export function OnboardingWizard({
     };
     if (coName.trim()) payload.name = coName.trim();
     if (coIndustry.trim()) payload.industry = coIndustry.trim();
+    if (logoUrl.trim()) payload.logo_url = logoUrl.trim();
     const res = await fetch("/api/onboarding/company", {
       method: "PATCH",
       headers: h,
@@ -128,6 +138,7 @@ export function OnboardingWizard({
     coCountry,
     coCurrency,
     coIndustry,
+    logoUrl,
     onCompanyNameChange,
     onCountryChange,
     onCurrencyChange,
@@ -138,8 +149,7 @@ export function OnboardingWizard({
   const skipStep1 = useCallback(() => {
     setError(null);
     setStep(2);
-    if (!empRoleId && defaultWorkerRoleId) setEmpRoleId(defaultWorkerRoleId);
-  }, [defaultWorkerRoleId, empRoleId]);
+  }, []);
 
   const goStep2 = useCallback(async () => {
     setError(null);
@@ -147,13 +157,39 @@ export function OnboardingWizard({
     try {
       await patchCompany();
       setStep(2);
-      if (!empRoleId && defaultWorkerRoleId) setEmpRoleId(defaultWorkerRoleId);
     } catch (e) {
       setError(userFacingError(e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
-  }, [patchCompany, empRoleId, defaultWorkerRoleId, userFacingError]);
+  }, [patchCompany, userFacingError]);
+
+  const uploadCompanyLogo = useCallback(async (file: File) => {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !preset) {
+      showToast("error", lx.register_error_generic ?? lx.error_generic ?? "");
+      return;
+    }
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("upload_preset", preset);
+      fd.append("folder", "machinpro/company-logos");
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = (await res.json()) as { secure_url?: string };
+      if (data.secure_url) {
+        setLogoUrl(data.secure_url);
+        showToast("success", lx.saved_successfully ?? lx.onboarding_logo_upload ?? "");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [lx.error_generic, lx.onboarding_logo_upload, lx.register_error_generic, lx.saved_successfully, showToast]);
 
   const skipEmployee = useCallback(() => {
     setError(null);
@@ -162,15 +198,15 @@ export function OnboardingWizard({
 
   const addEmployee = useCallback(async () => {
     setError(null);
-    const name = empName.trim();
     const email = empEmail.trim().toLowerCase();
-    if (!name || !email) {
-      setError(lx.error_generic ?? lx.register_error_generic ?? "");
+    if (!email.includes("@")) {
+      setError(lx.error_validation ?? lx.error_generic ?? lx.register_error_generic ?? "");
       return;
     }
     if (!companyId) return;
     const h = authHeader();
     if (!h) return;
+    const name = deriveDisplayNameFromEmail(email);
     setBusy(true);
     try {
       const res = await fetch("/api/employees/create", {
@@ -180,7 +216,7 @@ export function OnboardingWizard({
           companyId,
           fullName: name,
           email,
-          customRoleId: empRoleId || defaultWorkerRoleId || null,
+          customRoleId: defaultWorkerRoleId || null,
           profileStatus: "active",
         }),
       });
@@ -195,6 +231,7 @@ export function OnboardingWizard({
         setError(userFacingError(j.error ?? ""));
         return;
       }
+      showToast("success", lx.onboarding_invite_success ?? "");
       setStep(3);
     } finally {
       setBusy(false);
@@ -202,10 +239,13 @@ export function OnboardingWizard({
   }, [
     authHeader,
     companyId,
-    empName,
     empEmail,
-    empRoleId,
     defaultWorkerRoleId,
+    lx.error_generic,
+    lx.error_validation,
+    lx.onboarding_invite_success,
+    lx.register_error_generic,
+    showToast,
     userFacingError,
   ]);
 
@@ -248,6 +288,7 @@ export function OnboardingWizard({
         setError(userFacingError(j.error ?? ""));
         return;
       }
+      showToast("success", lx.onboarding_project_saved ?? lx.saved_successfully ?? "");
       onProjectCreated({
         id: j.id,
         name,
@@ -271,6 +312,9 @@ export function OnboardingWizard({
     projLocation,
     projType,
     onProjectCreated,
+    lx.onboarding_project_saved,
+    lx.saved_successfully,
+    showToast,
     userFacingError,
   ]);
 
@@ -385,6 +429,43 @@ export function OnboardingWizard({
                   ))}
                 </select>
               </label>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-600 dark:bg-slate-800/50">
+                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  {lx.onboarding_logo_optional ?? ""}
+                </p>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void uploadCompanyLogo(f);
+                  }}
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt=""
+                      className="h-14 w-14 rounded-lg border border-zinc-200 object-cover dark:border-zinc-600"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-xs text-zinc-400 dark:border-zinc-600">
+                      —
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => logoInputRef.current?.click()}
+                    className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-white dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-slate-700"
+                  >
+                    {lx.onboarding_logo_upload ?? "Upload"}
+                  </button>
+                </div>
+              </div>
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="button"
@@ -418,36 +499,17 @@ export function OnboardingWizard({
               <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                 {lx.onboarding_step_team ?? lx.onboarding_step_employee ?? ""}
               </p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">{lx.onboarding_invite_message ?? ""}</p>
               <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{lx.employeeName ?? "Name"}</span>
-                <input
-                  className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-600 dark:bg-slate-800 min-h-[44px]"
-                  value={empName}
-                  onChange={(e) => setEmpName(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{lx.employeeEmail ?? "Email"}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">{lx.onboarding_invite_email_only ?? lx.employeeEmail ?? "Email"}</span>
                 <input
                   type="email"
+                  autoComplete="email"
+                  placeholder={lx.onboarding_invite_placeholder ?? ""}
                   className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-600 dark:bg-slate-800 min-h-[44px]"
                   value={empEmail}
                   onChange={(e) => setEmpEmail(e.target.value)}
                 />
-              </label>
-              <label className="block text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{lx.employeeRole ?? "Role"}</span>
-                <select
-                  className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-600 dark:bg-slate-800 min-h-[44px]"
-                  value={empRoleId || defaultWorkerRoleId}
-                  onChange={(e) => setEmpRoleId(e.target.value)}
-                >
-                  {customRoles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
               </label>
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
@@ -467,10 +529,10 @@ export function OnboardingWizard({
                   {busy ? (
                     <>
                       {spin}
-                      {lx.loading_saving ?? lx.employees_add ?? "Add"}
+                      {lx.loading_saving ?? lx.onboarding_send_invite ?? ""}
                     </>
                   ) : (
-                    lx.employees_add ?? "Add"
+                    lx.onboarding_send_invite ?? lx.employees_add ?? "Send"
                   )}
                 </button>
               </div>
@@ -538,13 +600,22 @@ export function OnboardingWizard({
           ) : null}
 
           {step === 4 ? (
-            <div className="space-y-4">
-              <p className="text-lg font-semibold text-zinc-900 dark:text-white">{lx.onboarding_step_ready ?? ""}</p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">{lx.onboarding_wizard_subtitle ?? ""}</p>
+            <div className="relative space-y-4 overflow-hidden">
+              <div className="flex justify-center gap-2 text-2xl" aria-hidden>
+                <span className="inline-block animate-bounce">🎉</span>
+                <span className="inline-block animate-bounce [animation-delay:120ms]">✨</span>
+                <span className="inline-block animate-bounce [animation-delay:240ms]">✅</span>
+              </div>
+              <p className="text-lg font-semibold text-zinc-900 dark:text-white">
+                {lx.onboarding_company_ready_title ?? lx.onboarding_step_ready ?? ""}
+              </p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {lx.onboarding_finish_subtitle ?? lx.onboarding_wizard_subtitle ?? ""}
+              </p>
               <ul className="list-disc space-y-2 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
-                <li>{lx.onboarding_suggestion_catalog ?? ""}</li>
-                <li>{lx.onboarding_suggestion_team ?? ""}</li>
-                <li>{lx.onboarding_suggestion_tour ?? ""}</li>
+                <li>{lx.onboarding_next_hint_invite ?? lx.onboarding_suggestion_team ?? ""}</li>
+                <li>{lx.onboarding_next_hint_project ?? lx.onboarding_suggestion_catalog ?? ""}</li>
+                <li>{lx.onboarding_next_hint_clock ?? lx.onboarding_suggestion_tour ?? ""}</li>
               </ul>
               <button
                 type="button"

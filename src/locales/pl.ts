@@ -1,4 +1,4 @@
-﻿/** PL — auto-built (value-map); review for domain terms */
+/** PL — auto-built (value-map); review for domain terms */
 export default {
   "office": "Centralny",
   "warehouse": "Logistyka",

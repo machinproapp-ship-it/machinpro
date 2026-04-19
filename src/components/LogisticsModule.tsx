@@ -35,6 +35,7 @@ import { parseInventoryQrPayload } from "@/lib/inventoryQr";
 import { generateInventoryQrLabelPdf } from "@/lib/generateInventoryQrLabelPdf";
 import Papa from "papaparse";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { EmptyIllustrationBox, ModuleEmptyState } from "@/components/ModuleEmptyState";
 import { useToast } from "@/components/Toast";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
@@ -1528,9 +1529,20 @@ export function LogisticsModule({
               </div>
             )}
             {filteredItems.length === 0 && (
-              <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
-                {(t as Record<string, string>).wh_inventory_empty ?? "No items in inventory."}
-              </p>
+              <div className="px-4 py-6">
+                <ModuleEmptyState
+                  illustration={<EmptyIllustrationBox />}
+                  message={
+                    (t as Record<string, string>).module_empty_inventory ??
+                    (t as Record<string, string>).wh_inventory_empty ??
+                    "No items yet. Add your first item."
+                  }
+                  actionLabel={
+                    canManageInventory ? (t as Record<string, string>).module_empty_inventory_cta ?? t.addNewItem ?? "" : undefined
+                  }
+                  onAction={canManageInventory ? onAddInventory : undefined}
+                />
+              </div>
             )}
           </div>
           {/* Movimientos recientes (empresa) */}

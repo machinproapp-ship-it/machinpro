@@ -22,6 +22,8 @@ import type { MainSection } from '@/types/shared';
 import { CentralDashboardLive } from '@/components/CentralDashboardLive';
 import { HorizontalScrollFade } from '@/components/HorizontalScrollFade';
 import { getAuditActionLabel, getAuditEntityTypeLabel } from '@/lib/auditDisplay';
+import { resolvePermissionTip } from "@/lib/permissionTip";
+import { EmptyIllustrationFolder, ModuleEmptyState } from "@/components/ModuleEmptyState";
 import {
   dateLocaleForUser,
   resolveUserTimezone,
@@ -552,6 +554,9 @@ export function CentralModule({
     const i18n = lx[permLocaleKey(key)];
     return i18n && i18n.trim() !== "" ? i18n : ROLE_PERMISSION_LABELS[key];
   };
+
+  const lxRecord = labels as Record<string, string>;
+  const permTip = (key: keyof RolePermissions) => resolvePermissionTip(key, lxRecord);
 
   const openCreateRole = () => {
     setEditingRoleId(null);
@@ -1621,7 +1626,9 @@ export function CentralModule({
                       {activeKeys.map((key) => (
                         <li key={key} className="flex items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
                           <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                          <span>{permLabel(key)}</span>
+                          <span title={permTip(key)} className="cursor-help decoration-dotted underline underline-offset-2">
+                            {permLabel(key)}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -1714,11 +1721,30 @@ export function CentralModule({
           </div>
           <div className="divide-y divide-zinc-200 dark:divide-white/10">
             {projectsManagementList.length === 0 ? (
-              <p className="p-8 text-center text-zinc-500 dark:text-zinc-400 italic text-sm">
-                {projectsMgmtTab === "active"
-                  ? (labels as Record<string, string>).projects_no_active ?? "No active projects"
-                  : (labels as Record<string, string>).projects_no_archived ?? "No archived projects"}
-              </p>
+              <div className="p-4 sm:p-6">
+                <ModuleEmptyState
+                  illustration={<EmptyIllustrationFolder />}
+                  message={
+                    projectsMgmtTab === "active"
+                      ? ((labels as Record<string, string>).module_empty_projects_active ??
+                        (labels as Record<string, string>).projects_no_active ??
+                        "No projects yet. Create your first project.")
+                      : ((labels as Record<string, string>).module_empty_projects_archived ??
+                        (labels as Record<string, string>).projects_no_archived ??
+                        "No archived projects.")
+                  }
+                  actionLabel={
+                    projectsMgmtTab === "active" && canCreateProjects && onAddProject
+                      ? ((labels as Record<string, string>).module_empty_projects_cta ??
+                        (labels as Record<string, string>).projects_new ??
+                        "New project")
+                      : undefined
+                  }
+                  onAction={
+                    projectsMgmtTab === "active" && canCreateProjects && onAddProject ? onAddProject : undefined
+                  }
+                />
+              </div>
             ) : (
               projectsManagementList.map((project) => {
                   const p = getCentralProjectById(project.id) ?? (project as CentralProject);
@@ -2459,7 +2485,12 @@ export function CentralModule({
                           <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                             {ROLE_PERMISSION_KEYS.map((key) => (
                               <div key={key} className="flex items-center justify-between gap-2 py-1">
-                                <span className="text-xs text-zinc-600 dark:text-zinc-400 leading-tight">{permLabel(key)}</span>
+                                <span
+                                  title={permTip(key)}
+                                  className="cursor-help text-xs leading-tight text-zinc-600 decoration-dotted underline underline-offset-2 dark:text-zinc-400"
+                                >
+                                  {permLabel(key)}
+                                </span>
                                 <button
                                   type="button"
                                   role="switch"
@@ -2727,7 +2758,15 @@ export function CentralModule({
                         <tbody>
                           {group.keys.map((key) => (
                             <tr key={key} className="border-b border-zinc-100 dark:border-white/5">
-                              <td className="py-2.5 pr-4 text-zinc-700 dark:text-zinc-300">{permLabel(key)}</td>
+                              <td className="py-2.5 pr-4 text-zinc-700 dark:text-zinc-300">
+                                <button
+                                  type="button"
+                                  title={permTip(key)}
+                                  className="w-full cursor-help text-left text-zinc-700 decoration-dotted underline underline-offset-2 dark:text-zinc-300"
+                                >
+                                  {permLabel(key)}
+                                </button>
+                              </td>
                               <td className="py-2.5 w-14 text-right">
                                 <button
                                   type="button"

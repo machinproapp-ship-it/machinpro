@@ -1,8 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
+
+const LandingPwaInstallBar = dynamic(
+  () => import("@/components/LandingPwaInstallBar").then((m) => m.LandingPwaInstallBar),
+  { ssr: false }
+);
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { Star, HardHat, ClipboardList, TrendingUp } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
@@ -1022,6 +1028,7 @@ export default function LandingPage() {
         </div>
       </footer>
 
+      <LandingPwaInstallBar tx={tx} dark={dark} />
     </div>
   );
 }

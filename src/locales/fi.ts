@@ -1,4 +1,4 @@
-﻿/** FI — auto-built (value-map); review for domain terms */
+/** FI — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",

@@ -1,4 +1,4 @@
-﻿/** SK — auto-built (value-map); review for domain terms */
+/** SK — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",

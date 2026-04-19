@@ -26,6 +26,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import {
+  EmptyIllustrationPeople,
+  ListSkeletonCards,
+  ModuleEmptyState,
+} from "@/components/ModuleEmptyState";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
 import { useToast } from "@/components/Toast";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
@@ -2687,6 +2692,29 @@ export function EmployeesModule({
 
   const tl = t as Record<string, string>;
 
+  const openNewEmployeeModal = useCallback(() => {
+    setCreateError(null);
+    setCreateForm({
+      fullName: "",
+      email: "",
+      phone: "",
+      customRoleId: pickDefaultWorkerRoleId(customRoles) || customRoles[0]?.id || "",
+      profileStatus: "active",
+      emergencyName: "",
+      emergencyPhone: "",
+      emergencyRelation: "",
+      payType: "unspecified",
+      payAmount: "",
+      payCurrency: defaultPayCurrency,
+      payPeriod: "monthly",
+      manageVacations: false,
+      vacationDaysAnnual: "",
+      useRolePermissions: true,
+      customPermissions: {},
+    });
+    setCreateOpen(true);
+  }, [customRoles, defaultPayCurrency]);
+
   return (
     <>
       {activeView === "list" && onBackToOffice ? (
@@ -2722,29 +2750,7 @@ export function EmployeesModule({
           <>
             <button
               type="button"
-              onClick={() => {
-                setCreateError(null);
-                setCreateForm({
-                  fullName: "",
-                  email: "",
-                  phone: "",
-                  customRoleId:
-                    pickDefaultWorkerRoleId(customRoles) || customRoles[0]?.id || "",
-                  profileStatus: "active",
-                  emergencyName: "",
-                  emergencyPhone: "",
-                  emergencyRelation: "",
-                  payType: "unspecified",
-                  payAmount: "",
-                  payCurrency: defaultPayCurrency,
-                  payPeriod: "monthly",
-                  manageVacations: false,
-                  vacationDaysAnnual: "",
-                  useRolePermissions: true,
-                  customPermissions: {},
-                });
-                setCreateOpen(true);
-              }}
+              onClick={openNewEmployeeModal}
               className="min-h-[44px] inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium"
             >
               <Plus className="h-4 w-4" />
@@ -2832,7 +2838,7 @@ export function EmployeesModule({
       </div>
 
       {loading ? (
-        <p className="text-sm text-zinc-500">{t.loading ?? ""}</p>
+        <ListSkeletonCards rows={5} />
       ) : employeesBrowseTab === "compliance" && employeeTargetComplianceFields.length > 0 ? (
         <>
           <div className="md:hidden space-y-3">
@@ -3009,7 +3015,20 @@ export function EmployeesModule({
         </ul>
       )}
       {!loading && filtered.length === 0 && (
-        <p className="text-sm text-zinc-500 text-center py-8">{tl.employees_empty ?? ""}</p>
+        <ModuleEmptyState
+          illustration={<EmptyIllustrationPeople />}
+          message={
+            tl.module_empty_employees ??
+            tl.employees_empty ??
+            "No employees yet. Invite your first team member."
+          }
+          actionLabel={
+            showNewEmployeeButton && canManageEmployees
+              ? tl.module_empty_employees_cta ?? tl.employees_new ?? ""
+              : undefined
+          }
+          onAction={showNewEmployeeButton && canManageEmployees ? openNewEmployeeModal : undefined}
+        />
       )}
 
       {createOpen && canManageEmployees && (

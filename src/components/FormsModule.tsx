@@ -29,6 +29,7 @@ import {
 } from "@/lib/formTemplateDisplay";
 import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
 import { FormTemplateBuilder } from "@/components/FormTemplateBuilder";
+import { EmptyIllustrationForm, ModuleEmptyState } from "@/components/ModuleEmptyState";
 import QRCode from "qrcode";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { formatTime, resolveUserTimezone } from "@/lib/dateUtils";
@@ -924,9 +925,24 @@ export function FormsModule({
 
           <div className="grid gap-3">
             {listByTab.length === 0 ? (
-              <p className="text-zinc-500 dark:text-zinc-400 py-8 text-center text-sm">
-                {l("forms_list_empty")}
-              </p>
+              <ModuleEmptyState
+                illustration={<EmptyIllustrationForm />}
+                message={l("module_empty_forms") ?? l("forms_list_empty")}
+                actionLabel={
+                  canCreateForms
+                    ? t.newForm
+                    : canManageFormTemplates
+                      ? l("form_builder_title")
+                      : undefined
+                }
+                onAction={
+                  canCreateForms
+                    ? () => setView("template")
+                    : canManageFormTemplates
+                      ? () => setView("builder")
+                      : undefined
+                }
+              />
             ) : (
               listByTab.map((inst) => {
                 const template = getTemplate(inst.templateId);
