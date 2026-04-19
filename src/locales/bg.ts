@@ -1,4 +1,4 @@
-/** BG — auto-built (value-map); review for domain terms */
+﻿/** BG — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",

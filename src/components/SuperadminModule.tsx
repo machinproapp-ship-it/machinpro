@@ -32,19 +32,45 @@ export type SuperadminCompany = {
   is_active?: boolean | null;
   storage_used_gb?: number | null;
   created_at?: string | null;
+  country_code?: string | null;
   subscription: SubLite;
   user_count: number;
   project_count: number;
+  last_access_at?: string | null;
 };
 
 type Stats = {
   totalCompanies: number;
+  activeCompanies?: number;
   totalUsers: number;
+  totalUsersAll?: number;
   mrrCadApprox: number;
   trialsActive: number;
   conversionsWeek: number;
   planDistribution: Record<string, number>;
+  payingCompanies?: number;
+  trialsCompaniesApprox?: number;
+  countriesTop?: { country: string; users: number }[];
+  moduleUsageTop?: { entity_type: string; hits: number }[];
 };
+
+type FounderRow = {
+  company_id: string;
+  company_name: string;
+  status: string;
+  plan: string;
+  trial_ends_at: string | null;
+  coupon_code_label: string;
+  note: string;
+};
+
+function companyUiState(c: SuperadminCompany): "active" | "trial" | "inactive" {
+  if (c.is_active === false) return "inactive";
+  const sub = c.subscription;
+  const plan = (sub?.plan ?? c.plan ?? "").toLowerCase();
+  if (sub?.status === "trialing" || plan === "trial") return "trial";
+  return "active";
+}
 
 async function authHeaders(): Promise<HeadersInit> {
   const session = (await supabase?.auth.getSession())?.data.session;
@@ -74,6 +100,19 @@ function inviteStatusBadgeClass(s: "pending" | "accepted" | "expired"): string {
       return "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200";
     default:
       return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+  }
+}
+
+function companyStateBadgeClass(s: "active" | "trial" | "inactive"): string {
+  switch (s) {
+    case "active":
+      return "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200";
+    case "trial":
+      return "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200";
+    case "inactive":
+      return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200";
+    default:
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
   }
 }
 
@@ -108,6 +147,8 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
   const [filterPlan, setFilterPlan] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [filterCompanyState, setFilterCompanyState] = useState<"all" | "active" | "trial" | "inactive">("all");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailData, setDetailData] = useState<{
@@ -115,7 +156,14 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
     subscription: Record<string, unknown> | null;
     users: Record<string, unknown>[];
     audits: Record<string, unknown>[];
+    metrics?: {
+      projects: number;
+      employeeDocuments: number;
+      employees: number;
+      storage_gb: number | null;
+    };
   } | null>(null);
+  const [founders, setFounders] = useState<FounderRow[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [invPending, setInvPending] = useState(0);
@@ -153,15 +201,22 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         setLoading(false);
         return;
       }
-      const [cRes, sRes] = await Promise.all([
+      const [cRes, sRes, bfRes] = await Promise.all([
         fetch("/api/superadmin/companies", { headers: h }),
         fetch("/api/superadmin/stats", { headers: h }),
+        fetch("/api/superadmin/beta-founders", { headers: h }),
       ]);
       const cJson = (await cRes.json()) as { companies?: SuperadminCompany[]; error?: string };
       const sJson = (await sRes.json()) as Stats & { error?: string };
       if (!cRes.ok) setError(cJson.error ?? PM_EN.register_error_generic);
       else setCompanies(cJson.companies ?? []);
       if (sRes.ok) setStats(sJson);
+      if (bfRes.ok) {
+        const bf = (await bfRes.json()) as { founders?: FounderRow[] };
+        setFounders(bf.founders ?? []);
+      } else {
+        setFounders([]);
+      }
 
       const invRes = await fetch("/api/invitations", { headers: h });
       if (invRes.ok) {
@@ -352,15 +407,34 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         if (!matches) return false;
       }
       if (filterStatus !== "all" && (sub?.status ?? "none") !== filterStatus) return false;
+      if (filterCompanyState !== "all" && companyUiState(c) !== filterCompanyState) return false;
       if (dateFrom && c.created_at) {
         if (new Date(c.created_at) < new Date(dateFrom)) return false;
       }
+      if (dateTo && c.created_at) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        if (new Date(c.created_at).getTime() > end.getTime()) return false;
+      }
       return true;
     });
-  }, [companies, search, filterPlan, filterStatus, dateFrom]);
+  }, [companies, search, filterPlan, filterStatus, filterCompanyState, dateFrom, dateTo]);
 
   const exportCsv = useCallback(() => {
-    const headers = ["id", "name", "plan", "status", "users", "projects", "trial_end", "next_charge", "created"];
+    const headers = [
+      "id",
+      "name",
+      "plan",
+      "company_state",
+      "sub_status",
+      "users",
+      "projects",
+      "trial_end",
+      "next_charge",
+      "created",
+      "last_access",
+      "country",
+    ];
     const lines = [headers.join(",")];
     for (const c of filtered) {
       const sub = c.subscription;
@@ -369,12 +443,15 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
           c.id,
           JSON.stringify(c.name ?? ""),
           sub?.plan ?? c.plan ?? "",
+          companyUiState(c),
           sub?.status ?? "",
           c.user_count,
           c.project_count,
           sub?.trial_ends_at ?? "",
           sub?.current_period_end ?? "",
           c.created_at ?? "",
+          c.last_access_at ?? "",
+          c.country_code ?? "",
         ].join(",")
       );
     }
@@ -407,12 +484,25 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
       )}
 
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
           {[
-            { label: l("superadmin_companies"), value: stats.totalCompanies },
+            {
+              label: l("superadmin_active_companies"),
+              value: stats.activeCompanies ?? stats.totalCompanies,
+            },
             { label: l("superadmin_users_total"), value: stats.totalUsers },
-            { label: l("superadmin_mrr"), value: `≈${stats.mrrCadApprox}` },
-            { label: l("superadmin_trials"), value: stats.trialsActive },
+            {
+              label: l("superadmin_mrr"),
+              value: `${l("superadmin_mrr_approx_prefix")}${stats.mrrCadApprox}${l("superadmin_mrr_suffix")}`,
+            },
+            {
+              label: l("superadmin_paying_companies"),
+              value: stats.payingCompanies ?? "—",
+            },
+            {
+              label: l("superadmin_trials_companies_approx"),
+              value: stats.trialsCompaniesApprox ?? "—",
+            },
             { label: l("superadmin_conversions"), value: stats.conversionsWeek },
           ].map((k) => (
             <div
@@ -425,6 +515,105 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
           ))}
         </div>
       )}
+
+      {stats && (stats.countriesTop?.length || stats.moduleUsageTop?.length) ? (
+        <div className="grid md:grid-cols-2 gap-4">
+          {stats.countriesTop && stats.countriesTop.length > 0 ? (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                {l("superadmin_top_countries")}
+              </h2>
+              <ul className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                {stats.countriesTop.map((row) => (
+                  <li key={row.country} className="flex justify-between gap-2">
+                    <span className="font-mono text-xs">{row.country}</span>
+                    <span className="tabular-nums">{row.users}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {stats.moduleUsageTop && stats.moduleUsageTop.length > 0 ? (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                {l("superadmin_top_modules")}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{l("superadmin_top_modules_hint")}</p>
+              <ul className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                {stats.moduleUsageTop.map((row) => (
+                  <li key={row.entity_type} className="flex justify-between gap-2">
+                    <span className="truncate">{row.entity_type}</span>
+                    <span className="tabular-nums shrink-0">{row.hits}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {founders.length > 0 ? (
+        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {l("superadmin_beta_founders")}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{l("superadmin_beta_founders_hint")}</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_name")}</th>
+                  <th className="px-4 py-3 text-left font-medium">{l("superadmin_beta_coupon")}</th>
+                  <th className="px-4 py-3 text-left font-medium">{l("superadmin_status")}</th>
+                  <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_trial")}</th>
+                  <th className="px-4 py-3 text-left font-medium" />
+                </tr>
+              </thead>
+              <tbody>
+                {founders.map((f, idx) => (
+                  <tr
+                    key={`${f.company_id}-${idx}`}
+                    className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{f.company_name}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">
+                      {f.coupon_code_label}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(f.status)}`}
+                      >
+                        {f.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
+                      {f.trial_ends_at ? formatDate(f.trial_ends_at, saLocale, saTz) : l("common_dash")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetailId(f.company_id);
+                          setExtendDays(30);
+                          setExtendNote("");
+                          setExtendTrialOpen(true);
+                        }}
+                        className="min-h-[44px] px-3 rounded-lg border border-amber-600 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-xs font-medium"
+                      >
+                        {l("superadmin_extend_trial")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {stats && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
@@ -681,11 +870,33 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
             </select>
           </label>
           <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
+            {l("superadmin_filter_company_state")}
+            <select
+              value={filterCompanyState}
+              onChange={(e) => setFilterCompanyState(e.target.value as typeof filterCompanyState)}
+              className="mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
+            >
+              <option value="all">{l("common_dash")}</option>
+              <option value="active">{l("superadmin_state_active")}</option>
+              <option value="trial">{l("superadmin_state_trial")}</option>
+              <option value="inactive">{l("superadmin_state_inactive")}</option>
+            </select>
+          </label>
+          <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
             {l("superadmin_filter_date")}
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
+              className="mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
+            />
+          </label>
+          <label className="flex flex-col text-xs text-gray-500 dark:text-gray-400">
+            {l("superadmin_filter_date_until")}
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
               className="mt-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 min-h-[44px] text-sm"
             />
           </label>
@@ -703,23 +914,31 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
         {loading ? (
           <p className="p-8 text-center text-gray-500 dark:text-gray-400">{l("superadmin_loading")}</p>
         ) : (
-          <table className="w-full text-sm min-w-[900px]">
+          <table className="w-full text-sm min-w-[1040px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_name")}</th>
                 <th className="px-4 py-3 text-left font-medium">{l("superadmin_plan")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_company_state")}</th>
                 <th className="px-4 py-3 text-left font-medium">{l("superadmin_status")}</th>
                 <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_users")}</th>
                 <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_projects")}</th>
-                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_storage")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_registered")}</th>
+                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_last_access")}</th>
                 <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_trial")}</th>
-                <th className="px-4 py-3 text-left font-medium">{l("superadmin_col_next")}</th>
                 <th className="px-4 py-3 text-left font-medium" />
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => {
                 const sub = c.subscription;
+                const st = companyUiState(c);
+                const stLabel =
+                  st === "active"
+                    ? l("superadmin_state_active")
+                    : st === "trial"
+                      ? l("superadmin_state_trial")
+                      : l("superadmin_state_inactive");
                 return (
                   <tr
                     key={c.id}
@@ -731,6 +950,13 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     </td>
                     <td className="px-4 py-3">
                       <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${companyStateBadgeClass(st)}`}
+                      >
+                        {stLabel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(sub?.status)}`}
                       >
                         {sub?.status ?? l("common_dash")}
@@ -738,14 +964,14 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     </td>
                     <td className="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-300">{c.user_count}</td>
                     <td className="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-300">{c.project_count}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                      {c.storage_used_gb != null ? `${c.storage_used_gb} GB` : l("common_dash")}
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
+                      {c.created_at ? formatDate(String(c.created_at), saLocale, saTz) : l("common_dash")}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
+                      {c.last_access_at ? formatDateTime(String(c.last_access_at), saLocale, saTz) : l("common_dash")}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
                       {sub?.trial_ends_at ? formatDate(sub.trial_ends_at, saLocale, saTz) : l("common_dash")}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
-                      {sub?.current_period_end ? formatDate(sub.current_period_end, saLocale, saTz) : l("common_dash")}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -797,7 +1023,48 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     <dt className="text-gray-500 dark:text-gray-400">{l("superadmin_status")}</dt>
                     <dd>{String(detailData.subscription?.status ?? l("common_dash"))}</dd>
                   </div>
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">{l("superadmin_detail_country")}</dt>
+                    <dd>{String(detailData.company?.country_code ?? l("common_dash"))}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">{l("superadmin_col_registered")}</dt>
+                    <dd>
+                      {detailData.company?.created_at
+                        ? formatDate(String(detailData.company.created_at), saLocale, saTz)
+                        : l("common_dash")}
+                    </dd>
+                  </div>
                 </dl>
+                {detailData.metrics ? (
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      {l("superadmin_metrics_title")}
+                    </h4>
+                    <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                      <li>
+                        {l("superadmin_metric_employees")}:{" "}
+                        <span className="font-medium tabular-nums">{detailData.metrics.employees}</span>
+                      </li>
+                      <li>
+                        {l("superadmin_metric_projects")}:{" "}
+                        <span className="font-medium tabular-nums">{detailData.metrics.projects}</span>
+                      </li>
+                      <li>
+                        {l("superadmin_metric_documents")}:{" "}
+                        <span className="font-medium tabular-nums">{detailData.metrics.employeeDocuments}</span>
+                      </li>
+                      <li>
+                        {l("superadmin_metric_storage")}:{" "}
+                        <span className="font-medium">
+                          {detailData.metrics.storage_gb != null
+                            ? `${detailData.metrics.storage_gb} GB`
+                            : l("common_dash")}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
                   <button
                     type="button"

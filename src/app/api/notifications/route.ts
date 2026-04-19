@@ -38,12 +38,14 @@ export async function GET(req: NextRequest) {
   const offsetRaw = parseInt(searchParams.get("offset") || "0", 10);
   const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
   const unreadOnly = searchParams.get("unread") === "1";
+  const typeFilter = searchParams.get("type")?.trim();
 
   let listQuery = client
     .from("notifications")
     .select("id, company_id, user_id, type, title, body, data, read, read_at, created_at, expires_at")
     .order("created_at", { ascending: false });
   if (unreadOnly) listQuery = listQuery.eq("read", false);
+  if (typeFilter) listQuery = listQuery.eq("type", typeFilter);
   const { data: rows, error } = await listQuery.range(offset, offset + limit - 1);
 
   if (error) {
@@ -53,7 +55,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const list = (rows ?? []) as Record<string, unknown>[];
+  let list = (rows ?? []) as Record<string, unknown>[];
+  list = list.filter((r) => {
+    const d = r.data as Record<string, unknown> | null | undefined;
+    return !(d && typeof d === "object" && d.dismissed === true);
+  });
   const { count, error: countErr } = await client
     .from("notifications")
     .select("id", { count: "exact", head: true })

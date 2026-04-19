@@ -851,6 +851,16 @@ function CentralDashboardBody(
           showToast("error", msg);
           return false;
         }
+        try {
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              "machinpro_dashboard_widget_order",
+              JSON.stringify(next.orderedWidgets)
+            );
+          }
+        } catch {
+          /* ignore quota */
+        }
         clearCentralDashboardConfigCache();
         showToast("success", L("dashboard_config_saved") || L("push_saved") || "Saved");
         await loadDashboardConfig();

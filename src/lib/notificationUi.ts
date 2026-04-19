@@ -1,3 +1,17 @@
+/** Values for filter dropdowns (must match rows in `notifications.type`). */
+export const NOTIFICATION_TYPES_FOR_FILTER = [
+  "photo_approved",
+  "photo_rejected",
+  "project_assigned",
+  "shift_created",
+  "shift_updated",
+  "daily_report_pending",
+  "daily_report_submitted",
+  "cert_expiring_15",
+  "cert_expiring_7",
+  "cert_expired",
+] as const;
+
 /** Etiquetas de lista según type (claves en locales). */
 export function notificationDisplayTitle(type: string, storedTitle: string, tl: Record<string, string>): string {
   const map: Record<string, string> = {

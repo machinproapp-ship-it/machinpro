@@ -1,4 +1,4 @@
-/** IT — migrated from page.tsx (Sprint AF) */
+﻿/** IT — migrated from page.tsx (Sprint AF) */
 export default {
   office: "Centrale",
   warehouse: "Logistica",
@@ -3481,13 +3481,21 @@ export default {
   integrations_title: "Integrazioni",
   integrations_coming_soon: "Prossimamente",
   integrations_notify: "Avvisami quando disponibile",
-  integrations_notified: "Ti avviseremo quando è pronto",
+  integrations_notified: "Sarai avvisato quando disponibile",
+  integrations_notified_named: "Sarai avvisato quando {name} sarà disponibile",
+  integrations_on_waitlist: "Nella lista d'attesa ✓",
   integrations_quickbooks: "QuickBooks",
-  integrations_quickbooks_desc: "Esporta buste paga e costi.",
+  integrations_quickbooks_desc: "Contabilità e fatturazione.",
   integrations_xero: "Xero",
-  integrations_xero_desc: "Esporta fatture.",
+  integrations_xero_desc: "Contabilità.",
   integrations_procore: "Procore",
-  integrations_procore_desc: "Sincronizza progetti.",
+  integrations_procore_desc: "Gestione progetti.",
+  integrations_google_maps: "Google Maps",
+  integrations_google_maps_desc: "Geolocalizzazione avanzata.",
+  integrations_zapier: "Zapier",
+  integrations_zapier_desc: "Automazioni.",
+  integrations_slack: "Slack",
+  integrations_slack_desc: "Notifiche di team.",
   integrations_gcal: "Google Calendar",
   integrations_gcal_desc: "Sincronizza turni.",
 } as const;

@@ -29,14 +29,20 @@ export async function GET(req: NextRequest) {
     if (row.company_id) subByCompany.set(row.company_id, s as Record<string, unknown>);
   }
 
-  const { data: profiles } = await admin.from("user_profiles").select("company_id, profile_status");
+  const { data: profiles } = await admin.from("user_profiles").select("company_id, profile_status, updated_at");
   const userCountByCompany: Record<string, number> = {};
+  const lastAccessByCompany: Record<string, string> = {};
   for (const p of profiles ?? []) {
-    const row = p as { company_id: string | null; profile_status?: string | null };
+    const row = p as { company_id: string | null; profile_status?: string | null; updated_at?: string | null };
     if (!row.company_id) continue;
     const st = String(row.profile_status ?? "active").toLowerCase().trim();
     if (st !== "active") continue;
     userCountByCompany[row.company_id] = (userCountByCompany[row.company_id] ?? 0) + 1;
+    const uat = typeof row.updated_at === "string" ? row.updated_at : null;
+    if (uat) {
+      const prev = lastAccessByCompany[row.company_id];
+      if (!prev || new Date(uat).getTime() > new Date(prev).getTime()) lastAccessByCompany[row.company_id] = uat;
+    }
   }
 
   let projectCountByCompany: Record<string, number> = {};
@@ -71,6 +77,7 @@ export async function GET(req: NextRequest) {
         : null,
       user_count: userCountByCompany[id] ?? 0,
       project_count: projectCountByCompany[id] ?? 0,
+      last_access_at: lastAccessByCompany[id] ?? null,
     };
   });
 

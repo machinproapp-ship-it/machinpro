@@ -31,10 +31,35 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const { data: companies, error: cErr } = await admin.from("companies").select("id");
+  const { data: companies, error: cErr } = await admin.from("companies").select("id, country_code, is_active");
   if (cErr) {
     return NextResponse.json({ error: cErr.message }, { status: 500 });
   }
+
+  const activeCompanies = (companies ?? []).filter(
+    (c) => (c as { is_active?: boolean | null }).is_active !== false
+  ).length;
+
+  const countryUsers: Record<string, number> = {};
+  const { data: profilesCountry } = await admin.from("user_profiles").select("company_id, profile_status");
+  const companyCountry = new Map<string, string>();
+  for (const c of companies ?? []) {
+    const row = c as { id?: string; country_code?: string | null };
+    if (row.id) companyCountry.set(row.id, String(row.country_code ?? "").trim() || "—");
+  }
+  let activeUsers = 0;
+  for (const p of profilesCountry ?? []) {
+    const row = p as { company_id: string | null; profile_status?: string | null };
+    if (String(row.profile_status ?? "active").toLowerCase() === "active") activeUsers += 1;
+    if (!row.company_id) continue;
+    if (String(row.profile_status ?? "active").toLowerCase() !== "active") continue;
+    const cc = companyCountry.get(row.company_id) ?? "—";
+    countryUsers[cc] = (countryUsers[cc] ?? 0) + 1;
+  }
+  const countriesTop = Object.entries(countryUsers)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([country, users]) => ({ country, users }));
 
   const { count: userTotal, error: uErr } = await admin
     .from("user_profiles")
@@ -42,10 +67,36 @@ export async function GET(_req: NextRequest) {
   if (uErr) {
     return NextResponse.json({ error: uErr.message }, { status: 500 });
   }
+  const totalUsersDisplay = activeUsers > 0 ? activeUsers : (userTotal ?? 0);
 
   const { data: subs } = await admin.from("subscriptions").select("*");
   const now = Date.now();
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+  let payingCompanies = 0;
+  let trialsOnly = 0;
+  for (const s of subs ?? []) {
+    const row = s as { status: string; plan: string };
+    const pk = planKeyFromRow(row.plan);
+    if (row.status === "active" && pk && pk !== "trial") payingCompanies += 1;
+    if (row.status === "trialing" || pk === "trial") trialsOnly += 1;
+  }
+
+  const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: auditSample } = await admin
+    .from("audit_logs")
+    .select("entity_type")
+    .gte("created_at", thirtyDaysAgo)
+    .limit(5000);
+  const entityCounts: Record<string, number> = {};
+  for (const a of auditSample ?? []) {
+    const et = String((a as { entity_type?: string }).entity_type ?? "other");
+    entityCounts[et] = (entityCounts[et] ?? 0) + 1;
+  }
+  const moduleUsageTop = Object.entries(entityCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([entity_type, hits]) => ({ entity_type, hits }));
 
   let mrrCad = 0;
   let trialsActive = 0;
@@ -81,10 +132,16 @@ export async function GET(_req: NextRequest) {
 
   return NextResponse.json({
     totalCompanies: companies?.length ?? 0,
-    totalUsers: userTotal ?? 0,
+    activeCompanies,
+    totalUsers: totalUsersDisplay,
+    totalUsersAll: userTotal ?? 0,
     mrrCadApprox: Math.round(mrrCad),
     trialsActive,
     conversionsWeek,
     planDistribution: planDist,
+    payingCompanies,
+    trialsCompaniesApprox: trialsOnly,
+    countriesTop,
+    moduleUsageTop,
   });
 }

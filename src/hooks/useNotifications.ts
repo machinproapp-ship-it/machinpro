@@ -30,9 +30,12 @@ export function useNotifications(supabase: SupabaseClient | null, enabled: boole
   const [hasMore, setHasMore] = useState(false);
   const [disabled, setDisabled] = useState(false);
   const [filter, setFilter] = useState<NotificationFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const mounted = useRef(true);
   const filterRef = useRef(filter);
   filterRef.current = filter;
+  const typeFilterRef = useRef(typeFilter);
+  typeFilterRef.current = typeFilter;
 
   const fetchSlice = useCallback(
     async (opts: { offset: number; append: boolean }) => {
@@ -54,7 +57,9 @@ export function useNotifications(supabase: SupabaseClient | null, enabled: boole
         return;
       }
       const unreadQ = filterRef.current === "unread" ? "1" : "0";
-      const url = `/api/notifications?limit=${PAGE_SIZE}&offset=${opts.offset}&unread=${unreadQ}`;
+      const tf = typeFilterRef.current.trim();
+      const typeQ = tf && tf !== "all" ? `&type=${encodeURIComponent(tf)}` : "";
+      const url = `/api/notifications?limit=${PAGE_SIZE}&offset=${opts.offset}&unread=${unreadQ}${typeQ}`;
       try {
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
@@ -127,7 +132,7 @@ export function useNotifications(supabase: SupabaseClient | null, enabled: boole
       mounted.current = false;
       window.clearInterval(id);
     };
-  }, [enabled, filter, refresh]);
+  }, [enabled, filter, typeFilter, refresh]);
 
   const markAsRead = useCallback(
     async (id: string) => {
@@ -136,6 +141,21 @@ export function useNotifications(supabase: SupabaseClient | null, enabled: boole
       const token = sess.session?.access_token;
       if (!token) return;
       const res = await fetch(`/api/notifications/${encodeURIComponent(id)}/read`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) void refresh();
+    },
+    [supabase, disabled, refresh]
+  );
+
+  const dismiss = useCallback(
+    async (id: string) => {
+      if (!supabase || disabled) return;
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) return;
+      const res = await fetch(`/api/notifications/${encodeURIComponent(id)}/dismiss`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -165,6 +185,9 @@ export function useNotifications(supabase: SupabaseClient | null, enabled: boole
     disabled,
     filter,
     setFilter,
+    typeFilter,
+    setTypeFilter,
+    dismiss,
     markAsRead,
     markAllAsRead,
     loadMore,

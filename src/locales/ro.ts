@@ -1,4 +1,4 @@
-/** RO — auto-built (value-map); review for domain terms */
+﻿/** RO — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",

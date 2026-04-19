@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { Bell, Check, CheckCheck, X } from "lucide-react";
+import { Bell, Check, CheckCheck, Trash2, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useNotifications, type AppNotificationRow } from "@/hooks/useNotifications";
-import { notificationDisplayBody, notificationDisplayTitle } from "@/lib/notificationUi";
+import {
+  NOTIFICATION_TYPES_FOR_FILTER,
+  notificationDisplayBody,
+  notificationDisplayTitle,
+} from "@/lib/notificationUi";
 import { formatDateTime, formatRelative } from "@/lib/dateUtils";
 
 type Props = {
@@ -35,6 +39,11 @@ export function NotificationsFullPanel({
     loading,
     loadingMore,
     hasMore,
+    filter,
+    setFilter,
+    typeFilter,
+    setTypeFilter,
+    dismiss,
     markAsRead,
     markAllAsRead,
     loadMore,
@@ -101,6 +110,48 @@ export function NotificationsFullPanel({
           </div>
         </div>
 
+        <div className="flex shrink-0 flex-col gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`min-h-[44px] rounded-lg px-3 text-sm font-medium ${
+                filter === "all"
+                  ? "bg-amber-100 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
+                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              {tl.notifications_filter_all ?? "All"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("unread")}
+              className={`min-h-[44px] rounded-lg px-3 text-sm font-medium ${
+                filter === "unread"
+                  ? "bg-amber-100 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
+                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              {tl.notifications_filter_unread ?? "Unread"}
+            </button>
+          </div>
+          <label className="flex min-h-[44px] flex-1 flex-col text-xs text-zinc-500 dark:text-zinc-400 sm:max-w-[220px]">
+            {tl.notifications_filter_type ?? "Type"}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="mt-1 min-h-[44px] rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="all">{tl.notifications_all_types ?? "All types"}</option>
+              {NOTIFICATION_TYPES_FOR_FILTER.map((tp) => (
+                <option key={tp} value={tp}>
+                  {notificationDisplayTitle(tp, tp, tl)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
           {disabled ? (
             <p className="py-12 text-center text-sm text-zinc-500">{tl.notifications_empty ?? ""}</p>
@@ -138,21 +189,34 @@ export function NotificationsFullPanel({
                         {abs && abs !== "—" ? ` · ${abs}` : ""}
                       </span>
                     </button>
-                    {!n.read ? (
+                    <div className="flex shrink-0 flex-col gap-1">
+                      {!n.read ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void markAsRead(n.id);
+                          }}
+                          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                          aria-label={tl.notifications_mark_read ?? "Mark as read"}
+                        >
+                          <Check className="h-5 w-5" />
+                        </button>
+                      ) : (
+                        <span className="min-h-[44px] min-w-[44px]" aria-hidden />
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          void markAsRead(n.id);
+                          void dismiss(n.id);
                         }}
-                        className="flex shrink-0 min-h-[44px] min-w-[44px] items-center justify-center text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                        aria-label={tl.notifications_mark_read ?? "Mark as read"}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-slate-800"
+                        aria-label={tl.notifications_dismiss ?? "Dismiss"}
                       >
-                        <Check className="h-5 w-5" />
+                        <Trash2 className="h-5 w-5" />
                       </button>
-                    ) : (
-                      <span className="w-11 shrink-0" aria-hidden />
-                    )}
+                    </div>
                   </li>
                 );
               })}

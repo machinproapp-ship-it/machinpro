@@ -19,6 +19,39 @@ async function sessionUserId(req: NextRequest): Promise<string | null> {
   return user.id;
 }
 
+/** Current user's waitlist rows for their company + email (for “already on list” UI). */
+export async function GET(req: NextRequest) {
+  const userId = await sessionUserId(req);
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const admin = createSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: "server_config" }, { status: 500 });
+
+  const { data: prof, error: pErr } = await admin
+    .from("user_profiles")
+    .select("company_id, role, email")
+    .eq("id", userId)
+    .maybeSingle();
+  if (pErr || !prof) return NextResponse.json({ error: "profile" }, { status: 403 });
+  const companyId = (prof as { company_id?: string }).company_id;
+  const email = String((prof as { email?: string | null }).email ?? "").trim().toLowerCase();
+  if (!companyId || !email.includes("@")) return NextResponse.json({ integrations: [] });
+
+  const role = String((prof as { role?: string }).role ?? "");
+  if (role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  const { data, error } = await admin
+    .from("integration_waitlist")
+    .select("integration")
+    .eq("company_id", companyId)
+    .eq("email", email);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const integrations = (data ?? []).map((r) => String((r as { integration?: string }).integration ?? ""));
+  return NextResponse.json({ integrations });
+}
+
 export async function POST(req: NextRequest) {
   const userId = await sessionUserId(req);
   if (!userId) {
@@ -54,13 +87,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { error: insErr } = await admin.from("integration_waitlist").insert({
+  const row: Record<string, unknown> = {
     company_id: companyId,
     integration,
     email,
-  });
+    user_id: userId,
+  };
+
+  const { error: insErr } = await admin.from("integration_waitlist").insert(row);
   if (insErr) {
-    return NextResponse.json({ error: insErr.message }, { status: 500 });
+    const msg = insErr.message ?? "";
+    const code = (insErr as { code?: string }).code;
+    if (code === "23505" || msg.includes("duplicate") || msg.includes("unique")) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+    const { error: retry } = await admin
+      .from("integration_waitlist")
+      .insert({ company_id: companyId, integration, email });
+    if (retry) {
+      const rmsg = retry.message ?? "";
+      if (rmsg.includes("duplicate") || rmsg.includes("unique")) return NextResponse.json({ ok: true, duplicate: true });
+      return NextResponse.json({ error: retry.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ ok: true });

@@ -217,6 +217,16 @@ export function SettingsModule({
     setIntegrationNotifyEmail((profileEmail ?? "").trim());
   }, [profileEmail]);
 
+  const integrationDisplayName = useCallback(
+    (integrationKey: string) => {
+      const k = `integrations_${integrationKey}` as keyof typeof tl;
+      const raw = tl[k as string];
+      if (typeof raw === "string" && raw.trim()) return raw.trim();
+      return integrationKey;
+    },
+    [tl]
+  );
+
   const notifyIntegrationWaitlist = useCallback(
     async (integrationKey: string) => {
       const email = integrationNotifyEmail.trim();
@@ -234,9 +244,13 @@ export function SettingsModule({
           },
           body: JSON.stringify({ integration: integrationKey, email }),
         });
+        const named = tl.integrations_notified_named ?? "{name}";
+        const toastOk = named.includes("{name}")
+          ? named.replace(/\{name\}/g, integrationDisplayName(integrationKey))
+          : tl.integrations_notified ?? named;
         if (res.ok) {
           setIntegrationNotified((p) => ({ ...p, [integrationKey]: true }));
-          showToast("success", tl.integrations_notified ?? "OK");
+          showToast("success", toastOk);
         } else {
           showToast("error", tl.toast_error ?? "Error");
         }
@@ -246,7 +260,15 @@ export function SettingsModule({
         setIntegrationNotifyBusy(null);
       }
     },
-    [session?.access_token, integrationNotifyEmail, showToast, tl.toast_error, tl.integrations_notified]
+    [
+      session?.access_token,
+      integrationNotifyEmail,
+      showToast,
+      tl.toast_error,
+      tl.integrations_notified,
+      tl.integrations_notified_named,
+      integrationDisplayName,
+    ]
   );
 
   type SettingsSectionId =
@@ -274,6 +296,29 @@ export function SettingsModule({
 
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("general");
   const [regionalTimezone, setRegionalTimezone] = useState(DEFAULT_IANA_TIMEZONE);
+
+  useEffect(() => {
+    if (activeSettingsSection !== "integrations" || !canEditCompanyProfile || !session?.access_token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/integrations/waitlist", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as { integrations?: string[] };
+        const ids = json.integrations ?? [];
+        const next: Record<string, boolean> = {};
+        for (const id of ids) next[id] = true;
+        setIntegrationNotified((prev) => ({ ...prev, ...next }));
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSettingsSection, canEditCompanyProfile, session?.access_token]);
 
   const settingsNavEntries = useMemo(() => {
     const raw = [
@@ -1323,15 +1368,27 @@ export function SettingsModule({
                     ["quickbooks", tl.integrations_quickbooks ?? "QuickBooks", tl.integrations_quickbooks_desc ?? ""],
                     ["xero", tl.integrations_xero ?? "Xero", tl.integrations_xero_desc ?? ""],
                     ["procore", tl.integrations_procore ?? "Procore", tl.integrations_procore_desc ?? ""],
-                    ["google_calendar", tl.integrations_gcal ?? "Google Calendar", tl.integrations_gcal_desc ?? ""],
+                    ["google_maps", tl.integrations_google_maps ?? "Google Maps", tl.integrations_google_maps_desc ?? ""],
+                    ["zapier", tl.integrations_zapier ?? "Zapier", tl.integrations_zapier_desc ?? ""],
+                    ["slack", tl.integrations_slack ?? "Slack", tl.integrations_slack_desc ?? ""],
                   ] as const
                 ).map(([key, title, desc]) => (
                   <div
                     key={key}
-                    className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4 space-y-2"
+                    className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/60 dark:bg-slate-800/40 p-4 space-y-3"
                   >
-                    <p className="font-semibold text-zinc-900 dark:text-white">{title}</p>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400">{desc}</p>
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-bold text-amber-700 shadow-sm dark:bg-slate-900 dark:text-amber-400"
+                        aria-hidden
+                      >
+                        {title.trim().slice(0, 1)}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="font-semibold text-zinc-900 dark:text-white">{title}</p>
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400">{desc}</p>
+                      </div>
+                    </div>
                     <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
                       {tl.integrations_coming_soon ?? "Coming soon"}
                     </p>
@@ -1342,7 +1399,7 @@ export function SettingsModule({
                       className="w-full min-h-[44px] rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
                     >
                       {integrationNotified[key]
-                        ? (tl.integrations_notified ?? "Done")
+                        ? (tl.integrations_on_waitlist ?? "On waitlist")
                         : (tl.integrations_notify ?? "Notify me")}
                     </button>
                   </div>
