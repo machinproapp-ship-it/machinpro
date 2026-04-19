@@ -7,7 +7,6 @@ import { TextWithBrandMarks } from "@/components/BrandWordmark";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { useAppLocale } from "@/hooks/useAppLocale";
 import { postAuthAudit } from "@/lib/postAuthAudit";
-import { supabase } from "@/lib/supabase";
 
 type Phase = "idle" | "loading" | "sent" | "error";
 
@@ -29,16 +28,17 @@ export default function ForgotPasswordPage() {
     (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")) ||
     (typeof window !== "undefined" ? window.location.origin : "") ||
     "https://machin.pro";
-  const redirectTo = `${siteBase}/reset-password`;
 
   const submit = async () => {
-    if (!supabase || !email.trim()) return;
+    if (!email.trim()) return;
     setPhase("loading");
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo,
+      const res = await fetch(`${siteBase}/api/auth/password-reset-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
-      if (error) {
+      if (!res.ok) {
         setPhase("error");
         return;
       }

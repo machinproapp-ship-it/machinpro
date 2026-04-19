@@ -1,38 +1,48 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { LandingJsonLd } from "./LandingJsonLd";
 
 const siteRaw = process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro";
 const site = siteRaw.replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(site),
-  title: "MachinPro — Gestión de obras sin caos",
+  title: "MachinPro — Build Without Chaos | Construction Management Software",
   description:
-    "Plataforma de gestión para empresas de construcción. Personal, proyectos, logística, seguridad, formularios y nóminas. Todo desde el móvil. 21 idiomas.",
+    "Manage your construction company from your phone. Projects, team, schedules, logistics and safety. All in one place. Available in 21 languages.",
   keywords: [
-    "construcción",
+    "construction management software",
+    "obra management",
     "gestión de obras",
-    "software construcción",
-    "site management",
     "construction app",
-    "obra",
-    "proyecto construcción",
+    "field management",
   ],
+  alternates: {
+    canonical: site,
+  },
   openGraph: {
-    title: "MachinPro — Construye sin caos",
-    description: "Todo lo que necesitas para gestionar tu empresa de construcción desde el móvil.",
-    url: "https://machin.pro/landing",
+    title: "MachinPro — Build Without Chaos | Construction Management Software",
+    description:
+      "Manage your construction company from your phone. Projects, team, schedules, logistics and safety. All in one place.",
+    url: site,
     siteName: "MachinPro",
-    locale: "es_ES",
+    locale: "en_US",
     type: "website",
-    images: [{ url: "/logo-source.png", width: 512, height: 512, alt: "MachinPro" }],
+    images: [
+      {
+        url: "/og-machinpro.webp",
+        width: 1200,
+        height: 630,
+        alt: "MachinPro — construction management software",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MachinPro — Construye sin caos",
+    title: "MachinPro — Build Without Chaos | Construction Management Software",
     description:
-      "Gestión de obras sin caos. Personal, proyectos, logística, seguridad y nóminas.",
-    images: ["https://machin.pro/logo-source.png"],
+      "Manage your construction company from your phone. Projects, team, schedules, logistics and safety.",
+    images: [`${site}/og-machinpro.webp`],
   },
   icons: {
     icon: [{ url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }],
@@ -41,5 +51,10 @@ export const metadata: Metadata = {
 };
 
 export default function LandingLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <>
+      <LandingJsonLd />
+      {children}
+    </>
+  );
 }

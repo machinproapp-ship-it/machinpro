@@ -2,43 +2,73 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import {
+  clientIpFromNextRequest,
+  rateLimitHeaders,
+  rateLimitRecord,
+} from "@/lib/ipRateLimiter";
+import { buildFeedbackSupportEmailHtml } from "@/lib/transactionalEmailHtml";
 
 export const runtime = "nodejs";
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+const RL_STORE = new Map<string, number[]>();
 
-type Body = {
-  type?: string;
-  message?: string;
-  userId?: string;
-  companyId?: string;
-  page?: string;
-  module?: string;
-};
+const ALLOWED_KEYS = new Set(["type", "message", "userId", "companyId", "page", "module"]);
 
 export async function POST(req: NextRequest) {
-  let body: Body;
-  try {
-    body = (await req.json()) as Body;
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  const ip = clientIpFromNextRequest(req);
+  const rl = rateLimitRecord(RL_STORE, `feedback:${ip}`, { windowMs: 60 * 60 * 1000, max: 20 });
+  const rh = rateLimitHeaders(rl);
+  if (!rl.ok) {
+    return NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429, headers: rh });
   }
+
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400, headers: rh });
+  }
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400, headers: rh });
+  }
+  const obj = raw as Record<string, unknown>;
+  for (const k of Object.keys(obj)) {
+    if (!ALLOWED_KEYS.has(k)) {
+      return NextResponse.json({ ok: false, error: "Unexpected field" }, { status: 400, headers: rh });
+    }
+  }
+
+  const userId = typeof obj.userId === "string" ? obj.userId.trim() : "";
+  const companyId = typeof obj.companyId === "string" ? obj.companyId.trim() : "";
+  const type = typeof obj.type === "string" ? obj.type.trim().slice(0, 32) : "";
+  const message = typeof obj.message === "string" ? obj.message.trim() : "";
+  const page = typeof obj.page === "string" ? obj.page.trim().slice(0, 2000) : "";
+  const moduleRaw = typeof obj.module === "string" ? obj.module.trim().slice(0, 64) : "";
+  const allowedModules = new Set([
+    "central",
+    "operations",
+    "schedule",
+    "logistics",
+    "security",
+    "settings",
+    "general",
+  ]);
+  if (moduleRaw !== "" && !allowedModules.has(moduleRaw)) {
+    return NextResponse.json({ ok: false, error: "Invalid module" }, { status: 400, headers: rh });
+  }
+  const moduleVal = moduleRaw === "" ? null : moduleRaw;
 
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401, headers: rh });
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) {
-    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500, headers: rh });
   }
 
   const supabase = createClient(url, anon, {
@@ -49,37 +79,19 @@ export async function POST(req: NextRequest) {
     error: authErr,
   } = await supabase.auth.getUser(token);
   if (authErr || !user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401, headers: rh });
   }
-
-  const userId = typeof body.userId === "string" ? body.userId.trim() : "";
-  const companyId = typeof body.companyId === "string" ? body.companyId.trim() : "";
-  const type = typeof body.type === "string" ? body.type.trim().slice(0, 32) : "";
-  const message = typeof body.message === "string" ? body.message.trim() : "";
-  const page = typeof body.page === "string" ? body.page.trim().slice(0, 2000) : "";
-  const moduleRaw = typeof body.module === "string" ? body.module.trim().slice(0, 64) : "";
-  const allowedModules = new Set([
-    "central",
-    "operations",
-    "schedule",
-    "logistics",
-    "security",
-    "settings",
-    "general",
-    "",
-  ]);
-  const module = allowedModules.has(moduleRaw) ? (moduleRaw || null) : null;
 
   if (!userId || user.id !== userId) {
-    return NextResponse.json({ ok: false, error: "Invalid user" }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "Invalid user" }, { status: 403, headers: rh });
   }
   if (!message || message.length > 20_000) {
-    return NextResponse.json({ ok: false, error: "Invalid message" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Invalid message" }, { status: 400, headers: rh });
   }
 
   const admin = createSupabaseAdmin();
   if (!admin) {
-    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500, headers: rh });
   }
 
   const { data: prof, error: profErr } = await admin
@@ -89,7 +101,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (profErr || !prof) {
-    return NextResponse.json({ ok: false, error: "Profile not found" }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "Profile not found" }, { status: 403, headers: rh });
   }
 
   const row = prof as {
@@ -100,7 +112,7 @@ export async function POST(req: NextRequest) {
   };
 
   if (companyId && row.company_id !== companyId) {
-    return NextResponse.json({ ok: false, error: "Company mismatch" }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "Company mismatch" }, { status: 403, headers: rh });
   }
 
   const effectiveCompanyId = (row.company_id as string) || companyId || null;
@@ -111,6 +123,14 @@ export async function POST(req: NextRequest) {
     user.email ||
     "";
 
+  let companyDisplayName = "—";
+  if (effectiveCompanyId) {
+    const { data: coRow } = await admin.from("companies").select("name").eq("id", effectiveCompanyId).maybeSingle();
+    const nm = (coRow as { name?: string | null } | null)?.name?.trim();
+    if (nm) companyDisplayName = nm;
+    else companyDisplayName = effectiveCompanyId;
+  }
+
   const feedbackType = (type || "suggestion").slice(0, 32);
 
   const { data: fbRow, error: fbErr } = await admin
@@ -120,7 +140,7 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       type: feedbackType,
       description: message,
-      module,
+      module: moduleVal,
       url: page || null,
     })
     .select("id")
@@ -129,9 +149,9 @@ export async function POST(req: NextRequest) {
   if (fbErr) {
     console.error("[api/feedback] feedback insert", fbErr);
     if (fbErr.code === "42P01" || fbErr.message?.includes("does not exist")) {
-      return NextResponse.json({ ok: false, error: "feedback_table_missing" }, { status: 503 });
+      return NextResponse.json({ ok: false, error: "feedback_table_missing" }, { status: 503, headers: rh });
     }
-    return NextResponse.json({ ok: false, error: "Could not save feedback" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Could not save feedback" }, { status: 500, headers: rh });
   }
 
   const feedbackId = (fbRow as { id?: string } | null)?.id ?? null;
@@ -141,7 +161,7 @@ export async function POST(req: NextRequest) {
     feedback_type: feedbackType,
     message,
     page: page || null,
-    module,
+    module: moduleVal,
     user_id: user.id,
     company_id: effectiveCompanyId,
   };
@@ -163,25 +183,24 @@ export async function POST(req: NextRequest) {
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
     try {
+      const moduleLabel = moduleVal || "general";
+      const html = buildFeedbackSupportEmailHtml({
+        feedbackType,
+        moduleLabel,
+        companyLabel: companyDisplayName,
+        userLabel: userName || user.email || user.id,
+        userId: user.id,
+        pageUrl: page || null,
+        feedbackId,
+        message,
+      });
+      const subject = `[MachinPro Beta] ${feedbackType} — ${moduleLabel} — ${companyDisplayName}`;
       const resend = new Resend(resendKey);
       const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
-      const subject = `[MachinPro Feedback] ${feedbackType} — ${userName || user.id}`;
-      const html = `<p><strong>MachinPro — feedback (beta)</strong></p>
-<ul>
-<li><strong>Tipo:</strong> ${escapeHtml(feedbackType || "—")}</li>
-<li><strong>Módulo:</strong> ${escapeHtml(module ?? "—")}</li>
-<li><strong>Usuario:</strong> ${escapeHtml(userName)} (${escapeHtml(user.id)})</li>
-<li><strong>Empresa:</strong> ${escapeHtml(effectiveCompanyId ?? "—")}</li>
-<li><strong>Página:</strong> ${page ? escapeHtml(page) : "—"}</li>
-<li><strong>Id feedback:</strong> ${escapeHtml(feedbackId ?? "—")}</li>
-</ul>
-<p><strong>Mensaje:</strong></p>
-<p>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>`;
-
       const { error: sendErr } = await resend.emails.send({
         from,
         to: "support@machin.pro",
-        replyTo: typeof row.email === "string" && row.email.includes("@") ? row.email : undefined,
+        replyTo: "support@machin.pro",
         subject,
         html,
       });
@@ -193,5 +212,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: rh });
 }

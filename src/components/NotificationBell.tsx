@@ -38,6 +38,8 @@ type Props = {
   /** Abrir entidad relacionada (proyecto, calendario, etc.). */
   onNavigate?: (n: AppNotificationRow) => void;
   companyId?: string | null;
+  /** Pantalla completa de notificaciones (panel aparte). */
+  onViewAll?: () => void;
 };
 
 function categoryIcon(type: string) {
@@ -58,6 +60,7 @@ export function NotificationBell({
   timeZone,
   onNavigate,
   companyId = null,
+  onViewAll,
 }: Props) {
   const tl = labels;
   const [open, setOpen] = useState(false);
@@ -252,11 +255,28 @@ export function NotificationBell({
                   {tl.notifications_loading ?? "Loading..."}
                 </p>
               ) : notifications.length === 0 ? (
-                <p className="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                  {tl.notifications_empty ?? "No notifications"}
-                </p>
+                <>
+                  <p className="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    {tl.notifications_empty ?? "No notifications"}
+                  </p>
+                  {onViewAll ? (
+                    <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-700">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onViewAll();
+                          setOpen(false);
+                        }}
+                        className="flex min-h-[44px] w-full items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-sm font-semibold text-amber-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-slate-800 dark:text-amber-300 dark:hover:bg-slate-700"
+                      >
+                        {tl.notifications_view_all ?? "View all"}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               ) : (
-                <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <>
+                  <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
                   {notifications.map((n) => {
                     const title = notificationDisplayTitle(n.type, n.title, tl);
                     const body = notificationDisplayBody(
@@ -319,6 +339,21 @@ export function NotificationBell({
                     );
                   })}
                 </ul>
+                  {onViewAll ? (
+                    <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-700">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onViewAll();
+                          setOpen(false);
+                        }}
+                        className="flex min-h-[44px] w-full items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-sm font-semibold text-amber-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-slate-800 dark:text-amber-300 dark:hover:bg-slate-700"
+                      >
+                        {tl.notifications_view_all ?? "View all"}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               )}
               {!loading && hasMore ? (
                 <div className="border-t border-zinc-200 p-3 dark:border-zinc-700">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Building2, FileText, FolderKanban, Search, Truck, Users, X } from "lucide-react";
+import { Building2, FileText, FolderKanban, Package, Search, Truck, Users, X } from "lucide-react";
 
 const MAX_PER_CATEGORY = 5;
 const DEBOUNCE_MS = 300;
@@ -12,6 +12,7 @@ export type GlobalSearchFlags = {
   vehicles: boolean;
   suppliers: boolean;
   documents: boolean;
+  inventory: boolean;
 };
 
 export interface GlobalSearchModalProps {
@@ -24,12 +25,14 @@ export interface GlobalSearchModalProps {
   suppliers: { id: string; name: string }[];
   binderDocuments: { id: string; name: string; binderId: string }[];
   binders: { id: string; name: string }[];
+  inventoryItems: { id: string; name: string; subtitle?: string }[];
   flags: GlobalSearchFlags;
   onSelectEmployee: (id: string) => void;
   onSelectProject: (id: string) => void;
   onSelectVehicle: (id: string) => void;
   onSelectSupplier: (id: string) => void;
   onSelectDocument: (docId: string, binderId: string) => void;
+  onSelectInventory: (id: string) => void;
 }
 
 function norm(s: string): string {
@@ -52,12 +55,14 @@ export function GlobalSearchModal({
   suppliers,
   binderDocuments,
   binders,
+  inventoryItems,
   flags,
   onSelectEmployee,
   onSelectProject,
   onSelectVehicle,
   onSelectSupplier,
   onSelectDocument,
+  onSelectInventory,
 }: GlobalSearchModalProps) {
   const [input, setInput] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -170,6 +175,26 @@ export function GlobalSearchModal({
       }
     }
 
+    if (flags.inventory) {
+      const rows = inventoryItems
+        .filter((i) => matches(q, i.name, i.subtitle))
+        .slice(0, MAX_PER_CATEGORY)
+        .map((i) => ({
+          id: i.id,
+          title: i.name,
+          subtitle: i.subtitle,
+          onPick: () => onSelectInventory(i.id),
+        }));
+      if (rows.length || q.length > 0) {
+        out.push({
+          key: "inv",
+          label: L.search_inventory ?? "Inventory",
+          icon: Package,
+          rows,
+        });
+      }
+    }
+
     if (flags.documents) {
       const rows = binderDocuments
         .filter((d) => matches(q, d.name, binderName(d.binderId)))
@@ -199,11 +224,14 @@ export function GlobalSearchModal({
     employees,
     flags.documents,
     flags.employees,
+    flags.inventory,
     flags.projects,
     flags.suppliers,
     flags.vehicles,
+    inventoryItems,
     onSelectDocument,
     onSelectEmployee,
+    onSelectInventory,
     onSelectProject,
     onSelectSupplier,
     onSelectVehicle,

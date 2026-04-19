@@ -85,6 +85,7 @@ import {
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import { postAppNotification } from "@/lib/clientNotifications";
 import { NotificationBell } from "@/components/NotificationBell";
+import { NotificationsFullPanel } from "@/components/NotificationsFullPanel";
 import type { AppNotificationRow } from "@/hooks/useNotifications";
 import { GlobalSearchModal } from "@/components/GlobalSearchModal";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
@@ -1186,6 +1187,7 @@ export default function Home() {
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [notificationsFullOpen, setNotificationsFullOpen] = useState(false);
   const [pendingOpenBinderDocumentId, setPendingOpenBinderDocumentId] = useState<string | null>(null);
   const [complianceNotifOpen, setComplianceNotifOpen] = useState(false);
   const complianceNotifRef = useRef<HTMLDivElement>(null);
@@ -4024,6 +4026,7 @@ export default function Home() {
       projects: !!(perms.site && canViewProjectsTab),
       vehicles: !!perms.warehouse,
       suppliers: !!perms.warehouse,
+      inventory: !!perms.warehouse,
       documents: !!(
         rolePerms.canViewSecurityDocs ||
         rolePerms.canManageSecurityDocs ||
@@ -4042,6 +4045,23 @@ export default function Home() {
       rolePerms.canManageBinders,
     ]
   );
+
+  useEffect(() => {
+    if (!session || !companyId) return;
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setGlobalSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [session, companyId]);
+
+  const handleGlobalSearchSelectInventory = useCallback(() => {
+    setActiveSection("warehouse");
+    setWarehouseSubTab("inventory");
+  }, []);
 
   const scheduleSelfIds = useMemo(
     () => [profile?.id, effectiveEmployeeId].filter((x): x is string => !!x),
@@ -4862,6 +4882,21 @@ export default function Home() {
         .single();
       if (error || !data) return;
       setVacationRequests((prev) => [data as VacationRequestRow, ...prev]);
+      const vacRow = data as VacationRequestRow;
+      void (async () => {
+        try {
+          const { data: sess } = await supabase.auth.getSession();
+          const tok = sess.session?.access_token;
+          if (!tok || typeof window === "undefined") return;
+          await fetch(`${window.location.origin}/api/email/vacation-admin-notify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+            body: JSON.stringify({ vacationRequestId: vacRow.id }),
+          });
+        } catch {
+          /* ignore */
+        }
+      })();
       const title = tl.notif_vacation_pending_title ?? tl.schedule_vacation_pending_list ?? "Vacation pending approval";
       const who =
         (profile?.fullName ?? "").trim() ||
@@ -4880,7 +4915,7 @@ export default function Home() {
           type: "vacation_pending_approval",
           title,
           body,
-          data: { vacationRequestId: (data as VacationRequestRow).id, userId: user.id },
+          data: { vacationRequestId: vacRow.id, userId: user.id },
         });
       }
     },
@@ -5788,6 +5823,7 @@ export default function Home() {
                   timeZone={userTimeZone}
                   onNavigate={handleAppNotificationNavigate}
                   companyId={companyId ?? null}
+                  onViewAll={() => setNotificationsFullOpen(true)}
                 />
               ) : null}
               {pendingSync.length > 0 ? (
@@ -5931,6 +5967,18 @@ export default function Home() {
           </header>
 
           {session && companyId ? (
+            <>
+            <NotificationsFullPanel
+              open={notificationsFullOpen}
+              onClose={() => setNotificationsFullOpen(false)}
+              supabase={supabase}
+              labels={labels as Record<string, string>}
+              localeBcp47={dateLocaleBcp47}
+              timeZone={userTimeZone}
+              companyId={companyId ?? null}
+              onNavigate={handleAppNotificationNavigate}
+            />
+
             <GlobalSearchModal
               open={globalSearchOpen}
               onClose={() => setGlobalSearchOpen(false)}
@@ -5949,13 +5997,27 @@ export default function Home() {
                 binderId: d.binderId,
               }))}
               binders={(binders ?? []).map((b) => ({ id: b.id, name: b.name }))}
+              inventoryItems={(inventoryItems ?? []).map((i) => {
+                const tl = t as Record<string, string>;
+                const loc =
+                  (i.location ?? "warehouse") === "warehouse"
+                    ? (tl.inventory_warehouse_view ?? "Warehouse")
+                    : (tl.inventory_onsite ?? "On site");
+                return {
+                  id: i.id,
+                  name: i.name,
+                  subtitle: `${i.quantity} ${i.unit} · ${loc}`,
+                };
+              })}
               flags={globalSearchFlags}
               onSelectEmployee={handleGlobalSearchSelectEmployee}
               onSelectProject={handleGlobalSearchSelectProject}
               onSelectVehicle={handleGlobalSearchSelectVehicle}
               onSelectSupplier={handleGlobalSearchSelectSupplier}
               onSelectDocument={handleGlobalSearchSelectDocument}
+              onSelectInventory={handleGlobalSearchSelectInventory}
             />
+            </>
           ) : null}
 
           <div className="max-w-7xl mx-auto space-y-6 min-w-0 w-full">

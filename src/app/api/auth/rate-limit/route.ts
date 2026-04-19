@@ -1,55 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  clientIpFromNextRequest,
+  rateLimitHeaders,
+  rateLimitRecord,
+} from "@/lib/ipRateLimiter";
 
 export const runtime = "nodejs";
 
-const WINDOW_MS = 15 * 60 * 1000;
+/** Failed login attempts per IP — max 5 per rolling minute. */
+const WINDOW_MS = 60 * 1000;
 const MAX_IP_FAILS = 5;
-const MAX_EMAIL_FAILS = 10;
 
 const ipFails = new Map<string, number[]>();
-const emailFails = new Map<string, number[]>();
-
-function clientIp(req: NextRequest): string {
-  const xf = req.headers.get("x-forwarded-for");
-  if (xf) {
-    const first = xf.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  const real = req.headers.get("x-real-ip")?.trim();
-  if (real) return real;
-  return "unknown";
-}
-
-function prune(ts: number[], now: number): number[] {
-  const cutoff = now - WINDOW_MS;
-  return ts.filter((t) => t > cutoff);
-}
-
-function pushFail(map: Map<string, number[]>, key: string, now: number) {
-  const cur = prune(map.get(key) ?? [], now);
-  cur.push(now);
-  map.set(key, cur);
-}
-
-function clearKey(map: Map<string, number[]>, key: string) {
-  map.delete(key);
-}
 
 export async function GET(req: NextRequest) {
-  const ip = clientIp(req);
-  const email = req.nextUrl.searchParams.get("email")?.trim().toLowerCase() ?? "";
+  const ip = clientIpFromNextRequest(req);
   const now = Date.now();
-  const ipKey = ip;
-  const emailKey = email || "_";
-  const ipArr = prune(ipFails.get(ipKey) ?? [], now);
-  const emailArr = prune(emailFails.get(emailKey) ?? [], now);
-  const ipBlocked = ipArr.length >= MAX_IP_FAILS;
-  const emailBlocked = email && emailArr.length >= MAX_EMAIL_FAILS;
-  const blocked = ipBlocked || emailBlocked;
-  const ipLeft = Math.max(0, MAX_IP_FAILS - ipArr.length);
-  const emailLeft = email ? Math.max(0, MAX_EMAIL_FAILS - emailArr.length) : MAX_EMAIL_FAILS;
-  const attemptsLeft = Math.min(ipLeft, emailLeft);
-  const oldest = [...ipArr, ...emailArr].sort((a, b) => a - b)[0];
+  const cutoff = now - WINDOW_MS;
+  const arr = (ipFails.get(ip) ?? []).filter((t) => t > cutoff);
+  ipFails.set(ip, arr);
+  const blocked = arr.length >= MAX_IP_FAILS;
+  const attemptsLeft = Math.max(0, MAX_IP_FAILS - arr.length);
+  const oldest = arr[0];
   const resetIn = oldest ? Math.max(0, Math.ceil((oldest + WINDOW_MS - now) / 1000)) : 0;
   return NextResponse.json({ blocked, attemptsLeft, resetIn });
 }
@@ -61,12 +33,14 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const ip = clientIp(req);
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const now = Date.now();
-  pushFail(ipFails, ip, now);
-  if (email) pushFail(emailFails, email, now);
-  return NextResponse.json({ ok: true });
+  const ip = clientIpFromNextRequest(req);
+  const rl = rateLimitRecord(ipFails, ip, { windowMs: WINDOW_MS, max: MAX_IP_FAILS });
+  const rh = rateLimitHeaders(rl);
+  if (!rl.ok) {
+    return NextResponse.json({ error: "Too many attempts" }, { status: 429, headers: rh });
+  }
+  void body.email;
+  return NextResponse.json({ ok: true }, { headers: rh });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -76,9 +50,8 @@ export async function DELETE(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const ip = clientIp(req);
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  clearKey(ipFails, ip);
-  if (email) clearKey(emailFails, email);
+  const ip = clientIpFromNextRequest(req);
+  ipFails.delete(ip);
+  void body.email;
   return NextResponse.json({ ok: true });
 }

@@ -801,12 +801,13 @@ export function LogisticsModule({
 
   const exportInventoryCsv = () => {
     try {
+      const tx = t as Record<string, string>;
       const headers = [
         tlLabels.itemName ?? t.itemName ?? "Name",
         tlLabels.type ?? "Category",
         tlLabels.quantity ?? "Quantity",
+        tx.inventory_location ?? "Location",
         tlLabels.status ?? "Status",
-        t.assignedProject ?? t.filterByProject ?? "Project",
       ];
       const lines = [headers.map((h) => csvCell(h)).join(",")];
       const categoryLabel = (i: InventoryItem) =>
@@ -830,6 +831,13 @@ export function LogisticsModule({
                   : "lost";
         return getStatusLabel(key);
       };
+      const locationLabel = (i: InventoryItem) => {
+        if ((i.location ?? "warehouse") === "warehouse") {
+          return tx.inventory_warehouse_view ?? "Warehouse";
+        }
+        const pn = getProjectName(i.assignedToProjectId);
+        return pn !== "—" ? pn : (tx.inventory_onsite ?? "On site");
+      };
       for (const i of flatOrderedInventory) {
         const qty = `${i.quantity} ${i.unit}`;
         lines.push(
@@ -837,8 +845,8 @@ export function LogisticsModule({
             csvCell(i.name),
             csvCell(categoryLabel(i)),
             csvCell(qty),
+            csvCell(locationLabel(i)),
             csvCell(statusLabel(i)),
-            csvCell(getProjectName(i.assignedToProjectId)),
           ].join(",")
         );
       }

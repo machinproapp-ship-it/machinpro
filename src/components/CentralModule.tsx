@@ -34,6 +34,7 @@ import { useMachinProDisplayPrefs } from '@/hooks/useMachinProDisplayPrefs';
 import { isProjectOperationallyActive, resolveProjectLifecycleStatus } from '@/lib/projectFilters';
 import { useToast } from "@/components/Toast";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
+import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
 interface Certificate {
   id: string;
@@ -181,7 +182,13 @@ interface CentralModuleProps {
   labels: Record<string, string>;
   employees?: CentralEmployee[];
   projects?: CentralProject[];
-  displayProjects?: Array<{ id: string; name?: string; location?: string; archived?: boolean }>;
+  displayProjects?: Array<{
+    id: string;
+    name?: string;
+    location?: string;
+    archived?: boolean;
+    assignedEmployeeIds?: string[];
+  }>;
   subcontractors?: Subcontractor[];
   subcontractorCountryCode?: string;
   /** Company country for date/number locale (MM/DD vs DD/MM); defaults to subcontractorCountryCode. */
@@ -986,6 +993,9 @@ export function CentralModule({
                 onOpenSubcontractorsInOperations={onOpenSubcontractorsInOperations}
                 onOpenMyShiftView={onOpenMyShiftView}
                 onProjectsManagementCardClick={onProjectsManagementCardClick ?? (() => setCentralView("projects"))}
+                onQuickNewProject={
+                  canCreateProjects && onAddProject ? () => onAddProject() : undefined
+                }
                 myShiftCentralCard={myShiftCentralCard}
                 manualClockEmployeeOptions={manualClockEmployeeOptions}
                 manualClockProjectOptions={manualClockProjectOptions}
@@ -1806,12 +1816,59 @@ export function CentralModule({
                 <Users className="h-4 w-4" />
                 {labels.personnel ?? labels.recentStaff ?? "Personal"}
               </h3>
-              {canEdit && onAddEmployee && (
-                <button type="button" onClick={onAddEmployee} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-600 min-h-[44px] sm:w-auto">
-                  <UserPlus className="h-4 w-4" />
-                  {labels.addNew ?? "A?adir empleado"}
-                </button>
-              )}
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+                {(safeEmployees ?? []).length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        const tl = labels as Record<string, string>;
+                        const lines = [
+                          [
+                            csvCell(tl.export_col_name ?? "Name"),
+                            csvCell(tl.export_col_email ?? "Email"),
+                            csvCell(tl.export_col_role ?? "Role"),
+                            csvCell(tl.export_col_project ?? "Project"),
+                            csvCell(tl.export_col_status ?? "Status"),
+                          ].join(","),
+                        ];
+                        const projNames = (empId: string) =>
+                          (safeDisplayProjects ?? [])
+                            .filter((p) => !p.archived && (p.assignedEmployeeIds ?? []).includes(empId))
+                            .map((p) => (p.name ?? "").trim())
+                            .filter(Boolean)
+                            .join("; ");
+                        for (const e of safeEmployees ?? []) {
+                          lines.push(
+                            [
+                              csvCell(e.name ?? ""),
+                              csvCell(e.email ?? ""),
+                              csvCell(e.role ?? ""),
+                              csvCell(projNames(e.id)),
+                              csvCell(e.profileStatus ?? ""),
+                            ].join(",")
+                          );
+                        }
+                        const slug = fileSlugCompany(companyName ?? "", companyId ?? "co");
+                        downloadCsvUtf8(`employees_${slug}_${filenameDateYmd()}.csv`, lines);
+                        showToast("success", tl.export_success ?? "Export completed");
+                      } catch {
+                        showToast("error", (labels as Record<string, string>).export_error ?? "Export error");
+                      }
+                    }}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] sm:w-auto"
+                  >
+                    <Download className="h-4 w-4 shrink-0" aria-hidden />
+                    {(labels as Record<string, string>).employees_export_csv ?? "Export CSV"}
+                  </button>
+                ) : null}
+                {canEdit && onAddEmployee ? (
+                  <button type="button" onClick={onAddEmployee} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-600 min-h-[44px] sm:w-auto">
+                    <UserPlus className="h-4 w-4" />
+                    {labels.addNew ?? "A?adir empleado"}
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="divide-y divide-zinc-200 dark:divide-white/10">

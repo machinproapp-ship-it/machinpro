@@ -4,10 +4,17 @@ import { randomUUID } from "crypto";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySuperadminAccess } from "@/lib/verify-api-session";
 import { getAppBaseUrl } from "@/lib/app-url";
+import {
+  clientIpFromNextRequest,
+  rateLimitHeaders,
+  rateLimitRecord,
+} from "@/lib/ipRateLimiter";
 import { buildInvitationEmailHtml } from "@/lib/invitationEmailHtml";
 import type { InvitationPlan } from "@/types/invitation";
 
 export const runtime = "nodejs";
+
+const INV_SEND_RL = new Map<string, number[]>();
 
 const PLANS: InvitationPlan[] = [
   "trial",
@@ -50,6 +57,12 @@ export async function POST(req: NextRequest) {
   const auth = await verifySuperadminAccess(req);
   if (!auth) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const ip = clientIpFromNextRequest(req);
+  const rl = rateLimitRecord(INV_SEND_RL, ip, { windowMs: 60 * 60 * 1000, max: 10 });
+  if (!rl.ok) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitHeaders(rl) });
   }
 
   const admin = createSupabaseAdmin();

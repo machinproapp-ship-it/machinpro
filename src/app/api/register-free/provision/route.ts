@@ -5,7 +5,6 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { getLimitsForPlan } from "@/lib/stripe";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
-import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
 import { buildWelcomeEmailHtml, buildWelcomeEmailSubject } from "@/lib/transactionalEmailHtml";
 
 export const runtime = "nodejs";
@@ -83,9 +82,6 @@ export async function POST(req: NextRequest) {
   const countryCfg = getCountryConfig(countryRaw);
   const countryCode = countryCfg.code.toUpperCase();
   const lang = languageForCountry(countryCfg.code);
-  const acceptFirst =
-    req.headers.get("accept-language")?.split(",")[0]?.split(";")[0]?.trim() ?? "";
-  const emailLang = transactionalEmailLangFromCode(acceptFirst || lang);
 
   const limits = getLimitsForPlan("esencial");
   const nowIso = new Date().toISOString();
@@ -174,9 +170,9 @@ export async function POST(req: NextRequest) {
         const html = buildWelcomeEmailHtml({
           userName: fullName,
           companyName,
-          lang: emailLang,
+          lang: "en",
         });
-        const subject = buildWelcomeEmailSubject(fullName, emailLang);
+        const subject = buildWelcomeEmailSubject(fullName, companyName, "en");
         const resend = new Resend(resendKey);
         const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
         await resend.emails.send({

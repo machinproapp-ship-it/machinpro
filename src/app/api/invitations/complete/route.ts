@@ -5,7 +5,6 @@ import { getCountryConfig } from "@/lib/countryConfig";
 import { getLimitsForPlan, type PlanKey, type PaidPlanKey } from "@/lib/stripe";
 import type { InvitationPlan } from "@/types/invitation";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
-import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
 import { buildWelcomeEmailHtml, buildWelcomeEmailSubject } from "@/lib/transactionalEmailHtml";
 import { isValidLanguage } from "@/lib/localePreference";
 import { STATIC_MAIN_LOCALES } from "@/lib/i18n";
@@ -179,12 +178,6 @@ export async function POST(req: NextRequest) {
       ? (appLangRaw as Language)
       : null;
   const companyLanguage = uiLang ?? countryLang;
-  const localeFromBody = typeof body.locale === "string" ? body.locale.trim() : "";
-  const acceptFirst =
-    req.headers.get("accept-language")?.split(",")[0]?.split(";")[0]?.trim() ?? "";
-  const emailLang = transactionalEmailLangFromCode(
-    localeFromBody || (uiLang ?? "") || acceptFirst || companyLanguage
-  );
 
   const limits = getLimitsForPlan(planKeyForLimits(inv.plan));
   const nowIso = new Date().toISOString();
@@ -303,9 +296,9 @@ export async function POST(req: NextRequest) {
         const html = buildWelcomeEmailHtml({
           userName: fullName,
           companyName,
-          lang: emailLang,
+          lang: "en",
         });
-        const subject = buildWelcomeEmailSubject(fullName, emailLang);
+        const subject = buildWelcomeEmailSubject(fullName, companyName, "en");
         const resend = new Resend(resendKey);
         const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
         const { error: mailErr } = await resend.emails.send({
