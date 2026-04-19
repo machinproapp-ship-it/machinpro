@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { useSubscription } from "@/lib/useSubscription";
 import { PricingModule } from "@/components/PricingModule";
 import { ALL_TRANSLATIONS, loadLocale, isLazyLocale, type Language } from "@/lib/i18n";
 const TRANSLATIONS = ALL_TRANSLATIONS;
@@ -81,6 +82,7 @@ export default function PricingPage() {
   }, [language, lazyLocaleT]);
 
   const companyId = profile?.companyId ?? null;
+  const { subscription: subscriptionRow } = useSubscription(companyId);
 
   if (authLoading) {
     return (
@@ -176,6 +178,7 @@ export default function PricingPage() {
           companyId={companyId}
           companyName={profile?.companyName}
           email={profile?.email ?? undefined}
+          currentPlanKey={subscriptionRow?.plan ?? null}
         />
       </main>
     </div>

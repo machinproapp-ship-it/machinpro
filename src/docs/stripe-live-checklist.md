@@ -1,50 +1,34 @@
-# Stripe LIVE mode — checklist (MachinPro)
+# Stripe LIVE readiness checklist
 
-Follow these steps when switching from Stripe **Test** to **Live**. The app reads Price IDs and API keys from Vercel environment variables (see `env.local.example` and `src/lib/stripe-prices.ts`).
+## Implemented in code
 
-## 1. Create products in Stripe LIVE
+- **Price IDs**: `src/lib/stripe-prices.ts` resolves every price from `STRIPE_PRICE_*` env vars with TEST fallbacks.
+- **Checkout**: `POST /api/stripe/checkout` uses `verifyCompanyAccess`, PPP coupons, trial metadata (`company_id`, `plan_key`, geo tier).
+- **Portal**: `/api/stripe/portal` (existing) — confirm live **Customer portal** URLs in Stripe Dashboard.
+- **Webhook** (`POST /api/stripe/webhook`): verifies signature with `STRIPE_WEBHOOK_SECRET`; handles:
+  - `checkout.session.completed` — sync subscription, send confirmation email to admins (`RESEND_*`).
+  - `customer.subscription.updated` / `customer.subscription.created` — sync `subscriptions` + update `companies.plan`.
+  - `customer.subscription.deleted` — graceful downgrade (`plan` → `trial`, status canceled).
+  - `invoice.payment_failed` — email admins with invoice link when possible.
+  - `invoice.payment_succeeded` — re-sync subscription for recurring/create cycles.
 
-In the [Stripe Dashboard (Live mode)](https://dashboard.stripe.com), recreate the same products and pricing as in Test:
+## Manual steps before switching to LIVE
 
-- Plans: Esencial / Operaciones / Logística / Todo incluido (monthly + annual where applicable).
-- Add-on: additional user seat (if used).
+1. **Stripe Dashboard**: Create/copy LIVE products & prices matching `STRIPE_PRICE_*` names in `.env` / Vercel.
+2. **Webhook endpoint**: Register `https://machin.pro/api/stripe/webhook` (or preview URL) for LIVE; paste signing secret into `STRIPE_WEBHOOK_SECRET` **for production**.
+3. **Webhook events selected**: Ensure at least:
+   `checkout.session.completed`,
+   `customer.subscription.created`,
+   `customer.subscription.updated`,
+   `customer.subscription.deleted`,
+   `invoice.payment_failed`,
+   `invoice.payment_succeeded`.
+4. **Secrets on Vercel**: `STRIPE_SECRET_KEY` (live), `STRIPE_WEBHOOK_SECRET` (live), all `STRIPE_PRICE_*` (live Price IDs), `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
+5. **Tax / customer portal**: Confirm Stripe Tax and Customer Portal settings match production policies.
+6. **Smoke test**: Use Stripe test clocks or a low-price LIVE test account before full cutover.
 
-Match names and billing intervals to your Test catalog so internal metadata (`plan_key`) stays consistent.
+## Notes
 
-## 2. Copy LIVE Price IDs
-
-For each price, copy the ID (`price_…`) from **Product catalog → Prices**.
-
-## 3. Update Vercel environment variables
-
-In the Vercel project → **Settings → Environment Variables** (Production):
-
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — Live publishable key (`pk_live_…`).
-- `STRIPE_SECRET_KEY` — Live secret key (`sk_live_…`).
-- `STRIPE_WEBHOOK_SECRET` — Signing secret from the **Live** webhook endpoint (`whsec_…`).
-- `STRIPE_PRICE_ESSENTIAL_MONTHLY` / `STRIPE_PRICE_ESSENTIAL_ANNUAL`
-- `STRIPE_PRICE_OPERATIONS_MONTHLY` / `STRIPE_PRICE_OPERATIONS_ANNUAL`
-- `STRIPE_PRICE_LOGISTICS_MONTHLY` / `STRIPE_PRICE_LOGISTICS_ANNUAL`
-- `STRIPE_PRICE_TODO_INCLUIDO_MONTHLY` / `STRIPE_PRICE_TODO_INCLUIDO_ANNUAL`
-- `STRIPE_PRICE_ADDITIONAL_USER`
-
-Redeploy after saving.
-
-## 4. Configure the LIVE webhook
-
-In Stripe **Live** → **Developers → Webhooks**:
-
-- Endpoint URL: `https://machin.pro/api/stripe/webhook` (or your production domain).
-- Events: at minimum `customer.subscription.*`, `checkout.session.completed`, `invoice.*` as currently required by `src/app/api/stripe/webhook/route.ts`.
-
-Copy the **Signing secret** into `STRIPE_WEBHOOK_SECRET` on Vercel.
-
-## 5. Verify first payment
-
-- Complete a **small** real checkout or use Stripe test cards only in Test mode (Live requires real payment method).
-- Confirm subscription row updates in Supabase and MachinPro billing UI.
-- Confirm webhook deliveries show `200` in Stripe Dashboard → Webhooks → Live endpoint.
-
----
-
-**Rollback:** revert Vercel env to Test keys and Price IDs, redeploy.
+- API route path is **`/api/stripe/checkout`** (not `create-checkout`).
+- Confirmation email is sent on **`checkout.session.completed`** when subscription is `trialing` or `active`.
+- Trial expiry emails/notifications run from **`GET /api/cron/notifications`** (hourly cron).

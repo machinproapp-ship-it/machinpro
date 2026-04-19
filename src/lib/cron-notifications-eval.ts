@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { runTrialExpiryNotificationsForCompany } from "@/lib/cron-trial-expiry";
 import { insertNotificationRow } from "@/lib/notifications-server";
 import { dispatchWebPushToUser } from "@/lib/push-dispatch";
 
@@ -344,6 +345,14 @@ export async function runCronNotificationsForCompany(
       );
     }
     return n;
+  });
+
+  await run("trial_expiry", async () => {
+    const r = await runTrialExpiryNotificationsForCompany(admin, companyId);
+    if (r.skipped.length) {
+      for (const s of r.skipped) skipped.push(`trial:${s}`);
+    }
+    return r.created;
   });
 
   return { created, skipped };

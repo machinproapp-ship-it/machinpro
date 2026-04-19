@@ -1187,6 +1187,7 @@ export default function Home() {
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [notificationsFullOpen, setNotificationsFullOpen] = useState(false);
   const [pendingOpenBinderDocumentId, setPendingOpenBinderDocumentId] = useState<string | null>(null);
   const [complianceNotifOpen, setComplianceNotifOpen] = useState(false);
@@ -3522,18 +3523,6 @@ export default function Home() {
   const clearPendingOpenEmployee = useCallback(() => setPendingOpenEmployeeId(null), []);
   const clearPendingOpenBinderDocument = useCallback(() => setPendingOpenBinderDocumentId(null), []);
 
-  useEffect(() => {
-    if (!session) return;
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setGlobalSearchOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [session]);
-
   const criticalComplianceCount = useMemo(
     () => complianceAlerts.filter((a) => a.severity !== "warning").length,
     [complianceAlerts]
@@ -5688,6 +5677,48 @@ export default function Home() {
     closeProjectForm();
   }
 
+  useEffect(() => {
+    if (!session) return;
+    const desktop = () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+
+    const onKey = (e: KeyboardEvent) => {
+      const tgt = e.target as HTMLElement | null;
+      const tag = tgt?.tagName?.toLowerCase() ?? "";
+      const editable = tgt?.isContentEditable;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setGlobalSearchOpen(true);
+        return;
+      }
+
+      if (e.key === "Escape") {
+        setGlobalSearchOpen(false);
+        setKeyboardShortcutsOpen(false);
+        setNotificationsFullOpen(false);
+        return;
+      }
+
+      if (tag === "input" || tag === "textarea" || tag === "select" || editable) return;
+
+      if (!desktop()) return;
+
+      if (e.key === "?") {
+        e.preventDefault();
+        setKeyboardShortcutsOpen(true);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        if (activeSection === "employees") openEmployeeForm("new");
+        else if (activeSection === "site" || activeSection === "office") openProjectForm();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [session, activeSection]);
+
   const isSuppliersFormOpen = supplierFormOpen || editingSupplierId !== null;
   const editSupplierDraft = supplierDraft;
 
@@ -5995,6 +6026,61 @@ export default function Home() {
               companyId={companyId ?? null}
               onNavigate={handleAppNotificationNavigate}
             />
+
+            {keyboardShortcutsOpen ? (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="machinpro-kbd-shortcuts-title"
+                className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+                onClick={() => setKeyboardShortcutsOpen(false)}
+              >
+                <div
+                  className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2 id="machinpro-kbd-shortcuts-title" className="text-lg font-semibold text-zinc-900 dark:text-white">
+                    {(t as Record<string, string>).keyboard_shortcuts_title ?? "Keyboard shortcuts"}
+                  </h2>
+                  <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    {(t as Record<string, string>).keyboard_shortcuts_hint ?? ""}
+                  </p>
+                  <ul className="mt-4 list-none space-y-3 text-sm text-zinc-800 dark:text-zinc-200">
+                    <li className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{(t as Record<string, string>).shortcut_global_search ?? "Search"}</span>
+                      <kbd className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-xs dark:border-slate-600 dark:bg-slate-800">
+                        ⌘/Ctrl + K
+                      </kbd>
+                    </li>
+                    <li className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{(t as Record<string, string>).shortcut_new_item ?? "New"}</span>
+                      <kbd className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-xs dark:border-slate-600 dark:bg-slate-800">
+                        ⌘/Ctrl + N
+                      </kbd>
+                    </li>
+                    <li className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{(t as Record<string, string>).shortcut_close ?? "Close"}</span>
+                      <kbd className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-xs dark:border-slate-600 dark:bg-slate-800">
+                        Esc
+                      </kbd>
+                    </li>
+                    <li className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{(t as Record<string, string>).shortcut_help ?? "Help"}</span>
+                      <kbd className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-xs dark:border-slate-600 dark:bg-slate-800">
+                        ?
+                      </kbd>
+                    </li>
+                  </ul>
+                  <button
+                    type="button"
+                    className="mt-6 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+                    onClick={() => setKeyboardShortcutsOpen(false)}
+                  >
+                    {(t as Record<string, string>).dismiss ?? "Close"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <GlobalSearchModal
               open={globalSearchOpen}

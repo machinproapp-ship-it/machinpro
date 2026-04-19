@@ -1120,6 +1120,46 @@ export function ProjectsModule({
     ? (projects ?? []).find((p) => p.id === selectedProjectId)
     : null;
 
+  const operationsTabLabelForBreadcrumb = useMemo(() => {
+    if (!selectedProject) return "";
+    const tab = activeTab;
+    return tab === "general"
+      ? (t.siteTabGeneral ?? t.tabGeneral ?? PM_EN.tabGeneral)
+      : tab === "personal"
+        ? (t.siteTabPersonnel ?? t.personnel ?? PM_EN.personnel)
+        : tab === "inventario"
+          ? (t.siteTabInventory ?? t.whTabInventory ?? PM_EN.whTabInventory)
+          : tab === "galeria"
+            ? (t.siteTabGallery ?? PM_EN.siteTabGallery)
+            : tab === "formularios"
+              ? ((t as Record<string, string>).siteTabForms ?? PM_EN.siteTabForms)
+              : tab === "blueprints"
+                ? ((t as Record<string, string>).blueprints_title ??
+                  t.blueprints ??
+                  PM_EN.blueprints)
+                : tab === "visitantes"
+                  ? ((t as Record<string, string>).siteTabVisitors ||
+                      (t as Record<string, string>).visitors_menu ||
+                      "")
+                  : tab === "rfi"
+                    ? ((t as Record<string, string>).site_tab_rfi ??
+                      (t as Record<string, string>).rfi_menu ??
+                      PM_EN.rfi_menu)
+                    : tab === "seguridad"
+                      ? ((t as Record<string, string>).security_tab ?? PM_EN.security_tab)
+                      : tab === "project_epi"
+                        ? ((t as Record<string, string>).project_safety_title ?? PM_EN.project_safety_title)
+                        : tab === "costes"
+                          ? ((t as Record<string, string>).project_costs_title ?? PM_EN.project_costs_title)
+                          : tab === "work_order"
+                            ? ((t as Record<string, string>).work_order_title ?? PM_EN.work_order_title)
+                            : tab === "mapa"
+                              ? ((t as Record<string, string>).map ??
+                                (t as Record<string, string>).tab_map ??
+                                PM_EN.tab_map)
+                              : "";
+  }, [selectedProject, activeTab, t]);
+
   useEffect(() => {
     const el = document.documentElement;
     const sync = () => setProjectsMapDark(el.classList.contains("dark"));
@@ -1882,6 +1922,48 @@ export function ProjectsModule({
             <ChevronLeft className="h-3.5 w-3.5" />{t.siteBackToProjects ?? PM_EN.siteBackToProjects}
           </button>
         </div>
+
+        <nav aria-label={(tl as Record<string, string>).operations_breadcrumb_aria ?? "Breadcrumb"} className="mb-3 min-w-0">
+          <ol className="hidden min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400 sm:flex">
+            <li className="min-w-0 shrink">
+              <button
+                type="button"
+                onClick={() => onSelectProject(null)}
+                className="max-w-full truncate font-medium text-amber-700 hover:underline dark:text-amber-400 min-h-[44px] inline-flex items-center"
+              >
+                {(tl as Record<string, string>).operations_breadcrumb ?? "Operations"}
+              </button>
+            </li>
+            <li aria-hidden className="text-zinc-400">
+              ›
+            </li>
+            <li className="min-w-0 shrink">
+              <button
+                type="button"
+                onClick={() => setActiveTab("general")}
+                className="max-w-full truncate font-medium text-amber-700 hover:underline dark:text-amber-400 min-h-[44px] inline-flex items-center text-left"
+              >
+                {selectedProject.name}
+              </button>
+            </li>
+            <li aria-hidden className="text-zinc-400">
+              ›
+            </li>
+            <li className="min-w-0 shrink text-zinc-700 dark:text-zinc-200 font-medium" aria-current="page">
+              <span className="line-clamp-2 break-words">{operationsTabLabelForBreadcrumb}</span>
+            </li>
+          </ol>
+          <div className="flex min-w-0 items-center sm:hidden">
+            <button
+              type="button"
+              onClick={() => setActiveTab("general")}
+              className="inline-flex min-h-[44px] max-w-full items-center gap-1 truncate rounded-lg px-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+              <span className="truncate">{selectedProject.name}</span>
+            </button>
+          </div>
+        </nav>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

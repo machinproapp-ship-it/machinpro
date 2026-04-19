@@ -131,32 +131,32 @@ export function GettingStartedWidget({
   const items: { done: boolean; title: string; hint: string; section: MainSection }[] = [
     {
       done: steps[0] ?? false,
-      title: L("onboarding_gs_company", "Complete your company profile"),
-      hint: `${L("settings", "Settings")} -> ${L("settings_company", "Company")}`,
+      title: L("onboarding_gs_company_done", "Create your company"),
+      hint: L("onboarding_gs_company_hint", "Your workspace is ready."),
       section: "settings",
     },
     {
       done: steps[1] ?? false,
-      title: L("onboarding_gs_employee", "Add your first employee"),
-      hint: `${L("office", "Central")} -> ${L("employees_title", "Employees")}`,
+      title: L("onboarding_gs_invite", "Invite your first employee"),
+      hint: `${L("office", "Central")} → ${L("employees_title", "Employees")}`,
       section: "employees",
     },
     {
       done: steps[2] ?? false,
       title: L("onboarding_gs_project", "Create your first project"),
-      hint: `${L("office", "Central")} -> ${L("projects", "Projects")}`,
+      hint: `${L("office", "Central")} → ${L("projects", "Projects")}`,
       section: "office",
     },
     {
       done: steps[3] ?? false,
-      title: L("onboarding_step_roles", "Set your team roles"),
-      hint: `${L("office", "Central")} -> ${L("roles", "Roles")}`,
-      section: "office",
+      title: L("onboarding_gs_compliance", "Set up compliance"),
+      hint: `${L("security", "Security")} → ${L("hazards", "Hazards")}`,
+      section: "security",
     },
     {
       done: steps[4] ?? false,
-      title: L("onboarding_step_clock", "Register your first clock-in"),
-      hint: `${L("schedule", "Schedule")} -> ${L("clockIn", "Clock-in")}`,
+      title: L("onboarding_gs_clock", "Clock in for the first time"),
+      hint: `${L("schedule", "Schedule")} → ${L("clockIn", "Clock-in")}`,
       section: "schedule",
     },
   ];
@@ -170,7 +170,7 @@ export function GettingStartedWidget({
           className="flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg px-2 text-left"
         >
           <div>
-            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{L("onboarding_title", "Set up your MachinPro")}</p>
+            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{L("onboarding_getting_started_title", "Getting started")}</p>
             <p className="text-xs text-amber-900/85 dark:text-amber-200/90">{progressLabel}</p>
           </div>
           <ChevronRight className="h-4 w-4 text-amber-700 dark:text-amber-300" aria-hidden />
@@ -187,10 +187,10 @@ export function GettingStartedWidget({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 id="onboarding-checklist-title" className="text-base font-semibold text-amber-950 dark:text-amber-100">
-            {L("onboarding_title", "Set up your MachinPro")}
+            {L("onboarding_getting_started_title", "Getting started")}
           </h2>
           <p className="mt-1 text-sm text-amber-900/85 dark:text-amber-200/90">
-            {L("onboarding_subtitle", "Complete these steps to get started")}
+            {L("onboarding_getting_started_subtitle", "Complete these steps to get started")}
           </p>
         </div>
         <button

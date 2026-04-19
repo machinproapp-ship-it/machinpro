@@ -7,10 +7,19 @@ import {
   getStripe,
   normalizePlanKeyFromMetadata,
   STRIPE_PRICE_EXTRA_SEAT_ID,
+  type PaidPlanKey,
   type PlanKey,
 } from "@/lib/stripe";
+import { sendInvoicePaymentFailedEmail, sendSubscriptionConfirmationEmail } from "@/lib/stripe-webhook-emails";
 
 export const runtime = "nodejs";
+
+function paidPlanForEmail(plan: PlanKey): PaidPlanKey {
+  if (plan === "operaciones" || plan === "logistica" || plan === "todo_incluido" || plan === "esencial") {
+    return plan;
+  }
+  return "esencial";
+}
 
 function mapStripeStatus(
   s: Stripe.Subscription.Status
@@ -62,6 +71,28 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode === "subscription" && typeof session.subscription === "string") {
+          const stripe = getStripe();
+          const sub = await stripe.subscriptions.retrieve(session.subscription);
+          await syncSubscription(admin, sub);
+          const cid =
+            typeof session.metadata?.company_id === "string"
+              ? session.metadata.company_id
+              : typeof sub.metadata?.company_id === "string"
+                ? sub.metadata.company_id
+                : null;
+          if (cid && (sub.status === "trialing" || sub.status === "active")) {
+            const pk = normalizePlanKeyFromMetadata(
+              typeof session.metadata?.plan_key === "string" ? session.metadata.plan_key : null
+            );
+            const paid = paidPlanForEmail((pk ?? "esencial") as PlanKey);
+            await sendSubscriptionConfirmationEmail({ companyId: cid, planKey: paid });
+          }
+        }
+        break;
+      }
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
@@ -71,6 +102,50 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         await markSubscriptionCanceled(admin, sub);
+        break;
+      }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subRef = (invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null })
+          .subscription;
+        const subId = typeof subRef === "string" ? subRef : subRef?.id;
+        if (subId) {
+          const stripe = getStripe();
+          const sub = await stripe.subscriptions.retrieve(subId);
+          let cid = typeof sub.metadata?.company_id === "string" ? sub.metadata.company_id : "";
+          if (!cid && invoice.customer) {
+            const cust = await stripe.customers.retrieve(invoice.customer as string);
+            if (!cust.deleted && "metadata" in cust) {
+              cid = cust.metadata?.company_id ?? "";
+            }
+          }
+          if (cid) {
+            const due =
+              invoice.amount_due != null
+                ? `${(invoice.amount_due / 100).toFixed(2)} ${(invoice.currency ?? "").toUpperCase()}`
+                : null;
+            await sendInvoicePaymentFailedEmail({
+              companyId: cid,
+              amountDue: due,
+              hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+            });
+          }
+        }
+        break;
+      }
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subRef = (invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null })
+          .subscription;
+        const subId = typeof subRef === "string" ? subRef : subRef?.id;
+        if (
+          subId &&
+          (invoice.billing_reason === "subscription_create" || invoice.billing_reason === "subscription_cycle")
+        ) {
+          const stripe = getStripe();
+          const sub = await stripe.subscriptions.retrieve(subId);
+          await syncSubscription(admin, sub);
+        }
         break;
       }
       default:
@@ -165,6 +240,14 @@ async function syncSubscription(admin: ReturnType<typeof createSupabaseAdmin>, s
     console.error("[stripe/webhook] upsert", error);
     throw error;
   }
+
+  const companyPlan =
+    plan === "trial" || mapStripeStatus(sub.status) === "canceled"
+      ? "trial"
+      : typeof plan === "string"
+        ? plan
+        : "esencial";
+  await admin.from("companies").update({ plan: companyPlan }).eq("id", resolvedCompanyId);
 }
 
 async function markSubscriptionCanceled(admin: ReturnType<typeof createSupabaseAdmin>, sub: Stripe.Subscription) {
@@ -184,6 +267,8 @@ async function markSubscriptionCanceled(admin: ReturnType<typeof createSupabaseA
       .from("subscriptions")
       .update({ status: "canceled", plan: "trial" })
       .eq("stripe_subscription_id", sub.id);
+    const cid = (bySub as { company_id?: string }).company_id;
+    if (cid) await admin.from("companies").update({ plan: "trial" }).eq("id", cid);
     return;
   }
 
@@ -191,4 +276,5 @@ async function markSubscriptionCanceled(admin: ReturnType<typeof createSupabaseA
     .from("subscriptions")
     .update({ status: "canceled", plan: "trial" })
     .eq("company_id", companyId);
+  await admin.from("companies").update({ plan: "trial" }).eq("id", companyId);
 }

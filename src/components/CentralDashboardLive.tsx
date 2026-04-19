@@ -50,6 +50,7 @@ const TeamGpsMapWidget = dynamic(
 );
 import { supabase } from "@/lib/supabase";
 import { GettingStartedWidget } from "@/components/GettingStartedWidget";
+import { TrialExpiryBanner } from "@/components/TrialExpiryBanner";
 import { LaborCostingDashboardWidget } from "@/components/LaborCostingDashboardWidget";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
 import type { Hazard } from "@/types/hazard";
@@ -2380,12 +2381,15 @@ function CentralDashboardBody(
       ) : null}
 
       {currentUserRole === "admin" ? (
-        <GettingStartedWidget
-          companyId={companyId}
-          labels={labels}
-          onNavigateAppSection={onNavigateAppSection}
-          refreshToken={gettingStartedRefreshTk}
-        />
+        <>
+          <TrialExpiryBanner companyId={companyId} labels={labels} />
+          <GettingStartedWidget
+            companyId={companyId}
+            labels={labels}
+            onNavigateAppSection={onNavigateAppSection}
+            refreshToken={gettingStartedRefreshTk}
+          />
+        </>
       ) : null}
 
       {showZone1 ? (

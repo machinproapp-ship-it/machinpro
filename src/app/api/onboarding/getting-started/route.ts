@@ -4,10 +4,6 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 
-function nonEmpty(s: unknown): boolean {
-  return typeof s === "string" && s.trim().length > 0;
-}
-
 /**
  * GET ?companyId= — admin only. Returns booleans for 5 onboarding checklist steps.
  */
@@ -28,32 +24,33 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [{ data: co }, { data: otherEmps }, { count: projCount }, { count: roleCount }, { count: timeCount }] =
-      await Promise.all([
-        admin.from("companies").select("name, address").eq("id", companyId).maybeSingle(),
-        admin
-          .from("user_profiles")
-          .select("id, profile_status")
-          .eq("company_id", companyId)
-          .neq("role", "admin"),
-        admin
-          .from("projects")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .eq("archived", false),
-        admin
-          .from("custom_roles")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId),
-        admin
-          .from("time_entries")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .gt("minutes", 0),
-      ]);
+    const [
+      { data: otherEmps },
+      { count: projCount },
+      { count: timeCount },
+      { count: hazCount },
+      { count: certCount },
+    ] = await Promise.all([
+      admin
+        .from("user_profiles")
+        .select("id, profile_status")
+        .eq("company_id", companyId)
+        .neq("role", "admin"),
+      admin
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("archived", false),
+      admin
+        .from("time_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .gt("minutes", 0),
+      admin.from("hazards").select("id", { count: "exact", head: true }).eq("company_id", companyId),
+      admin.from("certificates").select("id", { count: "exact", head: true }).eq("company_id", companyId),
+    ]);
 
-    const row = co as { name?: string | null; address?: string | null } | null;
-    const step1 = !!(row && nonEmpty(row.name) && nonEmpty(row.address));
+    const step1 = true;
 
     const empRows = (otherEmps ?? []) as { profile_status?: string | null }[];
     const step2 = empRows.some((r) => {
@@ -62,7 +59,7 @@ export async function GET(req: NextRequest) {
     });
 
     const step3 = (projCount ?? 0) > 0;
-    const step4 = (roleCount ?? 0) > 0;
+    const step4 = (hazCount ?? 0) > 0 || (certCount ?? 0) > 0;
     const step5 = (timeCount ?? 0) > 0;
 
     const steps = [step1, step2, step3, step4, step5] as const;

@@ -100,6 +100,23 @@ export function PricingModule({
     setBetaFounder(new URLSearchParams(window.location.search).get("beta") === "true");
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const per = sp.get("period");
+    if (per === "annual" || per === "monthly") setPeriod(per);
+    const planParam = sp.get("plan");
+    const normalized = normalizeCurrentPlan(planParam);
+    if (normalized && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        document.getElementById(`pricing-plan-${normalized}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    }
+  }, []);
+
   const displayCurrency = getCurrencyForCountry(countryCode, geoTier);
   const currentNormalized = normalizeCurrentPlan(
     typeof currentPlanKey === "string" ? currentPlanKey : null
@@ -267,6 +284,7 @@ export function PricingModule({
 
           return (
             <div
+              id={`pricing-plan-${key}`}
               key={key}
               className={`relative flex flex-col rounded-2xl border p-5 sm:p-6 shadow-sm transition-shadow ${
                 isFeatured
