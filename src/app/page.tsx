@@ -329,6 +329,8 @@ function certificatesFromProfileJson(raw: unknown): Certificate[] {
 export interface Employee {
   id: string;
   name: string;
+  full_name?: string | null;
+  created_at?: string | null;
   role: string;
   /** `user_profiles.profile_status` when loaded from Supabase. */
   profileStatus?: string | null;
@@ -2784,9 +2786,12 @@ export default function Home() {
               if (Number.isFinite(vn) && vn >= 0) vacationDaysPerYear = Math.min(366, Math.round(vn));
               else vacationDaysPerYear = null;
             }
+            const createdRaw = row.created_at != null ? String(row.created_at) : undefined;
             return {
               id,
               name,
+              full_name: fn || undefined,
+              created_at: createdRaw ?? undefined,
               role,
               profileStatus: row.profile_status != null ? String(row.profile_status) : "active",
               hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
@@ -5615,6 +5620,8 @@ export default function Home() {
       const emp: Employee = {
         id,
         name: newEmployeeName || "Nuevo empleado",
+        full_name: newEmployeeName.trim() || undefined,
+        created_at: new Date().toISOString(),
         role: roleName,
         hours: parseInt(newEmployeeHours, 10) || 0,
         certificates: [],
@@ -6202,6 +6209,8 @@ export default function Home() {
                   return visible.map((e) => ({
                     id: e.id,
                     name: e.name,
+                    full_name: e.full_name ?? undefined,
+                    created_at: e.created_at ?? undefined,
                     role: e.role,
                     profileStatus: e.profileStatus,
                     hours: e.hours,

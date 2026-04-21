@@ -1,4 +1,4 @@
-/** ES — migrated from page.tsx (Sprint AF) */
+﻿/** ES — migrated from page.tsx (Sprint AF) */
 export default {
   office: "Central",
   warehouse: "Logística",
@@ -1132,6 +1132,8 @@ export default {
   employee_detail_timesheets: "Hojas de horas",
   employee_detail_clocks: "Fichajes",
   employee_detail_certificates: "Certificados",
+  employee_detail_phone: "Teléfono",
+  employee_detail_joined: "Fecha de incorporación",
   employee_detail_vacations: "Vacaciones",
   employee_detail_swps: "Procedimientos firmados",
   employee_detail_no_login: "Sin usuario vinculado",

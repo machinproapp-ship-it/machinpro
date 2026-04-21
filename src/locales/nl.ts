@@ -1,4 +1,4 @@
-/** NL — auto-built (value-map); review for domain terms */
+﻿/** NL — auto-built (value-map); review for domain terms */
 export default {
   "office": "Centraal",
   "warehouse": "Logistiek",
@@ -7,6 +7,8 @@ export default {
   "schedule": "Schema",
   "worker": "Arbeider",
   "personnel": "Medewerkers",
+  "employee_detail_phone": "Telefoon",
+  "employee_detail_joined": "Startdatum",
   "projects": "Projecten",
   "proyectos": "Projecten",
   "siteAdminView": "Actieve projecten",

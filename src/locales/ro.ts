@@ -1,4 +1,4 @@
-/** RO — auto-built (value-map); review for domain terms */
+﻿/** RO — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",
@@ -7,6 +7,8 @@ export default {
   "schedule": "Schedule",
   "worker": "Worker",
   "personnel": "Employees",
+  "employee_detail_phone": "Telefon",
+  "employee_detail_joined": "Data începerii",
   "projects": "Projects",
   "proyectos": "Projects",
   "siteAdminView": "Active projects",

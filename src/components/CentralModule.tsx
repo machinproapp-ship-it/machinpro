@@ -695,9 +695,9 @@ export function CentralModule({
 
   useEffect(() => {
     if (!employeePanelId) return;
-    const visible = personnelDirectoryEmployees.some((e) => e.id === employeePanelId);
+    const visible = safeEmployees.some((e) => e.id === employeePanelId);
     if (!visible) setEmployeePanelId(null);
-  }, [employeePanelId, personnelDirectoryEmployees]);
+  }, [employeePanelId, safeEmployees]);
 
   const safeSubcontractors = Array.isArray(subcontractors) ? subcontractors : [];
 
@@ -2005,13 +2005,22 @@ export function CentralModule({
       )}
 
       {employeePanelId && (() => {
-        const emp = (personnelDirectoryEmployees ?? []).find((e) => e.id === employeePanelId);
+        const emp = safeEmployees.find((e) => e.id === employeePanelId);
         if (!emp) return null;
-        const certs = emp.certificates ?? [];
         const t = sanitizeLabelRecord(labels as Record<string, unknown>);
-        const psLower = (emp.profileStatus ?? "active").toLowerCase().trim();
-        const isInvitedProfile = psLower === "invited";
-        const leg = profileIdToLegacyEmployeeId[emp.id] ?? emp.id;
+        const psLower = String(emp.profileStatus ?? "active").toLowerCase().trim();
+        const isInactive = psLower === "inactive";
+        const statusLabel =
+          psLower === "active"
+            ? String(t.common_active ?? "Active")
+            : String(t.common_inactive ?? "Inactive");
+        const empExt = emp as CentralEmployee;
+        const fullNameStr = String(empExt.full_name ?? "");
+        const initialsSource =
+          fullNameStr.trim() !== "" ? fullNameStr : String(emp.name ?? "");
+        const editLabel = String(t.edit ?? "Edit");
+        const closeLabel = String(t.common_close ?? "Close");
+        const hardDelLabel = String(t.hard_delete_button ?? t.employee_hard_delete ?? "Hard delete");
         return (
           <>
             <div
@@ -2020,6 +2029,9 @@ export function CentralModule({
               onClick={() => setEmployeePanelId(null)}
             />
             <div
+              role="dialog"
+              aria-modal
+              aria-labelledby="central-employee-panel-title"
               className="
               fixed inset-x-0 bottom-0 z-50 max-h-[min(90vh,100dvh)] w-full max-w-full overflow-y-auto overflow-x-hidden
               rounded-t-2xl border border-zinc-200 bg-white shadow-xl
@@ -2033,613 +2045,118 @@ export function CentralModule({
               </div>
 
               <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                    {initialsFromName(asTextChild(emp.name, ""))}
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    aria-hidden
+                  >
+                    {String(initialsFromName(initialsSource))}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      {t.employee_detail_title ?? ""}
-                    </p>
-                    <h4 className="text-base font-semibold leading-tight text-zinc-900 dark:text-white">
-                      {asTextChild(emp.name, "?")}
-                    </h4>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{asTextChild(emp.role, "")}</p>
-                    <span
-                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        isInvitedProfile
-                          ? "bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100"
-                          : psLower === "active"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                            : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300"
-                      }`}
+                    <p
+                      id="central-employee-panel-title"
+                      className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500"
                     >
-                      {isInvitedProfile
-                        ? t.employee_badge_invited ?? "Invitation pending"
-                        : psLower === "active"
-                          ? t.common_active ?? "Active"
-                          : t.common_inactive ?? "Inactive"}
-                    </span>
-                    {emp.customRoleId && (() => {
-                      const role = customRoles.find((r) => r.id === emp.customRoleId);
-                      return role ? (
-                        <span
-                          style={{ backgroundColor: role.color }}
-                          className="inline-flex mt-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                        >
-                          {asTextChild(role.name, "")}
-                        </span>
-                      ) : null;
-                    })()}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {(safeDisplayProjects ?? [])
-                        .filter(
-                          (p) =>
-                            !p.archived &&
-                            (p.assignedEmployeeIds ?? []).some((aid) => aid === emp.id || aid === leg)
-                        )
-                        .slice(0, 16)
-                        .map((p) => (
-                          <span
-                            key={p.id}
-                            title={asTextChild(p.name, p.id)}
-                            className="max-w-[160px] truncate rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-slate-700 dark:text-zinc-200"
-                          >
-                            {asTextChild(p.name, p.id)}
-                          </span>
-                        ))}
-                    </div>
+                      {String(t.employee_detail_title ?? "")}
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setEmployeePanelId(null)}
-                  className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                  aria-label={closeLabel}
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5 shrink-0" aria-hidden />
                 </button>
               </div>
 
-              <div className="space-y-5 px-4 py-5 sm:px-6">
-                {isInvitedProfile ? (
-                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
-                    {t.employee_invitation_pending ??
-                      "Invitation pending — this person has not completed sign-in yet."}
-                  </div>
-                ) : null}
-                {emp.payType && (
-                  <div className="border-t border-zinc-100 py-3 dark:border-slate-800">
-                    <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      {t.employees_payment_type ?? t.employees_section_pay ?? "Pay type"}
-                    </p>
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {emp.payType === "hourly"
-                        ? `${emp.hourlyRate ?? "?"} CAD/h`
-                        : `${emp.monthlySalary ?? "?"} CAD/mes`}
-                    </p>
-                  </div>
-                )}
-
-                {(emp.phone || emp.email) && (
-                  <div className="space-y-1.5">
-                    {emp.phone && (
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        <span className="text-zinc-400 dark:text-zinc-500 mr-2">{t.phone ?? "Teléfono"}</span>
-                        {asTextChild(emp.phone, "")}
-                      </p>
-                    )}
-                    {emp.email && (
-                      <p className="break-words text-sm text-zinc-600 dark:text-zinc-400">
-                        <span className="mr-2 text-zinc-400 dark:text-zinc-500">
-                          {t.visitors_email ?? t.login_email_label ?? "Email"}
-                        </span>
-                        {asTextChild(emp.email, "")}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-3">
-                    {t.employee_detail_certificates ?? t.certificates ?? ""}
-                  </h5>
-
-                  {certs.length === 0 ? (
-                    <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-6 text-center dark:border-slate-700 dark:bg-slate-800/40">
-                      <p className="text-sm italic text-zinc-400 dark:text-zinc-500">
-                        {t.securityNoCerts ?? t.noStaff ?? "—"}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {(certs ?? []).map((c) => {
-                        const state = certSemaphore(c.expiryDate);
-                        const days = c.expiryDate ? daysUntilExpiry(c.expiryDate) : null;
-                        const tlPanel = t;
-                        const rowClass =
-                          state === "expired"
-                            ? "border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/20"
-                            : state === "soon"
-                              ? "border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20"
-                              : "border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900";
-                        const expYmd = String(c.expiryDate ?? "");
-                        const expiryText =
-                          state === "expired"
-                            ? `${tlPanel.expired ?? "Expired"} · ${expYmd}`
-                            : state === "soon" && days != null
-                              ? (tlPanel.expiresInDays ?? "Expires in {n} days").replace("{n}", String(days))
-                              : c.expiryDate
-                                ? `${tlPanel.expiresOn ?? "Expires"}: ${expYmd}`
-                                : tlPanel.noExpiry ?? "—";
-                        const textColor =
-                          state === "expired"
-                            ? "font-semibold text-red-600 dark:text-red-400"
-                            : state === "soon"
-                              ? "font-medium text-amber-600 dark:text-amber-400"
-                              : "text-zinc-500 dark:text-zinc-400";
-                        return (
-                          <div
-                            key={c.id}
-                            className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${rowClass}`}
-                          >
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" aria-hidden />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {asTextChild(c.name, "—")}
-                              </p>
-                              <p className={`text-xs ${textColor}`}>{expiryText}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-slate-700">
-                    <p className="mb-2 text-xs uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      {t.employees_status ?? t.common_status ?? "Status"}
-                    </p>
-                    {(() => {
-                      const st = getTrainingStatus(certs);
-                      const tlG = t;
-                      if (st === "sin_certs")
-                        return (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
-                            {t.securityNoCerts ?? tlG.withoutCerts ?? "—"}
-                          </span>
-                        );
-                      if (st === "pendiente")
-                        return (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                            {t.pending ?? tlG.securityPending ?? tlG.expiredCerts ?? "—"}
-                          </span>
-                        );
-                      return (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-900/30 dark:text-emerald-300">
-                          {t.upToDate ?? t.securityOk ?? "—"}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                {(complianceFields ?? []).filter((f) => f.target.includes("employee")).length > 0 && (
+              <div className="space-y-4 px-4 py-5 sm:px-6">
+                <dl className="space-y-3 text-sm">
                   <div>
-                    <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-3">
-                      {t.compliance ?? "Compliance"}
-                    </h5>
-                    <div className="space-y-0">
-                      {(complianceFields ?? [])
-                        .filter((f) => f.target.includes("employee"))
-                        .map((field) => {
-                          const record = (complianceRecords ?? []).find(
-                            (r) => r.fieldId === field.id && r.targetType === "employee" && r.targetId === emp.id
-                          );
-                          return (
-                            <div
-                              key={field.id}
-                              className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0"
-                            >
-                              <div>
-                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                  {asTextChild(field.name, "")}
-                                </p>
-                                {record?.expiryDate && (
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    {t.expiresOn ?? "Vence"}: {asTextChild(record.expiryDate, "")}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {getComplianceStatusBadge(record, t)}
-                                {canEdit && onComplianceRecordsChange && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingComplianceRecord({ field, targetId: emp.id, targetType: "employee" });
-                                      const r = record;
-                                      setComplianceRecordDraft({
-                                        value: r?.value,
-                                        expiryDate: r?.expiryDate,
-                                        documentUrl: r?.documentUrl,
-                                      });
-                                    }}
-                                    className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {String(t.employees_full_name ?? t.personnel ?? "Name")}
+                    </dt>
+                    <dd className="mt-0.5 break-words font-medium text-zinc-900 dark:text-zinc-100">
+                      {fullNameStr}
+                    </dd>
                   </div>
-                )}
+                  <div>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {String(t.visitors_email ?? t.login_email_label ?? "Email")}
+                    </dt>
+                    <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
+                      {String(emp.email ?? "—")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {String(t.employees_role ?? t.training_role ?? "Role")}
+                    </dt>
+                    <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
+                      {String(emp.role ?? "—")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {String(t.common_status ?? t.employees_status ?? "Status")}
+                    </dt>
+                    <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">{statusLabel}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {String(t.employee_detail_phone ?? t.phone ?? "Phone")}
+                    </dt>
+                    <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
+                      {String(emp.phone ?? "—")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {String(t.employee_detail_joined ?? "")}
+                    </dt>
+                    <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
+                      {String(empExt.created_at ?? "—")}
+                    </dd>
+                  </div>
+                </dl>
 
-                {(() => {
-                  const tl = t as Record<string, string>;
-                  const role = currentUserRole;
-                  if (role === "logistic") return null;
-                  if (role === "worker" && emp.id !== (currentUserEmployeeId ?? "")) return null;
-                  const docsForEmp = (employeeDocs ?? []).filter(
-                    (d) =>
-                      (d.employeeId === emp.id || d.employeeId === leg) &&
-                      (!companyId || d.companyId === companyId)
-                  );
-                  const isDocAdmin = role === "admin";
-                  return (
-                    <>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                            {tl.employeeDocs ?? "Documents"}
-                          </h5>
-                          {isDocAdmin && onUploadEmployeeDoc && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEdDocTitle("");
-                                setEdDocType("other");
-                                setEdDocExpiry("");
-                                setEdDocNotes("");
-                                if (edDocFileRef.current) edDocFileRef.current.value = "";
-                                setEmployeeDocUploadOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-200 min-h-[44px] min-w-[44px]"
-                            >
-                              <Plus className="h-4 w-4 shrink-0" />
-                              {tl.uploadDoc ?? "Upload"}
-                            </button>
-                          )}
-                        </div>
-                        {docsForEmp.length === 0 ? (
-                          <p className="text-sm text-zinc-400 dark:text-zinc-500 italic py-2">
-                            {tl.noEmployeeDocs ?? "—"}
-                          </p>
-                        ) : (
-                          <ul className="space-y-2">
-                            {docsForEmp.map((doc) => (
-                              <li
-                                key={doc.id}
-                                className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/40 px-3 py-3"
-                              >
-                                <div className="flex items-start gap-2 min-w-0 flex-1">
-                                  <span className="shrink-0 mt-0.5 text-zinc-500">
-                                    {doc.fileType === "pdf" ? (
-                                      <FileText className="h-5 w-5" aria-hidden />
-                                    ) : (
-                                      <Image className="h-5 w-5" aria-hidden />
-                                    )}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                                      {asTextChild(doc.title, "")}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                      <span className="inline-flex rounded-full bg-zinc-200/80 dark:bg-slate-600 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:text-zinc-200">
-                                        {employeeDocTypeLabel(doc.type, tl)}
-                                      </span>
-                                      {doc.expiryDate && (
-                                        <span className={`text-xs ${employeeDocExpiryTextClass(doc.expiryDate)}`}>
-                                          {daysUntilExpiry(doc.expiryDate) < 0
-                                            ? `${tl.docExpired ?? "Expired"} · ${doc.expiryDate}`
-                                            : `${tl.docExpiry ?? "Expires"}: ${doc.expiryDate}`}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {doc.notes && (
-                                      <p className="text-xs text-zinc-500 mt-1 line-clamp-2">
-                                        {asTextChild(doc.notes, "")}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0 justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (typeof window !== "undefined") window.open(doc.fileUrl, "_blank", "noopener,noreferrer");
-                                    }}
-                                    className="inline-flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 min-h-[44px] min-w-[44px]"
-                                  >
-                                    {tl.docView ?? "View"}
-                                  </button>
-                                  {isDocAdmin && onDeleteEmployeeDoc && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onDeleteEmployeeDoc(doc.id)}
-                                      className="inline-flex items-center justify-center rounded-lg bg-red-600 text-white p-2.5 min-h-[44px] min-w-[44px]"
-                                      aria-label={tl["delete"] ?? "Delete"}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {employeeDocUploadOpen && isDocAdmin && onUploadEmployeeDoc && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-[60] bg-black/50"
-                            aria-hidden
-                            onClick={() => !edDocUploading && setEmployeeDocUploadOpen(false)}
-                          />
-                          <div
-                            className="fixed z-[61] left-4 right-4 bottom-4 w-auto max-h-[85vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-auto sm:right-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:max-w-md md:max-w-lg lg:max-w-xl space-y-4"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-labelledby="employee-doc-upload-title"
-                          >
-                            <h4 id="employee-doc-upload-title" className="text-base font-semibold text-zinc-900 dark:text-white">
-                              {tl.uploadDoc ?? "Upload"}
-                            </h4>
-                            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                              {tl.docTitle ?? "Title"}
-                              <input
-                                type="text"
-                                value={edDocTitle}
-                                onChange={(e) => setEdDocTitle(e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[44px]"
-                              />
-                            </label>
-                            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                              {tl.category ?? "Type"}
-                              <select
-                                value={edDocType}
-                                onChange={(e) => setEdDocType(e.target.value as EmployeeDocument["type"])}
-                                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[44px]"
-                              >
-                                <option value="contract">{tl.docTypeContract ?? "contract"}</option>
-                                <option value="certificate">{tl.docTypeCertificate ?? "certificate"}</option>
-                                <option value="id">{tl.docTypeId ?? "id"}</option>
-                                <option value="training">{tl.docTypeTraining ?? "training"}</option>
-                                <option value="medical">{tl.docTypeMedical ?? "medical"}</option>
-                                <option value="other">{tl.docTypeOther ?? "other"}</option>
-                              </select>
-                            </label>
-                            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                              {tl.docExpiryDate ?? "Expiry"}
-                              <input
-                                type="date"
-                                value={edDocExpiry}
-                                onChange={(e) => setEdDocExpiry(e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[44px]"
-                              />
-                            </label>
-                            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                              {tl.docNotes ?? "Notes"}
-                              <textarea
-                                value={edDocNotes}
-                                onChange={(e) => setEdDocNotes(e.target.value)}
-                                rows={3}
-                                className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-                              />
-                            </label>
-                            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                              {tl.docFile ?? "File"}
-                              <input
-                                ref={edDocFileRef}
-                                type="file"
-                                accept="application/pdf,image/*"
-                                className="mt-1 w-full text-sm min-h-[44px]"
-                              />
-                            </label>
-                            <div className="flex flex-wrap gap-2 justify-end pt-2">
-                              <button
-                                type="button"
-                                disabled={edDocUploading}
-                                onClick={() => !edDocUploading && setEmployeeDocUploadOpen(false)}
-                                className="rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px]"
-                              >
-                                {tl.back ?? "Back"}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={edDocUploading || !edDocTitle.trim()}
-                                onClick={async () => {
-                                  const file = edDocFileRef.current?.files?.[0];
-                                  if (!file || !onUploadEmployeeDoc) return;
-                                  setEdDocUploading(true);
-                                  try {
-                                    const isPdf =
-                                      file.type === "application/pdf" ||
-                                      file.name.toLowerCase().endsWith(".pdf");
-                                    const resourceType = isPdf ? "raw" : "image";
-                                    const cloudName =
-                                      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "dwdlmxmkt";
-                                    const preset =
-                                      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "i5dmd07o";
-                                    const fd = new FormData();
-                                    fd.append("file", file);
-                                    fd.append("upload_preset", preset);
-                                    const res = await fetch(
-                                      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
-                                      { method: "POST", body: fd }
-                                    );
-                                    const data = (await res.json()) as { secure_url?: string };
-                                    const url = data.secure_url;
-                                    if (!url) throw new Error("upload failed");
-                                    const companyIdVal = companyId ?? "local";
-                                    onUploadEmployeeDoc({
-                                      employeeId: emp.id,
-                                      employeeName: emp.name ?? "",
-                                      companyId: companyIdVal,
-                                      title: edDocTitle.trim(),
-                                      type: edDocType,
-                                      fileUrl: url,
-                                      fileType: isPdf ? "pdf" : "image",
-                                      expiryDate: edDocExpiry.trim() || undefined,
-                                      notes: edDocNotes.trim() || undefined,
-                                      uploadedBy: uploadedByDisplayName,
-                                    });
-                                    setEmployeeDocUploadOpen(false);
-                                    setEdDocTitle("");
-                                    setEdDocExpiry("");
-                                    setEdDocNotes("");
-                                    if (edDocFileRef.current) edDocFileRef.current.value = "";
-                                  } catch {
-                                    /* silent */
-                                  } finally {
-                                    setEdDocUploading(false);
-                                  }
-                                }}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 disabled:opacity-50 min-h-[44px] min-w-[44px]"
-                              >
-                                {edDocUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                {tl.uploadDoc ?? "Upload"}
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
-
-                {currentUserRole === "admin" && onUpdateEmployeePermissions && (() => {
-                  const tl = t as Record<string, string>;
-                  const assigned = customRoles.find((r) => r.id === emp.customRoleId);
-                  const basePerms = assigned?.permissions ?? emptyRolePermissionsInline();
-                  const useRole = emp.useRolePermissions !== false;
-                  const merged: RolePermissions = {
-                    ...emptyRolePermissionsInline(),
-                    ...basePerms,
-                    ...(useRole ? {} : (emp.customPermissions ?? {})),
-                  };
-                  const setUseRole = (next: boolean) => {
-                    if (next) onUpdateEmployeePermissions(emp.id, {}, true);
-                    else onUpdateEmployeePermissions(emp.id, { ...basePerms }, false);
-                  };
-                  const togglePermKey = (key: keyof RolePermissions) => {
-                    const next = { ...merged, [key]: !merged[key] };
-                    onUpdateEmployeePermissions(emp.id, next, false);
-                  };
-                  return (
-                    <div className="space-y-4 border-t border-zinc-200 dark:border-slate-700 pt-4">
-                      <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                        {tl.employeePermissions ?? "Employee permissions"}
-                      </h5>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {assigned ? (
-                          <span
-                            style={{ backgroundColor: assigned.color }}
-                            className="inline-flex rounded-full px-3 py-1 text-xs font-medium text-white"
-                          >
-                            {asTextChild(assigned.name, "")}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-zinc-700 dark:text-zinc-200">{asTextChild(emp.role, "—")}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-3 py-2">
-                        <span className="text-sm text-zinc-700 dark:text-zinc-200">
-                          {tl.useRolePermissions ?? "Use role permissions"}
-                        </span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={useRole}
-                          onClick={() => setUseRole(!useRole)}
-                          className={`relative inline-flex w-11 h-6 shrink-0 rounded-full transition-colors ${useRole ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
-                        >
-                          <span
-                            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${useRole ? "translate-x-5" : "translate-x-0"}`}
-                          />
-                        </button>
-                      </div>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                        {t.useRolePermissionsHint ??
-                          "Desactiva para personalizar los permisos de este empleado individualmente"}
-                      </p>
-                      {!useRole && (
-                        <div>
-                          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">
-                            {tl.customPermissions ?? "Custom permissions"}
-                          </p>
-                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            {ROLE_PERMISSION_KEYS.map((key) => (
-                              <div key={key} className="flex items-center justify-between gap-2 py-1">
-                                <span
-                                  title={permTip(key)}
-                                  className="cursor-help text-xs leading-tight text-zinc-600 decoration-dotted underline underline-offset-2 dark:text-zinc-400"
-                                >
-                                  {permLabel(key)}
-                                </span>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={merged[key]}
-                                  onClick={() => togglePermKey(key)}
-                                  className={`relative inline-flex w-11 h-6 shrink-0 rounded-full transition-colors ${merged[key] ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
-                                >
-                                  <span
-                                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${merged[key] ? "translate-x-5" : "translate-x-0"}`}
-                                  />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                <div className="px-6 pb-6 pt-2 border-t border-zinc-200 dark:border-slate-700 flex flex-wrap gap-2">
-                  {canEdit && (
-                    <>
-                      {onUpdateEmployee && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEmployeePanelId(null);
-                            onUpdateEmployee(emp.id, { name: emp.name, role: emp.role, hours: emp.hours, certificates: emp.certificates as unknown[] });
-                          }}
-                          className="flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          {t.edit ?? "Editar"}
-                        </button>
-                      )}
-                      {onConfirmDeleteEmployee && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEmployeeDeleteConfirmId(emp.id);
-                          }}
-                          className="flex items-center gap-2 rounded-xl bg-red-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-red-500 min-h-[44px]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {t["delete"] ?? "Eliminar"}
-                        </button>
-                      )}
-                    </>
-                  )}
+                <div className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-slate-700 sm:flex-row sm:flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setEmployeePanelId(null)}
+                    className="inline-flex min-h-[44px] w-full min-w-[44px] items-center justify-center rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:text-zinc-100 sm:w-auto"
+                  >
+                    {closeLabel}
+                  </button>
+                  {canEdit && onUpdateEmployee ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmployeePanelId(null);
+                        onUpdateEmployee(emp.id, {
+                          name: emp.name,
+                          role: emp.role,
+                          hours: emp.hours,
+                          certificates: emp.certificates as unknown[],
+                        });
+                      }}
+                      className="inline-flex min-h-[44px] w-full min-w-[44px] items-center justify-center gap-2 rounded-xl border border-amber-500/60 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 dark:bg-amber-950/40 dark:text-amber-100 sm:w-auto"
+                    >
+                      <Pencil className="h-4 w-4 shrink-0" aria-hidden />
+                      {editLabel}
+                    </button>
+                  ) : null}
+                  {currentUserRole === "admin" && isInactive && onConfirmDeleteEmployee ? (
+                    <button
+                      type="button"
+                      onClick={() => setEmployeeDeleteConfirmId(emp.id)}
+                      className="inline-flex min-h-[44px] w-full min-w-[44px] items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 sm:w-auto"
+                    >
+                      <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                      {hardDelLabel}
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>

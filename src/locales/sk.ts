@@ -1,4 +1,4 @@
-/** SK — auto-built (value-map); review for domain terms */
+﻿/** SK — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",
@@ -7,6 +7,8 @@ export default {
   "schedule": "Schedule",
   "worker": "Worker",
   "personnel": "Employees",
+  "employee_detail_phone": "Telefón",
+  "employee_detail_joined": "Dátum nástupu",
   "projects": "Projects",
   "proyectos": "Projects",
   "siteAdminView": "Active projects",

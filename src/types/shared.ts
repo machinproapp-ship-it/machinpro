@@ -81,6 +81,10 @@ export interface SidebarLabels {
 export interface CentralEmployee {
   id: string;
   name?: string;
+  /** Raw `user_profiles.full_name` when present — detail drawer prefers this over composite `name`. */
+  full_name?: string | null;
+  /** ISO-ish timestamp from `user_profiles.created_at` when loaded. */
+  created_at?: string | null;
   role?: string;
   hours?: number;
   phone?: string;

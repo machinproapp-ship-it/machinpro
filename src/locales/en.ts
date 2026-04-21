@@ -236,6 +236,8 @@ export default {
   employee_detail_timesheets: "Timesheets",
   employee_detail_clocks: "Clock entries",
   employee_detail_certificates: "Certificates",
+  employee_detail_phone: "Phone",
+  employee_detail_joined: "Joined",
   employee_detail_vacations: "Vacations",
   employee_detail_swps: "Signed procedures",
   employee_detail_no_login: "No linked user account",

@@ -1,4 +1,4 @@
-/** FI — auto-built (value-map); review for domain terms */
+﻿/** FI — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",
@@ -7,6 +7,8 @@ export default {
   "schedule": "Schedule",
   "worker": "Worker",
   "personnel": "Employees",
+  "employee_detail_phone": "Puhelin",
+  "employee_detail_joined": "Aloituspäivä",
   "projects": "Projects",
   "proyectos": "Projects",
   "siteAdminView": "Active projects",

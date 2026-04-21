@@ -1,4 +1,4 @@
-/** PL — auto-built (value-map); review for domain terms */
+﻿/** PL — auto-built (value-map); review for domain terms */
 export default {
   "office": "Centralny",
   "warehouse": "Logistyka",
@@ -7,6 +7,8 @@ export default {
   "schedule": "Załącznik",
   "worker": "Pracownik",
   "personnel": "Pracownicy",
+  "employee_detail_phone": "Telefon",
+  "employee_detail_joined": "Data zatrudnienia",
   "projects": "Projekty",
   "proyectos": "Projekty",
   "siteAdminView": "Aktywne projekty",

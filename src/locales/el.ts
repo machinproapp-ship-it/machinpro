@@ -1,4 +1,4 @@
-/** EL — auto-built (value-map); review for domain terms */
+﻿/** EL — auto-built (value-map); review for domain terms */
 export default {
   "office": "Central",
   "warehouse": "Logistics",
@@ -7,6 +7,8 @@ export default {
   "schedule": "Schedule",
   "worker": "Worker",
   "personnel": "Employees",
+  "employee_detail_phone": "Τηλέφωνο",
+  "employee_detail_joined": "Ημερομηνία πρόσληψης",
   "projects": "Projects",
   "proyectos": "Projects",
   "siteAdminView": "Active projects",
