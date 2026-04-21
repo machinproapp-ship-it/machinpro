@@ -3631,6 +3631,65 @@ export default function Home() {
     setBetaWelcomeOpen(false);
   }, []);
 
+  const GS_SIDEBAR_TIP_KEY = "machinpro_gs_sidebar_tip_dismissed";
+  const [gettingStartedSidebarTipVisible, setGettingStartedSidebarTipVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!session || effectiveRole !== "admin" || !onboardingComplete) {
+      setGettingStartedSidebarTipVisible(false);
+      return;
+    }
+    try {
+      if (localStorage.getItem(GS_SIDEBAR_TIP_KEY) === "1") {
+        setGettingStartedSidebarTipVisible(false);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    setGettingStartedSidebarTipVisible(true);
+  }, [session, effectiveRole, onboardingComplete]);
+
+  const dismissGettingStartedSidebarTip = useCallback(() => {
+    try {
+      localStorage.setItem(GS_SIDEBAR_TIP_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setGettingStartedSidebarTipVisible(false);
+  }, []);
+
+  const scrollToGettingStartedWidget = useCallback(() => {
+    setActiveSection("office");
+    dismissGettingStartedSidebarTip();
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById("getting-started-widget")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+  }, [dismissGettingStartedSidebarTip]);
+
+  const gettingStartedSidebarTipMemo = useMemo(() => {
+    if (!gettingStartedSidebarTipVisible) return null;
+    const tl = t as Record<string, string>;
+    return {
+      message:
+        tl.onboarding_sidebar_tip ??
+        "New here? Check your getting started guide →",
+      onGo: scrollToGettingStartedWidget,
+      onDismiss: dismissGettingStartedSidebarTip,
+    };
+  }, [
+    gettingStartedSidebarTipVisible,
+    t,
+    scrollToGettingStartedWidget,
+    dismissGettingStartedSidebarTip,
+  ]);
+
   const clearPendingOpenEmployee = useCallback(() => setPendingOpenEmployeeId(null), []);
   const clearPendingOpenBinderDocument = useCallback(() => setPendingOpenBinderDocumentId(null), []);
 
@@ -5913,6 +5972,7 @@ export default function Home() {
           collapsed={sidebarCollapsed}
           mobileDrawerOpen={mobileNavOpen}
           onMobileDrawerOpenChange={setMobileNavOpen}
+          gettingStartedTip={gettingStartedSidebarTipMemo}
         />
 
         <main className="flex-1 flex flex-col min-w-0 overflow-x-hidden p-4 md:p-6 lg:p-8 min-h-screen pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-8">

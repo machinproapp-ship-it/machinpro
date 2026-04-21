@@ -18,7 +18,12 @@ import {
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
-import { registerPushSubscription, unsubscribeFromPush } from "@/lib/pushNotifications";
+import {
+  pushSupportedInBrowser,
+  pushVapidConfigured,
+  registerPushSubscription,
+  unsubscribeFromPush,
+} from "@/lib/pushNotifications";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { LANGUAGES, CURRENCY_META, ALL_TRANSLATIONS } from "@/lib/i18n";
@@ -181,6 +186,9 @@ export function SettingsModule({
   const [autoSetupMessage, setAutoSetupMessage] = useState<string | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushEnvReady, setPushEnvReady] = useState(false);
+  const [browserPushOk, setBrowserPushOk] = useState(false);
+  const [vapidOk, setVapidOk] = useState(false);
   const [prefHazard, setPrefHazard] = useState(true);
   const [prefAction, setPrefAction] = useState(true);
   const [prefVisitor, setPrefVisitor] = useState(true);
@@ -538,6 +546,13 @@ export function SettingsModule({
     setTimeFormat(localStorage.getItem("machinpro_time_format") || "24");
     setWeekStart(localStorage.getItem("machinpro_week_start") || "monday");
     setNumberFormat(localStorage.getItem("machinpro_number_format") || "comma_decimal");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setBrowserPushOk(pushSupportedInBrowser());
+    setVapidOk(pushVapidConfigured());
+    setPushEnvReady(true);
   }, []);
 
   useEffect(() => {
@@ -1116,6 +1131,18 @@ export function SettingsModule({
                 {tl.settings_notifications_empty ??
                   "Enable push to receive alerts on this device."}
               </p>
+              {pushEnvReady ? (
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 break-words">
+                  {(tl.push_status_label ?? "Current status") + ": "}
+                  {!browserPushOk
+                    ? (tl.push_not_supported ?? "")
+                    : !vapidOk
+                      ? (tl.push_no_vapid ?? tl.push_server_unconfigured ?? "")
+                      : pushSubscribed
+                        ? (tl.push_enabled ?? tl.notifications_push_enabled ?? "")
+                        : (tl.push_disabled ?? tl.notifications_push_disabled ?? "")}
+                </p>
+              ) : null}
               <section className="space-y-4">
               <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3 min-h-[44px]">
                 <span className="text-sm text-zinc-800 dark:text-zinc-200">
@@ -1125,7 +1152,12 @@ export function SettingsModule({
                   type="checkbox"
                   className="h-5 w-5 rounded border-zinc-400 accent-amber-600"
                   checked={pushSubscribed}
-                  disabled={pushBusy}
+                  disabled={
+                    pushBusy ||
+                    !pushEnvReady ||
+                    !browserPushOk ||
+                    !vapidOk
+                  }
                   onChange={async (e) => {
                     const on = e.target.checked;
                     if (!session?.access_token || !companyId) return;
@@ -1143,6 +1175,10 @@ export function SettingsModule({
                         );
                       } else if (r.reason === "denied") {
                         showToast("warning", tl.push_permission_denied ?? "");
+                        setPushSubscribed(false);
+                      } else if (r.reason === "no_vapid") {
+                        setPushSubscribed(false);
+                      } else if (r.reason === "unsupported") {
                         setPushSubscribed(false);
                       } else {
                         showToast("error", tl.toast_error ?? "Error");

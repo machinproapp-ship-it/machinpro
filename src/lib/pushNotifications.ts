@@ -15,15 +15,31 @@ function urlBase64ToUint8Array(base64String: string): BufferSource {
   return outputArray;
 }
 
+export type PushRegistrationReason = "denied" | "no_vapid" | "unsupported" | "network";
+
+/** Browser cannot use Web Push (no Notification / PushManager / service worker). */
+export function pushSupportedInBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    "Notification" in window &&
+    "serviceWorker" in navigator &&
+    typeof (window as unknown as { PushManager?: unknown }).PushManager !== "undefined"
+  );
+}
+
+/** Public VAPID key present (required to subscribe). */
+export function pushVapidConfigured(): boolean {
+  return Boolean(typeof process !== "undefined" && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim());
+}
+
 export async function registerPushSubscription(params: {
   accessToken: string;
   companyId: string;
-}): Promise<{ ok: boolean; reason?: "denied" | "config" | "network" }> {
-  if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) {
-    return { ok: false, reason: "config" };
-  }
+}): Promise<{ ok: boolean; reason?: PushRegistrationReason }> {
+  if (typeof window === "undefined") return { ok: false, reason: "unsupported" };
+  if (!pushSupportedInBrowser()) return { ok: false, reason: "unsupported" };
   const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-  if (!vapid) return { ok: false, reason: "config" };
+  if (!vapid) return { ok: false, reason: "no_vapid" };
   const perm = await Notification.requestPermission();
   if (perm !== "granted") return { ok: false, reason: "denied" };
   try {

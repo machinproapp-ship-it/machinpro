@@ -50,19 +50,20 @@ export async function GET(req: NextRequest) {
       admin.from("certificates").select("id", { count: "exact", head: true }).eq("company_id", companyId),
     ]);
 
-    const step1 = true;
+    /** [0] company, [1] invited employee, [2] project, [3] first clock-in, [4] compliance (hazards or certs) */
+    const step0 = true;
 
     const empRows = (otherEmps ?? []) as { profile_status?: string | null }[];
-    const step2 = empRows.some((r) => {
+    const step1 = empRows.some((r) => {
       const st = (r.profile_status ?? "active").toLowerCase().trim();
       return st === "active";
     });
 
-    const step3 = (projCount ?? 0) > 0;
+    const step2 = (projCount ?? 0) > 0;
+    const step3 = (timeCount ?? 0) > 0;
     const step4 = (hazCount ?? 0) > 0 || (certCount ?? 0) > 0;
-    const step5 = (timeCount ?? 0) > 0;
 
-    const steps = [step1, step2, step3, step4, step5] as const;
+    const steps = [step0, step1, step2, step3, step4] as const;
     const done = steps.filter(Boolean).length;
 
     return NextResponse.json({

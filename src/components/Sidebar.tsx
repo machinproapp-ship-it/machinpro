@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Building2,
   Warehouse,
@@ -55,6 +55,12 @@ export interface SidebarProps {
   /** Drawer móvil (< lg): abierto */
   mobileDrawerOpen?: boolean;
   onMobileDrawerOpenChange?: (open: boolean) => void;
+  /** Primera visita admin: callout que enlaza al checklist Getting Started */
+  gettingStartedTip?: {
+    message: string;
+    onGo: () => void;
+    onDismiss: () => void;
+  } | null;
 }
 
 export function Sidebar({
@@ -71,7 +77,37 @@ export function Sidebar({
   collapsed = false,
   mobileDrawerOpen = false,
   onMobileDrawerOpenChange,
+  gettingStartedTip = null,
 }: SidebarProps) {
+  const tipDismissTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!gettingStartedTip) return;
+    tipDismissTimerRef.current = window.setTimeout(() => {
+      gettingStartedTip.onDismiss();
+    }, 5000);
+    return () => {
+      if (tipDismissTimerRef.current != null) {
+        window.clearTimeout(tipDismissTimerRef.current);
+        tipDismissTimerRef.current = null;
+      }
+    };
+  }, [gettingStartedTip]);
+
+  const TipCallout =
+    gettingStartedTip != null ? (
+      <div className="mx-2 mb-2 rounded-lg border border-amber-300/90 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-950 shadow-sm dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+        <button
+          type="button"
+          onClick={() => {
+            gettingStartedTip.onGo();
+          }}
+          className="w-full break-words text-left font-medium underline-offset-2 hover:underline min-h-[44px]"
+        >
+          {gettingStartedTip.message}
+        </button>
+      </div>
+    ) : null;
   const dict = labels as unknown as Record<string, string>;
   const E = ALL_TRANSLATIONS.en;
   const L = (k: string, fb: string) => dict[k] ?? (E as Record<string, string>)[k] ?? fb;
@@ -165,6 +201,7 @@ export function Sidebar({
         }`}
       >
         <div className="p-2 flex flex-col gap-0.5 min-w-0">
+          {TipCallout}
           {visibleItems.map((item) => {
             const isActive = activeSection === item.id;
             return (
@@ -215,6 +252,7 @@ export function Sidebar({
           </button>
         </div>
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2" aria-label={drawerTitle}>
+          {TipCallout}
           {visibleItems.map((item) => {
             const isActive = activeSection === item.id;
             return (

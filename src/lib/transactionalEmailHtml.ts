@@ -7,6 +7,8 @@ import {
 /** Canonical public URLs for deliverability and brand consistency. */
 export const MACHINPRO_EMAIL_ORIGIN = "https://machin.pro";
 export const MACHINPRO_LOGO_URL = `${MACHINPRO_EMAIL_ORIGIN}/logo-source.png`;
+/** App home / dashboard entry for transactional CTAs */
+export const MACHINPRO_APP_HOME_URL = `${MACHINPRO_EMAIL_ORIGIN}/`;
 export const MACHINPRO_LOGIN_URL = `${MACHINPRO_EMAIL_ORIGIN}/login`;
 export const MACHINPRO_PRIVACY_URL = `${MACHINPRO_EMAIL_ORIGIN}/legal/privacy`;
 export const MACHINPRO_TERMS_URL = `${MACHINPRO_EMAIL_ORIGIN}/legal/terms`;
@@ -50,7 +52,7 @@ function emailOuterTable(content: string): string {
 
 function emailGradientHeader(): string {
   return `
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(135deg,#134e5e 0%,#0f3a45 52%,#071a20 100%);border-radius:8px 8px 0 0;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(135deg,#ea580c 0%,#c2410c 52%,#9a3412 100%);border-radius:8px 8px 0 0;">
   <tr>
     <td align="center" style="padding:28px 24px;">
       <img src="${escapeHtml(MACHINPRO_LOGO_URL)}" width="112" height="112" alt="MachinPro" style="display:inline-block;border:0;height:auto;max-width:112px;" />
@@ -136,7 +138,7 @@ export function buildWelcomeEmailHtml(opts: {
   <li style="margin-bottom:10px;"><strong>${escapeHtml(c.welcomeStep2)}</strong> — ${escapeHtml(c.welcomeStep2Hint)}</li>
   <li style="margin-bottom:4px;"><strong>${escapeHtml(c.welcomeStep3)}</strong> — ${escapeHtml(c.welcomeStep3Hint)}</li>
 </ol>
-${ctaButton(MACHINPRO_EMAIL_ORIGIN, c.welcomeCta)}
+${ctaButton(MACHINPRO_APP_HOME_URL, c.welcomeCta)}
 <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;text-align:center;">
   ${escapeHtml(c.welcomeTrialReminder)}
 </p>
