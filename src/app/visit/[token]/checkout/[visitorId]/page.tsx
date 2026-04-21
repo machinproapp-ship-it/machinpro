@@ -133,7 +133,7 @@ export default function VisitorCheckoutPage() {
   if (error && !visitorName) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-zinc-50 dark:bg-zinc-950 px-4">
-        <p className="text-zinc-700 dark:text-zinc-300 text-center">{error}</p>
+        <p className="text-zinc-700 dark:text-zinc-300 text-center">{String(error ?? "")}</p>
         <Link
           href={backHref}
           className="min-h-[44px] inline-flex items-center rounded-xl bg-amber-600 text-white px-6 py-3 text-sm font-semibold"
@@ -213,7 +213,7 @@ export default function VisitorCheckoutPage() {
 
         {error && (
           <p className="text-sm text-red-500 text-center" role="alert">
-            {error}
+            {String(error)}
           </p>
         )}
 

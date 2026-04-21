@@ -283,7 +283,9 @@ export default function RegisterPublicPage() {
               </span>
             </label>
 
-            {formError ? <p className="text-sm text-red-600 dark:text-red-400">{formError}</p> : null}
+            {formError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">{String(formError)}</p>
+            ) : null}
 
             <button
               type="submit"

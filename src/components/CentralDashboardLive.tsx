@@ -2364,7 +2364,7 @@ function CentralDashboardBody(
           <p className="font-semibold">{L("network_error") || L("dashboard_error_load_title")}</p>
           <ul className="list-disc pl-5 font-mono text-xs break-all">
             {loadErrors.map((e, i) => (
-              <li key={i}>{e}</li>
+              <li key={i}>{String(e)}</li>
             ))}
           </ul>
           <button

@@ -238,7 +238,9 @@ export default function LoginScreen({
                 className="w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[44px]"
               />
             </div>
-            {error ? <p className="text-sm text-red-600 dark:text-red-400 text-center">{error}</p> : null}
+            {error ? (
+              <p className="text-sm text-red-600 dark:text-red-400 text-center">{String(error)}</p>
+            ) : null}
             <button
               type="button"
               onClick={() => void handleMfaSubmit()}
@@ -290,7 +292,7 @@ export default function LoginScreen({
               <p className="text-sm text-amber-800 dark:text-amber-200 text-center">{attemptsDesc}</p>
             ) : null}
             {error && !rateBlocked ? (
-              <p className="text-sm text-red-600 dark:text-red-400 text-center">{error}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 text-center">{String(error)}</p>
             ) : null}
 
             <button

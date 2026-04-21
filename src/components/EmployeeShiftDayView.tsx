@@ -518,7 +518,7 @@ export function EmployeeShiftDayView({
                   >
                     {signBusy ? "…" : tl.signReport ?? "Firmar parte"}
                   </button>
-                  {signErr && <p className="text-sm text-red-600">{signErr}</p>}
+                  {signErr && <p className="text-sm text-red-600">{String(signErr)}</p>}
                 </>
               ) : null}
             </section>

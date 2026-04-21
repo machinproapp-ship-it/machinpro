@@ -462,7 +462,7 @@ export function FormFieldInput({
           </p>
         )}
         {uploadErr && (
-          <p className="text-sm text-red-600 dark:text-red-400 mt-2">{uploadErr}</p>
+          <p className="text-sm text-red-600 dark:text-red-400 mt-2">{String(uploadErr)}</p>
         )}
 
         {field.multiple ? (

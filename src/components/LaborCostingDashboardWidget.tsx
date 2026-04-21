@@ -443,7 +443,7 @@ export function LaborCostingDashboardWidget({
       </div>
 
       {loadErr ? (
-        <p className="text-xs text-red-600 dark:text-red-400 mb-2">{loadErr}</p>
+        <p className="text-xs text-red-600 dark:text-red-400 mb-2">{String(loadErr)}</p>
       ) : null}
 
       {loading ? (

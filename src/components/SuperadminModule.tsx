@@ -479,7 +479,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
-          {error}
+          {String(error)}
         </div>
       )}
 
@@ -630,7 +630,7 @@ export function SuperadminModule({ t }: SuperadminModuleProps) {
                     style={{ width: `${(v / distMax) * 100}%` }}
                   />
                 </div>
-                <span className="w-8 text-right text-gray-900 dark:text-gray-100">{v}</span>
+                <span className="w-8 text-right text-gray-900 dark:text-gray-100">{String(v ?? "")}</span>
               </div>
             ))}
           </div>

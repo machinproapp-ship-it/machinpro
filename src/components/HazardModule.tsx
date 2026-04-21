@@ -1458,7 +1458,7 @@ export function HazardModule({
               </h4>
               <ul className="list-disc pl-5 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                 {(detail.corrective_actions ?? []).map((a, i) => (
-                  <li key={i}>{a}</li>
+                  <li key={i}>{String(a ?? "")}</li>
                 ))}
               </ul>
               {!readOnly && (
