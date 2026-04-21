@@ -10,6 +10,12 @@ import { insertSignature } from "@/lib/dailyReportsDb";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
 import { formatDateLong, formatTime, formatTimeHm, resolveUserTimezone } from "@/lib/dateUtils";
+import {
+  elapsedMinutesSinceClockStart,
+  formatCompletedWorkFromHmPair,
+  formatWorkDurationCompact,
+  trafficLightClassFromElapsedHours,
+} from "@/lib/clockDisplay";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 /** Alineado con ScheduleEntry en page.tsx (evita import circular). */
@@ -35,6 +41,8 @@ export type EmployeeShiftClockEntry = {
   date: string;
   clockIn: string;
   clockOut?: string;
+  clockInAtIso?: string;
+  clockOutAtIso?: string | null;
 };
 
 export type EmployeeShiftDayViewProject = {
@@ -58,19 +66,6 @@ function localeFromLanguage(language: string): string {
     pt: "pt-PT",
   };
   return m[language] ?? "es-ES";
-}
-
-function formatWorkedFromClock(clockIn: string, clockOut: string): string {
-  const [ih, im] = clockIn.split(":").map((x) => parseInt(x, 10));
-  const [oh, om] = clockOut.split(":").map((x) => parseInt(x, 10));
-  if (!Number.isFinite(ih) || !Number.isFinite(im) || !Number.isFinite(oh) || !Number.isFinite(om)) return "";
-  let start = ih * 60 + im;
-  let end = oh * 60 + om;
-  if (end < start) end += 24 * 60;
-  const diff = end - start;
-  const h = Math.floor(diff / 60);
-  const m = diff % 60;
-  return `${h}h ${m}m`;
 }
 
 function buildBriefingSummary(report: DailyFieldReport, tl: Labels): string {
@@ -156,7 +151,8 @@ export function EmployeeShiftDayView({
 
   useEffect(() => {
     if (!open || clockEntry?.clockOut || !clockEntry) return;
-    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    setTick((n) => n + 1);
+    const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
     return () => window.clearInterval(id);
   }, [open, clockEntry]);
 
@@ -177,23 +173,26 @@ export function EmployeeShiftDayView({
   }, [project]);
 
   const elapsedLive = useMemo(() => {
-    if (!clockEntry?.clockIn || clockEntry.clockOut) return "";
-    const [h, m] = clockEntry.clockIn.split(":").map((x) => parseInt(x, 10));
-    if (!Number.isFinite(h) || !Number.isFinite(m)) return "";
-    const start = new Date();
-    start.setHours(h, m, 0, 0);
-    let ms = Date.now() - start.getTime();
-    if (ms < 0) ms = 0;
-    const hh = Math.floor(ms / 3_600_000);
-    const mm = Math.floor((ms % 3_600_000) / 60_000);
-    const ss = Math.floor((ms % 60_000) / 1000);
-    return `${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
-  }, [clockEntry, tick]);
+    void tick;
+    if (!clockEntry?.clockIn || clockEntry.clockOut) return null;
+    const mins = elapsedMinutesSinceClockStart({
+      dateYmd: scheduleEntry.date,
+      clockInHm: clockEntry.clockIn,
+      clockInAtIso: clockEntry.clockInAtIso,
+    });
+    const hours = mins / 60;
+    const dur = formatWorkDurationCompact(mins, tl as Record<string, string>);
+    const cls = trafficLightClassFromElapsedHours(hours);
+    const text =
+      (tl.clock_working_for as string | undefined)?.replace(/\{time\}/g, dur) ??
+      `Working for ${dur}`;
+    return { dur, cls, text };
+  }, [clockEntry, scheduleEntry.date, tick, tl]);
 
   const workedCompleted = useMemo(() => {
     if (!clockEntry?.clockIn || !clockEntry.clockOut) return "";
-    return formatWorkedFromClock(clockEntry.clockIn, clockEntry.clockOut);
-  }, [clockEntry]);
+    return formatCompletedWorkFromHmPair(clockEntry.clockIn, clockEntry.clockOut, tl as Record<string, string>);
+  }, [clockEntry, tl]);
 
   const mySignature = useMemo(() => {
     if (!dailyReport || !currentUserProfileId) return null;
@@ -336,7 +335,7 @@ export function EmployeeShiftDayView({
                 {clockEntry
                   ? clockEntry.clockOut
                     ? `${tl.timeWorked ?? "Tiempo trabajado"}: ${workedCompleted || "—"}`
-                    : `${tl.clockInEntry ?? "Entrada"}: ${wallClockLabel(clockEntry.clockIn)}`
+                    : `${tl.clockInEntry ?? "Entrada"}: ${wallClockLabel(clockEntry.clockIn)}${elapsedLive && typeof elapsedLive === "object" ? ` · ${elapsedLive.text}` : ""}`
                   : tl.shiftNoClockThatDay ?? ""}
               </p>
             ) : !clockEntry ? (
@@ -429,10 +428,9 @@ export function EmployeeShiftDayView({
                   {tl.clockInEntry ?? "Entrada"}:{" "}
                   <span className="font-mono font-medium">{wallClockLabel(clockEntry.clockIn)}</span>
                 </p>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {tl.timeWorked ?? "Tiempo trabajado"}:{" "}
-                  <span className="font-mono font-semibold text-zinc-900 dark:text-white">{elapsedLive}</span>
-                </p>
+                {elapsedLive ? (
+                  <p className={`text-sm font-semibold ${elapsedLive.cls}`}>{elapsedLive.text}</p>
+                ) : null}
                 <button
                   type="button"
                   onClick={onClockOut}
@@ -451,8 +449,8 @@ export function EmployeeShiftDayView({
                   <span className="font-mono">{wallClockLabel(clockEntry.clockOut ?? "")}</span>
                 </p>
                 <p className="text-zinc-600 dark:text-zinc-400">
-                  {tl.timeWorked ?? "Tiempo trabajado"}:{" "}
-                  <span className="font-semibold text-zinc-900 dark:text-white">{workedCompleted}</span>
+                  {(tl.clock_total_worked as string | undefined)?.replace(/\{time\}/g, workedCompleted) ??
+                    `${tl.timeWorked ?? "Tiempo trabajado"}: ${workedCompleted}`}
                 </p>
                 <p className="text-emerald-700 dark:text-emerald-400 font-medium">{tl.shiftCompleted ?? "Jornada completada"}</p>
               </div>

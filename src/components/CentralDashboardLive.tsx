@@ -85,6 +85,11 @@ import {
   getClockHourInTimeZone,
   formatTodayYmdInTimeZone,
 } from "@/lib/dateUtils";
+import {
+  elapsedMinutesSinceClockStart,
+  formatWorkDurationCompact,
+  trafficLightClassFromElapsedHours,
+} from "@/lib/clockDisplay";
 import { s } from "@/lib/safeReactString";
 
 function startEndLocalDay(offsetDays: number): { start: string; end: string } {
@@ -803,6 +808,7 @@ function CentralDashboardBody(
   const [teamTimeRows, setTeamTimeRows] = useState<TimeRow[]>([]);
   /** Display labels for team timeclock widget (full_name → display_name → email). */
   const [teamClockLabelsByUserId, setTeamClockLabelsByUserId] = useState<Record<string, string>>({});
+  const [teamTimeTick, setTeamTimeTick] = useState(0);
   const [scheduleToday, setScheduleToday] = useState<Record<string, unknown>[]>([]);
   const [dailyReportsToday, setDailyReportsToday] = useState<Record<string, unknown>[]>([]);
   const [myTasksToday, setMyTasksToday] = useState<{ description: string; completed: boolean }[]>([]);
@@ -824,6 +830,15 @@ function CentralDashboardBody(
   }>({ companyId: "" });
   const lastDashboardRefreshTkAppliedRef = useRef<number | null>(null);
   const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (teamTimeRows.length === 0) return;
+    const hasOpen = teamTimeRows.some((r) => !r.clock_out_at);
+    if (!hasOpen) return;
+    setTeamTimeTick((n) => n + 1);
+    const id = window.setInterval(() => setTeamTimeTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [teamTimeRows]);
 
   const showZone1 =
     canViewEmployees ||
@@ -1748,21 +1763,40 @@ function CentralDashboardBody(
               {teamTimeRows.length === 0 ? (
                 <li className="text-gray-500">{L("dashboard_trend_neutral")}</li>
               ) : (
-                teamTimeRows.slice(0, 12).map((r) => (
-                  <li key={r.id} className="flex justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-1">
-                    <span className="min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200">
-                      {s(
-                        teamClockLabelsByUserId[r.user_id] ??
-                          teamClockLabelsByUserId[r.user_id.toLowerCase()] ??
-                          `${r.user_id.slice(0, 8)}…`
-                      )}
-                    </span>
-                    <span>
-                      {s(fmtTime(r.clock_in_at))}
-                      {r.clock_out_at ? ` – ${s(fmtTime(r.clock_out_at))}` : ` · ${s(L("dashboard_active_now"))}`}
-                    </span>
-                  </li>
-                ))
+                teamTimeRows.slice(0, 12).map((r) => {
+                  void teamTimeTick;
+                  const lx = labels as Record<string, string>;
+                  const mins = r.clock_out_at
+                    ? Math.max(
+                        0,
+                        Math.round(
+                          (new Date(r.clock_out_at).getTime() - new Date(r.clock_in_at).getTime()) / 60_000
+                        )
+                      )
+                    : elapsedMinutesSinceClockStart({
+                        dateYmd: "2000-01-01",
+                        clockInHm: "00:00",
+                        clockInAtIso: r.clock_in_at,
+                      });
+                  const dur = formatWorkDurationCompact(mins, lx);
+                  const tone = trafficLightClassFromElapsedHours(mins / 60);
+                  return (
+                    <li key={r.id} className="flex justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-1">
+                      <span className="min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200">
+                        {s(
+                          teamClockLabelsByUserId[r.user_id] ??
+                            teamClockLabelsByUserId[r.user_id.toLowerCase()] ??
+                            `${r.user_id.slice(0, 8)}…`
+                        )}{" "}
+                        <span className={`tabular-nums font-semibold ${tone}`}>({s(dur)})</span>
+                      </span>
+                      <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                        {s(fmtTime(r.clock_in_at))}
+                        {r.clock_out_at ? ` – ${s(fmtTime(r.clock_out_at))}` : ` · ${s(L("dashboard_active_now"))}`}
+                      </span>
+                    </li>
+                  );
+                })
               )}
             </ul>
             {canManageEmployees && registerManualClockIn && manualClockEmployeeOptions.length > 0 ? (

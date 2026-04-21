@@ -5,6 +5,11 @@ import { Play, Square, Clock, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatTime, resolveUserTimezone } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
+import {
+  elapsedMinutesSinceClockStart,
+  formatWorkDurationCompact,
+  trafficLightClassFromElapsedHours,
+} from "@/lib/clockDisplay";
 
 export const GPS_INTERVAL_MS = 300_000;
 
@@ -23,6 +28,8 @@ export function ProjectTimeclockSection({
   userProfileId,
   labels: t,
   assignedEmployeeNames,
+  /** Maps Supabase `user_profiles.id` → display name (for attendance rows). */
+  profileNamesByAuthId,
   canClock,
   canViewAttendance,
   dateLocale = typeof navigator !== "undefined" ? navigator.language : "en-US",
@@ -34,6 +41,7 @@ export function ProjectTimeclockSection({
   userProfileId: string | null | undefined;
   labels: Record<string, string>;
   assignedEmployeeNames: { id: string; name: string }[];
+  profileNamesByAuthId?: Record<string, string>;
   canClock: boolean;
   canViewAttendance: boolean;
   dateLocale?: string;
@@ -78,6 +86,29 @@ export function ProjectTimeclockSection({
     void loadMine();
     void loadToday();
   }, [loadMine, loadToday]);
+
+  useEffect(() => {
+    if (!supabase || !companyId) return;
+    const channel = supabase
+      .channel(`time_entries_${projectId}_${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "time_entries",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          void loadMine();
+          void loadToday();
+        }
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [companyId, projectId, loadMine, loadToday]);
 
   const stopGps = () => {
     if (gpsTimer.current) {
@@ -190,11 +221,36 @@ export function ProjectTimeclockSection({
 
   const elapsedLabel = useMemo(() => {
     if (!active) return "";
-    const ms = Date.now() - new Date(active.clock_in_at).getTime();
-    const h = Math.floor(ms / 3_600_000);
-    const m = Math.floor((ms % 3_600_000) / 60_000);
-    return `${h}h ${m}m`;
+    const tl = t as Record<string, string>;
+    const mins = elapsedMinutesSinceClockStart({
+      dateYmd: "2000-01-01",
+      clockInHm: "00:00",
+      clockInAtIso: active.clock_in_at,
+    });
+    return formatWorkDurationCompact(mins, tl);
+  }, [active, tick, t]);
+
+  const elapsedTone = useMemo(() => {
+    if (!active) return "";
+    const mins = elapsedMinutesSinceClockStart({
+      dateYmd: "2000-01-01",
+      clockInHm: "00:00",
+      clockInAtIso: active.clock_in_at,
+    });
+    return trafficLightClassFromElapsedHours(mins / 60);
   }, [active, tick]);
+
+  const nameForRow = useCallback(
+    (userId: string) => {
+      const map = profileNamesByAuthId ?? {};
+      const n =
+        map[userId] ??
+        map[userId.toLowerCase()] ??
+        assignedEmployeeNames.find((x) => x.id === userId)?.name;
+      return n ?? `${userId.slice(0, 8)}…`;
+    },
+    [profileNamesByAuthId, assignedEmployeeNames]
+  );
 
   return (
     <div className="space-y-4">
@@ -215,7 +271,7 @@ export function ProjectTimeclockSection({
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-zinc-600 dark:text-zinc-300">
+              <p className={`text-sm ${elapsedTone || "text-zinc-600 dark:text-zinc-300"}`}>
                 {(t as Record<string, string>).timeclock_shift_active ?? "Shift active"} · {elapsedLabel}
               </p>
               <button
@@ -239,21 +295,46 @@ export function ProjectTimeclockSection({
           </h3>
           {todayList.length > 0 ? (
             <ul className="space-y-2 text-sm">
-              {todayList.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 dark:border-slate-800 pb-2"
-                >
-                  <span className="font-mono text-xs text-zinc-500">{row.user_id.slice(0, 8)}…</span>
-                  <span>
-                    {formatTime(row.clock_in_at, dateLocale, timeZone)}
-                    {" — "}
-                    {row.clock_out_at
-                      ? formatTime(row.clock_out_at, dateLocale, timeZone)
-                      : (t as Record<string, string>).timeclock_shift_active ?? "Active"}
-                  </span>
-                </li>
-              ))}
+              {todayList.map((row) => {
+                const tl = t as Record<string, string>;
+                const inDay = new Date(row.clock_in_at);
+                const ymd = `${inDay.getFullYear()}-${String(inDay.getMonth() + 1).padStart(2, "0")}-${String(inDay.getDate()).padStart(2, "0")}`;
+                const hm = `${String(inDay.getHours()).padStart(2, "0")}:${String(inDay.getMinutes()).padStart(2, "0")}`;
+                const activeRow = !row.clock_out_at;
+                const elapsedMins = activeRow
+                  ? elapsedMinutesSinceClockStart({
+                      dateYmd: ymd,
+                      clockInHm: hm,
+                      clockInAtIso: row.clock_in_at,
+                    })
+                  : Math.max(
+                      0,
+                      Math.round(
+                        (new Date(row.clock_out_at!).getTime() - new Date(row.clock_in_at).getTime()) /
+                          60_000
+                      )
+                    );
+                const durCompact = formatWorkDurationCompact(elapsedMins, tl);
+                const tone = trafficLightClassFromElapsedHours(activeRow ? elapsedMins / 60 : elapsedMins / 60);
+                return (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 dark:border-slate-800 pb-2"
+                  >
+                    <span className="min-w-0 truncate font-medium text-zinc-800 dark:text-zinc-100">
+                      {nameForRow(row.user_id)}{" "}
+                      <span className={`tabular-nums text-xs font-semibold ${tone}`}>({durCompact})</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                      {formatTime(row.clock_in_at, dateLocale, timeZone)}
+                      {" — "}
+                      {row.clock_out_at
+                        ? formatTime(row.clock_out_at, dateLocale, timeZone)
+                        : tl.timeclock_shift_active ?? "Active"}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <ul className="space-y-2 text-sm">

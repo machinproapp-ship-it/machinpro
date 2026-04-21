@@ -1525,6 +1525,29 @@ export default function Home() {
       ),
     [employees]
   );
+  const notifySupervisorsPhotoPending = useCallback(
+    (projectName: string, projectId: string) => {
+      if (!companyId || !supabase || !user?.id) return;
+      const tl = t as Record<string, string>;
+      const title = (tl.notif_photo_pending_title ?? "New photo pending approval — {project}").replace(
+        /\{project\}/g,
+        projectName
+      );
+      for (const em of activeEmployees) {
+        const rk = scheduleRoleKeyForEmployee(em, customRoles);
+        if (rk !== "supervisor" && rk !== "admin") continue;
+        if (em.id === user.id) continue;
+        void postAppNotification(supabase, {
+          companyId,
+          targetUserId: em.id,
+          type: "photo_pending_supervisor",
+          title,
+          data: { projectId, projectName },
+        });
+      }
+    },
+    [companyId, supabase, user?.id, t, activeEmployees, customRoles]
+  );
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [subcontractorsForWatchdog, setSubcontractorsForWatchdog] = useState<SubcontractorForWatchdog[]>([]);
@@ -3777,6 +3800,12 @@ export default function Home() {
             notes: siteDiaryNotesDraft,
             companyId,
           });
+          if (newId) {
+            notifySupervisorsPhotoPending(
+              (projects ?? []).find((p) => p.id === projectId)?.name ?? "",
+              projectId
+            );
+          }
           if (fabCategory === "incident" && newId) {
             setFabIncidentToolModal({ entryId: newId, projectId });
             setFabLinkedToolId("");
@@ -3797,6 +3826,7 @@ export default function Home() {
       companyId,
       uploadPhoto,
       t,
+      notifySupervisorsPhotoPending,
     ]
   );
 
@@ -4536,6 +4566,31 @@ export default function Home() {
             (t as Record<string, string>).clockInDone ??
             "Clock-in recorded"
         );
+        if (companyId && supabase && user?.id) {
+          const tl = t as Record<string, string>;
+          const workerName =
+            (profile?.fullName ?? "").trim() ||
+            (profile?.email ?? "").trim() ||
+            (user.email ?? "").trim() ||
+            "—";
+          const timeLbl = formatTime(new Date(), dateLocaleBcp47, userTimeZone);
+          const title =
+            (tl.notif_worker_clock_in_title ?? "{name} clocked in at {time}")
+              .replace(/\{name\}/g, workerName)
+              .replace(/\{time\}/g, timeLbl);
+          for (const em of activeEmployees) {
+            const rk = scheduleRoleKeyForEmployee(em, customRoles);
+            if (rk !== "admin" && rk !== "supervisor") continue;
+            if (em.id === user.id) continue;
+            void postAppNotification(supabase, {
+              companyId,
+              targetUserId: em.id,
+              type: "worker_clock_in",
+              title,
+              data: { projectId: matchedProject?.id ?? "", clockUserId: user.id },
+            });
+          }
+        }
         if (alert && alertMeters != null) {
           setClockInGpsStatus("alert");
           const msg =
@@ -4583,12 +4638,19 @@ export default function Home() {
       projects,
       currentUserEmployeeId,
       profile?.id,
+      profile?.fullName,
+      profile?.email,
       employees,
+      activeEmployees,
+      customRoles,
       t,
       supabase,
       user?.id,
+      user?.email,
       companyId,
       showToast,
+      dateLocaleBcp47,
+      userTimeZone,
     ]
   );
 
@@ -7002,7 +7064,7 @@ export default function Home() {
                 onSelectProject={setSiteSelectedProjectId}
                 onPhotoObra={async (projectId, photoCategory, uploadedUrl) => {
                   if (!uploadedUrl || !companyId) return;
-                  await uploadPhoto({
+                  const newId = await uploadPhoto({
                     projectId,
                     projectName: (projects ?? []).find((p) => p.id === projectId)?.name ?? "",
                     photoUrl: uploadedUrl,
@@ -7015,6 +7077,12 @@ export default function Home() {
                     notes: siteDiaryNotesDraft,
                     companyId,
                   });
+                  if (newId) {
+                    notifySupervisorsPhotoPending(
+                      (projects ?? []).find((p) => p.id === projectId)?.name ?? "",
+                      projectId
+                    );
+                  }
                 }}
                 onPhotoInventario={() => {}}
                 photoNotes={siteDiaryNotesDraft}
@@ -7063,6 +7131,7 @@ export default function Home() {
                       targetEmployeeKey: ph.submitted_by_employee_id,
                       type: "photo_approved",
                       title: tl.notif_photo_approved_title ?? "Photo approved",
+                      body: tl.notif_photo_approved_body ?? null,
                       data: { photoId: id, projectId: ph.project_id },
                     });
                   }

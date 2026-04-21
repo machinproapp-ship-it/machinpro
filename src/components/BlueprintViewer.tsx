@@ -24,6 +24,7 @@ import {
   removePendingPinAddByTempId,
 } from "@/lib/offlineStorage";
 import { logAuditEvent } from "@/lib/useAuditLog";
+import { postAppNotification } from "@/lib/clientNotifications";
 import { useSyncQueue, type SyncQueueResult } from "@/lib/useSyncQueue";
 import type {
   Blueprint as BlueprintRow,
@@ -193,6 +194,8 @@ export interface BlueprintViewerProps {
   onNavigateToCorrective?: (actionId: string) => void;
   dateLocale?: string;
   timeZone?: string;
+  /** Supabase profile IDs (team on this project) to notify when a note is added. */
+  annotationNotifyUserIds?: string[];
 }
 
 export default function BlueprintViewer({
@@ -207,6 +210,7 @@ export default function BlueprintViewer({
   onNavigateToCorrective,
   dateLocale: dateLocaleProp,
   timeZone: timeZoneProp,
+  annotationNotifyUserIds = [],
 }: BlueprintViewerProps) {
   void useMachinProDisplayPrefs();
   const tl = t as Record<string, string>;
@@ -857,6 +861,22 @@ export default function BlueprintViewer({
         entity_name: content.slice(0, 80),
         new_value: { blueprint_id: selected.id, x: pendingNotePct.x, y: pendingNotePct.y },
       });
+      if (companyId && annotationNotifyUserIds.length > 0) {
+        const title = (tl.notif_blueprint_note_title ?? "New note added to blueprints — {project}").replace(
+          /\{project\}/g,
+          projectName
+        );
+        for (const uid of annotationNotifyUserIds) {
+          if (!uid || uid === userProfileId) continue;
+          void postAppNotification(supabase, {
+            companyId,
+            targetUserId: uid,
+            type: "blueprint_note_added",
+            title,
+            data: { projectId, projectName, blueprintId: selected.id },
+          });
+        }
+      }
       setNoteFormOpen(false);
       setPendingNotePct(null);
       setAddNoteMode(false);

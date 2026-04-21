@@ -36,6 +36,12 @@ import {
 } from "@/lib/laborReportExport";
 import { downloadIndividualTimesheetPdf } from "@/lib/timesheetIndividualPdf";
 import { hoursWorkedFromClockFields, laborCostForHours } from "@/lib/laborCosting";
+import {
+  elapsedMinutesSinceClockStart,
+  formatCompletedWorkFromHmPair,
+  formatWorkDurationCompact,
+  trafficLightClassFromElapsedHours,
+} from "@/lib/clockDisplay";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { jsPDF } from "jspdf";
 import { PayrollSchedulePanel } from "@/components/PayrollSchedulePanel";
@@ -1806,6 +1812,32 @@ export default function ScheduleModule({
       (!!mapLeg && e.employeeId === mapLeg)
     );
   });
+  const [clockLiveTick, setClockLiveTick] = useState(0);
+  useEffect(() => {
+    if (!todayEntry?.clockIn || todayEntry.clockOut) return;
+    setClockLiveTick((n) => n + 1);
+    const id = window.setInterval(() => setClockLiveTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [todayEntry?.id, todayEntry?.clockIn, todayEntry?.clockOut, todayYmd]);
+  const todayEntryLiveLine = useMemo(() => {
+    void clockLiveTick;
+    if (!todayEntry?.clockIn) return null;
+    const lx = labels as Record<string, string>;
+    if (todayEntry.clockOut) {
+      const total = formatCompletedWorkFromHmPair(todayEntry.clockIn, todayEntry.clockOut, lx);
+      return { kind: "done" as const, text: (lx.clock_total_worked ?? "Total: {time}").replace(/\{time\}/g, total) };
+    }
+    const mins = elapsedMinutesSinceClockStart({
+      dateYmd: todayEntry.date,
+      clockInHm: todayEntry.clockIn,
+      clockInAtIso: todayEntry.clockInAtIso,
+    });
+    const hours = mins / 60;
+    const dur = formatWorkDurationCompact(mins, lx);
+    const cls = trafficLightClassFromElapsedHours(hours);
+    const text = (lx.clock_working_for ?? "Working for {time}").replace(/\{time\}/g, dur);
+    return { kind: "live" as const, text, cls };
+  }, [clockLiveTick, todayEntry, labels]);
   const showCalendarTab = canViewScheduleCalendar;
   const showClockTab =
     !!canViewTimeclock && (Boolean(canClockIn) || Boolean(canManageEmployees));
@@ -2460,15 +2492,22 @@ export default function ScheduleModule({
                 {labels.clockInTitle ?? "Fichaje de hoy"}
               </h3>
               {todayEntry && (
-                <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
-                  </span>
-                  {todayEntry.clockOut && (
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                      · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
+                <div className="space-y-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
                     </span>
-                  )}
+                    {todayEntry.clockOut && (
+                      <span className="text-zinc-500 dark:text-zinc-400">
+                        · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
+                      </span>
+                    )}
+                  </div>
+                  {todayEntryLiveLine?.kind === "live" ? (
+                    <p className={`text-sm font-semibold ${todayEntryLiveLine.cls}`}>{todayEntryLiveLine.text}</p>
+                  ) : todayEntryLiveLine?.kind === "done" ? (
+                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{todayEntryLiveLine.text}</p>
+                  ) : null}
                 </div>
               )}
               {!todayEntry && setClockInProjectCode && (
@@ -3716,15 +3755,22 @@ export default function ScheduleModule({
                     {labels.clockInTitle ?? "Fichaje de hoy"}
                   </h4>
                   {todayEntry && (
-                    <div className="flex flex-wrap items-center gap-3 text-sm">
-                      <span className="text-emerald-600 dark:text-emerald-400">
-                        ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
-                      </span>
-                      {todayEntry.clockOut && (
-                        <span className="text-zinc-500 dark:text-zinc-400">
-                          · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
+                    <div className="space-y-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
                         </span>
-                      )}
+                        {todayEntry.clockOut && (
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
+                          </span>
+                        )}
+                      </div>
+                      {todayEntryLiveLine?.kind === "live" ? (
+                        <p className={`text-sm font-semibold ${todayEntryLiveLine.cls}`}>{todayEntryLiveLine.text}</p>
+                      ) : todayEntryLiveLine?.kind === "done" ? (
+                        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{todayEntryLiveLine.text}</p>
+                      ) : null}
                       {todayEntry.locationAlert && (
                         <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                           {(labels as Record<string, string>).outsideZone ?? "Fuera de zona"}

@@ -1255,6 +1255,28 @@ export function ProjectsModule({
       .map((tp) => ({ profileId: tp.id, name: tp.name || "—" }));
   }, [teamProfiles, selectedProject]);
 
+  const profileNamesByAuthId = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const tp of teamProfiles) {
+      const n = (tp.name ?? "").trim();
+      if (tp.id && n) m[tp.id] = n;
+    }
+    return m;
+  }, [teamProfiles]);
+
+  const blueprintAnnotationNotifyUserIds = useMemo(() => {
+    if (!selectedProject) return [] as string[];
+    const ids = new Set(selectedProject.assignedEmployeeIds ?? []);
+    const out: string[] = [];
+    for (const tp of teamProfiles) {
+      if (!tp.employeeId || !ids.has(tp.employeeId)) continue;
+      const uid = tp.id.trim();
+      if (!uid || uid === (currentUserProfileId ?? "").trim()) continue;
+      out.push(uid);
+    }
+    return out;
+  }, [selectedProject, teamProfiles, currentUserProfileId]);
+
   const userAssignedToProject =
     !!currentUserEmployeeId &&
     !!selectedProject &&
@@ -2434,6 +2456,7 @@ export function ProjectsModule({
                   userProfileId={currentUserProfileId}
                   labels={t}
                   assignedEmployeeNames={assignedEmployees.map((e) => ({ id: e.id, name: e.name }))}
+                  profileNamesByAuthId={profileNamesByAuthId}
                   canClock={canUseProjectTimeclock && userAssignedToProject}
                   canViewAttendance={canViewAttendancePanel}
                   dateLocale={dateLoc}
@@ -3454,6 +3477,7 @@ export function ProjectsModule({
             onNavigateToCorrective={onOpenCorrectiveFromBlueprint}
             dateLocale={dateLoc}
             timeZone={userTz}
+            annotationNotifyUserIds={blueprintAnnotationNotifyUserIds}
           />
         )}
 

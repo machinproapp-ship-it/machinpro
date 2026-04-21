@@ -1,11 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ScheduleEntry } from "@/types/homePage";
 import type { FormInstance, FormTemplate } from "@/types/forms";
 import type { ProjectTask } from "@/types/projectTask";
 import type { MainSection } from "@/types/shared";
 import { formatTimeHm, formatTodayYmdInTimeZone } from "@/lib/dateUtils";
+import {
+  elapsedMinutesSinceClockStart,
+  formatCompletedWorkFromHmPair,
+  formatWorkDurationCompact,
+  trafficLightClassFromElapsedHours,
+} from "@/lib/clockDisplay";
 
 const L = (d: Record<string, string>, k: string, fb: string) => d[k] ?? fb;
 
@@ -26,6 +32,8 @@ export type WorkerHubProps = {
     clockIn: string;
     clockOut?: string;
     projectId?: string;
+    clockInAtIso?: string;
+    clockOutAtIso?: string | null;
   }>;
   formInstances: FormInstance[];
   formTemplates: FormTemplate[];
@@ -70,6 +78,7 @@ export function WorkerHub({
   onOpenFormInstance,
 }: WorkerHubProps) {
   const todayYmd = formatTodayYmdInTimeZone(timeZone);
+  const [clockTick, setClockTick] = useState(0);
   const projectNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of projects) m.set(p.id, p.name);
@@ -93,6 +102,34 @@ export function WorkerHub({
         (c.employeeId === profileId || (!!legacyEmployeeId && c.employeeId === legacyEmployeeId))
     );
   }, [clockEntries, todayYmd, profileId, legacyEmployeeId]);
+
+  useEffect(() => {
+    const active =
+      !!todayClock?.clockIn &&
+      !todayClock.clockOut &&
+      todayClock.date === todayYmd;
+    if (!active) return;
+    setClockTick((n) => n + 1);
+    const id = window.setInterval(() => setClockTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [todayClock, todayYmd]);
+
+  const liveWorking = useMemo(() => {
+    void clockTick;
+    if (!todayClock?.clockIn || todayClock.clockOut) return null;
+    const mins = elapsedMinutesSinceClockStart({
+      dateYmd: todayClock.date,
+      clockInHm: todayClock.clockIn,
+      clockInAtIso: todayClock.clockInAtIso,
+    });
+    const hours = mins / 60;
+    const dur = formatWorkDurationCompact(mins, lx as Record<string, string>);
+    const cls = trafficLightClassFromElapsedHours(hours);
+    const line =
+      (lx.clock_working_for as string | undefined)?.replace(/\{time\}/g, dur) ??
+      `Working for ${dur}`;
+    return { dur, cls, line };
+  }, [todayClock, clockTick, lx]);
 
   const pendingForms = useMemo(() => {
     if (!canFillForms || !userAuthId) return [];
@@ -196,10 +233,30 @@ export function WorkerHub({
                 <dt className="text-zinc-500 dark:text-zinc-400">{L(lx, "clockInEntry", "Entrada")}</dt>
                 <dd className="tabular-nums font-medium">{todayClock.clockIn}</dd>
               </div>
+              {liveWorking ? (
+                <p className={`text-sm font-medium ${liveWorking.cls}`}>{liveWorking.line}</p>
+              ) : null}
               <div className="flex justify-between gap-2">
                 <dt className="text-zinc-500 dark:text-zinc-400">{L(lx, "clockOutEntry", "Salida")}</dt>
                 <dd className="tabular-nums font-medium">{todayClock.clockOut ?? "—"}</dd>
               </div>
+              {todayClock.clockOut ? (
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {(lx.clock_total_worked as string | undefined)?.replace(
+                    /\{time\}/g,
+                    formatCompletedWorkFromHmPair(
+                      todayClock.clockIn,
+                      todayClock.clockOut,
+                      lx as Record<string, string>
+                    )
+                  ) ??
+                    `Total: ${formatCompletedWorkFromHmPair(
+                      todayClock.clockIn,
+                      todayClock.clockOut,
+                      lx as Record<string, string>
+                    )}`}
+                </p>
+              ) : null}
             </dl>
           )}
         </section>
