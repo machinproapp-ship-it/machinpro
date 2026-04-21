@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Circle, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { MainSection } from "@/types/shared";
+import { s } from "@/lib/safeReactString";
 
 const ONBOARDING_COMPLETE_KEY = "machinpro_onboarding_complete";
 
@@ -171,7 +172,7 @@ export function GettingStartedWidget({
         >
           <div>
             <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">{L("onboarding_getting_started_title", "Getting started")}</p>
-            <p className="text-xs text-amber-900/85 dark:text-amber-200/90">{progressLabel}</p>
+            <p className="text-xs text-amber-900/85 dark:text-amber-200/90">{s(progressLabel)}</p>
           </div>
           <ChevronRight className="h-4 w-4 text-amber-700 dark:text-amber-300" aria-hidden />
         </button>
@@ -204,8 +205,8 @@ export function GettingStartedWidget({
 
       <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between gap-2 text-xs font-medium text-amber-900 dark:text-amber-200">
-          <span>{progressLabel}</span>
-          <span className="tabular-nums">{progressPct}%</span>
+          <span>{s(progressLabel)}</span>
+          <span className="tabular-nums">{s(progressPct)}%</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-amber-200/80 dark:bg-amber-900/50">
           <div
@@ -228,9 +229,9 @@ export function GettingStartedWidget({
               </span>
               <div className="min-w-0 flex-1">
                 <p className={`text-sm font-medium ${item.done ? "text-amber-800/80 line-through dark:text-amber-200/70" : "text-amber-950 dark:text-amber-100"}`}>
-                  {item.title}
+                  {s(item.title)}
                 </p>
-                <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">{item.hint}</p>
+                <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">{s(item.hint)}</p>
               </div>
               <button
                 type="button"

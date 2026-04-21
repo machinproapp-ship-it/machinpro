@@ -85,6 +85,7 @@ import {
   getClockHourInTimeZone,
   formatTodayYmdInTimeZone,
 } from "@/lib/dateUtils";
+import { s } from "@/lib/safeReactString";
 
 function startEndLocalDay(offsetDays: number): { start: string; end: string } {
   const d = new Date();
@@ -377,11 +378,13 @@ function UnifiedDashCard({
         <div className="flex min-h-0 flex-1 min-w-0 flex-col justify-between">
           <div className="flex items-start gap-2 min-w-0">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200 line-clamp-2 min-w-0 flex-1">
-              {label}
+              {s(label)}
             </span>
             <ChevronRight className="h-4 w-4 text-gray-400 shrink-0 ml-auto mt-0.5" aria-hidden />
           </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums mt-1">{value}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums mt-1">
+            {React.isValidElement(value) ? value : s(value as unknown)}
+          </p>
           {subContent ? <div className="mt-1 line-clamp-2 text-left">{subContent}</div> : null}
         </div>
       </div>
@@ -1726,7 +1729,7 @@ function CentralDashboardBody(
       widgetChrome(
         id,
         <>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{title}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{s(title)}</h3>
           <WidgetSkeleton lines={lines} />
         </>
       );
@@ -1739,7 +1742,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <Clock className="h-4 w-4 text-blue-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <ul className="text-sm space-y-2 text-gray-800 dark:text-gray-200 max-h-48 min-h-0 overflow-y-auto overscroll-contain">
               {teamTimeRows.length === 0 ? (
@@ -1748,13 +1751,15 @@ function CentralDashboardBody(
                 teamTimeRows.slice(0, 12).map((r) => (
                   <li key={r.id} className="flex justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-1">
                     <span className="min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200">
-                      {teamClockLabelsByUserId[r.user_id] ??
-                        teamClockLabelsByUserId[r.user_id.toLowerCase()] ??
-                        `${r.user_id.slice(0, 8)}…`}
+                      {s(
+                        teamClockLabelsByUserId[r.user_id] ??
+                          teamClockLabelsByUserId[r.user_id.toLowerCase()] ??
+                          `${r.user_id.slice(0, 8)}…`
+                      )}
                     </span>
                     <span>
-                      {fmtTime(r.clock_in_at)}
-                      {r.clock_out_at ? ` – ${fmtTime(r.clock_out_at)}` : ` · ${L("dashboard_active_now")}`}
+                      {s(fmtTime(r.clock_in_at))}
+                      {r.clock_out_at ? ` – ${s(fmtTime(r.clock_out_at))}` : ` · ${s(L("dashboard_active_now"))}`}
                     </span>
                   </li>
                 ))
@@ -1866,7 +1871,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <MapPin className="h-4 w-4 text-violet-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <TeamGpsMapWidget
               companyId={companyId}
@@ -1885,7 +1890,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <Clock className="h-4 w-4 text-emerald-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             {myShiftCentralCard && onOpenMyShiftView ? (
               <div className="space-y-3">
@@ -1895,18 +1900,18 @@ function CentralDashboardBody(
                   <>
                     {myShiftCentralCard.projectName && (
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                        {myShiftCentralCard.projectName}
+                        {s(myShiftCentralCard.projectName)}
                       </p>
                     )}
                     {myShiftCentralCard.shiftTimeLabel && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-                        {myShiftCentralCard.shiftTimeLabel}
+                        {s(myShiftCentralCard.shiftTimeLabel)}
                       </p>
                     )}
                     {myShiftCentralCard.workedSummary && (
                       <p className="text-sm text-gray-700 dark:text-gray-200">
                         {L("timeWorked")}:{" "}
-                        <span className="font-semibold tabular-nums">{myShiftCentralCard.workedSummary}</span>
+                        <span className="font-semibold tabular-nums">{s(myShiftCentralCard.workedSummary)}</span>
                       </p>
                     )}
                     {myShiftCentralCard.clockedInNotOut && (
@@ -1929,8 +1934,8 @@ function CentralDashboardBody(
                 ) : (
                   myTimeRows.map((r) => (
                     <li key={r.id}>
-                      {fmtTime(r.clock_in_at)}
-                      {r.clock_out_at ? ` – ${fmtTime(r.clock_out_at)}` : ` · ${L("dashboard_active_now")}`}
+                      {s(fmtTime(r.clock_in_at))}
+                      {r.clock_out_at ? ` – ${s(fmtTime(r.clock_out_at))}` : ` · ${s(L("dashboard_active_now"))}`}
                     </li>
                   ))
                 )}
@@ -1945,7 +1950,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4 text-violet-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <ul className="text-sm space-y-2 max-h-56 min-h-0 overflow-y-auto overscroll-contain">
               {activityRows.length === 0 ? (
@@ -1969,9 +1974,9 @@ function CentralDashboardBody(
                   );
                   return (
                     <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 min-w-0">
-                      <span className="text-xs text-gray-500">{formatRelative(row.created_at, dateLoc)}</span>
+                      <span className="text-xs text-gray-500">{s(formatRelative(row.created_at, dateLoc))}</span>
                       <p className="mt-0.5 min-w-0 max-w-full whitespace-normal break-words leading-snug" title={line}>
-                        {line}
+                        {s(line)}
                       </p>
                     </li>
                   );
@@ -1987,7 +1992,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-amber-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             {complianceWatchdogCount > 0 && onOpenComplianceInCentral ? (
               <button
@@ -1995,7 +2000,7 @@ function CentralDashboardBody(
                 onClick={onOpenComplianceInCentral}
                 className="min-h-[44px] w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm font-medium text-amber-900 dark:text-amber-100"
               >
-                {L("complianceWatchdog")} ({complianceWatchdogCount})
+                {s(L("complianceWatchdog"))} ({s(complianceWatchdogCount)})
               </button>
             ) : (
               <p className="text-sm text-gray-600 dark:text-gray-300">{L("dashboard_all_clear")}</p>
@@ -2009,7 +2014,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <ul className="text-sm space-y-2 max-h-56 overflow-y-auto">
               {hazardRows.length === 0 ? (
@@ -2017,7 +2022,7 @@ function CentralDashboardBody(
               ) : (
                 hazardRows.map((h) => (
                   <li key={h.id} className="text-gray-800 dark:text-gray-200">
-                    · {h.title || h.id}
+                    · {s(h.title || h.id)}
                   </li>
                 ))
               )}
@@ -2031,20 +2036,20 @@ function CentralDashboardBody(
           <>
             <h3 className="text-xs font-semibold text-gray-900 dark:text-white mb-2 pe-14 flex items-center gap-2 sm:text-sm sm:mb-3">
               <Shield className="h-3.5 w-3.5 text-orange-500 sm:h-4 sm:w-4" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <ul className="text-xs space-y-1.5 text-gray-800 dark:text-gray-200 sm:text-sm sm:space-y-2">
               <li className="flex justify-between gap-2">
                 <span className="min-w-0 truncate pr-1">{L("dashboard_security_open_hazards") || L("hazards_title")}</span>
-                <span className="font-semibold tabular-nums shrink-0">{hazardRows.length}</span>
+                <span className="font-semibold tabular-nums shrink-0">{s(hazardRows.length)}</span>
               </li>
               <li className="flex justify-between gap-2">
                 <span className="min-w-0 truncate pr-1">{L("dashboard_security_pending_actions") || L("security_corrective")}</span>
-                <span className="font-semibold tabular-nums shrink-0">{correctivePendingCount}</span>
+                <span className="font-semibold tabular-nums shrink-0">{s(correctivePendingCount)}</span>
               </li>
               <li className="flex justify-between gap-2">
                 <span className="min-w-0 truncate pr-1">{L("dashboard_security_expired_certs") || L("complianceWatchdog")}</span>
-                <span className="font-semibold tabular-nums shrink-0">{complianceExpiredCertCount}</span>
+                <span className="font-semibold tabular-nums shrink-0">{s(complianceExpiredCertCount)}</span>
               </li>
             </ul>
             {onOpenOperationsSecurity ? (
@@ -2065,12 +2070,12 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <UserCheck className="h-4 w-4 text-cyan-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{L("visitor_active_now")}</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{visitorsActiveNow}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{s(visitorsActiveNow)}</p>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              {L("dashboard_visitors_today")}: {visitorsTodayCount}
+              {s(L("dashboard_visitors_today"))}: {s(visitorsTodayCount)}
             </p>
             <ul className="mt-3 text-sm space-y-2 max-h-36 overflow-y-auto">
               {visitorsRecent.length === 0 ? (
@@ -2079,18 +2084,18 @@ function CentralDashboardBody(
                 visitorsRecent.map((v) => (
                   <li key={v.id} className="min-w-0 text-gray-800 dark:text-gray-200 leading-snug">
                     <div className="flex min-w-0 flex-wrap items-baseline gap-x-1">
-                      <span className="font-medium shrink-0">{v.visitor_name}</span>
+                      <span className="font-medium shrink-0">{s(v.visitor_name)}</span>
                       {v.project_name ? (
                         <span
                           className="min-w-0 max-w-full truncate text-gray-500 dark:text-gray-400"
                           title={v.project_name}
                         >
-                          · {v.project_name}
+                          · {s(v.project_name)}
                         </span>
                       ) : null}
                     </div>
                     <span className="block text-xs text-gray-500 dark:text-gray-400">
-                      {formatDateTime(v.check_in, dateLoc, timeZone)}
+                      {s(formatDateTime(v.check_in, dateLoc, timeZone))}
                     </span>
                   </li>
                 ))
@@ -2111,7 +2116,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <StickyNote className="h-4 w-4 text-indigo-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <p className="text-xs text-gray-500 mb-2">
               {scheduleLoading ? (
@@ -2120,9 +2125,9 @@ function CentralDashboardBody(
                   aria-hidden
                 />
               ) : scheduleToday.length > 0 ? (
-                `${scheduleToday.length} ${L("schedule_pick_employees") ?? ""}`
+                s(`${scheduleToday.length} ${L("schedule_pick_employees") ?? ""}`)
               ) : (
-                L("dashboard_trend_neutral")
+                s(L("dashboard_trend_neutral"))
               )}
             </p>
             {dailyLoading ? (
@@ -2134,7 +2139,7 @@ function CentralDashboardBody(
                 ) : (
                   myTasksToday.map((task, i) => (
                     <li key={i} className={task.completed ? "line-through opacity-60" : ""}>
-                      · {task.description || L("common_dash")}
+                      · {s(task.description || L("common_dash"))}
                     </li>
                   ))
                 )}
@@ -2149,7 +2154,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <FileSearch className="h-4 w-4 text-sky-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
             <ul className="text-sm space-y-2 max-h-48 overflow-y-auto">
               {dailyReportsToday.length === 0 ? (
@@ -2157,8 +2162,8 @@ function CentralDashboardBody(
               ) : (
                 dailyReportsToday.map((r) => (
                   <li key={String(r.id)} className="text-gray-800 dark:text-gray-200">
-                    · {projectNameById[String(r.project_id)] ?? String(r.project_id)}
-                    {r.status ? ` · ${String(r.status)}` : ""}
+                    · {s(projectNameById[String(r.project_id)] ?? String(r.project_id))}
+                    {r.status ? ` · ${s(String(r.status))}` : ""}
                   </li>
                 ))
               )}
@@ -2172,7 +2177,7 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex flex-wrap items-center gap-2 break-words">
               <ClipboardList className="h-4 w-4 shrink-0 text-blue-500" aria-hidden />
-              <span className="min-w-0 leading-snug">{title}</span>
+              <span className="min-w-0 leading-snug">{s(title)}</span>
             </h3>
             {formsPendingTodayPreview.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">{L("dashboard_trend_neutral")}</p>
@@ -2180,9 +2185,9 @@ function CentralDashboardBody(
               <ul className="text-sm space-y-2 max-h-48 overflow-y-auto mb-3">
                 {formsPendingTodayPreview.map((row) => (
                   <li key={row.id} className="text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2">
-                    <span className="font-medium block break-words">{row.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{row.contextLine}</span>
-                    <span className="text-xs text-amber-700 dark:text-amber-300">{row.status}</span>
+                    <span className="font-medium block break-words">{s(row.name)}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{s(row.contextLine)}</span>
+                    <span className="text-xs text-amber-700 dark:text-amber-300">{s(row.status)}</span>
                   </li>
                 ))}
               </ul>
@@ -2212,9 +2217,9 @@ function CentralDashboardBody(
           <>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14 flex items-center gap-2">
               <Package className="h-4 w-4 text-orange-500" aria-hidden />
-              {title}
+              {s(title)}
             </h3>
-            <p className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{criticalInventoryCount}</p>
+            <p className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{s(criticalInventoryCount)}</p>
             {criticalInventoryLines.length > 0 ? (
               <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-gray-700 dark:text-gray-200">
                 {criticalInventoryLines.map((row) => (
@@ -2227,7 +2232,7 @@ function CentralDashboardBody(
                         onNavigateAppSection("warehouse");
                       }}
                     >
-                      · {row.text}
+                      · {s(row.text)}
                     </button>
                   </li>
                 ))}
@@ -2247,7 +2252,7 @@ function CentralDashboardBody(
         return widgetChrome(
           id,
           <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{title}</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{s(title)}</h3>
             {renderQuickButtons(resolvedConfig.quickAccess)}
           </>
         );
@@ -2364,7 +2369,7 @@ function CentralDashboardBody(
           <p className="font-semibold">{L("network_error") || L("dashboard_error_load_title")}</p>
           <ul className="list-disc pl-5 font-mono text-xs break-all">
             {loadErrors.map((e, i) => (
-              <li key={i}>{String(e)}</li>
+              <li key={i}>{s(e)}</li>
             ))}
           </ul>
           <button

@@ -37,6 +37,7 @@ import { isProjectOperationallyActive, resolveProjectLifecycleStatus } from '@/l
 import { useToast } from "@/components/Toast";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
+import { s } from "@/lib/safeReactString";
 
 interface Certificate {
   id: string;
@@ -63,11 +64,11 @@ function BriefingCard({ type, icon, title, description, count, action, actionLab
     <div className={`flex items-start gap-3 rounded-xl border-l-4 bg-white dark:bg-slate-900 border border-zinc-100 dark:border-slate-700 p-4 shadow-sm ${borderClass}`}>
       <div className="shrink-0 mt-0.5">{icon}</div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-zinc-900 dark:text-white">{title}</p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{description}</p>
+        <p className="text-sm font-medium text-zinc-900 dark:text-white">{s(title)}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{s(description)}</p>
       </div>
       {count !== undefined && (
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${badgeClass}`}>{count}</span>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${badgeClass}`}>{s(count)}</span>
       )}
       {action && (
         <button
@@ -182,10 +183,8 @@ function initialsFromName(name: string): string {
 
 /** Coerce i18n / Supabase values so React never renders a non-text child (React #300). */
 function asTextChild(v: unknown, fallback = ""): string {
-  if (typeof v === "string") return v;
-  if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  if (typeof v === "boolean") return v ? "true" : "false";
-  return fallback;
+  if (v === null || v === undefined) return fallback;
+  return s(v);
 }
 
 function sanitizeLabelRecord(raw: Record<string, unknown>): Record<string, string> {
@@ -1086,7 +1085,7 @@ export function CentralModule({
           {pendingForms > 0 && (
             <section className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/80 dark:bg-amber-950/25 px-4 py-3">
               <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                {pendingForms} {labels.formsPendingSignature ?? ""}
+                {s(pendingForms)} {s(labels.formsPendingSignature)}
               </p>
             </section>
           )}
@@ -1156,16 +1155,16 @@ export function CentralModule({
                           >
                             <td className="py-3 px-2">{actionIcon}</td>
                             <td className="py-3 px-3 text-sm text-zinc-700 dark:text-zinc-200 whitespace-nowrap">
-                              {when}
+                              {s(when)}
                             </td>
                             <td className="py-3 px-3 text-sm text-zinc-800 dark:text-zinc-100">
                               {getAuditActionLabel(row.action, row.entity_type, tl)}
                             </td>
                             <td className="py-3 px-3 text-sm text-zinc-600 dark:text-zinc-300">
-                              {row.user_name ?? row.user_id ?? "—"}
+                              {s(row.user_name ?? row.user_id ?? "—")}
                             </td>
-                            <td className="py-3 px-3 text-sm text-zinc-700 dark:text-zinc-200 max-w-[200px] truncate" title={row.entity_name ?? row.entity_id}>
-                              {row.entity_name ?? row.entity_id}
+                            <td className="py-3 px-3 text-sm text-zinc-700 dark:text-zinc-200 max-w-[200px] truncate" title={s(row.entity_name ?? row.entity_id)}>
+                              {s(row.entity_name ?? row.entity_id)}
                             </td>
                             <td className="py-3 px-3">
                               <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
@@ -1204,11 +1203,11 @@ export function CentralModule({
                             {getAuditActionLabel(row.action, row.entity_type, tl)}
                           </p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {(row.user_name ?? row.user_id ?? "—") + " · " + when}
+                            {s(row.user_name ?? row.user_id ?? "—") + " · " + s(when)}
                           </p>
                           {(row.entity_name ?? row.entity_id) ? (
-                            <p className="text-xs text-zinc-600 dark:text-zinc-300 truncate" title={row.entity_name ?? row.entity_id}>
-                              {row.entity_name ?? row.entity_id}
+                            <p className="text-xs text-zinc-600 dark:text-zinc-300 truncate" title={s(row.entity_name ?? row.entity_id)}>
+                              {s(row.entity_name ?? row.entity_id)}
                             </p>
                           ) : null}
                           <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
@@ -1285,15 +1284,15 @@ export function CentralModule({
                                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-200/80 text-sm font-bold text-red-900 dark:bg-red-900/50 dark:text-red-100"
                                 aria-hidden
                               >
-                                {initialsFromName(subject)}
+                                {initialsFromName(s(subject))}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
+                                <p className="font-medium text-zinc-900 dark:text-white">{s(subject)}</p>
                                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                                  {a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName}
+                                  {s(a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName)}
                                 </p>
                                 <p className="text-xs text-red-700 dark:text-red-300">
-                                  {overdue} {tl.certDaysOverdue ?? ""} · {tl.expiresOn ?? ""} {expStr}
+                                  {s(overdue)} {s(tl.certDaysOverdue ?? "")} · {s(tl.expiresOn ?? "")} {s(expStr)}
                                 </p>
                               </div>
                             </div>
@@ -1346,15 +1345,15 @@ export function CentralModule({
                                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-200/80 text-sm font-bold text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
                                 aria-hidden
                               >
-                                {initialsFromName(subject)}
+                                {initialsFromName(s(subject))}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
+                                <p className="font-medium text-zinc-900 dark:text-white">{s(subject)}</p>
                                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                                  {a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName}
+                                  {s(a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName)}
                                 </p>
                                 <p className="text-xs text-amber-800 dark:text-amber-200">
-                                  {a.daysLeft} {tl.certDaysLeft ?? ""} · {tl.expiresOn ?? ""} {expStr}
+                                  {s(a.daysLeft)} {s(tl.certDaysLeft ?? "")} · {s(tl.expiresOn ?? "")} {s(expStr)}
                                 </p>
                               </div>
                             </div>
@@ -1407,15 +1406,15 @@ export function CentralModule({
                                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-yellow-200/80 text-sm font-bold text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-100"
                                 aria-hidden
                               >
-                                {initialsFromName(subject)}
+                                {initialsFromName(s(subject))}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-medium text-zinc-900 dark:text-white">{subject}</p>
+                                <p className="font-medium text-zinc-900 dark:text-white">{s(subject)}</p>
                                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                                  {a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName}
+                                  {s(a.certNameKey ? (tl[a.certNameKey] ?? a.certName) : a.certName)}
                                 </p>
                                 <p className="text-xs text-yellow-900/90 dark:text-yellow-200/90">
-                                  {a.daysLeft} {tl.certDaysLeft ?? ""} · {tl.expiresOn ?? ""} {expStr}
+                                  {s(a.daysLeft)} {s(tl.certDaysLeft ?? "")} · {s(tl.expiresOn ?? "")} {s(expStr)}
                                 </p>
                               </div>
                             </div>
@@ -1808,26 +1807,26 @@ export function CentralModule({
                       className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                     >
                       <div className="min-w-0 flex-1 space-y-2">
-                        <p className="font-medium text-zinc-900 dark:text-white">{p.name ?? "—"}</p>
+                        <p className="font-medium text-zinc-900 dark:text-white">{s(p.name ?? "—")}</p>
                         {p.location ? (
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400">{p.location}</p>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">{s(p.location)}</p>
                         ) : null}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-zinc-600 dark:text-zinc-300">
                           <span className="inline-flex items-center gap-1" title={tl.projectFormDateStart ?? ""}>
                             <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                            <span>{startStr}</span>
+                            <span>{s(startStr)}</span>
                           </span>
                           <span
                             className="inline-flex items-center gap-1"
                             title={tl.teamMembers ?? tl.project_kpi_team ?? ""}
                           >
                             <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                            <span>{nEmp}</span>
+                            <span>{s(nEmp)}</span>
                           </span>
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
                           >
-                            {statusText}
+                            {s(statusText)}
                           </span>
                         </div>
                       </div>
@@ -1878,7 +1877,7 @@ export function CentralModule({
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                {labels.personnel ?? labels.recentStaff ?? "Personal"}
+                {s(labels.personnel ?? labels.recentStaff ?? "Personal")}
               </h3>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
                 {(personnelDirectoryEmployees ?? []).length > 0 ? (
@@ -1965,10 +1964,12 @@ export function CentralModule({
                     className="p-4 flex items-center justify-between gap-3 min-h-[64px] cursor-pointer hover:bg-zinc-50 dark:hover:bg-slate-800/50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">{(emp.name ?? "").charAt(0) || "?"}</div>
+                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">
+                        {s(emp.name).charAt(0) || "?"}
+                      </div>
                       <div>
-                        <p className="text-sm font-medium">{emp.name ?? "?"}</p>
-                        <p className="text-xs text-zinc-500">{emp.role ?? ""}</p>
+                        <p className="text-sm font-medium">{s(emp.name) || "?"}</p>
+                        <p className="text-xs text-zinc-500">{s(emp.role)}</p>
                         <p className="text-xs text-zinc-400 mt-0.5">{certLabel}</p>
                       </div>
                     </div>
@@ -2012,15 +2013,15 @@ export function CentralModule({
         const isInactive = psLower === "inactive";
         const statusLabel =
           psLower === "active"
-            ? String(t.common_active ?? "Active")
-            : String(t.common_inactive ?? "Inactive");
+            ? s(t.common_active ?? "Active")
+            : s(t.common_inactive ?? "Inactive");
         const empExt = emp as CentralEmployee;
-        const fullNameStr = String(empExt.full_name ?? "");
+        const fullNameStr = s(empExt.full_name ?? "");
         const initialsSource =
-          fullNameStr.trim() !== "" ? fullNameStr : String(emp.name ?? "");
-        const editLabel = String(t.edit ?? "Edit");
-        const closeLabel = String(t.common_close ?? "Close");
-        const hardDelLabel = String(t.hard_delete_button ?? t.employee_hard_delete ?? "Hard delete");
+          fullNameStr.trim() !== "" ? fullNameStr : s(emp.name ?? "");
+        const editLabel = s(t.edit ?? "Edit");
+        const closeLabel = s(t.common_close ?? "Close");
+        const hardDelLabel = s(t.hard_delete_button ?? t.employee_hard_delete ?? "Hard delete");
         return (
           <>
             <div
@@ -2050,14 +2051,14 @@ export function CentralModule({
                     className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                     aria-hidden
                   >
-                    {String(initialsFromName(initialsSource))}
+                    {s(initialsFromName(s(initialsSource)))}
                   </div>
                   <div className="min-w-0">
                     <p
                       id="central-employee-panel-title"
                       className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500"
                     >
-                      {String(t.employee_detail_title ?? "")}
+                      {s(t.employee_detail_title ?? "")}
                     </p>
                   </div>
                 </div>
@@ -2075,7 +2076,7 @@ export function CentralModule({
                 <dl className="space-y-3 text-sm">
                   <div>
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {String(t.employees_full_name ?? t.personnel ?? "Name")}
+                      {s(t.employees_full_name ?? t.personnel ?? "Name")}
                     </dt>
                     <dd className="mt-0.5 break-words font-medium text-zinc-900 dark:text-zinc-100">
                       {fullNameStr}
@@ -2083,40 +2084,40 @@ export function CentralModule({
                   </div>
                   <div>
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {String(t.visitors_email ?? t.login_email_label ?? "Email")}
+                      {s(t.visitors_email ?? t.login_email_label ?? "Email")}
                     </dt>
                     <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
-                      {String(emp.email ?? "—")}
+                      {s(emp.email ?? "—")}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {String(t.employees_role ?? t.training_role ?? "Role")}
+                      {s(t.employees_role ?? t.training_role ?? "Role")}
                     </dt>
                     <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
-                      {String(emp.role ?? "—")}
+                      {s(emp.role ?? "—")}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {String(t.common_status ?? t.employees_status ?? "Status")}
+                      {s(t.common_status ?? t.employees_status ?? "Status")}
                     </dt>
                     <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">{statusLabel}</dd>
                   </div>
                   <div>
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {String(t.employee_detail_phone ?? t.phone ?? "Phone")}
+                      {s(t.employee_detail_phone ?? t.phone ?? "Phone")}
                     </dt>
                     <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
-                      {String(emp.phone ?? "—")}
+                      {s(emp.phone ?? "—")}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {String(t.employee_detail_joined ?? "")}
+                      {s(t.employee_detail_joined ?? "")}
                     </dt>
                     <dd className="mt-0.5 break-words text-zinc-800 dark:text-zinc-200">
-                      {String(empExt.created_at ?? "—")}
+                      {s(empExt.created_at ?? "—")}
                     </dd>
                   </div>
                 </dl>
@@ -2174,22 +2175,22 @@ export function CentralModule({
             <div className="fixed inset-0 z-40 bg-black/50 touch-none" aria-hidden onClick={() => setSubcontractorDetailId(null)} />
             <div className="fixed z-50 border border-zinc-200 bg-white shadow-xl overflow-y-auto inset-x-0 bottom-0 rounded-t-2xl max-h-[90vh] dark:border-slate-700 dark:bg-slate-900 sm:inset-y-0 sm:right-0 sm:left-auto sm:bottom-auto sm:w-full sm:max-w-lg sm:rounded-none sm:rounded-l-2xl sm:max-h-full lg:max-w-xl xl:max-w-2xl">
               <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-slate-700 lg:px-8">
-                <h4 className="text-base font-semibold text-zinc-900 dark:text-white">{sub.name}</h4>
+                <h4 className="text-base font-semibold text-zinc-900 dark:text-white">{s(sub.name)}</h4>
                 <button type="button" onClick={() => setSubcontractorDetailId(null)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center">
                   <X className="h-5 w-5" />
                 </button>
               </div>
               <div className="space-y-4 px-6 py-5 lg:px-8">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400"><span className="text-zinc-400 mr-2">{t.specialty ?? "Especialidad"}</span>{(t[sub.specialty] ?? sub.specialty)}</p>
-                {sub.address && <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2"><MapPin className="h-4 w-4" />{sub.address}</p>}
-                {sub.emergencyContactName && <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2"><Phone className="h-4 w-4" />{sub.emergencyContactName} {sub.emergencyContactPhone}</p>}
-                {projectNames.length > 0 && <p className="text-sm"><span className="text-zinc-400">{t.projects ?? "Proyectos"}:</span> {projectNames.join(", ")}</p>}
-                {sub.liabilityInsuranceExpiry && <p className="text-xs text-zinc-500">{(t.liabilityInsurance ?? "Seguro RC")}: {sub.liabilityInsuranceExpiry}</p>}
-                {sub.rating != null && sub.rating > 0 && <div className="flex items-center gap-1">{(t.rating ?? "Valoraci�n")}: {[1,2,3,4,5].map((i) => <Star key={i} className={`h-4 w-4 ${i <= sub.rating! ? "text-amber-500 fill-amber-500" : "text-zinc-300"}`} />)}</div>}
-                {sub.notes && <p className="text-sm text-zinc-500">{sub.notes}</p>}
+                <p className="text-sm text-zinc-600 dark:text-zinc-400"><span className="text-zinc-400 mr-2">{s(t.specialty ?? "Especialidad")}</span>{s(t[sub.specialty] ?? sub.specialty)}</p>
+                {sub.address && <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2"><MapPin className="h-4 w-4" />{s(sub.address)}</p>}
+                {sub.emergencyContactName && <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2"><Phone className="h-4 w-4" />{s(sub.emergencyContactName)} {s(sub.emergencyContactPhone)}</p>}
+                {projectNames.length > 0 && <p className="text-sm"><span className="text-zinc-400">{s(t.projects ?? "Proyectos")}:</span> {s(projectNames.join(", "))}</p>}
+                {sub.liabilityInsuranceExpiry && <p className="text-xs text-zinc-500">{s(t.liabilityInsurance ?? "Seguro RC")}: {s(sub.liabilityInsuranceExpiry)}</p>}
+                {sub.rating != null && sub.rating > 0 && <div className="flex items-center gap-1">{s(t.rating ?? "Valoración")}: {[1,2,3,4,5].map((i) => <Star key={i} className={`h-4 w-4 ${i <= sub.rating! ? "text-amber-500 fill-amber-500" : "text-zinc-300"}`} />)}</div>}
+                {sub.notes && <p className="text-sm text-zinc-500">{s(sub.notes)}</p>}
                 {(complianceFields ?? []).filter((f) => f.target.includes("subcontractor")).length > 0 && (
                   <div className="pt-4 border-t border-zinc-200 dark:border-slate-700">
-                    <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{t.compliance ?? "Compliance"}</h4>
+                    <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{s(t.compliance ?? "Compliance")}</h4>
                     <div className="space-y-0">
                       {(complianceFields ?? [])
                         .filter((f) => f.target.includes("subcontractor"))
@@ -2200,8 +2201,8 @@ export function CentralModule({
                           return (
                             <div key={field.id} className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
                               <div>
-                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{field.name}</p>
-                                {record?.expiryDate && <p className="text-xs text-zinc-500 dark:text-zinc-400">{(t.expiresOn ?? "Vence")}: {record.expiryDate}</p>}
+                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{s(field.name)}</p>
+                                {record?.expiryDate && <p className="text-xs text-zinc-500 dark:text-zinc-400">{s(t.expiresOn ?? "Vence")}: {s(record.expiryDate)}</p>}
                               </div>
                               <div className="flex items-center gap-2">
                                 {getComplianceStatusBadge(record, t)}
