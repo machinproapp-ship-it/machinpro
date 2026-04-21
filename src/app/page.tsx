@@ -2926,66 +2926,38 @@ export default function Home() {
 
       if (!cancelled) {
         void (async () => {
+          /** Phase A: dashboard-critical rows (bounded). Legacy clock table optional second source. */
           const [
             timeEntriesResult,
+            legacyClockResult,
             vacationsResult,
             scheduleResult,
             auditResult,
-            subRowsResult,
-            subDocsResult,
-            projectExpensesResult,
-            productionCatalogResult,
-            projectOverridesResult,
-            productionReportsResult,
           ] = await Promise.all([
             supabase
               .from("time_entries")
               .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
               .eq("company_id", cid)
               .order("clock_in_at", { ascending: false })
-              .limit(200),
+              .limit(100),
+            supabase
+              .from("clock_entries")
+              .select("id, employee_id, project_id, date, clock_in, clock_out")
+              .order("date", { ascending: false })
+              .limit(50),
             supabase
               .from("vacation_requests")
               .select("*")
               .eq("company_id", cid)
               .order("created_at", { ascending: false })
               .limit(100),
-            supabase.from("schedule_entries").select("*").eq("company_id", cid).limit(2000),
+            supabase.from("schedule_entries").select("*").eq("company_id", cid).limit(800),
             supabase
               .from("audit_logs")
               .select("*")
               .eq("company_id", cid)
               .order("created_at", { ascending: false })
-              .limit(50),
-            supabase.from("subcontractors").select("id, name").eq("company_id", cid),
-            supabase.from("subcontractor_documents").select("*").eq("company_id", cid),
-            supabase
-              .from("project_expenses")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("expense_date", { ascending: false })
-              .limit(2000),
-            supabase
-              .from("production_catalog")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("created_at", { ascending: false })
-              .limit(5000),
-            supabase
-              .from("project_task_overrides")
-              .select("*")
-              .eq("company_id", cid)
-              .order("created_at", { ascending: false })
-              .limit(5000),
-            supabase
-              .from("production_reports")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("report_date", { ascending: false })
-              .limit(2000),
+              .limit(20),
           ]);
 
           if (cancelled) return;
@@ -3018,10 +2990,7 @@ export default function Home() {
           const { data: timeRows, error: timeErr } = timeEntriesResult;
           if (timeErr) {
             console.error("[page] time_entries load", timeErr);
-            if (!cancelled) {
-              mappedClockEntries = [];
-              setDbClockEntries([]);
-            }
+            mappedClockEntries = [];
           } else if (!cancelled && timeRows) {
             const pad = (n: number) => String(n).padStart(2, "0");
             mappedClockEntries = (timeRows as Record<string, unknown>[]).map((row) => {
@@ -3046,8 +3015,40 @@ export default function Home() {
                 clockOutAtIso: row.clock_out_at != null ? String(row.clock_out_at) : undefined,
               };
             });
-            setDbClockEntries(mappedClockEntries);
+          } else if (!cancelled) {
+            mappedClockEntries = [];
           }
+
+          const { data: legacyClockRows, error: legacyClockErr } = legacyClockResult;
+          if (legacyClockErr) {
+            console.warn("[page] clock_entries load", legacyClockErr);
+          } else if (!cancelled && legacyClockRows?.length) {
+            const taken = new Set(mappedClockEntries.map((x) => x.id));
+            for (const raw of legacyClockRows as Record<string, unknown>[]) {
+              const id = String(raw.id ?? "");
+              if (!id || taken.has(id)) continue;
+              taken.add(id);
+              const cin = raw.clock_in;
+              const clockIn =
+                cin == null ? "00:00" : typeof cin === "string" ? cin.slice(0, 5) : String(cin).slice(0, 5);
+              const cout = raw.clock_out;
+              const clockOut =
+                cout != null && String(cout).trim()
+                  ? typeof cout === "string"
+                    ? cout.slice(0, 5)
+                    : String(cout).slice(0, 5)
+                  : undefined;
+              mappedClockEntries.push({
+                id,
+                employeeId: String(raw.employee_id ?? ""),
+                projectId: raw.project_id != null ? String(raw.project_id) : undefined,
+                date: String(raw.date ?? "").slice(0, 10),
+                clockIn,
+                clockOut,
+              });
+            }
+          }
+          if (!cancelled) setDbClockEntries(mappedClockEntries);
 
           const { data: vac, error: vacErr } = vacationsResult;
           if (!cancelled) {
@@ -3102,6 +3103,55 @@ export default function Home() {
             mappedAuditLogs = (auditData ?? []) as AuditLogEntry[];
             setAuditLogs(mappedAuditLogs);
           }
+
+          /** Phase B (deferred): heavy / non-blocking for first paint — runs next frame. */
+          await new Promise<void>((resolve) => {
+            if (typeof window !== "undefined") {
+              window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
+            } else {
+              setTimeout(resolve, 0);
+            }
+          });
+          if (cancelled) return;
+
+          const [
+            subRowsResult,
+            subDocsResult,
+            projectExpensesResult,
+            productionCatalogResult,
+            projectOverridesResult,
+            productionReportsResult,
+          ] = await Promise.all([
+            supabase.from("subcontractors").select("id, name").eq("company_id", cid),
+            supabase.from("subcontractor_documents").select("*").eq("company_id", cid).limit(500),
+            supabase
+              .from("project_expenses")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("expense_date", { ascending: false })
+              .limit(2000),
+            supabase
+              .from("production_catalog")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("created_at", { ascending: false })
+              .limit(5000),
+            supabase
+              .from("project_task_overrides")
+              .select("*")
+              .eq("company_id", cid)
+              .order("created_at", { ascending: false })
+              .limit(5000),
+            supabase
+              .from("production_reports")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("report_date", { ascending: false })
+              .limit(2000),
+          ]);
 
           const { data: expData, error: expErr } = projectExpensesResult;
           if (expErr) {

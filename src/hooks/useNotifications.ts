@@ -18,7 +18,7 @@ export type AppNotificationRow = {
 };
 
 const POLL_MS = 30_000;
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 30;
 
 export type NotificationFilter = "all" | "unread";
 

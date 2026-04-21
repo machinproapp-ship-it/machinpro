@@ -15,14 +15,6 @@ import type { CentralEmployee } from '@/types/shared';
 import type { Subcontractor } from '@/types/subcontractor';
 import { getTaxIdLabel, getComplianceCertLabel, SUBCONTRACTOR_SPECIALTIES } from '@/types/subcontractor';
 import type { ComplianceField, ComplianceRecord, EmployeeDocument, VacationRequestRow } from "@/types/homePage";
-import type { ClockEntry } from "@/components/OperationsModule";
-import {
-  DetailSectionErrorBoundary,
-  EmployeeDetailClockSection,
-  EmployeeDetailTimesheetSection,
-  EmployeeDetailVacationSection,
-  EmployeeDetailSwpSection,
-} from "@/components/EmployeeDetailPanelSections";
 import type { AuditLogEntry } from '@/lib/useAuditLog';
 import { watchdogSubjectLabel, type ComplianceAlert } from '@/lib/complianceWatchdog';
 import type { UserRole } from '@/types/shared';
@@ -417,8 +409,8 @@ export function CentralModule({
   taxIdLabel: taxIdLabelProp,
   complianceCertLabel: complianceCertLabelProp,
   clockEntries = [],
-  vacationRequests = [],
-  vacationAllowanceByEmployeeId = {},
+  vacationRequests: _vacationRequests = [],
+  vacationAllowanceByEmployeeId: _vacationAllowanceByEmployeeId = {},
   employeeIdToUserId: _legacyEmployeeIdToUserId = {},
   profileIdToLegacyEmployeeId = {},
   formInstances = [],
@@ -669,15 +661,6 @@ export function CentralModule({
       return st !== "inactive" && st !== "deleted";
     });
   }, [safeEmployees]);
-
-  /** Clock / timesheet rows may key by profile UUID or legacy `employees.id`. */
-  const matchingClockIdsFor = useCallback(
-    (empId: string) => {
-      const legacy = profileIdToLegacyEmployeeId[empId];
-      return legacy && legacy !== empId ? [empId, legacy] : [empId];
-    },
-    [profileIdToLegacyEmployeeId]
-  );
 
   const getCentralProjectById = (id: string): CentralProject | undefined => {
     const fromProjects = safeProjects.find((p) => p.id === id);
@@ -2026,7 +2009,6 @@ export function CentralModule({
         if (!emp) return null;
         const certs = emp.certificates ?? [];
         const t = sanitizeLabelRecord(labels as Record<string, unknown>);
-        const matchingIds = matchingClockIdsFor(emp.id);
         const psLower = (emp.profileStatus ?? "active").toLowerCase().trim();
         const isInvitedProfile = psLower === "invited";
         const leg = profileIdToLegacyEmployeeId[emp.id] ?? emp.id;
@@ -2156,74 +2138,6 @@ export function CentralModule({
                     )}
                   </div>
                 )}
-
-                <DetailSectionErrorBoundary
-                  fallback={
-                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {t.employee_detail_section_unavailable ?? "—"}
-                    </p>
-                  }
-                >
-                  <EmployeeDetailClockSection
-                    employeeId={emp.id}
-                    matchingEmployeeIds={matchingIds}
-                    labels={t}
-                    clockEntries={(clockEntries ?? []) as ClockEntry[]}
-                    language={language}
-                    countryCode={countryForDates}
-                    timeZone={timeZone}
-                    profileStatus={emp.profileStatus}
-                  />
-                </DetailSectionErrorBoundary>
-                <DetailSectionErrorBoundary
-                  fallback={
-                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {t.employee_detail_section_unavailable ?? "—"}
-                    </p>
-                  }
-                >
-                  <EmployeeDetailTimesheetSection
-                    labels={t}
-                    clockEntries={(clockEntries ?? []) as ClockEntry[]}
-                    employeeId={emp.id}
-                    matchingEmployeeIds={matchingIds}
-                    profileStatus={emp.profileStatus}
-                  />
-                </DetailSectionErrorBoundary>
-                <DetailSectionErrorBoundary
-                  fallback={
-                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {t.employee_detail_section_unavailable ?? "—"}
-                    </p>
-                  }
-                >
-                  <EmployeeDetailVacationSection
-                    companyId={companyId}
-                    employeeUserId={emp.id}
-                    labels={t}
-                    vacationRequests={vacationRequests}
-                    vacationAllowance={
-                      Number.isFinite(Number(vacationAllowanceByEmployeeId[emp.id]))
-                        ? Number(vacationAllowanceByEmployeeId[emp.id])
-                        : 0
-                    }
-                    profileStatus={emp.profileStatus}
-                  />
-                </DetailSectionErrorBoundary>
-                <DetailSectionErrorBoundary
-                  fallback={
-                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {t.employee_detail_section_unavailable ?? "—"}
-                    </p>
-                  }
-                >
-                  <EmployeeDetailSwpSection
-                    companyId={companyId}
-                    employeeUserId={emp.id}
-                    labels={t}
-                    onOpenSecuritySwp={() => onOpenOperationsSecurity?.()}
-                  />
-                </DetailSectionErrorBoundary>
 
                 <div>
                   <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-3">

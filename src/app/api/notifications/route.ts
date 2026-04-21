@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
   if (!client) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
 
   const { searchParams } = req.nextUrl;
-  const limitRaw = parseInt(searchParams.get("limit") || "20", 10);
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 20;
+  const limitRaw = parseInt(searchParams.get("limit") || "30", 10);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 30;
   const offsetRaw = parseInt(searchParams.get("offset") || "0", 10);
   const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
   const unreadOnly = searchParams.get("unread") === "1";
