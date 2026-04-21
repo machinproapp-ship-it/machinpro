@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Component, type ErrorInfo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { VacationRequestRow } from "@/types/homePage";
@@ -30,6 +30,30 @@ function useLazyVisible(rootMargin = "80px") {
   return { ref, visible };
 }
 
+/** Isolates render failures so one broken subsection does not crash the whole drawer. */
+export class DetailSectionErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { err: Error | null }
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props);
+    this.state = { err: null };
+  }
+
+  static getDerivedStateFromError(err: Error) {
+    return { err };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn("[EmployeeDetailSection]", error.message, info.componentStack?.slice(0, 500));
+  }
+
+  render() {
+    if (this.state.err) return <>{this.props.fallback}</>;
+    return this.props.children;
+  }
+}
+
 function SkeletonBlock({ lines = 3 }: { lines?: number }) {
   return (
     <div className="animate-pulse space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
@@ -56,26 +80,46 @@ type Labels = Record<string, string>;
 
 export function EmployeeDetailClockSection(props: {
   employeeId: string;
+  /** Match clock rows where employeeId is profile UUID and/or legacy `employees.id` text. */
+  matchingEmployeeIds?: string[];
   labels: Labels;
   clockEntries: ClockEntry[];
   language: string;
   countryCode: string;
   timeZone: string;
+  profileStatus?: string | null;
 }) {
-  const { employeeId, labels: tl, clockEntries, language, countryCode, timeZone } = props;
+  const {
+    employeeId,
+    matchingEmployeeIds,
+    labels: tl,
+    clockEntries,
+    language,
+    countryCode,
+    timeZone,
+    profileStatus,
+  } = props;
   const L = (k: string, fb?: string) => tl[k] ?? fb ?? "";
   const { ref, visible } = useLazyVisible();
   const tz = timeZone ?? resolveUserTimezone(null);
   const dateLoc = dateLocaleForUser(language, countryCode);
+
+  const idSet = useMemo(() => {
+    const ids = matchingEmployeeIds?.filter(Boolean)?.length ? matchingEmployeeIds : [employeeId];
+    return new Set(ids);
+  }, [employeeId, matchingEmployeeIds]);
+
+  const invitedLike =
+    (profileStatus ?? "").toLowerCase().trim() === "invited";
 
   const rows = useMemo(() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 30);
     const cutoffYmd = cutoff.toISOString().slice(0, 10);
     return clockEntries
-      .filter((c) => c.employeeId === employeeId && (c.date ?? "").slice(0, 10) >= cutoffYmd)
+      .filter((c) => idSet.has(c.employeeId) && (c.date ?? "").slice(0, 10) >= cutoffYmd)
       .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-  }, [clockEntries, employeeId]);
+  }, [clockEntries, idSet]);
 
   const visibleRows = rows.slice(0, 10);
   const monthPrefix = useMemo(() => new Date().toISOString().slice(0, 7), []);
@@ -98,7 +142,11 @@ export function EmployeeDetailClockSection(props: {
       {!visible ? (
         <SkeletonBlock />
       ) : rows.length === 0 ? (
-        <p className="text-sm italic text-zinc-400 dark:text-zinc-500">{L("dashboard_trend_neutral", "—")}</p>
+        <p className="text-sm italic text-zinc-400 dark:text-zinc-500">
+          {invitedLike
+            ? L("employee_detail_clocks_empty_invite", "No clock entries yet.")
+            : L("dashboard_trend_neutral", "—")}
+        </p>
       ) : (
         <>
           <div className="mb-3 rounded-xl bg-zinc-50 px-4 py-3 dark:bg-slate-800/50">
@@ -151,15 +199,25 @@ export function EmployeeDetailTimesheetSection(props: {
   labels: Labels;
   clockEntries: ClockEntry[];
   employeeId: string;
+  matchingEmployeeIds?: string[];
+  profileStatus?: string | null;
 }) {
-  const { labels: tl, clockEntries, employeeId } = props;
+  const { labels: tl, clockEntries, employeeId, matchingEmployeeIds, profileStatus } = props;
   const L = (k: string, fb?: string) => tl[k] ?? fb ?? "";
   const { ref, visible } = useLazyVisible();
+
+  const idSet = useMemo(() => {
+    const ids = matchingEmployeeIds?.filter(Boolean)?.length ? matchingEmployeeIds : [employeeId];
+    return new Set(ids);
+  }, [employeeId, matchingEmployeeIds]);
+
+  const invitedLike =
+    (profileStatus ?? "").toLowerCase().trim() === "invited";
 
   const weeks = useMemo(() => {
     const byWeek = new Map<string, number>();
     for (const c of clockEntries) {
-      if (c.employeeId !== employeeId) continue;
+      if (!idSet.has(c.employeeId)) continue;
       const d = (c.date ?? "").slice(0, 10);
       if (!d) continue;
       const wk = isoWeekKey(d);
@@ -171,7 +229,7 @@ export function EmployeeDetailTimesheetSection(props: {
       .sort((a, b) => b[0].localeCompare(a[0]))
       .slice(0, 5)
       .map(([wk, hours]) => ({ wk, hours: Math.round(hours * 10) / 10 }));
-  }, [clockEntries, employeeId]);
+  }, [clockEntries, idSet]);
 
   return (
     <section ref={ref} className="scroll-mt-4 border-t border-zinc-100 pt-5 dark:border-slate-800">
@@ -181,7 +239,11 @@ export function EmployeeDetailTimesheetSection(props: {
       {!visible ? (
         <SkeletonBlock lines={4} />
       ) : weeks.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">{L("schedule_no_sheets", "No timesheets")}</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          {invitedLike
+            ? L("employee_detail_timesheets_empty_invite", "No timesheets yet.")
+            : L("schedule_no_sheets", "No timesheets")}
+        </p>
       ) : (
         <ul className="space-y-2">
           {weeks.map((w) => (
@@ -218,12 +280,23 @@ export function EmployeeDetailVacationSection(props: {
   labels: Labels;
   vacationRequests: VacationRequestRow[];
   vacationAllowance?: number;
+  profileStatus?: string | null;
 }) {
-  const { companyId, employeeUserId, labels: tl, vacationRequests, vacationAllowance = 0 } = props;
+  const {
+    companyId,
+    employeeUserId,
+    labels: tl,
+    vacationRequests,
+    vacationAllowance: vacationAllowanceRaw,
+    profileStatus,
+  } = props;
+  const vacationAllowance = Number.isFinite(Number(vacationAllowanceRaw)) ? Number(vacationAllowanceRaw) : 0;
   const L = (k: string, fb?: string) => tl[k] ?? fb ?? "";
   const { ref, visible } = useLazyVisible();
-  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [remote, setRemote] = useState<VacationRequestRow[] | null>(null);
+
+  const invitedLike =
+    (profileStatus ?? "").toLowerCase().trim() === "invited";
 
   useEffect(() => {
     if (!visible || !employeeUserId || !supabase) return;
@@ -240,16 +313,12 @@ export function EmployeeDetailVacationSection(props: {
         const { data, error } = await rq;
         if (cancelled) return;
         if (error) {
-          setLoadErr(error.message);
           setRemote([]);
           return;
         }
         setRemote((data ?? []) as VacationRequestRow[]);
-      } catch (e) {
-        if (!cancelled) {
-          setLoadErr(e instanceof Error ? e.message : String(e));
-          setRemote([]);
-        }
+      } catch {
+        if (!cancelled) setRemote([]);
       }
     })();
     return () => {
@@ -294,7 +363,6 @@ export function EmployeeDetailVacationSection(props: {
               </span>
             </p>
           </div>
-          {loadErr ? <p className="text-xs text-amber-600 dark:text-amber-400">{loadErr}</p> : null}
           <ul className="space-y-2">
             {recent3.map((v) => (
               <li
@@ -324,6 +392,13 @@ export function EmployeeDetailVacationSection(props: {
           </ul>
           {!employeeUserId ? (
             <p className="text-sm text-zinc-400 dark:text-zinc-500">{L("employee_detail_no_login", "No linked user account")}</p>
+          ) : invitedLike ? (
+            <p className="text-sm text-zinc-400 dark:text-zinc-500">
+              {L(
+                "employee_detail_vacations_empty_invite",
+                "Vacation data will appear after the employee activates their account."
+              )}
+            </p>
           ) : recent3.length === 0 ? (
             <p className="text-sm text-zinc-400 dark:text-zinc-500">{L("employee_detail_no_vacation_requests", "—")}</p>
           ) : null}

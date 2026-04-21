@@ -1,4 +1,4 @@
-/** EN — migrated from page.tsx (Sprint AF) */
+﻿/** EN — migrated from page.tsx (Sprint AF) */
 export default {
   office: "Central",
   warehouse: "Logistics",
@@ -240,6 +240,15 @@ export default {
   employee_detail_swps: "Signed procedures",
   employee_detail_no_login: "No linked user account",
   employee_detail_no_vacation_requests: "No vacation requests",
+  employee_invitation_pending: "Invitation pending — this person has not completed sign-in yet.",
+  employee_badge_invited: "Invitation pending",
+  employee_badge_missing: "Missing",
+  employee_badge_missing_tooltip: "Some profile details are missing (e.g. email or phone).",
+  employee_detail_section_unavailable: "Unable to load this section.",
+  employee_detail_clocks_empty_invite: "No clock entries yet — available after the employee activates their account.",
+  employee_detail_timesheets_empty_invite: "No timesheets yet — available after the employee activates their account.",
+  employee_detail_vacations_empty_invite:
+    "Vacation balance and requests appear after the employee activates their account.",
   dashboard_reset_layout: "Reset layout",
   dashboard_drag_hint: "Drag to reorder",
   pdf_col_quantity: "Qty",

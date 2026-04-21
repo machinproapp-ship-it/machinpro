@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
   const profileStatus =
     typeof body.profileStatus === "string" && body.profileStatus.trim()
       ? body.profileStatus.trim()
-      : "active";
+      : "invited";
 
   const emergencyName =
     typeof body.emergencyContactName === "string" ? body.emergencyContactName.trim() || null : null;

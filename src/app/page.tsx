@@ -2725,7 +2725,13 @@ export default function Home() {
           mappedEmployees = [];
           setEmployees([]);
         } else {
-          mappedEmployees = profiles.map((row: Record<string, unknown>) => {
+          const allowedProfiles = (profiles as Record<string, unknown>[]).filter((row) => {
+            const st = String(row.profile_status ?? "active").toLowerCase().trim();
+            const delAt = row.deleted_at as string | null | undefined;
+            if (delAt != null && String(delAt).trim() !== "") return false;
+            return st !== "inactive" && st !== "deleted";
+          });
+          mappedEmployees = allowedProfiles.map((row: Record<string, unknown>) => {
             const id = String(row.id);
             const fn = row.full_name != null ? String(row.full_name).trim() : "";
             const dn = row.display_name != null ? String(row.display_name).trim() : "";
@@ -6133,12 +6139,16 @@ export default function Home() {
                     ? (projects ?? []).filter((p) => p.id === "p1")
                     : (projects ?? []).filter((p) => !p.archived);
                   const visible = currentUserRole === "supervisor"
-                    ? (employees ?? []).filter((e) =>
-                        activeProjects.some((p) =>
-                          (p.assignedEmployeeIds ?? []).includes(e.id)
-                        )
-                      )
-                    : (employees ?? []);
+                    ? (employees ?? []).filter((e) => {
+                        const leg = userToEmployeeMap[e.id] ?? e.id;
+                        return activeProjects.some((p) =>
+                          (p.assignedEmployeeIds ?? []).some((aid) => aid === e.id || aid === leg)
+                        );
+                      })
+                    : (employees ?? []).filter((e) => {
+                        const st = (e.profileStatus ?? "active").toLowerCase().trim();
+                        return st !== "inactive" && st !== "deleted";
+                      });
                   return visible.map((e) => ({
                     id: e.id,
                     name: e.name,
@@ -6277,6 +6287,7 @@ export default function Home() {
                 vacationRequests={vacationRequests}
                 vacationAllowanceByEmployeeId={vacationAllowanceByUserId}
                 employeeIdToUserId={employeeIdToUserId}
+                profileIdToLegacyEmployeeId={userToEmployeeMap}
                 formInstances={formInstances}
                 language={language}
                 timeZone={userTimeZone}

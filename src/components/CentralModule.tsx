@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { Users, Briefcase, HardHat, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound, Download } from 'lucide-react';
 import type { CustomRole, RolePermissions } from '@/types/roles';
 import {
@@ -17,6 +17,7 @@ import { getTaxIdLabel, getComplianceCertLabel, SUBCONTRACTOR_SPECIALTIES } from
 import type { ComplianceField, ComplianceRecord, EmployeeDocument, VacationRequestRow } from "@/types/homePage";
 import type { ClockEntry } from "@/components/OperationsModule";
 import {
+  DetailSectionErrorBoundary,
   EmployeeDetailClockSection,
   EmployeeDetailTimesheetSection,
   EmployeeDetailVacationSection,
@@ -208,6 +209,8 @@ interface CentralModuleProps {
   vacationRequests?: VacationRequestRow[];
   vacationAllowanceByEmployeeId?: Record<string, number>;
   employeeIdToUserId?: Record<string, string>;
+  /** `user_profiles.id` → `employees.id` (text). Used to match clock rows & project assignments. */
+  profileIdToLegacyEmployeeId?: Record<string, string>;
   formInstances?: Array<{ id: string; status: string; createdAt: string; date?: string }>;
   language?: string;
   /** IANA timezone for audit logs / dates (defaults: profile → browser → America/Toronto). */
@@ -402,7 +405,8 @@ export function CentralModule({
   clockEntries = [],
   vacationRequests = [],
   vacationAllowanceByEmployeeId = {},
-  employeeIdToUserId = {},
+  employeeIdToUserId: _legacyEmployeeIdToUserId = {},
+  profileIdToLegacyEmployeeId = {},
   formInstances = [],
   language = "es",
   timeZone: timeZoneProp,
@@ -643,6 +647,23 @@ export function CentralModule({
     return s;
   }, [safeEmployees]);
 
+  /** Personal / directory list: exclude soft-removed HR rows; keep active + invited + pending onboarding. */
+  const personnelDirectoryEmployees = useMemo(() => {
+    return safeEmployees.filter((e) => {
+      const st = (e.profileStatus ?? "active").toLowerCase().trim();
+      return st !== "inactive" && st !== "deleted";
+    });
+  }, [safeEmployees]);
+
+  /** Clock / timesheet rows may key by profile UUID or legacy `employees.id`. */
+  const matchingClockIdsFor = useCallback(
+    (empId: string) => {
+      const legacy = profileIdToLegacyEmployeeId[empId];
+      return legacy && legacy !== empId ? [empId, legacy] : [empId];
+    },
+    [profileIdToLegacyEmployeeId]
+  );
+
   const getCentralProjectById = (id: string): CentralProject | undefined => {
     const fromProjects = safeProjects.find((p) => p.id === id);
     const fromDisplay = safeDisplayProjects.find((p) => p.id === id);
@@ -673,6 +694,12 @@ export function CentralModule({
     if (!pendingOpenBinderDocumentId) return;
     setCentralView("binders");
   }, [pendingOpenBinderDocumentId]);
+
+  useEffect(() => {
+    if (!employeePanelId) return;
+    const visible = personnelDirectoryEmployees.some((e) => e.id === employeePanelId);
+    if (!visible) setEmployeePanelId(null);
+  }, [employeePanelId, personnelDirectoryEmployees]);
 
   const safeSubcontractors = Array.isArray(subcontractors) ? subcontractors : [];
 
@@ -1856,7 +1883,7 @@ export function CentralModule({
                 {labels.personnel ?? labels.recentStaff ?? "Personal"}
               </h3>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-                {(safeEmployees ?? []).length > 0 ? (
+                {(personnelDirectoryEmployees ?? []).length > 0 ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1871,13 +1898,21 @@ export function CentralModule({
                             csvCell(tl.export_col_status ?? "Status"),
                           ].join(","),
                         ];
-                        const projNames = (empId: string) =>
-                          (safeDisplayProjects ?? [])
-                            .filter((p) => !p.archived && (p.assignedEmployeeIds ?? []).includes(empId))
+                        const projNames = (profileId: string) => {
+                          const leg = profileIdToLegacyEmployeeId[profileId] ?? profileId;
+                          return (safeDisplayProjects ?? [])
+                            .filter(
+                              (p) =>
+                                !p.archived &&
+                                (p.assignedEmployeeIds ?? []).some(
+                                  (aid) => aid === profileId || aid === leg
+                                )
+                            )
                             .map((p) => (p.name ?? "").trim())
                             .filter(Boolean)
                             .join("; ");
-                        for (const e of safeEmployees ?? []) {
+                        };
+                        for (const e of personnelDirectoryEmployees ?? []) {
                           lines.push(
                             [
                               csvCell(e.name ?? ""),
@@ -1911,13 +1946,17 @@ export function CentralModule({
             </div>
           </div>
           <div className="divide-y divide-zinc-200 dark:divide-white/10">
-            {(safeEmployees ?? []).length === 0 ? (
+            {(personnelDirectoryEmployees ?? []).length === 0 ? (
               <p className="p-8 text-center text-zinc-500 italic text-sm">{labels.noStaff ?? "No hay personal registrado"}</p>
             ) : (
-              (safeEmployees ?? []).map((emp) => {
+              (personnelDirectoryEmployees ?? []).map((emp) => {
                 const certs = emp.certificates ?? [];
                 const status = getTrainingStatus(certs);
                 const certLabel = certs.length === 0 ? (labels.securityNoCerts ?? "Sin certificados") : `${certs.length} ${labels.certificates ?? "certificados"}`;
+                const ps = (emp.profileStatus ?? "").toLowerCase().trim();
+                const invited = ps === "invited";
+                const missingInfo = !String(emp.email ?? "").trim();
+                const tl = labels as Record<string, string>;
                 return (
                   <div
                     key={emp.id}
@@ -1935,12 +1974,30 @@ export function CentralModule({
                         <p className="text-xs text-zinc-400 mt-0.5">{certLabel}</p>
                       </div>
                     </div>
-                    <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status === "al_dia" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" : status === "pendiente" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      {invited ? (
+                        <span
+                          className="inline-flex max-w-[11rem] items-center rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-900 dark:bg-sky-900/40 dark:text-sky-100"
+                          title={tl.employee_invitation_pending ?? ""}
+                        >
+                          {tl.employee_badge_invited ?? "Invitation pending"}
+                        </span>
+                      ) : null}
+                      {missingInfo ? (
+                        <span
+                          className="inline-flex rounded-full bg-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-600 dark:text-zinc-200"
+                          title={tl.employee_badge_missing_tooltip ?? ""}
+                        >
+                          {tl.employee_badge_missing ?? "Missing"}
+                        </span>
+                      ) : null}
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status === "al_dia" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" : status === "pendiente" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
                       {status === "al_dia" && <ShieldCheck className="h-3 w-3" />}
                       {status === "pendiente" && <ShieldAlert className="h-3 w-3" />}
                       {status === "sin_certs" && <ShieldOff className="h-3 w-3" />}
                       {status === "al_dia" ? (labels.upToDate ?? labels.securityOk ?? "Al d?a") : status === "pendiente" ? (labels.pending ?? labels.securityPending ?? "Pendiente") : (labels.withoutCerts ?? labels.securityNoCerts ?? "Sin certificados")}
                     </span>
+                    </div>
                   </div>
                 );
               })
@@ -1950,10 +2007,14 @@ export function CentralModule({
       )}
 
       {employeePanelId && (() => {
-        const emp = (safeEmployees ?? []).find((e) => e.id === employeePanelId);
+        const emp = (personnelDirectoryEmployees ?? []).find((e) => e.id === employeePanelId);
         if (!emp) return null;
         const certs = emp.certificates ?? [];
         const t = labels;
+        const matchingIds = matchingClockIdsFor(emp.id);
+        const psLower = (emp.profileStatus ?? "active").toLowerCase().trim();
+        const isInvitedProfile = psLower === "invited";
+        const leg = profileIdToLegacyEmployeeId[emp.id] ?? emp.id;
         return (
           <>
             <div
@@ -1989,14 +2050,18 @@ export function CentralModule({
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">{emp.role ?? ""}</p>
                     <span
                       className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        (emp.profileStatus ?? "active").toLowerCase().trim() === "active"
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                          : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300"
+                        isInvitedProfile
+                          ? "bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100"
+                          : psLower === "active"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                            : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300"
                       }`}
                     >
-                      {(emp.profileStatus ?? "active").toLowerCase().trim() === "active"
-                        ? (labels as Record<string, string>).common_active ?? "Active"
-                        : (labels as Record<string, string>).common_inactive ?? "Inactive"}
+                      {isInvitedProfile
+                        ? (labels as Record<string, string>).employee_badge_invited ?? "Invitation pending"
+                        : psLower === "active"
+                          ? (labels as Record<string, string>).common_active ?? "Active"
+                          : (labels as Record<string, string>).common_inactive ?? "Inactive"}
                     </span>
                     {emp.customRoleId && (() => {
                       const role = customRoles.find((r) => r.id === emp.customRoleId);
@@ -2011,7 +2076,11 @@ export function CentralModule({
                     })()}
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {(safeDisplayProjects ?? [])
-                        .filter((p) => !p.archived && (p.assignedEmployeeIds ?? []).includes(emp.id))
+                        .filter(
+                          (p) =>
+                            !p.archived &&
+                            (p.assignedEmployeeIds ?? []).some((aid) => aid === emp.id || aid === leg)
+                        )
                         .slice(0, 16)
                         .map((p) => (
                           <span
@@ -2035,6 +2104,12 @@ export function CentralModule({
               </div>
 
               <div className="space-y-5 px-4 py-5 sm:px-6">
+                {isInvitedProfile ? (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
+                    {(labels as Record<string, string>).employee_invitation_pending ??
+                      "Invitation pending — this person has not completed sign-in yet."}
+                  </div>
+                ) : null}
                 {emp.payType && (
                   <div className="border-t border-zinc-100 py-3 dark:border-slate-800">
                     <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -2069,32 +2144,69 @@ export function CentralModule({
                   </div>
                 )}
 
-                <EmployeeDetailClockSection
-                  employeeId={emp.id}
-                  labels={labels as Record<string, string>}
-                  clockEntries={(clockEntries ?? []) as ClockEntry[]}
-                  language={language}
-                  countryCode={countryForDates}
-                  timeZone={timeZone}
-                />
-                <EmployeeDetailTimesheetSection
-                  labels={labels as Record<string, string>}
-                  clockEntries={(clockEntries ?? []) as ClockEntry[]}
-                  employeeId={emp.id}
-                />
-                <EmployeeDetailVacationSection
-                  companyId={companyId}
-                  employeeUserId={employeeIdToUserId[emp.id] ?? null}
-                  labels={labels as Record<string, string>}
-                  vacationRequests={vacationRequests}
-                  vacationAllowance={vacationAllowanceByEmployeeId[emp.id]}
-                />
-                <EmployeeDetailSwpSection
-                  companyId={companyId}
-                  employeeUserId={employeeIdToUserId[emp.id] ?? null}
-                  labels={labels as Record<string, string>}
-                  onOpenSecuritySwp={() => onOpenOperationsSecurity?.()}
-                />
+                <DetailSectionErrorBoundary
+                  fallback={
+                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                    </p>
+                  }
+                >
+                  <EmployeeDetailClockSection
+                    employeeId={emp.id}
+                    matchingEmployeeIds={matchingIds}
+                    labels={labels as Record<string, string>}
+                    clockEntries={(clockEntries ?? []) as ClockEntry[]}
+                    language={language}
+                    countryCode={countryForDates}
+                    timeZone={timeZone}
+                    profileStatus={emp.profileStatus}
+                  />
+                </DetailSectionErrorBoundary>
+                <DetailSectionErrorBoundary
+                  fallback={
+                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                    </p>
+                  }
+                >
+                  <EmployeeDetailTimesheetSection
+                    labels={labels as Record<string, string>}
+                    clockEntries={(clockEntries ?? []) as ClockEntry[]}
+                    employeeId={emp.id}
+                    matchingEmployeeIds={matchingIds}
+                    profileStatus={emp.profileStatus}
+                  />
+                </DetailSectionErrorBoundary>
+                <DetailSectionErrorBoundary
+                  fallback={
+                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                    </p>
+                  }
+                >
+                  <EmployeeDetailVacationSection
+                    companyId={companyId}
+                    employeeUserId={emp.id}
+                    labels={labels as Record<string, string>}
+                    vacationRequests={vacationRequests}
+                    vacationAllowance={vacationAllowanceByEmployeeId[emp.id] ?? 0}
+                    profileStatus={emp.profileStatus}
+                  />
+                </DetailSectionErrorBoundary>
+                <DetailSectionErrorBoundary
+                  fallback={
+                    <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                    </p>
+                  }
+                >
+                  <EmployeeDetailSwpSection
+                    companyId={companyId}
+                    employeeUserId={emp.id}
+                    labels={labels as Record<string, string>}
+                    onOpenSecuritySwp={() => onOpenOperationsSecurity?.()}
+                  />
+                </DetailSectionErrorBoundary>
 
                 <div>
                   <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-3">
@@ -2237,7 +2349,9 @@ export function CentralModule({
                   if (role === "logistic") return null;
                   if (role === "worker" && emp.id !== (currentUserEmployeeId ?? "")) return null;
                   const docsForEmp = (employeeDocs ?? []).filter(
-                    (d) => d.employeeId === emp.id && (!companyId || d.companyId === companyId)
+                    (d) =>
+                      (d.employeeId === emp.id || d.employeeId === leg) &&
+                      (!companyId || d.companyId === companyId)
                   );
                   const isDocAdmin = role === "admin";
                   return (
