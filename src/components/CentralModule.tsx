@@ -116,18 +116,18 @@ function getTrainingStatus(certs: { expiryDate?: string }[] | undefined): "sin_c
 function employeeDocTypeLabel(type: EmployeeDocument["type"], tl: Record<string, string>): string {
   switch (type) {
     case "contract":
-      return tl.docTypeContract ?? "Contract";
+      return asTextChild(tl.docTypeContract, "Contract");
     case "certificate":
-      return tl.docTypeCertificate ?? "Certificate";
+      return asTextChild(tl.docTypeCertificate, "Certificate");
     case "id":
-      return tl.docTypeId ?? "ID";
+      return asTextChild(tl.docTypeId, "ID");
     case "training":
-      return tl.docTypeTraining ?? "Training";
+      return asTextChild(tl.docTypeTraining, "Training");
     case "medical":
-      return tl.docTypeMedical ?? "Medical";
+      return asTextChild(tl.docTypeMedical, "Medical");
     case "other":
     default:
-      return tl.docTypeOther ?? "Other";
+      return asTextChild(tl.docTypeOther, "Other");
   }
 }
 
@@ -186,6 +186,20 @@ function initialsFromName(name: string): string {
   if (p.length === 0) return "?";
   if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+}
+
+/** Coerce i18n / Supabase values so React never renders a non-text child (React #300). */
+function asTextChild(v: unknown, fallback = ""): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return fallback;
+}
+
+function sanitizeLabelRecord(raw: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(raw).map(([k, v]) => [k, asTextChild(v, "")])
+  ) as Record<string, string>;
 }
 
 interface CentralModuleProps {
@@ -370,24 +384,24 @@ function getComplianceStatusBadge(
   if (status === "valid")
     return (
       <span className="inline-flex rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-        {labels.valid ?? "Al d?a"}
+        {asTextChild(labels.valid, "Al día")}
       </span>
     );
   if (status === "expiring")
     return (
       <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-        {labels.expiring ?? "Vence pronto"}
+        {asTextChild(labels.expiring, "Vence pronto")}
       </span>
     );
   if (status === "expired")
     return (
       <span className="inline-flex rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
-        {labels.expired ?? "Vencido"}
+        {asTextChild(labels.expired, "Vencido")}
       </span>
     );
   return (
     <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-      {labels.missing ?? "Sin datos"}
+      {asTextChild(labels.missing, "Sin datos")}
     </span>
   );
 }
@@ -567,9 +581,10 @@ export function CentralModule({
   });
 
   const permLabel = (key: keyof RolePermissions): string => {
-    const lx = labels as Record<string, string>;
-    const i18n = lx[permLocaleKey(key)];
-    return i18n && i18n.trim() !== "" ? i18n : ROLE_PERMISSION_LABELS[key];
+    const lx = labels as Record<string, unknown>;
+    const raw = lx[permLocaleKey(key)];
+    const i18n = typeof raw === "string" ? raw.trim() : "";
+    return i18n !== "" ? i18n : ROLE_PERMISSION_LABELS[key];
   };
 
   const lxRecord = labels as Record<string, string>;
@@ -2010,7 +2025,7 @@ export function CentralModule({
         const emp = (personnelDirectoryEmployees ?? []).find((e) => e.id === employeePanelId);
         if (!emp) return null;
         const certs = emp.certificates ?? [];
-        const t = labels;
+        const t = sanitizeLabelRecord(labels as Record<string, unknown>);
         const matchingIds = matchingClockIdsFor(emp.id);
         const psLower = (emp.profileStatus ?? "active").toLowerCase().trim();
         const isInvitedProfile = psLower === "invited";
@@ -2038,16 +2053,16 @@ export function CentralModule({
               <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-4 dark:border-slate-700 sm:px-6">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                    {initialsFromName(emp.name ?? "")}
+                    {initialsFromName(asTextChild(emp.name, ""))}
                   </div>
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      {(labels as Record<string, string>).employee_detail_title ?? ""}
+                      {t.employee_detail_title ?? ""}
                     </p>
                     <h4 className="text-base font-semibold leading-tight text-zinc-900 dark:text-white">
-                      {emp.name ?? "?"}
+                      {asTextChild(emp.name, "?")}
                     </h4>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{emp.role ?? ""}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{asTextChild(emp.role, "")}</p>
                     <span
                       className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         isInvitedProfile
@@ -2058,10 +2073,10 @@ export function CentralModule({
                       }`}
                     >
                       {isInvitedProfile
-                        ? (labels as Record<string, string>).employee_badge_invited ?? "Invitation pending"
+                        ? t.employee_badge_invited ?? "Invitation pending"
                         : psLower === "active"
-                          ? (labels as Record<string, string>).common_active ?? "Active"
-                          : (labels as Record<string, string>).common_inactive ?? "Inactive"}
+                          ? t.common_active ?? "Active"
+                          : t.common_inactive ?? "Inactive"}
                     </span>
                     {emp.customRoleId && (() => {
                       const role = customRoles.find((r) => r.id === emp.customRoleId);
@@ -2070,7 +2085,7 @@ export function CentralModule({
                           style={{ backgroundColor: role.color }}
                           className="inline-flex mt-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
                         >
-                          {role.name}
+                          {asTextChild(role.name, "")}
                         </span>
                       ) : null;
                     })()}
@@ -2085,10 +2100,10 @@ export function CentralModule({
                         .map((p) => (
                           <span
                             key={p.id}
-                            title={p.name ?? ""}
+                            title={asTextChild(p.name, p.id)}
                             className="max-w-[160px] truncate rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-slate-700 dark:text-zinc-200"
                           >
-                            {p.name ?? p.id}
+                            {asTextChild(p.name, p.id)}
                           </span>
                         ))}
                     </div>
@@ -2106,14 +2121,14 @@ export function CentralModule({
               <div className="space-y-5 px-4 py-5 sm:px-6">
                 {isInvitedProfile ? (
                   <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
-                    {(labels as Record<string, string>).employee_invitation_pending ??
+                    {t.employee_invitation_pending ??
                       "Invitation pending — this person has not completed sign-in yet."}
                   </div>
                 ) : null}
                 {emp.payType && (
                   <div className="border-t border-zinc-100 py-3 dark:border-slate-800">
                     <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      {(t as Record<string, string>).employees_payment_type ?? t.employees_section_pay ?? "Pay type"}
+                      {t.employees_payment_type ?? t.employees_section_pay ?? "Pay type"}
                     </p>
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       {emp.payType === "hourly"
@@ -2127,18 +2142,16 @@ export function CentralModule({
                   <div className="space-y-1.5">
                     {emp.phone && (
                       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        <span className="text-zinc-400 dark:text-zinc-500 mr-2">{(labels as Record<string, string>).phone ?? "Tel?fono"}</span>
-                        {emp.phone}
+                        <span className="text-zinc-400 dark:text-zinc-500 mr-2">{t.phone ?? "Teléfono"}</span>
+                        {asTextChild(emp.phone, "")}
                       </p>
                     )}
                     {emp.email && (
                       <p className="break-words text-sm text-zinc-600 dark:text-zinc-400">
                         <span className="mr-2 text-zinc-400 dark:text-zinc-500">
-                          {(labels as Record<string, string>).visitors_email ??
-                            (labels as Record<string, string>).login_email_label ??
-                            "Email"}
+                          {t.visitors_email ?? t.login_email_label ?? "Email"}
                         </span>
-                        {emp.email}
+                        {asTextChild(emp.email, "")}
                       </p>
                     )}
                   </div>
@@ -2147,14 +2160,14 @@ export function CentralModule({
                 <DetailSectionErrorBoundary
                   fallback={
                     <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                      {t.employee_detail_section_unavailable ?? "—"}
                     </p>
                   }
                 >
                   <EmployeeDetailClockSection
                     employeeId={emp.id}
                     matchingEmployeeIds={matchingIds}
-                    labels={labels as Record<string, string>}
+                    labels={t}
                     clockEntries={(clockEntries ?? []) as ClockEntry[]}
                     language={language}
                     countryCode={countryForDates}
@@ -2165,12 +2178,12 @@ export function CentralModule({
                 <DetailSectionErrorBoundary
                   fallback={
                     <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                      {t.employee_detail_section_unavailable ?? "—"}
                     </p>
                   }
                 >
                   <EmployeeDetailTimesheetSection
-                    labels={labels as Record<string, string>}
+                    labels={t}
                     clockEntries={(clockEntries ?? []) as ClockEntry[]}
                     employeeId={emp.id}
                     matchingEmployeeIds={matchingIds}
@@ -2180,43 +2193,47 @@ export function CentralModule({
                 <DetailSectionErrorBoundary
                   fallback={
                     <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                      {t.employee_detail_section_unavailable ?? "—"}
                     </p>
                   }
                 >
                   <EmployeeDetailVacationSection
                     companyId={companyId}
                     employeeUserId={emp.id}
-                    labels={labels as Record<string, string>}
+                    labels={t}
                     vacationRequests={vacationRequests}
-                    vacationAllowance={vacationAllowanceByEmployeeId[emp.id] ?? 0}
+                    vacationAllowance={
+                      Number.isFinite(Number(vacationAllowanceByEmployeeId[emp.id]))
+                        ? Number(vacationAllowanceByEmployeeId[emp.id])
+                        : 0
+                    }
                     profileStatus={emp.profileStatus}
                   />
                 </DetailSectionErrorBoundary>
                 <DetailSectionErrorBoundary
                   fallback={
                     <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                      {(labels as Record<string, string>).employee_detail_section_unavailable ?? "—"}
+                      {t.employee_detail_section_unavailable ?? "—"}
                     </p>
                   }
                 >
                   <EmployeeDetailSwpSection
                     companyId={companyId}
                     employeeUserId={emp.id}
-                    labels={labels as Record<string, string>}
+                    labels={t}
                     onOpenSecuritySwp={() => onOpenOperationsSecurity?.()}
                   />
                 </DetailSectionErrorBoundary>
 
                 <div>
                   <h5 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-3">
-                    {(labels as Record<string, string>).employee_detail_certificates ?? t.certificates ?? ""}
+                    {t.employee_detail_certificates ?? t.certificates ?? ""}
                   </h5>
 
                   {certs.length === 0 ? (
                     <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-6 text-center dark:border-slate-700 dark:bg-slate-800/40">
                       <p className="text-sm italic text-zinc-400 dark:text-zinc-500">
-                        {labels.securityNoCerts ?? (labels as Record<string, string>).noStaff ?? "—"}
+                        {t.securityNoCerts ?? t.noStaff ?? "—"}
                       </p>
                     </div>
                   ) : (
@@ -2224,20 +2241,21 @@ export function CentralModule({
                       {(certs ?? []).map((c) => {
                         const state = certSemaphore(c.expiryDate);
                         const days = c.expiryDate ? daysUntilExpiry(c.expiryDate) : null;
-                        const tlPanel = labels as Record<string, string>;
+                        const tlPanel = t;
                         const rowClass =
                           state === "expired"
                             ? "border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/20"
                             : state === "soon"
                               ? "border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20"
                               : "border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900";
+                        const expYmd = String(c.expiryDate ?? "");
                         const expiryText =
                           state === "expired"
-                            ? `${tlPanel.expired ?? "Expired"} · ${c.expiryDate ?? ""}`
+                            ? `${tlPanel.expired ?? "Expired"} · ${expYmd}`
                             : state === "soon" && days != null
                               ? (tlPanel.expiresInDays ?? "Expires in {n} days").replace("{n}", String(days))
                               : c.expiryDate
-                                ? `${tlPanel.expiresOn ?? "Expires"}: ${c.expiryDate}`
+                                ? `${tlPanel.expiresOn ?? "Expires"}: ${expYmd}`
                                 : tlPanel.noExpiry ?? "—";
                         const textColor =
                           state === "expired"
@@ -2252,7 +2270,9 @@ export function CentralModule({
                           >
                             <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" aria-hidden />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{c.name}</p>
+                              <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                {asTextChild(c.name, "—")}
+                              </p>
                               <p className={`text-xs ${textColor}`}>{expiryText}</p>
                             </div>
                           </div>
@@ -2263,28 +2283,26 @@ export function CentralModule({
 
                   <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-slate-700">
                     <p className="mb-2 text-xs uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      {(labels as Record<string, string>).employees_status ??
-                        (labels as Record<string, string>).common_status ??
-                        "Status"}
+                      {t.employees_status ?? t.common_status ?? "Status"}
                     </p>
                     {(() => {
                       const st = getTrainingStatus(certs);
-                      const tlG = labels as Record<string, string>;
+                      const tlG = t;
                       if (st === "sin_certs")
                         return (
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
-                            {labels.securityNoCerts ?? tlG.withoutCerts ?? "—"}
+                            {t.securityNoCerts ?? tlG.withoutCerts ?? "—"}
                           </span>
                         );
                       if (st === "pendiente")
                         return (
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                            {labels.pending ?? tlG.securityPending ?? tlG.expiredCerts ?? "—"}
+                            {t.pending ?? tlG.securityPending ?? tlG.expiredCerts ?? "—"}
                           </span>
                         );
                       return (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                          {labels.upToDate ?? labels.securityOk ?? "—"}
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-900/30 dark:text-emerald-300">
+                          {t.upToDate ?? t.securityOk ?? "—"}
                         </span>
                       );
                     })()}
@@ -2309,15 +2327,17 @@ export function CentralModule({
                               className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0"
                             >
                               <div>
-                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{field.name}</p>
+                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                  {asTextChild(field.name, "")}
+                                </p>
                                 {record?.expiryDate && (
                                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    {(t as Record<string, string>).expiresOn ?? "Vence"}: {record.expiryDate}
+                                    {t.expiresOn ?? "Vence"}: {asTextChild(record.expiryDate, "")}
                                   </p>
                                 )}
                               </div>
                               <div className="flex items-center gap-2">
-                                {getComplianceStatusBadge(record, t as Record<string, string>)}
+                                {getComplianceStatusBadge(record, t)}
                                 {canEdit && onComplianceRecordsChange && (
                                   <button
                                     type="button"
@@ -2400,7 +2420,7 @@ export function CentralModule({
                                   </span>
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                                      {doc.title}
+                                      {asTextChild(doc.title, "")}
                                     </p>
                                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                       <span className="inline-flex rounded-full bg-zinc-200/80 dark:bg-slate-600 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:text-zinc-200">
@@ -2415,7 +2435,9 @@ export function CentralModule({
                                       )}
                                     </div>
                                     {doc.notes && (
-                                      <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{doc.notes}</p>
+                                      <p className="text-xs text-zinc-500 mt-1 line-clamp-2">
+                                        {asTextChild(doc.notes, "")}
+                                      </p>
                                     )}
                                   </div>
                                 </div>
@@ -2614,10 +2636,10 @@ export function CentralModule({
                             style={{ backgroundColor: assigned.color }}
                             className="inline-flex rounded-full px-3 py-1 text-xs font-medium text-white"
                           >
-                            {assigned.name}
+                            {asTextChild(assigned.name, "")}
                           </span>
                         ) : (
-                          <span className="text-sm text-zinc-700 dark:text-zinc-200">{emp.role ?? "—"}</span>
+                          <span className="text-sm text-zinc-700 dark:text-zinc-200">{asTextChild(emp.role, "—")}</span>
                         )}
                       </div>
                       <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-700 px-3 py-2">
@@ -2637,7 +2659,7 @@ export function CentralModule({
                         </button>
                       </div>
                       <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                        {(t as Record<string, string>).useRolePermissionsHint ??
+                        {t.useRolePermissionsHint ??
                           "Desactiva para personalizar los permisos de este empleado individualmente"}
                       </p>
                       {!useRole && (

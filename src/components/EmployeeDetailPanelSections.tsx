@@ -78,6 +78,14 @@ function hoursBetweenDay(clockIn: string, clockOut?: string): number | null {
 
 type Labels = Record<string, string>;
 
+/** Avoid React #300 when i18n or DB returns a non-primitive. */
+function asTextChild(v: unknown, fallback = ""): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return fallback;
+}
+
 export function EmployeeDetailClockSection(props: {
   employeeId: string;
   /** Match clock rows where employeeId is profile UUID and/or legacy `employees.id` text. */
@@ -99,7 +107,7 @@ export function EmployeeDetailClockSection(props: {
     timeZone,
     profileStatus,
   } = props;
-  const L = (k: string, fb?: string) => tl[k] ?? fb ?? "";
+  const L = (k: string, fb?: string) => asTextChild(tl[k], fb ?? "");
   const { ref, visible } = useLazyVisible();
   const tz = timeZone ?? resolveUserTimezone(null);
   const dateLoc = dateLocaleForUser(language, countryCode);
@@ -203,7 +211,7 @@ export function EmployeeDetailTimesheetSection(props: {
   profileStatus?: string | null;
 }) {
   const { labels: tl, clockEntries, employeeId, matchingEmployeeIds, profileStatus } = props;
-  const L = (k: string, fb?: string) => tl[k] ?? fb ?? "";
+  const L = (k: string, fb?: string) => asTextChild(tl[k], fb ?? "");
   const { ref, visible } = useLazyVisible();
 
   const idSet = useMemo(() => {
@@ -291,7 +299,7 @@ export function EmployeeDetailVacationSection(props: {
     profileStatus,
   } = props;
   const vacationAllowance = Number.isFinite(Number(vacationAllowanceRaw)) ? Number(vacationAllowanceRaw) : 0;
-  const L = (k: string, fb?: string) => tl[k] ?? fb ?? "";
+  const L = (k: string, fb?: string) => asTextChild(tl[k], fb ?? "");
   const { ref, visible } = useLazyVisible();
   const [remote, setRemote] = useState<VacationRequestRow[] | null>(null);
 
@@ -370,7 +378,7 @@ export function EmployeeDetailVacationSection(props: {
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 px-3 py-2 dark:border-slate-700"
               >
                 <span className="text-xs text-zinc-600 dark:text-zinc-300">
-                  {v.start_date} – {v.end_date}
+                  {String(v.start_date ?? "")} – {String(v.end_date ?? "")}
                 </span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -415,7 +423,7 @@ export function EmployeeDetailSwpSection(props: {
   onOpenSecuritySwp?: () => void;
 }) {
   const { companyId, employeeUserId, labels: tl, onOpenSecuritySwp } = props;
-  const L = (k: string, fb?: string) => tl[k] ?? fb ?? "";
+  const L = (k: string, fb?: string) => asTextChild(tl[k], fb ?? "");
   const { ref, visible } = useLazyVisible();
   const [loading, setLoading] = useState(false);
   const [signedTitles, setSignedTitles] = useState<string[]>([]);
@@ -445,8 +453,8 @@ export function EmployeeDetailSwpSection(props: {
         }
         const signedIds = new Set((sigs ?? []).map((s: { swp_id: string }) => s.swp_id));
         const titles = (swps ?? []) as { id: string; title: string }[];
-        const signed = titles.filter((w) => signedIds.has(w.id)).map((w) => w.title);
-        const pending = titles.filter((w) => !signedIds.has(w.id)).map((w) => w.title);
+        const signed = titles.filter((w) => signedIds.has(w.id)).map((w) => asTextChild(w.title, ""));
+        const pending = titles.filter((w) => !signedIds.has(w.id)).map((w) => asTextChild(w.title, ""));
         setSignedTitles(signed);
         setPendingTitles(pending);
       } finally {
