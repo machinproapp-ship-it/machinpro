@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import Image from "next/image";
+import { cloudinaryAvatar } from "@/lib/cloudinaryUrl";
 
 export type BrandLogoImageProps = {
   src: string;
@@ -31,8 +32,11 @@ export function BrandLogoImage({
   imageClassName,
   onError,
 }: BrandLogoImageProps) {
+  const displaySrc = cloudinaryAvatar(src);
   const unoptimized =
-    src.startsWith("http://") || src.startsWith("https://") || src.startsWith("//");
+    displaySrc.startsWith("http://") ||
+    displaySrc.startsWith("https://") ||
+    displaySrc.startsWith("//");
 
   return (
     <div
@@ -40,7 +44,7 @@ export function BrandLogoImage({
       style={{ padding: 0 }}
     >
       <Image
-        src={src}
+        src={displaySrc}
         alt={alt}
         fill
         sizes={sizes}

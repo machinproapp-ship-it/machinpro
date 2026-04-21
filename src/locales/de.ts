@@ -3537,4 +3537,13 @@ export default {
   integrations_slack_desc: "Team-Benachrichtigungen.",
   integrations_gcal: "Google Kalender",
   integrations_gcal_desc: "Schichten synchronisieren.",
+
+  payroll_view_catalog: "Produktionskatalog anzeigen",
+  payroll_catalog_admin_only:
+    "Der Produktionskatalog wird in den Einstellungen verwaltet. Bitte einen Administrator um Stückpreise.",
+  unsaved_title: "Ungespeicherte Änderungen",
+  unsaved_message:
+    "Sie haben ungespeicherte Änderungen. Möchten Sie wirklich verlassen?",
+  unsaved_stay: "Bleiben",
+  unsaved_leave: "Trotzdem verlassen",
 } as const;

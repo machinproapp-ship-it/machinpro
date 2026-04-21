@@ -3559,4 +3559,12 @@ export default {
   integrations_slack_desc: "Notifiche di team.",
   integrations_gcal: "Google Calendar",
   integrations_gcal_desc: "Sincronizza turni.",
+
+  payroll_view_catalog: "Visualizza catalogo produzione",
+  payroll_catalog_admin_only:
+    "Il catalogo produzione si configura in Impostazioni. Chiedi a un amministratore di gestire i prezzi unitari.",
+  unsaved_title: "Modifiche non salvate",
+  unsaved_message: "Hai modifiche non salvate. Sei sicuro di voler uscire?",
+  unsaved_stay: "Rimani",
+  unsaved_leave: "Esci comunque",
 } as const;

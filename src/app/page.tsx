@@ -1479,9 +1479,14 @@ export default function Home() {
   const [dashVisitorTabSig, setDashVisitorTabSig] = useState(0);
   const [projectsOpenRfiSig, setProjectsOpenRfiSig] = useState(0);
   const [settingsHelpFocusSignal, setSettingsHelpFocusSignal] = useState(0);
+  const [settingsProductionCatalogFocusSignal, setSettingsProductionCatalogFocusSignal] = useState(0);
   const openSettingsHelpFromFab = useCallback(() => {
     setActiveSection("settings");
     setSettingsHelpFocusSignal((n) => n + 1);
+  }, []);
+  const openSettingsProductionCatalog = useCallback(() => {
+    setActiveSection("settings");
+    setSettingsProductionCatalogFocusSignal((n) => n + 1);
   }, []);
   const consumeCorrectivePrefill = useCallback(() => setCorrectivePrefill(null), []);
   const clearProjectSecurityDashSignals = useCallback(() => {
@@ -6396,6 +6401,9 @@ export default function Home() {
                 onPendingOpenBinderDocumentHandled={clearPendingOpenBinderDocument}
                 companyName={(profile?.companyName ?? companyName) || null}
                 onNavigateAppSection={(s) => setActiveSection(s)}
+                onNavigateToProductionCatalog={
+                  perms.canViewSettings ? openSettingsProductionCatalog : undefined
+                }
                 onQuickNewHazard={() => {
                   navigateToOperationsProjectSecurity();
                   setDashHazardCreateSig((n) => n + 1);
@@ -7915,6 +7923,7 @@ export default function Home() {
                 savedProfileTimeZone={profile?.timezone ?? null}
                 onPersistUserTimeZone={(tz) => void applyUserTimezone(tz)}
                 focusHelpSectionSignal={settingsHelpFocusSignal}
+                focusProductionCatalogSignal={settingsProductionCatalogFocusSignal}
                 darkMode={darkMode ?? false}
                 onDarkModeChange={(next) => setDarkMode(next)}
                 showMfaSecuritySection={effectiveRole === "admin" || effectiveRole === "supervisor"}

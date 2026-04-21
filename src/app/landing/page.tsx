@@ -11,7 +11,7 @@ const LandingPwaInstallBar = dynamic(
 );
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { LandingLanguageSelect } from "@/components/LandingLanguageSelect";
-import { Star, HardHat, ClipboardList, TrendingUp } from "lucide-react";
+import { Star, HardHat, ClipboardList, TrendingUp, Play } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
 import { detectGeo, getCurrencyForCountry, type GeoDetect } from "@/lib/geoTier";
 import {
@@ -314,6 +314,49 @@ export default function LandingPage() {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const faqRows = useMemo(
+    () =>
+      [
+        [
+          "landing_faq_q1",
+          "landing_faq_a1",
+          "Is there a free trial?",
+          "Yes, 14 days. No credit card required.",
+        ],
+        [
+          "landing_faq_q2",
+          "landing_faq_a2",
+          "How many users can I add?",
+          "Essential: 15 users · Operations/Logistics: 30 users · All Inclusive: unlimited.",
+        ],
+        [
+          "landing_faq_q3",
+          "landing_faq_a3",
+          "Does it work offline?",
+          "Yes. Forms and key features work offline and sync automatically when back online.",
+        ],
+        [
+          "landing_faq_q4",
+          "landing_faq_a4",
+          "Is my data secure?",
+          "Hosted on Supabase with row-level security. GDPR and PIPEDA compliant.",
+        ],
+        [
+          "landing_faq_q5",
+          "landing_faq_a5",
+          "Can I cancel anytime?",
+          "Yes. No contracts, no cancellation fees.",
+        ],
+        [
+          "landing_faq_q6",
+          "landing_faq_a6",
+          "What languages are supported?",
+          "21 languages including English, Spanish, French, German, Italian, Portuguese and more.",
+        ],
+      ] as const,
+    []
+  );
+
   const features = useMemo(
     (): FeatureRow[] => [
       {
@@ -501,13 +544,12 @@ export default function LandingPage() {
                 >
                   {tx("landing_cta_start", "Start free 14 days")}
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => scrollToId("caracteristicas")}
+                <Link
+                  href="/demo"
                   className="inline-flex min-h-[44px] items-center justify-center rounded-xl border-2 border-[#b8860b] bg-transparent px-6 py-3 text-base font-semibold text-[#f6e27a] hover:bg-[#b8860b]/10 transition-colors"
                 >
                   {tx("landing_cta_demo", "View demo")}
-                </button>
+                </Link>
               </div>
               <p className="mt-4 max-w-2xl text-center text-xs text-teal-200/85 dark:text-teal-200/70 sm:text-sm">
                 {tx("landing_availability", tx("landing_countries_languages", ""))}
@@ -872,6 +914,76 @@ export default function LandingPage() {
                       ))}
                   </ul>
                 </div>
+              ))}
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
+        id="landing-countries"
+        className="scroll-mt-24 border-y border-slate-200 bg-white px-4 py-12 dark:border-slate-800 dark:bg-slate-950 sm:py-14"
+      >
+        <div className="mx-auto max-w-6xl">
+          <FadeSection>
+            <h2 className="text-center text-lg font-semibold text-slate-900 dark:text-white sm:text-xl">
+              {tx("landing_countries_strip_title", "Available for teams in")}
+            </h2>
+            <div className="mt-4 flex max-w-full gap-4 overflow-x-auto pb-2 [scrollbar-width:thin] sm:justify-center">
+              <p className="whitespace-nowrap px-2 text-center text-sm text-slate-600 dark:text-slate-400 sm:whitespace-normal">
+                {tx(
+                  "landing_countries_strip_line",
+                  "🇨🇦 Canada · 🇺🇸 USA · 🇪🇸 Spain · 🇲🇽 Mexico · 🇬🇧 UK · 🇩🇪 Germany · 🇦🇺 Australia · 🇳🇿 New Zealand"
+                )}
+              </p>
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
+        id="landing-video"
+        className="scroll-mt-24 bg-slate-100 px-4 py-14 dark:bg-slate-900/80 sm:py-16"
+      >
+        <div className="mx-auto max-w-3xl">
+          <FadeSection>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 px-6 py-10 text-center shadow-lg dark:border-slate-700">
+              <Play className="mx-auto h-14 w-14 text-orange-400 sm:h-16 sm:w-16" aria-hidden />
+              <p className="mt-4 text-lg font-semibold text-white">{tx("landing_video_placeholder_title", "Demo video coming soon")}</p>
+              <p className="mt-2 text-sm text-slate-400">{tx("landing_video_placeholder_subtitle", "Full walkthrough of MachinPro in action")}</p>
+              <Link
+                href="/beta"
+                className="mt-6 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-[#f97316] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
+              >
+                {tx("landing_video_early_access", "Get early access")}
+              </Link>
+            </div>
+          </FadeSection>
+        </div>
+      </section>
+
+      <section id="landing-faq" className="scroll-mt-24 border-t border-slate-200 bg-white px-4 py-14 dark:border-slate-800 dark:bg-slate-950 sm:py-20">
+        <div className="mx-auto max-w-3xl">
+          <FadeSection>
+            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              {tx("landing_faq_title", "FAQ")}
+            </h2>
+            <div className="mt-8 space-y-3">
+              {faqRows.map(([qk, ak, qFb, aFb]) => (
+                <details
+                  key={qk}
+                  className="group rounded-xl border border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/60 open:ring-1 open:ring-orange-200/80 dark:open:ring-orange-900/40"
+                >
+                  <summary className="flex min-h-[44px] cursor-pointer list-none items-center px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 [&::-webkit-details-marker]:hidden">
+                    <span className="flex-1 pr-2 text-left">{tx(qk, qFb)}</span>
+                    <span className="text-slate-400 transition-transform group-open:rotate-180" aria-hidden>
+                      ▾
+                    </span>
+                  </summary>
+                  <p className="border-t border-slate-200 px-4 pb-4 pt-2 text-sm leading-relaxed text-slate-600 dark:border-slate-700 dark:text-slate-400">
+                    {tx(ak, aFb)}
+                  </p>
+                </details>
               ))}
             </div>
           </FadeSection>

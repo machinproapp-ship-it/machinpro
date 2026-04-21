@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import {
   Sliders,
   LogOut,
@@ -31,6 +31,7 @@ import {
 import { REGIONAL_TIMEZONE_GROUPS, allGroupedTimezones, cityLabelFromIana } from "@/lib/regionalTimezones";
 import { REGIONAL_COUNTRY_DEFAULTS as COUNTRY_DEFAULTS, REGIONAL_COUNTRIES as COUNTRIES } from "@/lib/regionalCountries";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
+import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 import { supabase } from "@/lib/supabase";
 import type { Factor } from "@supabase/supabase-js";
 import type { CatalogItem } from "@/lib/productionCatalog";
@@ -94,6 +95,8 @@ export interface SettingsModuleProps {
   onPersistUserTimeZone?: (tz: string) => void | Promise<void>;
   /** Increment to open the Help & tutorials section (e.g. from module help on mobile). */
   focusHelpSectionSignal?: number;
+  /** Increment to open Catálogo de producción (Ajustes). */
+  focusProductionCatalogSignal?: number;
   /** Theme control (moved from app header). */
   darkMode?: boolean;
   onDarkModeChange?: (dark: boolean) => void;
@@ -161,6 +164,7 @@ export function SettingsModule({
   savedProfileTimeZone = null,
   onPersistUserTimeZone,
   focusHelpSectionSignal = 0,
+  focusProductionCatalogSignal = 0,
   darkMode = false,
   onDarkModeChange,
   showMfaSecuritySection = false,
@@ -296,6 +300,152 @@ export function SettingsModule({
 
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("general");
   const [regionalTimezone, setRegionalTimezone] = useState(DEFAULT_IANA_TIMEZONE);
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+  const pendingSettingsTab = useRef<SettingsSectionId | null>(null);
+  const lastSettingsTab = useRef<SettingsSectionId | null>(null);
+
+  const companyBaseline = useRef<{
+    companyName: string;
+    companyAddress: string;
+    companyPhone: string;
+    companyEmail: string;
+    companyWebsite: string;
+    logoUrl: string;
+  } | null>(null);
+  const profileBaseline = useRef<{
+    fullName: string;
+    phone: string;
+    locationSharing: boolean;
+    lang: Language;
+  } | null>(null);
+  const generalBaseline = useRef<{ measurementSystem: "metric" | "imperial"; darkMode: boolean } | null>(null);
+
+  const captureCompanyBaseline = useCallback(() => {
+    companyBaseline.current = {
+      companyName,
+      companyAddress: companyAddress ?? "",
+      companyPhone: companyPhone ?? "",
+      companyEmail: companyEmail ?? "",
+      companyWebsite: companyWebsite ?? "",
+      logoUrl,
+    };
+  }, [companyName, companyAddress, companyPhone, companyEmail, companyWebsite, logoUrl]);
+
+  const captureProfileBaseline = useCallback(() => {
+    profileBaseline.current = {
+      fullName: profileFullName ?? "",
+      phone: profilePhone ?? "",
+      locationSharing: profileLocationSharingEnabled ?? false,
+      lang: language,
+    };
+  }, [profileFullName, profilePhone, profileLocationSharingEnabled, language]);
+
+  const captureGeneralBaseline = useCallback(() => {
+    generalBaseline.current = {
+      measurementSystem,
+      darkMode: !!darkMode,
+    };
+  }, [measurementSystem, darkMode]);
+
+  const dirtyCompany =
+    !!canEditCompanyProfile &&
+    companyBaseline.current != null &&
+    (companyName !== companyBaseline.current.companyName ||
+      (companyAddress ?? "") !== companyBaseline.current.companyAddress ||
+      (companyPhone ?? "") !== companyBaseline.current.companyPhone ||
+      (companyEmail ?? "") !== companyBaseline.current.companyEmail ||
+      (companyWebsite ?? "") !== companyBaseline.current.companyWebsite ||
+      logoUrl !== companyBaseline.current.logoUrl);
+
+  const dirtyProfile =
+    !!(setProfileFullName && profileBaseline.current != null) &&
+    ((profileFullName ?? "") !== profileBaseline.current.fullName ||
+      (profilePhone ?? "") !== profileBaseline.current.phone ||
+      (profileLocationSharingEnabled ?? false) !== profileBaseline.current.locationSharing ||
+      language !== profileBaseline.current.lang);
+
+  const dirtyGeneral =
+    generalBaseline.current != null &&
+    (measurementSystem !== generalBaseline.current.measurementSystem || !!darkMode !== generalBaseline.current.darkMode);
+
+  const wasCompanySavingRef = useRef(false);
+  useEffect(() => {
+    if (wasCompanySavingRef.current && !companyProfileSaveBusy && canEditCompanyProfile) {
+      captureCompanyBaseline();
+    }
+    wasCompanySavingRef.current = !!companyProfileSaveBusy;
+  }, [companyProfileSaveBusy, captureCompanyBaseline, canEditCompanyProfile]);
+
+  const wasProfileSavingRef = useRef(false);
+  useEffect(() => {
+    if (wasProfileSavingRef.current && !profileSaveBusy && setProfileFullName) {
+      captureProfileBaseline();
+    }
+    wasProfileSavingRef.current = !!profileSaveBusy;
+  }, [profileSaveBusy, captureProfileBaseline, setProfileFullName]);
+
+  useEffect(() => {
+    const prev = lastSettingsTab.current;
+    if (activeSettingsSection === "company" && prev !== "company" && canEditCompanyProfile) {
+      captureCompanyBaseline();
+    }
+    if (activeSettingsSection === "profile" && prev !== "profile") {
+      captureProfileBaseline();
+    }
+    if (activeSettingsSection === "general" && prev !== "general") {
+      captureGeneralBaseline();
+    }
+    lastSettingsTab.current = activeSettingsSection;
+  }, [
+    activeSettingsSection,
+    captureCompanyBaseline,
+    captureProfileBaseline,
+    captureGeneralBaseline,
+    canEditCompanyProfile,
+  ]);
+
+  useEffect(() => {
+    if (
+      activeSettingsSection === "general" &&
+      generalBaseline.current == null &&
+      measurementSystem !== undefined
+    ) {
+      captureGeneralBaseline();
+    }
+  }, [activeSettingsSection, measurementSystem, darkMode, captureGeneralBaseline]);
+
+  const navigateToTab = useCallback((next: SettingsSectionId) => {
+    pendingSettingsTab.current = null;
+    setActiveSettingsSection(next);
+  }, []);
+
+  const requestTabChange = useCallback(
+    (next: SettingsSectionId) => {
+      const leaving = activeSettingsSection;
+      const dirty =
+        (leaving === "company" && dirtyCompany) ||
+        (leaving === "profile" && dirtyProfile) ||
+        (leaving === "general" && dirtyGeneral);
+      if (dirty && next !== leaving) {
+        pendingSettingsTab.current = next;
+        setUnsavedDialogOpen(true);
+        return;
+      }
+      navigateToTab(next);
+    },
+    [activeSettingsSection, dirtyCompany, dirtyProfile, dirtyGeneral, navigateToTab]
+  );
+
+  useEffect(() => {
+    const anyDirty = dirtyCompany || dirtyProfile || dirtyGeneral;
+    if (!anyDirty || typeof window === "undefined") return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirtyCompany, dirtyProfile, dirtyGeneral]);
 
   useEffect(() => {
     if (activeSettingsSection !== "integrations" || !canEditCompanyProfile || !session?.access_token) return;
@@ -417,8 +567,32 @@ export function SettingsModule({
 
   useEffect(() => {
     if (!focusHelpSectionSignal) return;
-    setActiveSettingsSection("help");
-  }, [focusHelpSectionSignal]);
+    navigateToTab("help");
+  }, [focusHelpSectionSignal, navigateToTab]);
+
+  useEffect(() => {
+    if (!focusProductionCatalogSignal) return;
+    const canOpenProduction =
+      !!(canManageProductionCatalog && companyId && onRefreshProductionCatalog);
+    if (canOpenProduction) {
+      navigateToTab("production");
+    } else {
+      navigateToTab("general");
+      showToast(
+        "info",
+        (tl.payroll_catalog_admin_only ?? "").trim() ||
+          "The production catalog is managed in Settings by administrators."
+      );
+    }
+  }, [
+    focusProductionCatalogSignal,
+    canManageProductionCatalog,
+    companyId,
+    onRefreshProductionCatalog,
+    showToast,
+    tl.payroll_catalog_admin_only,
+    navigateToTab,
+  ]);
 
   useEffect(() => {
     const resolved = resolveUserTimezone(savedProfileTimeZone);
@@ -485,7 +659,7 @@ export function SettingsModule({
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setActiveSettingsSection(id)}
+                  onClick={() => requestTabChange(id)}
                   className={`inline-flex shrink-0 items-center gap-2 min-h-[44px] rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                     active
                       ? "border-amber-400 bg-amber-100 text-amber-950 ring-2 ring-amber-400/60 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:ring-amber-500/40"
@@ -516,7 +690,7 @@ export function SettingsModule({
               <button
                 key={id}
                 type="button"
-                onClick={() => setActiveSettingsSection(id)}
+                onClick={() => requestTabChange(id)}
                 className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                   active
                     ? "bg-amber-100 text-amber-950 dark:bg-amber-900/35 dark:text-amber-100"
@@ -1523,6 +1697,24 @@ export function SettingsModule({
           )}
         </div>
       </div>
+
+      <UnsavedChangesDialog
+        open={unsavedDialogOpen}
+        title={(tl.unsaved_title ?? "").trim() || "Unsaved changes"}
+        message={(tl.unsaved_message ?? "").trim() || "You have unsaved changes. Are you sure you want to leave?"}
+        stayLabel={(tl.unsaved_stay ?? "").trim() || "Stay"}
+        leaveLabel={(tl.unsaved_leave ?? "").trim() || "Leave anyway"}
+        onStay={() => {
+          setUnsavedDialogOpen(false);
+          pendingSettingsTab.current = null;
+        }}
+        onLeave={() => {
+          const next = pendingSettingsTab.current;
+          setUnsavedDialogOpen(false);
+          pendingSettingsTab.current = null;
+          if (next != null) navigateToTab(next);
+        }}
+      />
     </section>
   );
 }

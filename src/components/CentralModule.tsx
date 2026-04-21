@@ -269,6 +269,8 @@ interface CentralModuleProps {
   onPendingOpenBinderDocumentHandled?: () => void;
   companyName?: string | null;
   onNavigateAppSection?: (section: MainSection) => void;
+  /** Ajustes → Catálogo de producción (p. ej. pago por producción en el panel de empleado). */
+  onNavigateToProductionCatalog?: () => void;
   onQuickNewHazard?: () => void;
   onQuickNewAction?: () => void;
   onQuickVisitorQr?: () => void;
@@ -459,6 +461,7 @@ export function CentralModule({
   onPendingOpenBinderDocumentHandled,
   companyName = null,
   onNavigateAppSection,
+  onNavigateToProductionCatalog,
   onQuickNewHazard,
   onQuickNewAction,
   onQuickVisitorQr,
@@ -2120,6 +2123,32 @@ export function CentralModule({
                       {s(empExt.created_at ?? "—")}
                     </dd>
                   </div>
+                  {String(empExt.payType ?? "").toLowerCase() === "production" ? (
+                    <div>
+                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        {s(t.employees_payment_type ?? t.salary_type_label ?? "Pay type")}
+                      </dt>
+                      <dd className="mt-0.5 space-y-2 text-zinc-800 dark:text-zinc-200">
+                        <p className="text-sm leading-snug">
+                          {(t as Record<string, string>).employees_pay_production_note ??
+                            (t as Record<string, string>).production_pay_production_note ??
+                            ""}
+                        </p>
+                        {onNavigateToProductionCatalog ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEmployeePanelId(null);
+                              onNavigateToProductionCatalog();
+                            }}
+                            className="inline-flex min-h-[44px] min-w-[44px] items-center text-left text-sm font-medium text-orange-600 underline underline-offset-2 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300"
+                          >
+                            {(t as Record<string, string>).payroll_view_catalog ?? ""}
+                          </button>
+                        ) : null}
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
 
                 <div className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-slate-700 sm:flex-row sm:flex-wrap">

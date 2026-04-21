@@ -3663,4 +3663,12 @@ export default {
   integrations_slack_desc: "Notificaciones de equipo.",
   integrations_gcal: "Google Calendar",
   integrations_gcal_desc: "Sincronizar turnos.",
+
+  payroll_view_catalog: "Ver catálogo de producción",
+  payroll_catalog_admin_only:
+    "El catálogo de producción se configura en Ajustes. Pide a un administrador que gestione los precios por unidad.",
+  unsaved_title: "Cambios sin guardar",
+  unsaved_message: "Tienes cambios sin guardar. ¿Seguro que quieres salir?",
+  unsaved_stay: "Quedarme",
+  unsaved_leave: "Salir sin guardar",
 } as const;

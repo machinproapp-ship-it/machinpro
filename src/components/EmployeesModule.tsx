@@ -45,6 +45,7 @@ import {
   weekYmdsMondayFirstInTimeZone,
   zonedYmdHmToUtcIso,
 } from "@/lib/dateUtils";
+import { cloudinaryAvatar } from "@/lib/cloudinaryUrl";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import type { CustomRole, RolePermissions } from "@/types/roles";
 import {
@@ -1451,7 +1452,7 @@ export function EmployeesModule({
           <div className="h-16 w-16 shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-lg font-semibold overflow-hidden">
             {draft.avatar_url || selected.avatar_url ? (
               <img
-                src={(draft.avatar_url || selected.avatar_url) as string}
+                src={cloudinaryAvatar((draft.avatar_url || selected.avatar_url) as string)}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="lazy"
@@ -2976,7 +2977,7 @@ export function EmployeesModule({
               >
                 <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-sm font-medium shrink-0">
                   {r.avatar_url ? (
-                    <img src={r.avatar_url} alt="" className="h-full w-full object-cover rounded-full" />
+                    <img src={cloudinaryAvatar(r.avatar_url)} alt="" className="h-full w-full object-cover rounded-full" />
                   ) : (
                     employeeInitials(r)
                   )}

@@ -78,6 +78,7 @@ import {
   formatCalendarYmd,
   formatCurrency,
 } from "@/lib/dateUtils";
+import { cloudinaryFull, cloudinaryThumb } from "@/lib/cloudinaryUrl";
 import { resolveFormLabel } from "@/lib/formTemplateDisplay";
 import {
   filterFormTemplatesByProjectCategory,
@@ -2371,7 +2372,7 @@ export function ProjectsModule({
                       type="button"
                       onClick={() =>
                         setLightbox({
-                          src: ph.photo_url,
+                          src: cloudinaryFull(ph.photo_url),
                           fallback: ph.photo_url,
                         })
                       }
@@ -2379,7 +2380,7 @@ export function ProjectsModule({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={ph.photo_url}
+                        src={cloudinaryThumb(ph.photo_url)}
                         alt=""
                         loading="lazy"
                         className="h-full w-full object-cover"
@@ -2897,7 +2898,7 @@ export function ProjectsModule({
                       <div key={tool.id} className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-slate-700 px-4 py-3">
                         <div className="flex items-center gap-3">
                           {tool.imageUrl ? (
-                            <img src={tool.imageUrl} alt={tool.name} className="h-9 w-9 rounded-lg object-cover border border-zinc-200 dark:border-slate-700" />
+                            <img src={cloudinaryThumb(tool.imageUrl)} alt={tool.name} className="h-9 w-9 rounded-lg object-cover border border-zinc-200 dark:border-slate-700" />
                           ) : (
                             <div className="h-9 w-9 rounded-lg bg-zinc-100 dark:bg-slate-800 flex items-center justify-center">
                               <Wrench className="h-4 w-4 text-zinc-400" />
@@ -2950,11 +2951,11 @@ export function ProjectsModule({
                       <button
                         key={`${entry.id}-${i}`}
                         type="button"
-                        onClick={() => setLightbox({ src: url, fallback: url })}
+                        onClick={() => setLightbox({ src: cloudinaryFull(url), fallback: url })}
                         className="group relative aspect-square rounded-xl overflow-hidden border border-zinc-200 dark:border-slate-700 bg-zinc-100 dark:bg-slate-800"
                       >
                         <img
-                          src={url}
+                          src={cloudinaryThumb(url)}
                           alt={tl.inv_photo_alt ?? PM_EN.inv_photo_alt}
                           className="h-full w-full object-cover transition-transform group-hover:scale-105"
                         />
@@ -3164,16 +3165,16 @@ export function ProjectsModule({
                               <button
                                 key={i}
                                 type="button"
-                                onClick={() => setLightbox({ src: url, fallback: url })}
+                                onClick={() => setLightbox({ src: cloudinaryFull(url), fallback: url })}
                                 className="h-24 w-24 shrink-0 rounded-lg overflow-hidden border border-zinc-200 dark:border-slate-700"
                               >
-                                <img src={url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                                <img src={cloudinaryThumb(url)} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
                               </button>
                             ))}
                             </div>
                           </HorizontalScrollFade>
                           <img
-                            src={entry.photoUrls[0]}
+                            src={cloudinaryThumb(entry.photoUrls[0])}
                             alt=""
                             className="w-full h-48 object-cover rounded-lg mb-3"
                           />
@@ -3226,7 +3227,7 @@ export function ProjectsModule({
                           className="group relative aspect-square w-full overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-100 dark:bg-slate-800 text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
                         >
                           <img
-                            src={entry.photoUrls[0]}
+                            src={cloudinaryThumb(entry.photoUrls[0])}
                             alt=""
                             className="h-full w-full object-cover transition-transform group-hover:scale-105"
                           />
@@ -3291,7 +3292,7 @@ export function ProjectsModule({
                       >
                         <div className="relative">
                           <img
-                            src={entry.photoUrls[0]}
+                            src={cloudinaryThumb(entry.photoUrls[0])}
                             alt=""
                             className="w-full h-40 object-cover"
                           />
@@ -3381,7 +3382,7 @@ export function ProjectsModule({
                             <button
                               type="button"
                               onClick={() =>
-                                setLightbox({ src: ph.photo_url, fallback: ph.photo_url })
+                                setLightbox({ src: cloudinaryFull(ph.photo_url), fallback: ph.photo_url })
                               }
                               className="absolute inset-0 z-0 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
                               aria-label={
@@ -3389,7 +3390,7 @@ export function ProjectsModule({
                               }
                             />
                             <img
-                              src={ph.photo_url}
+                              src={cloudinaryThumb(ph.photo_url)}
                               alt=""
                               className="pointer-events-none h-full w-full object-cover transition-transform group-hover:scale-105"
                             />
@@ -5999,7 +6000,7 @@ export function ProjectsModule({
                             className="h-4 w-4 shrink-0 rounded border-zinc-300 text-amber-600"
                           />
                           <img
-                            src={ph.photo_url}
+                            src={cloudinaryThumb(ph.photo_url)}
                             alt=""
                             className="h-12 w-12 shrink-0 rounded-lg object-cover border border-zinc-200 dark:border-slate-600"
                           />
@@ -6057,7 +6058,7 @@ export function ProjectsModule({
                           >
                             <div className="relative aspect-square overflow-hidden rounded-lg border border-zinc-200 dark:border-slate-600">
                               <img
-                                src={ph.photo_url}
+                                src={cloudinaryThumb(ph.photo_url)}
                                 alt=""
                                 className="h-full w-full object-cover"
                               />
@@ -6141,7 +6142,7 @@ export function ProjectsModule({
                   <>
                     <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-slate-700">
                       <img
-                        src={entry.photoUrls[0]}
+                        src={cloudinaryFull(entry.photoUrls[0])}
                         alt=""
                         className="max-h-[50vh] w-full object-contain bg-zinc-100 dark:bg-slate-800"
                       />

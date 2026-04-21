@@ -42,6 +42,7 @@ import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/li
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
 import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
+import { cloudinaryFull, cloudinaryThumb } from "@/lib/cloudinaryUrl";
 
 const TeamGpsMapWidget = dynamic(
   () => import("@/components/TeamGpsMapWidget").then((m) => m.TeamGpsMapWidget),
@@ -1956,7 +1957,7 @@ export function LogisticsModule({
                   {returnPhotoUrl ? (
                     <div className="relative">
                       <img
-                        src={returnPhotoUrl}
+                        src={cloudinaryThumb(returnPhotoUrl)}
                         alt={tlLabels.wh_return_condition_photo_alt ?? "Return condition photo"}
                         className="w-full h-32 object-cover rounded-xl border border-zinc-200 dark:border-slate-700"
                       />
@@ -2806,7 +2807,7 @@ export function LogisticsModule({
                       </div>
                       {item.incidentPhotoUrl && (
                         <img
-                          src={item.incidentPhotoUrl}
+                          src={cloudinaryThumb(item.incidentPhotoUrl)}
                           alt={tlLabels.logistics_incident_photo_alt ?? "Incident photo"}
                           className="w-full h-48 object-cover rounded-xl cursor-pointer border border-zinc-200 dark:border-slate-700"
                           onClick={() => setLightboxUrl(item.incidentPhotoUrl!)}
@@ -3078,7 +3079,7 @@ export function LogisticsModule({
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {galleryPhotos.map((photo, idx) => (
                             <div key={idx} className="relative">
-                              <img src={photo.url} alt="" className="w-full h-28 object-cover rounded-xl cursor-pointer border border-zinc-200 dark:border-slate-700" onClick={() => setLightboxUrl(photo.url)} />
+                              <img src={cloudinaryThumb(photo.url)} alt="" className="w-full h-28 object-cover rounded-xl cursor-pointer border border-zinc-200 dark:border-slate-700" onClick={() => setLightboxUrl(photo.url)} />
                               <span className={`absolute top-1 left-1 rounded-full px-1.5 py-0.5 text-xs font-medium ${photo.type === "incident" ? "bg-red-500 text-white" : photo.condition === "good" ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}>
                                 {photo.label}
                               </span>
@@ -3259,7 +3260,7 @@ export function LogisticsModule({
                             </p>
                             {log.returnPhotoUrl && (
                               <img
-                                src={log.returnPhotoUrl}
+                                src={cloudinaryThumb(log.returnPhotoUrl)}
                                 alt={tlLabels.wh_return_condition_photo_alt ?? "Return photo"}
                                 className="mt-1 h-16 w-16 rounded-lg border border-zinc-200 object-cover dark:border-slate-700"
                               />
@@ -3463,7 +3464,7 @@ export function LogisticsModule({
           <button type="button" className="absolute top-4 right-4 text-white/70 hover:text-white p-2.5 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center" onClick={() => setLightboxUrl(null)}>
             <X className="h-6 w-6" />
           </button>
-          <img src={lightboxUrl} alt="" className="max-w-full max-h-[90vh] object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+          <img src={cloudinaryFull(lightboxUrl)} alt="" className="max-w-full max-h-[90vh] object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </section>
