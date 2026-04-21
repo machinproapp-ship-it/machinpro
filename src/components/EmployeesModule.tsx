@@ -1229,7 +1229,31 @@ export function EmployeesModule({
     setInviteEmail("");
   };
 
-  const lxEarly = t as Record<string, string>;
+  const tl = t as Record<string, string>;
+
+  const openNewEmployeeModal = useCallback(() => {
+    setCreateError(null);
+    setCreateForm({
+      fullName: "",
+      email: "",
+      phone: "",
+      customRoleId: pickDefaultWorkerRoleId(customRoles) || customRoles[0]?.id || "",
+      profileStatus: "invited",
+      emergencyName: "",
+      emergencyPhone: "",
+      emergencyRelation: "",
+      payType: "unspecified",
+      payAmount: "",
+      payCurrency: defaultPayCurrency,
+      payPeriod: "monthly",
+      manageVacations: false,
+      vacationDaysAnnual: "",
+      useRolePermissions: true,
+      customPermissions: {},
+    });
+    setCreateOpen(true);
+  }, [customRoles, defaultPayCurrency]);
+
   if (!companyId) {
     return (
       <>
@@ -1241,12 +1265,12 @@ export function EmployeesModule({
               className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px]"
             >
               <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
-              {lxEarly.back ?? "Volver"}
+              {tl.back ?? "Volver"}
             </button>
           </div>
         ) : null}
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-          {lxEarly.employees_no_company ?? ""}
+          {tl.employees_no_company ?? ""}
         </p>
       </>
     );
@@ -1255,7 +1279,6 @@ export function EmployeesModule({
   const activeView: "list" | "detail" = selectedId ? "detail" : "list";
 
   if (selected) {
-    const tl = t as Record<string, string>;
     const name = employeeDisplayLabel(selected, t as Record<string, string>, currentUserProfileId ?? null);
     const emailShown = (selected.email ?? "").trim() || emailLocalPart(selected.email);
     const inheritPerms = draft.use_role_permissions !== false;
@@ -2689,31 +2712,6 @@ export function EmployeesModule({
       </div>
     );
   }
-
-  const tl = t as Record<string, string>;
-
-  const openNewEmployeeModal = useCallback(() => {
-    setCreateError(null);
-    setCreateForm({
-      fullName: "",
-      email: "",
-      phone: "",
-      customRoleId: pickDefaultWorkerRoleId(customRoles) || customRoles[0]?.id || "",
-      profileStatus: "invited",
-      emergencyName: "",
-      emergencyPhone: "",
-      emergencyRelation: "",
-      payType: "unspecified",
-      payAmount: "",
-      payCurrency: defaultPayCurrency,
-      payPeriod: "monthly",
-      manageVacations: false,
-      vacationDaysAnnual: "",
-      useRolePermissions: true,
-      customPermissions: {},
-    });
-    setCreateOpen(true);
-  }, [customRoles, defaultPayCurrency]);
 
   return (
     <>
