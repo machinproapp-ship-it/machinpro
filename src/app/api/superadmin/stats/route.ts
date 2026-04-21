@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySuperadminAccess } from "@/lib/verify-api-session";
-import { PAID_PLAN_ORDER, PLAN_PRICES_CAD, type PaidPlanKey } from "@/lib/stripe";
+import { PAID_PLAN_ORDER, PLAN_PRICES_USD, type PaidPlanKey } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,7 @@ function planKeyFromRow(plan: string | null | undefined): PaidPlanKey | "trial" 
 }
 
 function monthlyEquivalentMrr(plan: PaidPlanKey, billingPeriod: string | null | undefined): number {
-  const prices = PLAN_PRICES_CAD[plan];
+  const prices = PLAN_PRICES_USD[plan];
   if (billingPeriod === "annual") return Math.round((prices.annual / 12) * 10) / 10;
   return prices.monthly;
 }

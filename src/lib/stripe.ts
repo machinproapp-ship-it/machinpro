@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
+import type { GeoTier } from "@/lib/geoTier";
 import { STRIPE_PRICE_EXTRA_SEAT_ID, STRIPE_PRICES } from "@/lib/stripe-prices";
 
 export { STRIPE_PRICE_EXTRA_SEAT_ID } from "@/lib/stripe-prices";
@@ -38,34 +38,66 @@ export const GEO_TIERS: Record<GeoTier, number> = {
 };
 
 /**
- * Precios de referencia en CAD (Pricing 3.0 — producción Stripe).
+ * Precios de referencia en USD (checkout Stripe en USD).
  * Anual ≈ 20% de descuento vs 12× mensual.
  */
-export const PLAN_PRICES_CAD: Record<PaidPlanKey, { monthly: number; annual: number }> = {
+export const PLAN_PRICES_USD: Record<PaidPlanKey, { monthly: number; annual: number }> = {
   esencial: { monthly: 39, annual: 374.4 },
   operaciones: { monthly: 59, annual: 566.4 },
   logistica: { monthly: 59, annual: 566.4 },
   todo_incluido: { monthly: 99, annual: 950.4 },
 };
 
+/** @deprecated Use PLAN_PRICES_USD — valores idénticos; el cobro es USD. */
+export const PLAN_PRICES_CAD = PLAN_PRICES_USD;
+
 /**
- * Moneda por tier cuando no hay código de país (fallback).
- * Tier 1 incluye UK (GB) — usar siempre `getCurrencyForCountry("GB", 1)` → GBP en UI.
+ * Tipos de cambio fijos (solo UI). 1 USD = `rate` unidades locales.
+ * Si el país no está listado → se muestra USD sin conversión adicional (solo PPP).
  */
+export const PRICING_EXCHANGE_RATES: Record<string, { currency: string; symbol: string; rate: number }> = {
+  CA: { currency: "CAD", symbol: "CA$", rate: 1.36 },
+  US: { currency: "USD", symbol: "$", rate: 1.0 },
+  GB: { currency: "GBP", symbol: "£", rate: 0.79 },
+  DE: { currency: "EUR", symbol: "€", rate: 0.92 },
+  FR: { currency: "EUR", symbol: "€", rate: 0.92 },
+  ES: { currency: "EUR", symbol: "€", rate: 0.92 },
+  IT: { currency: "EUR", symbol: "€", rate: 0.92 },
+  PT: { currency: "EUR", symbol: "€", rate: 0.92 },
+  NL: { currency: "EUR", symbol: "€", rate: 0.92 },
+  BE: { currency: "EUR", symbol: "€", rate: 0.92 },
+  AT: { currency: "EUR", symbol: "€", rate: 0.92 },
+  CH: { currency: "CHF", symbol: "CHF", rate: 0.9 },
+  SE: { currency: "SEK", symbol: "kr", rate: 10.42 },
+  NO: { currency: "NOK", symbol: "kr", rate: 10.58 },
+  DK: { currency: "DKK", symbol: "kr", rate: 6.88 },
+  AU: { currency: "AUD", symbol: "A$", rate: 1.53 },
+  NZ: { currency: "NZD", symbol: "NZ$", rate: 1.67 },
+  MX: { currency: "MXN", symbol: "MX$", rate: 17.15 },
+  AR: { currency: "ARS", symbol: "$", rate: 890 },
+  CL: { currency: "CLP", symbol: "$", rate: 935 },
+  CO: { currency: "COP", symbol: "$", rate: 3900 },
+  BR: { currency: "BRL", symbol: "R$", rate: 4.97 },
+};
+
+/** ISO 4217 para Intl; USD si no hay tabla o país desconocido. */
+export function getPricingDisplayCurrencyCode(countryCode: string | null | undefined): string {
+  const cc = (countryCode ?? "").trim().toUpperCase();
+  if (!cc) return "USD";
+  const row = PRICING_EXCHANGE_RATES[cc];
+  return row?.currency ?? "USD";
+}
+
+/** Fallback legacy para componentes que aún referencian tier-only (preferir país + tabla). */
 export const CURRENCY_BY_TIER: Record<GeoTier, "CAD" | "USD" | "MXN"> = {
   1: "CAD",
   2: "USD",
   3: "MXN",
 };
 
-/** Conversión aproximada CAD → moneda de tier (solo UI; cobro real vía Stripe). */
-const CAD_TO_USD = 0.74;
-const CAD_TO_MXN = 13.5;
-const USD_TO_GBP = 0.78;
-const CAD_TO_GBP = CAD_TO_USD * USD_TO_GBP;
-
 /**
- * Precio mostrado según plan, periodo, tier PPP y país (redondeado).
+ * Precio mostrado: base USD × PPP tier × tipo fijo por país (redondeo entero).
+ * Sin fila en la tabla → importe en USD ya ajustado por PPP.
  */
 export function getPriceForTier(
   plan: PaidPlanKey,
@@ -73,23 +105,14 @@ export function getPriceForTier(
   tier: GeoTier,
   countryCode?: string | null
 ): number {
-  const baseCad = PLAN_PRICES_CAD[plan][period];
-  const adjustedCad = baseCad * GEO_TIERS[tier];
-  const currency = getCurrencyForCountry(countryCode, tier);
-  switch (currency) {
-    case "CAD":
-      return Math.round(adjustedCad);
-    case "USD":
-      return Math.round(adjustedCad * CAD_TO_USD);
-    case "GBP":
-      return Math.round(adjustedCad * CAD_TO_GBP);
-    case "MXN":
-      return Math.round(adjustedCad * CAD_TO_MXN);
-    case "BRL":
-      return Math.round(adjustedCad * CAD_TO_USD * 5.5);
-    default:
-      return Math.round(adjustedCad);
+  const baseUsd = PLAN_PRICES_USD[plan][period];
+  const adjustedUsd = baseUsd * GEO_TIERS[tier];
+  const cc = (countryCode ?? "").trim().toUpperCase();
+  const row = cc ? PRICING_EXCHANGE_RATES[cc] : undefined;
+  if (!row) {
+    return Math.round(adjustedUsd);
   }
+  return Math.round(adjustedUsd * row.rate);
 }
 
 export type PlanDefinition = {
@@ -113,7 +136,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     labelKey: "plan_esencial",
     monthly: { priceId: STRIPE_PRICES.essential_monthly },
     annual: { priceId: STRIPE_PRICES.essential_annual },
-    seats: 15,
+    seats: 999_999,
     projects: null,
     storageGb: 15,
     usersDescriptionKey: "pricing_essential_users",
@@ -124,7 +147,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     labelKey: "plan_operaciones",
     monthly: { priceId: STRIPE_PRICES.operations_monthly },
     annual: { priceId: STRIPE_PRICES.operations_annual },
-    seats: 30,
+    seats: 999_999,
     projects: null,
     storageGb: 30,
     usersDescriptionKey: "pricing_operations_users",
@@ -135,7 +158,7 @@ export const PLANS: Record<PaidPlanKey, PlanDefinition> = {
     labelKey: "pricing_plan_logistics",
     monthly: { priceId: STRIPE_PRICES.logistics_monthly },
     annual: { priceId: STRIPE_PRICES.logistics_annual },
-    seats: 30,
+    seats: 999_999,
     projects: null,
     storageGb: 30,
     usersDescriptionKey: "pricing_logistics_users",

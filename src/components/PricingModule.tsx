@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { getCurrencyForCountry, type GeoTier } from "@/lib/geoTier";
+import type { GeoTier } from "@/lib/geoTier";
 import { useGeo } from "@/hooks/useGeo";
+import { formatPricingMoney } from "@/lib/pricingMoney";
 import {
   PLANS,
   getPriceForTier,
   getStripePriceId,
-  CURRENCY_BY_TIER,
+  getPricingDisplayCurrencyCode,
   PAID_PLAN_ORDER,
   type PaidPlanKey,
   type BillingPeriod,
@@ -22,28 +23,6 @@ export interface PricingModuleProps {
   email?: string | null;
   currentPlanKey?: PaidPlanKey | string | null;
   onClose?: () => void;
-}
-
-function formatMoney(amount: number, currency: string): string {
-  const locale =
-    currency === "CAD"
-      ? "en-CA"
-      : currency === "GBP"
-        ? "en-GB"
-        : currency === "MXN"
-          ? "es-MX"
-          : currency === "AUD"
-            ? "en-AU"
-            : currency === "NZD"
-              ? "en-NZ"
-              : currency === "BRL"
-                ? "pt-BR"
-                : "en-US";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: amount >= 100 && amount % 1 !== 0 ? 2 : 0,
-  }).format(amount);
 }
 
 function normalizeCurrentPlan(raw: string | null | undefined): PaidPlanKey | null {
@@ -66,9 +45,9 @@ function normalizeCurrentPlan(raw: string | null | undefined): PaidPlanKey | nul
 }
 
 const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
-  pricing_essential_users: "15 users included",
-  pricing_operations_users: "30 users included",
-  pricing_logistics_users: "30 users included",
+  pricing_essential_users: "Unlimited users",
+  pricing_operations_users: "Unlimited users",
+  pricing_logistics_users: "Unlimited users",
   pricing_all_inclusive_users: "Unlimited users",
 };
 const PLAN_STORAGE_DESCRIPTION_FALLBACK: Record<string, string> = {
@@ -117,7 +96,7 @@ export function PricingModule({
     }
   }, []);
 
-  const displayCurrency = getCurrencyForCountry(countryCode, geoTier);
+  const displayCurrencyCode = getPricingDisplayCurrencyCode(countryCode);
   const currentNormalized = normalizeCurrentPlan(
     typeof currentPlanKey === "string" ? currentPlanKey : null
   );
@@ -229,19 +208,14 @@ export function PricingModule({
         </div>
         {!loadingTier && (
           <div className="text-xs text-center sm:text-left text-zinc-500 dark:text-zinc-400 space-y-0.5">
-            <p>
-              {displayCurrency === "GBP"
-                ? (lx.currency_gbp ?? "GBP (£)")
-                : displayCurrency || CURRENCY_BY_TIER[geoTier]}
+            <p className="break-words">
+              {lx.pricing_local_currency_note ??
+                lx.billing_gbp_approx ??
+                "Approximate price in your currency"}
             </p>
             {(lx.pricing_ppp_notice || lx.pricing_ppp_note) ? (
               <p className="text-[11px] opacity-90">{lx.pricing_ppp_notice ?? lx.pricing_ppp_note}</p>
             ) : null}
-            {displayCurrency === "GBP" && (
-              <p className="text-[11px] opacity-90">
-                {lx.billing_gbp_approx ?? "Approximate GBP (from CAD reference pricing)"}
-              </p>
-            )}
           </div>
         )}
       </div>
@@ -263,8 +237,10 @@ export function PricingModule({
         </div>
       ) : null}
 
-      <p className="text-center text-sm text-zinc-600 dark:text-zinc-400 mb-8 max-w-xl mx-auto">
-        {lx.pricing_extra_user_note ?? lx.pricing_additional_user ?? lx.pricing_extra_user ?? ""}
+      <p className="text-center text-[13px] text-zinc-600 dark:text-zinc-400 mb-8 max-w-2xl mx-auto px-2 break-words space-y-1">
+        {(lx.pricing_charged_usd ?? "").trim()
+          ? (lx.pricing_charged_usd ?? "").replace(/\{currency\}/g, displayCurrencyCode)
+          : `Prices shown in ${displayCurrencyCode}. Charged in USD.`}
       </p>
 
       {error && (
@@ -273,7 +249,7 @@ export function PricingModule({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
+      <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
         {PAID_PLAN_ORDER.map((key) => {
           const plan = PLANS[key];
           const price = getPriceForTier(key, period, geoTier, countryCode);
@@ -302,10 +278,10 @@ export function PricingModule({
                 {!loadingTier && geoTier > 1 ? (
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span className="text-lg font-semibold text-zinc-400 line-through decoration-zinc-400 dark:text-zinc-500">
-                      {formatMoney(listPrice, displayCurrency)}
+                      {formatPricingMoney(listPrice, displayCurrencyCode)}
                     </span>
                     <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
-                      {formatMoney(price, displayCurrency)}
+                      {formatPricingMoney(price, displayCurrencyCode)}
                     </span>
                     <span className="text-sm text-zinc-500 dark:text-zinc-400 w-full sm:w-auto sm:ml-0">
                       {period === "monthly"
@@ -316,7 +292,7 @@ export function PricingModule({
                 ) : (
                   <>
                     <span className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white">
-                      {loadingTier ? "…" : formatMoney(price, displayCurrency)}
+                      {loadingTier ? "…" : formatPricingMoney(price, displayCurrencyCode)}
                     </span>
                     <span className="text-sm text-zinc-500 dark:text-zinc-400 ml-1">
                       {period === "monthly"

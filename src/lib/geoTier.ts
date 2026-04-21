@@ -19,6 +19,8 @@ export const TIER1_COUNTRIES = new Set([
   "CH",
   "IE",
   "LU",
+  "AU",
+  "NZ",
 ]);
 
 /**
@@ -239,7 +241,8 @@ export function formatLandingPrice(amount: number, currency: LandingPriceCurrenc
 /** Fallback when IP lookup fails (CORS, network, rate limit) — avoids blank tier in production. */
 function geoDefaultCa(): GeoDetect {
   const cc = "CA";
-  const { region, tier } = resolveRegionTier(cc);
+  const { region } = resolveRegionTier(cc);
+  const tier = getPppTierFromCountryCode(cc);
   return { tier, country: cc, countryCode: cc, region, usState: null };
 }
 
@@ -258,7 +261,8 @@ export async function detectGeo(): Promise<GeoDetect> {
     if (data.error) return geoDefaultCa();
     const cc = (data.country_code ?? "").trim().toUpperCase() || "";
     if (!cc) return geoDefaultCa();
-    const { region, tier } = resolveRegionTier(cc);
+    const { region } = resolveRegionTier(cc);
+    const tier = getPppTierFromCountryCode(cc);
     const usState =
       cc === "US" && typeof data.region_code === "string" ? data.region_code.trim().toUpperCase() || null : null;
     return {

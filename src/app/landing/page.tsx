@@ -13,11 +13,13 @@ import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { LandingLanguageSelect } from "@/components/LandingLanguageSelect";
 import { Star, HardHat, ClipboardList, TrendingUp, Play } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
-import { detectGeo, getCurrencyForCountry, type GeoDetect } from "@/lib/geoTier";
+import { detectGeo, type GeoDetect } from "@/lib/geoTier";
+import { formatPricingMoney } from "@/lib/pricingMoney";
 import {
   PAID_PLAN_ORDER,
   PLANS,
   getPriceForTier,
+  getPricingDisplayCurrencyCode,
   type BillingPeriod,
   type PaidPlanKey,
 } from "@/lib/stripe";
@@ -25,9 +27,9 @@ import {
 type TxFn = (key: string, fallback: string) => string;
 
 const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
-  pricing_essential_users: "15 users included",
-  pricing_operations_users: "30 users included",
-  pricing_logistics_users: "30 users included",
+  pricing_essential_users: "Unlimited users",
+  pricing_operations_users: "Unlimited users",
+  pricing_logistics_users: "Unlimited users",
   pricing_all_inclusive_users: "Unlimited users",
 };
 const PLAN_STORAGE_DESCRIPTION_FALLBACK: Record<string, string> = {
@@ -184,28 +186,6 @@ const PERSONALIZE_DESC_FB: Record<string, string> = {
   feature_benefit_report_desc: "Income vs costs per job site. Real-time margin. Export PDF.",
 };
 
-function formatMoney(amount: number, currency: string): string {
-  const locale =
-    currency === "CAD"
-      ? "en-CA"
-      : currency === "GBP"
-        ? "en-GB"
-        : currency === "MXN"
-          ? "es-MX"
-          : currency === "AUD"
-            ? "en-AU"
-            : currency === "NZD"
-              ? "en-NZ"
-              : currency === "BRL"
-                ? "pt-BR"
-                : "en-US";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: amount >= 100 && amount % 1 !== 0 ? 2 : 0,
-  }).format(amount);
-}
-
 function landingPlanBlurbKey(plan: PaidPlanKey): string {
   const m: Record<PaidPlanKey, string> = {
     esencial: "landing_plan_blurb_esencial",
@@ -305,9 +285,7 @@ export default function LandingPage() {
   };
 
   const tierReady = geoDetect !== null;
-  const displayCurrency = tierReady
-    ? getCurrencyForCountry(geoDetect.countryCode, geoDetect.tier)
-    : "USD";
+  const displayCurrencyCode = tierReady ? getPricingDisplayCurrencyCode(geoDetect.countryCode) : "USD";
   const showRegionNote = tierReady && geoDetect.tier !== 1;
 
   const scrollToId = (id: string) => {
@@ -780,7 +758,8 @@ export default function LandingPage() {
                 </button>
               </div>
             </div>
-            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-10 min-w-0 overflow-x-auto pb-1">
+            <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
               {PAID_PLAN_ORDER.map((key) => {
                 const plan = PLANS[key];
                 const title = tx(plan.labelKey, key);
@@ -812,7 +791,7 @@ export default function LandingPage() {
                       ) : (
                         <>
                           <span className="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">
-                            {formatMoney(price, displayCurrency)}
+                            {formatPricingMoney(price, displayCurrencyCode)}
                           </span>
                           <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                             {period === "monthly"
@@ -863,6 +842,7 @@ export default function LandingPage() {
                 );
               })}
             </div>
+            </div>
             {showRegionNote ? (
               <div
                 role="status"
@@ -871,12 +851,18 @@ export default function LandingPage() {
                 {tx("pricing_ppp_applied", "")}
               </div>
             ) : null}
-            <p className="mt-8 text-center text-sm font-medium text-slate-600 dark:text-slate-400">
-              {tx("landing_pricing_extra_users", "")}
-            </p>
-            <div className="mt-4 space-y-2 text-center text-xs font-medium text-slate-500 dark:text-slate-500">
-              <p>{tx("landing_pricing_usd_note", "")}</p>
-              {showRegionNote ? <p>{tx("pricing_ppp_notice", tx("landing_pricing_region_note", ""))}</p> : null}
+            <div className="mt-8 space-y-2 text-center text-xs font-medium text-slate-600 dark:text-slate-400 max-w-2xl mx-auto px-2">
+              <p className="break-words">
+                {(tx("pricing_charged_usd", "") || "").trim()
+                  ? tx("pricing_charged_usd", "").replace(/\{currency\}/g, displayCurrencyCode)
+                  : `Prices shown in ${displayCurrencyCode}. Charged in USD.`}
+              </p>
+              <p className="text-slate-500 dark:text-slate-500">
+                {tx("pricing_local_currency_note", tx("landing_pricing_usd_note", ""))}
+              </p>
+              {showRegionNote ? (
+                <p className="text-slate-500">{tx("pricing_ppp_notice", tx("landing_pricing_region_note", ""))}</p>
+              ) : null}
             </div>
           </FadeSection>
         </div>

@@ -1,4 +1,4 @@
-import { PAID_PLAN_ORDER, PLAN_PRICES_CAD } from "@/lib/stripe";
+import { PAID_PLAN_ORDER, PLAN_PRICES_USD } from "@/lib/stripe";
 
 const SITE = "https://machin.pro";
 
@@ -9,8 +9,8 @@ export function LandingJsonLd() {
   const offers = PAID_PLAN_ORDER.map((plan) => ({
     "@type": "Offer",
     name: plan.replace(/_/g, " "),
-    price: String(PLAN_PRICES_CAD[plan].monthly),
-    priceCurrency: "CAD",
+    price: String(PLAN_PRICES_USD[plan].monthly),
+    priceCurrency: "USD",
     availability: "https://schema.org/InStock",
     category: "subscription",
   }));
