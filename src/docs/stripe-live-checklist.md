@@ -2,30 +2,39 @@
 
 ## Implemented in code
 
-- **Price IDs**: `src/lib/stripe-prices.ts` resolves every price from `STRIPE_PRICE_*` env vars with TEST fallbacks.
-- **Checkout**: `POST /api/stripe/checkout` uses `verifyCompanyAccess`, PPP coupons, trial metadata (`company_id`, `plan_key`, geo tier).
-- **Portal**: `/api/stripe/portal` (existing) — confirm live **Customer portal** URLs in Stripe Dashboard.
+- **Price IDs**: `src/lib/stripe-prices.ts` resolves every price from `STRIPE_PRICE_*` env vars with TEST fallbacks (no hardcoded live IDs in source).
+- **Checkout** (`POST /api/stripe/checkout`): session and subscription metadata include `company_id`, `user_id` (authenticated profile), `plan`, `plan_key`, PPP `geo_tier`, `checkout_country`; PPP coupons via `checkoutDiscountsForTier`; optional `BETA_FOUNDER` coupon when `betaFounder: true`; prices from env via `getStripePriceId`.
+- **Portal**: `/api/stripe/portal` — confirm live **Customer portal** URLs in Stripe Dashboard.
 - **Webhook** (`POST /api/stripe/webhook`): verifies signature with `STRIPE_WEBHOOK_SECRET`; handles:
   - `checkout.session.completed` — sync subscription, send confirmation email to admins (`RESEND_*`).
-  - `customer.subscription.updated` / `customer.subscription.created` — sync `subscriptions` + update `companies.plan`.
-  - `customer.subscription.deleted` — graceful downgrade (`plan` → `trial`, status canceled).
-  - `invoice.payment_failed` — email admins with invoice link when possible.
-  - `invoice.payment_succeeded` — re-sync subscription for recurring/create cycles.
+  - `customer.subscription.created` / `customer.subscription.updated` — sync `subscriptions` + update `companies.plan`.
+  - `customer.subscription.deleted` — downgrade (`companies.plan` → `trial`, subscription row canceled).
+  - `invoice.payment_failed` — email admins; **in-app notifications** for each company admin (`billing_payment_failed`).
+  - `invoice.payment_succeeded` — re-sync subscription for subscription create/cycle invoices.
 
-## Manual steps before switching to LIVE
+**Supabase updates**: `subscriptions` upsert (including `trial_ends_at` from Stripe when trialing), `companies.plan` from active paid plan or `trial` when canceled. Trial end for the company is reflected on the subscription row (`trial_ends_at`); there is no separate `companies.trial_ends_at` column in the default schema.
 
-1. **Stripe Dashboard**: Create/copy LIVE products & prices matching `STRIPE_PRICE_*` names in `.env` / Vercel.
-2. **Webhook endpoint**: Register `https://machin.pro/api/stripe/webhook` (or preview URL) for LIVE; paste signing secret into `STRIPE_WEBHOOK_SECRET` **for production**.
-3. **Webhook events selected**: Ensure at least:
-   `checkout.session.completed`,
-   `customer.subscription.created`,
-   `customer.subscription.updated`,
-   `customer.subscription.deleted`,
-   `invoice.payment_failed`,
-   `invoice.payment_succeeded`.
-4. **Secrets on Vercel**: `STRIPE_SECRET_KEY` (live), `STRIPE_WEBHOOK_SECRET` (live), all `STRIPE_PRICE_*` (live Price IDs), `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
-5. **Tax / customer portal**: Confirm Stripe Tax and Customer Portal settings match production policies.
-6. **Smoke test**: Use Stripe test clocks or a low-price LIVE test account before full cutover.
+## Pasos exactos para activar LIVE
+
+1. En **Stripe Dashboard** → activar cuenta **LIVE** (completar verificación si aplica).
+2. Crear **productos y precios LIVE** con los mismos nombres / estructura que en test (planes Esencial, Operaciones, etc.).
+3. Copiar los **Price IDs** de LIVE (`price_...`).
+4. En **Vercel** (producción), actualizar variables:
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` → `pk_live_...`
+   - `STRIPE_SECRET_KEY` → `sk_live_...`
+   - `STRIPE_WEBHOOK_SECRET` → `whsec_...` del endpoint LIVE (paso 7)
+   - `STRIPE_PRICE_ESSENTIAL_MONTHLY` → `price_live_...` (y el resto de `STRIPE_PRICE_*` según `src/lib/stripe-prices.ts`)
+5. Crear **webhook** en Stripe **LIVE**: URL `https://machin.pro/api/stripe/webhook`.
+6. Eventos a enviar:
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.payment_succeeded`
+   - `invoice.payment_failed`
+7. Copiar el **signing secret** del webhook LIVE → `STRIPE_WEBHOOK_SECRET` en Vercel y redesplegar.
+8. Realizar un **pago de prueba** con importe mínimo (p. ej. 1 USD) con tarjeta real.
+9. Verificar en **Supabase** que la fila en `subscriptions` y `companies.plan` reflejan el plan activo.
 
 ## Notes
 

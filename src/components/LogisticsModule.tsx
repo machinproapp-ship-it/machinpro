@@ -582,6 +582,7 @@ export function LogisticsModule({
   const [importSubmitting, setImportSubmitting] = useState(false);
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [inventoryQrPdfLoading, setInventoryQrPdfLoading] = useState(false);
+  const [inventoryCsvExportBusy, setInventoryCsvExportBusy] = useState(false);
   const [complianceSaveSubmitting, setComplianceSaveSubmitting] = useState(false);
   const [orderActionKey, setOrderActionKey] = useState<string | null>(null);
   const [incidentMarkingId, setIncidentMarkingId] = useState<string | null>(null);
@@ -802,7 +803,10 @@ export function LogisticsModule({
   };
 
   const exportInventoryCsv = () => {
-    try {
+    void (async () => {
+      setInventoryCsvExportBusy(true);
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      try {
       const tx = t as Record<string, string>;
       const headers = [
         tlLabels.itemName ?? t.itemName ?? "Name",
@@ -855,9 +859,12 @@ export function LogisticsModule({
       const slug = fileSlugCompany(companyName, companyId || "co");
       downloadCsvUtf8(`inventario_${slug}_${filenameDateYmd()}.csv`, lines);
       showToast("success", tlLabels.export_success ?? "Export completed");
-    } catch {
-      showToast("error", tlLabels.export_error ?? "Export error");
-    }
+      } catch {
+        showToast("error", tlLabels.export_error ?? "Export error");
+      } finally {
+        setInventoryCsvExportBusy(false);
+      }
+    })();
   };
 
   const invSections: {
@@ -1039,10 +1046,15 @@ export function LogisticsModule({
               {flatOrderedInventory.length > 0 && canViewInventoryReports ? (
                 <button
                   type="button"
+                  disabled={inventoryCsvExportBusy}
                   onClick={() => exportInventoryCsv()}
-                  className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                  {inventoryCsvExportBusy ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                  ) : (
+                    <Download className="h-4 w-4 shrink-0" aria-hidden />
+                  )}
                   {(t as Record<string, string>).inventory_export_csv ?? tlLabels.export_csv ?? "Export CSV"}
                 </button>
               ) : null}

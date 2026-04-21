@@ -1147,7 +1147,19 @@ export function SubcontractorsModule({
         </div>
       )}
       {!loading && filtered.length === 0 && (
-        <p className="text-sm text-zinc-500 text-center py-8">{tl.subcontractors_empty ?? ""}</p>
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-10 text-center dark:border-slate-600 dark:bg-slate-900/35">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">{tl.subcontractors_empty ?? ""}</p>
+          {canManage ? (
+            <button
+              type="button"
+              onClick={openNewModal}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-500"
+            >
+              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              {tl.newSubcontractor ?? tl.subcontractors_new_modal ?? t.subcontractors_new ?? ""}
+            </button>
+          ) : null}
+        </div>
       )}
 
       {modalOpen && (

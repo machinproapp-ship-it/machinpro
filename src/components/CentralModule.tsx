@@ -566,6 +566,7 @@ export function CentralModule({
   const [roleDeleteBusy, setRoleDeleteBusy] = useState(false);
   const [employeeDeleteConfirmId, setEmployeeDeleteConfirmId] = useState<string | null>(null);
   const [employeeDeleteBusy, setEmployeeDeleteBusy] = useState(false);
+  const [employeesCsvExportBusy, setEmployeesCsvExportBusy] = useState(false);
   const edDocFileRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
   const [roleDraft, setRoleDraft] = useState<{ name: string; color: string; permissions: RolePermissions }>({
@@ -1886,53 +1887,64 @@ export function CentralModule({
                 {(personnelDirectoryEmployees ?? []).length > 0 ? (
                   <button
                     type="button"
+                    disabled={employeesCsvExportBusy}
                     onClick={() => {
-                      try {
-                        const tl = labels as Record<string, string>;
-                        const lines = [
-                          [
-                            csvCell(tl.export_col_name ?? "Name"),
-                            csvCell(tl.export_col_email ?? "Email"),
-                            csvCell(tl.export_col_role ?? "Role"),
-                            csvCell(tl.export_col_project ?? "Project"),
-                            csvCell(tl.export_col_status ?? "Status"),
-                          ].join(","),
-                        ];
-                        const projNames = (profileId: string) => {
-                          const leg = profileIdToLegacyEmployeeId[profileId] ?? profileId;
-                          return (safeDisplayProjects ?? [])
-                            .filter(
-                              (p) =>
-                                !p.archived &&
-                                (p.assignedEmployeeIds ?? []).some(
-                                  (aid) => aid === profileId || aid === leg
-                                )
-                            )
-                            .map((p) => (p.name ?? "").trim())
-                            .filter(Boolean)
-                            .join("; ");
-                        };
-                        for (const e of personnelDirectoryEmployees ?? []) {
-                          lines.push(
+                      void (async () => {
+                        setEmployeesCsvExportBusy(true);
+                        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+                        try {
+                          const tl = labels as Record<string, string>;
+                          const lines = [
                             [
-                              csvCell(e.name ?? ""),
-                              csvCell(e.email ?? ""),
-                              csvCell(e.role ?? ""),
-                              csvCell(projNames(e.id)),
-                              csvCell(e.profileStatus ?? ""),
-                            ].join(",")
-                          );
+                              csvCell(tl.export_col_name ?? "Name"),
+                              csvCell(tl.export_col_email ?? "Email"),
+                              csvCell(tl.export_col_role ?? "Role"),
+                              csvCell(tl.export_col_project ?? "Project"),
+                              csvCell(tl.export_col_status ?? "Status"),
+                            ].join(","),
+                          ];
+                          const projNames = (profileId: string) => {
+                            const leg = profileIdToLegacyEmployeeId[profileId] ?? profileId;
+                            return (safeDisplayProjects ?? [])
+                              .filter(
+                                (p) =>
+                                  !p.archived &&
+                                  (p.assignedEmployeeIds ?? []).some(
+                                    (aid) => aid === profileId || aid === leg
+                                  )
+                              )
+                              .map((p) => (p.name ?? "").trim())
+                              .filter(Boolean)
+                              .join("; ");
+                          };
+                          for (const e of personnelDirectoryEmployees ?? []) {
+                            lines.push(
+                              [
+                                csvCell(e.name ?? ""),
+                                csvCell(e.email ?? ""),
+                                csvCell(e.role ?? ""),
+                                csvCell(projNames(e.id)),
+                                csvCell(e.profileStatus ?? ""),
+                              ].join(",")
+                            );
+                          }
+                          const slug = fileSlugCompany(companyName ?? "", companyId ?? "co");
+                          downloadCsvUtf8(`employees_${slug}_${filenameDateYmd()}.csv`, lines);
+                          showToast("success", tl.export_success ?? "Export completed");
+                        } catch {
+                          showToast("error", (labels as Record<string, string>).export_error ?? "Export error");
+                        } finally {
+                          setEmployeesCsvExportBusy(false);
                         }
-                        const slug = fileSlugCompany(companyName ?? "", companyId ?? "co");
-                        downloadCsvUtf8(`employees_${slug}_${filenameDateYmd()}.csv`, lines);
-                        showToast("success", tl.export_success ?? "Export completed");
-                      } catch {
-                        showToast("error", (labels as Record<string, string>).export_error ?? "Export error");
-                      }
+                      })();
                     }}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] sm:w-auto"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] sm:w-auto disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    <Download className="h-4 w-4 shrink-0" aria-hidden />
+                    {employeesCsvExportBusy ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                    ) : (
+                      <Download className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
                     {(labels as Record<string, string>).employees_export_csv ?? "Export CSV"}
                   </button>
                 ) : null}

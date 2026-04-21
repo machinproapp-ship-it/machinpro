@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { verifyCompanyAccess } from "@/lib/verify-api-session";
+import { getSessionUserAndCompany } from "@/lib/notifications-server";
 import { getPppTierFromCountryCode } from "@/lib/geoTier";
 import {
   getStripe,
@@ -60,10 +60,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing companyId" }, { status: 400 });
     }
 
-    const ok = await verifyCompanyAccess(req, companyId);
-    if (!ok) {
+    const scoped = await getSessionUserAndCompany(req);
+    if (!scoped || scoped.companyId !== companyId.trim()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+    const checkoutUserId = scoped.userId;
 
     const stripe = getStripe();
     const admin = createSupabaseAdmin();
@@ -177,6 +178,8 @@ export async function POST(req: NextRequest) {
         trial_period_days: 14,
         metadata: {
           company_id: companyId,
+          user_id: checkoutUserId,
+          plan: plan,
           plan_key: plan,
           billing_period: period,
           geo_tier: String(checkoutTier),
@@ -185,6 +188,8 @@ export async function POST(req: NextRequest) {
       },
       metadata: {
         company_id: companyId,
+        user_id: checkoutUserId,
+        plan: plan,
         plan_key: plan,
         billing_period: period,
         geo_tier: String(checkoutTier),

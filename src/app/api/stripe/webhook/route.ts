@@ -11,6 +11,7 @@ import {
   type PlanKey,
 } from "@/lib/stripe";
 import { sendInvoicePaymentFailedEmail, sendSubscriptionConfirmationEmail } from "@/lib/stripe-webhook-emails";
+import { insertNotificationRow } from "@/lib/notifications-server";
 
 export const runtime = "nodejs";
 
@@ -129,6 +130,29 @@ export async function POST(req: NextRequest) {
               amountDue: due,
               hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
             });
+            const { data: adminRows } = await admin
+              .from("user_profiles")
+              .select("id")
+              .eq("company_id", cid)
+              .eq("role", "admin");
+            for (const row of adminRows ?? []) {
+              const uid = (row as { id?: string }).id;
+              if (!uid) continue;
+              const ins = await insertNotificationRow(admin, {
+                company_id: cid,
+                user_id: uid,
+                type: "billing_payment_failed",
+                title: "Payment failed",
+                body: due ? `Amount due: ${due}` : "Subscription payment failed",
+                data: {
+                  stripe_invoice_id: invoice.id ?? null,
+                  hosted_invoice_url: invoice.hosted_invoice_url ?? null,
+                },
+              });
+              if (!ins.ok) {
+                console.warn("[stripe/webhook] admin notification billing_payment_failed", ins.error);
+              }
+            }
           }
         }
         break;

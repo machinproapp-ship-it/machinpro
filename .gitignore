@@ -45,3 +45,6 @@ public/sw.js
 public/workbox-*.js
 
 .vercel
+
+# Run manually in Supabase SQL editor (do not commit)
+src/lib/performance-indexes.sql

@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
+import { EmptyIllustrationFolder, ModuleEmptyState } from "@/components/ModuleEmptyState";
 import { RFIModule } from "@/components/RFIModule";
 import {
   generatePhotoReport,
@@ -786,6 +787,7 @@ export function ProjectsModule({
   const [workOrderImportPick, setWorkOrderImportPick] = useState<Record<string, boolean>>({});
   const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
   const [pdfExportBusy, setPdfExportBusy] = useState(false);
+  const [safetyChecklistPdfBusy, setSafetyChecklistPdfBusy] = useState(false);
   const [rfiSummary, setRfiSummary] = useState<{ total: number; open: number; closed: number } | null>(null);
   const [generalPhotosSkeleton, setGeneralPhotosSkeleton] = useState(false);
   const [rfiSummaryLoading, setRfiSummaryLoading] = useState(false);
@@ -3464,7 +3466,7 @@ export function ProjectsModule({
                   (t as Record<string, string>).dailyFieldReportsTitle ??
                   (t as Record<string, string>).dailyFieldReport ?? PM_EN.dailyFieldReport}
               </h2>
-              {canManageDailyReports && (
+              {canManageDailyReports && dailyReportsListForUi.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -3476,11 +3478,26 @@ export function ProjectsModule({
                   <Plus className="h-4 w-4" />
                   {(t as Record<string, string>).newDailyReport ?? PM_EN.newDailyReport}
                 </button>
-              )}
+              ) : null}
               {dailyReportsListForUi.length === 0 ? (
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {(t as Record<string, string>).noDailyReportsYet ?? PM_EN.noDailyReportsYet}
-                </p>
+                <ModuleEmptyState
+                  illustration={<EmptyIllustrationFolder />}
+                  title={(t as Record<string, string>).dailyReport ?? PM_EN.dailyFieldReport}
+                  message={(t as Record<string, string>).noDailyReportsYet ?? PM_EN.noDailyReportsYet}
+                  actionLabel={
+                    canManageDailyReports
+                      ? ((t as Record<string, string>).newDailyReport ?? PM_EN.newDailyReport)
+                      : undefined
+                  }
+                  onAction={
+                    canManageDailyReports
+                      ? () => {
+                          setDailyReportViewVariant("full");
+                          setOpenDailyReportKey("new");
+                        }
+                      : undefined
+                  }
+                />
               ) : (
                 <ul className="space-y-2">
                   {dailyReportsListForUi.map((dr) => {
@@ -4355,21 +4372,34 @@ export function ProjectsModule({
                   </button>
                   <button
                     type="button"
+                    disabled={safetyChecklistPdfBusy}
                     onClick={() => {
                       if (!safetyDraft || !selectedProject) return;
-                      generateSafetyChecklistPdf({
-                        checklist: safetyDraft,
-                        projectName: selectedProject.name,
-                        companyName,
-                        language,
-                        labels: t as Record<string, string>,
-                        dateLocaleBcp47: dateLoc,
-                        timeZone: userTz,
-                      });
+                      void (async () => {
+                        setSafetyChecklistPdfBusy(true);
+                        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+                        try {
+                          generateSafetyChecklistPdf({
+                            checklist: safetyDraft,
+                            projectName: selectedProject.name,
+                            companyName,
+                            language,
+                            labels: t as Record<string, string>,
+                            dateLocaleBcp47: dateLoc,
+                            timeZone: userTz,
+                          });
+                        } finally {
+                          setSafetyChecklistPdfBusy(false);
+                        }
+                      })();
                     }}
-                    className="flex-1 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white py-3 text-sm font-medium flex items-center justify-center gap-2"
+                    className="flex-1 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-500 text-white py-3 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    <FileDown className="h-4 w-4" />
+                    {safetyChecklistPdfBusy ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                    ) : (
+                      <FileDown className="h-4 w-4" />
+                    )}
                     {(t as Record<string, string>).printReport ?? PM_EN.printReport}
                   </button>
                 </div>

@@ -1,20 +1,27 @@
 # Google Analytics 4 (GA4) via Google Tag Manager
 
-MachinPro exposes `NEXT_PUBLIC_GA4_MEASUREMENT_ID` for use in GTM and sends SPA `page_view` events on the data layer in production when this variable is set (see `src/components/Ga4RouteAnalytics.tsx` and root `layout.tsx`).
+MachinPro loads **GTM** in production when `NEXT_PUBLIC_GTM_ID` is set (`layout.tsx`), initializes `window.dataLayer`, and pushes SPA **page_view** events in production when `NEXT_PUBLIC_GA4_MEASUREMENT_ID` is set (`src/components/Ga4RouteAnalytics.tsx`).
 
-## Steps
+## Pasos exactos de configuración
 
-1. **Create a GA4 property** at [analytics.google.com](https://analytics.google.com): Admin → Create property → GA4.
-2. **Copy the Measurement ID** — format `G-XXXXXXXXXX` (Admin → Data streams → your web stream).
-3. **In Google Tag Manager** ([tagmanager.google.com](https://tagmanager.google.com)), open the MachinPro container.
-4. **Add a GA4 Configuration tag**: Tags → New → Google Analytics: GA4 Configuration → paste the Measurement ID.
-5. **Trigger**: **All Pages** (or equivalent so the config fires on every page load).
-6. **Variables in MachinPro**: set `NEXT_PUBLIC_GA4_MEASUREMENT_ID=G-XXXXXXXXXX` on Vercel so the app can push virtual pageviews on client-side navigations if needed.
-7. **Publish** the GTM container.
+1. Ir a [analytics.google.com](https://analytics.google.com).
+2. Crear una propiedad **MachinPro** (GA4).
+3. Configurar un **flujo de datos** tipo Web con URL `https://machin.pro`.
+4. Copiar el **Measurement ID** (`G-XXXXXXXXXX`).
+5. En **Vercel**, añadir la variable `NEXT_PUBLIC_GA4_MEASUREMENT_ID=G-XXXXXXXXXX`.
+6. En **Google Tag Manager** ([tagmanager.google.com](https://tagmanager.google.com)):
+   - **Nueva etiqueta** → **GA4 Configuration**.
+   - **Measurement ID**: puede ser la variable de entorno expuesta en GTM o pegar el mismo ID que en Vercel.
+   - **Activador**: **All Pages** (o equivalente para todas las páginas).
+   - **Publicar** el contenedor.
+7. Verificar en GA4 → **Informes** → **Tiempo real** que aparecen visitas al navegar `machin.pro`.
 
-Optional: create a Custom Event trigger for `page_view` if you configure GTM to listen for the same event name MachinPro pushes (`page_view` with `page_path` / `page_location`).
+## Detalle técnico en el código
 
-## Verification
+- `NEXT_PUBLIC_GTM_ID`: snippet GTM en `layout.tsx` (solo producción).
+- `NEXT_PUBLIC_GA4_MEASUREMENT_ID`: usado por `Ga4RouteAnalytics` para empujar `page_view` al `dataLayer` en navegaciones cliente.
 
-- Browser DevTools → Network: requests to `google-analytics.com` / `googletagmanager.com`.
-- GA4 **Realtime** report while browsing machin.pro.
+## Verificación
+
+- DevTools → red: peticiones a `googletagmanager.com` / `google-analytics.com`.
+- GA4 **Tiempo real** mientras abres varias rutas de la app.

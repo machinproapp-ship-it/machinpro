@@ -1138,6 +1138,27 @@ function mapDbProjectExpense(row: Record<string, unknown>): ProjectExpenseRow | 
   };
 }
 
+/** Skeleton while office dashboard phases 1–2 load (FASE 1 crítica + FASE 2 lazy). */
+function DashboardOfficeSkeletonBlock() {
+  return (
+    <div
+      className="animate-pulse space-y-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+      aria-busy="true"
+    >
+      <div className="h-8 w-56 rounded-lg bg-zinc-200 dark:bg-zinc-700" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="h-28 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+        ))}
+      </div>
+      <div className="space-y-2">
+        <div className="h-4 w-full rounded bg-zinc-100 dark:bg-zinc-800" />
+        <div className="h-4 max-w-xl rounded bg-zinc-100 dark:bg-zinc-800" />
+      </div>
+    </div>
+  );
+}
+
 // ─── Estado global y layout ────────────────────────────────────────────────────
 
 export default function Home() {
@@ -2615,8 +2636,10 @@ export default function Home() {
   const [teamProfiles, setTeamProfiles] = useState<
     { id: string; employeeId: string | null; name: string; email?: string }[]
   >([]);
+  /** Office: false until FASE 1 + FASE 2 complete (subscriptions siguen en `useSubscription`). */
+  const [dashboardOfficeHydrated, setDashboardOfficeHydrated] = useState(true);
 
-  /** Carga en dos fases: crítico (empleados, proyectos, roles, empresa) y secundario (fichajes, vacaciones, plan, auditoría, team). */
+  /** FASE 0/1/2: crítico → primer render de empresa; luego proyectos/empleados/roles/auditoría; luego fichajes y catálogo. */
   useEffect(() => {
     if (!supabase || !session) {
       setCustomRoles(INITIAL_CUSTOM_ROLES);
@@ -2633,6 +2656,7 @@ export default function Home() {
       setProductionCatalogItems([]);
       setProjectTaskOverrides([]);
       setProductionReports([]);
+      setDashboardOfficeHydrated(true);
       return;
     }
     const cid = companyId;
@@ -2661,12 +2685,14 @@ export default function Home() {
       setCompanyEmail(cached.companyEmail ?? "");
       setCompanyWebsite(cached.companyWebsite ?? "");
       setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...cached.scheduleEntries]);
+      setDashboardOfficeHydrated(true);
       return () => {
         cancelled = true;
       };
     }
 
     void (async () => {
+      setDashboardOfficeHydrated(false);
       let mappedEmployees: Employee[] = [];
       let mappedTeamProfiles: {
         id: string;
@@ -2691,22 +2717,86 @@ export default function Home() {
       let mappedProjectOverrides: ProjectTaskOverride[] = [];
       let mappedProductionReports: ProductionReport[] = [];
 
-      const [profilesResult, projectsResult, rolesResult, companyResult] = await Promise.all([
-        supabase
-          .from("user_profiles")
-          .select(
-            "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, vacation_days_per_year, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
-          )
-          .eq("company_id", cid)
-          .order("created_at", { ascending: false }),
-        supabase.from("projects").select("*").eq("company_id", cid),
-        supabase.from("roles").select("*").eq("company_id", cid).order("created_at", { ascending: true }),
+      const yieldPaint = () =>
+        new Promise<void>((resolve) => {
+          if (typeof window !== "undefined") {
+            window.requestAnimationFrame(() => resolve());
+          } else {
+            setTimeout(resolve, 0);
+          }
+        });
+
+      /** FASE 0: companies + perfiles mínimos (suscripciones: `useSubscription`). */
+      const [companyPhase0, phase0ProfilesLiteRes] = await Promise.all([
         supabase
           .from("companies")
           .select("name, logo_url, address, phone, email, website, country_code")
           .eq("id", cid)
           .maybeSingle(),
+        supabase
+          .from("user_profiles")
+          .select("id, full_name, email, role, profile_status, employee_id, locale")
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false }),
       ]);
+      if (cancelled) return;
+      if (phase0ProfilesLiteRes.error) {
+        console.error("[page] user_profiles (fase 0)", phase0ProfilesLiteRes.error);
+      }
+
+      const { data: coDataPhase0, error: coErrPhase0 } = companyPhase0;
+      if (!coErrPhase0 && coDataPhase0) {
+        const row = coDataPhase0 as Record<string, unknown>;
+        if (typeof row.name === "string") {
+          mappedCompanyName = row.name;
+          setCompanyName(row.name);
+        }
+        if (typeof row.logo_url === "string" && row.logo_url.trim()) {
+          mappedLogoUrl = row.logo_url.trim();
+          setLogoUrl(mappedLogoUrl);
+        }
+        const addr = row.address;
+        const ph = row.phone;
+        const em = row.email;
+        const web = row.website;
+        mappedCompanyAddress = typeof addr === "string" ? addr : "";
+        mappedCompanyPhone = typeof ph === "string" ? ph : "";
+        mappedCompanyEmail = typeof em === "string" ? em : "";
+        mappedCompanyWebsite = typeof web === "string" ? web : "";
+        setCompanyAddress(mappedCompanyAddress);
+        setCompanyPhone(mappedCompanyPhone);
+        setCompanyEmail(mappedCompanyEmail);
+        setCompanyWebsite(mappedCompanyWebsite);
+        const ccode = row.country_code;
+        if (typeof ccode === "string" && ccode.trim()) {
+          const up = ccode.trim().toUpperCase();
+          setCompanyCountry(up);
+          setSubcontractorCountryCode(up);
+        }
+      }
+
+      await yieldPaint();
+
+      /** FASE 1: datos críticos UX (empleados completos, proyectos acotados, roles, auditoría). */
+      const [profilesResult, activeProjectsResult, archivedProjectsResult, rolesResult, auditResult] =
+        await Promise.all([
+          supabase
+            .from("user_profiles")
+            .select(
+              "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, vacation_days_per_year, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
+            )
+            .eq("company_id", cid)
+            .order("created_at", { ascending: false }),
+          supabase.from("projects").select("*").eq("company_id", cid).eq("archived", false).limit(50),
+          supabase.from("projects").select("*").eq("company_id", cid).eq("archived", true).limit(50),
+          supabase.from("roles").select("*").eq("company_id", cid).order("created_at", { ascending: true }),
+          supabase
+            .from("audit_logs")
+            .select("*")
+            .eq("company_id", cid)
+            .order("created_at", { ascending: false })
+            .limit(20),
+        ]);
 
       if (cancelled) return;
 
@@ -2819,10 +2909,12 @@ export default function Home() {
         }
       }
 
-      const { data: projData, error: projErr } = projectsResult;
+      const projErr = activeProjectsResult.error ?? archivedProjectsResult.error;
       if (projErr) {
         console.error("[page] projects", projErr);
-      } else if (!cancelled) {
+      }
+      const projData = [...(activeProjectsResult.data ?? []), ...(archivedProjectsResult.data ?? [])];
+      if (!projErr && !cancelled) {
         if (!projData?.length) {
           mappedProjects = [];
           setProjects([]);
@@ -2857,6 +2949,42 @@ export default function Home() {
           }));
           setProjects(mappedProjects);
         }
+      }
+
+      if (cancelled) return;
+
+      const { data: auditData, error: auditErr } = auditResult;
+      if (auditErr) {
+        console.error("[page] audit_logs load", auditErr);
+      }
+      if (!cancelled) {
+        mappedAuditLogs = (auditData ?? []) as AuditLogEntry[];
+        setAuditLogs(mappedAuditLogs);
+      }
+
+      try {
+        const activeRows = (profiles ?? []).filter((row: Record<string, unknown>) => {
+          const st = String(row.profile_status ?? "active").toLowerCase().trim();
+          return st === "active";
+        });
+        mappedTeamProfiles = activeRows.map((row: Record<string, unknown>) => {
+          const id = String(row.id ?? "");
+          const fn = typeof row.full_name === "string" ? row.full_name : undefined;
+          const dn = typeof row.display_name === "string" ? row.display_name : undefined;
+          const em = typeof row.email === "string" ? row.email : undefined;
+          const name = displayNameFromProfile(fn, dn, em);
+          return {
+            id,
+            employeeId: row.employee_id != null ? String(row.employee_id) : null,
+            name: name || id,
+            email: typeof em === "string" ? em.trim() || undefined : undefined,
+          };
+        });
+        setTeamProfiles(mappedTeamProfiles);
+      } catch (e) {
+        console.error("[page] teamProfiles", e);
+        mappedTeamProfiles = [];
+        setTeamProfiles([]);
       }
 
       if (cancelled) return;
@@ -2902,47 +3030,22 @@ export default function Home() {
         }
       }
 
-      if (cancelled) return;
-      const { data: coData, error: coErr } = companyResult;
-      if (!coErr && coData) {
-        const row = coData as Record<string, unknown>;
-        if (typeof row.name === "string") {
-          mappedCompanyName = row.name;
-          setCompanyName(row.name);
-        }
-        if (typeof row.logo_url === "string" && row.logo_url.trim()) {
-          mappedLogoUrl = row.logo_url.trim();
-          setLogoUrl(mappedLogoUrl);
-        }
-        const addr = row.address;
-        const ph = row.phone;
-        const em = row.email;
-        const web = row.website;
-        mappedCompanyAddress = typeof addr === "string" ? addr : "";
-        mappedCompanyPhone = typeof ph === "string" ? ph : "";
-        mappedCompanyEmail = typeof em === "string" ? em : "";
-        mappedCompanyWebsite = typeof web === "string" ? web : "";
-        setCompanyAddress(mappedCompanyAddress);
-        setCompanyPhone(mappedCompanyPhone);
-        setCompanyEmail(mappedCompanyEmail);
-        setCompanyWebsite(mappedCompanyWebsite);
-        const ccode = row.country_code;
-        if (typeof ccode === "string" && ccode.trim()) {
-          const up = ccode.trim().toUpperCase();
-          setCompanyCountry(up);
-          setSubcontractorCountryCode(up);
-        }
-      }
-
       if (!cancelled) {
         void (async () => {
-          /** Phase A: dashboard-critical rows (bounded). Legacy clock table optional second source. */
+          await yieldPaint();
+
+          /** FASE 2 (lazy): paralelo — fichajes, agenda, subcontratistas (50), catálogo. */
           const [
             timeEntriesResult,
             legacyClockResult,
             vacationsResult,
             scheduleResult,
-            auditResult,
+            subRowsResult,
+            subDocsResult,
+            projectExpensesResult,
+            productionCatalogResult,
+            projectOverridesResult,
+            productionReportsResult,
           ] = await Promise.all([
             supabase
               .from("time_entries")
@@ -2961,41 +3064,39 @@ export default function Home() {
               .eq("company_id", cid)
               .order("created_at", { ascending: false })
               .limit(100),
-            supabase.from("schedule_entries").select("*").eq("company_id", cid).limit(800),
+            supabase.from("schedule_entries").select("*").eq("company_id", cid).limit(500),
+            supabase.from("subcontractors").select("id, name").eq("company_id", cid).limit(50),
+            supabase.from("subcontractor_documents").select("*").eq("company_id", cid).limit(500),
             supabase
-              .from("audit_logs")
+              .from("project_expenses")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("expense_date", { ascending: false })
+              .limit(2000),
+            supabase
+              .from("production_catalog")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("created_at", { ascending: false })
+              .limit(5000),
+            supabase
+              .from("project_task_overrides")
               .select("*")
               .eq("company_id", cid)
               .order("created_at", { ascending: false })
-              .limit(20),
+              .limit(5000),
+            supabase
+              .from("production_reports")
+              .select("*")
+              .eq("company_id", cid)
+              .is("deleted_at", null)
+              .order("report_date", { ascending: false })
+              .limit(2000),
           ]);
 
           if (cancelled) return;
-
-          try {
-            const activeRows = (profiles ?? []).filter((row: Record<string, unknown>) => {
-              const st = String(row.profile_status ?? "active").toLowerCase().trim();
-              return st === "active";
-            });
-            mappedTeamProfiles = activeRows.map((row: Record<string, unknown>) => {
-              const id = String(row.id ?? "");
-              const fn = typeof row.full_name === "string" ? row.full_name : undefined;
-              const dn = typeof row.display_name === "string" ? row.display_name : undefined;
-              const em = typeof row.email === "string" ? row.email : undefined;
-              const name = displayNameFromProfile(fn, dn, em);
-              return {
-                id,
-                employeeId: row.employee_id != null ? String(row.employee_id) : null,
-                name: name || id,
-                email: typeof em === "string" ? em.trim() || undefined : undefined,
-              };
-            });
-            setTeamProfiles(mappedTeamProfiles);
-          } catch (e) {
-            console.error("[page] teamProfiles (block2)", e);
-            mappedTeamProfiles = [];
-            setTeamProfiles([]);
-          }
 
           const { data: timeRows, error: timeErr } = timeEntriesResult;
           if (timeErr) {
@@ -3105,64 +3206,6 @@ export default function Home() {
             setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mappedScheduleVacation]);
           }
 
-          const { data: auditData, error: auditErr } = auditResult;
-          if (auditErr) {
-            console.error("[page] audit_logs load", auditErr);
-          }
-          if (!cancelled) {
-            mappedAuditLogs = (auditData ?? []) as AuditLogEntry[];
-            setAuditLogs(mappedAuditLogs);
-          }
-
-          /** Phase B (deferred): heavy / non-blocking for first paint — runs next frame. */
-          await new Promise<void>((resolve) => {
-            if (typeof window !== "undefined") {
-              window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
-            } else {
-              setTimeout(resolve, 0);
-            }
-          });
-          if (cancelled) return;
-
-          const [
-            subRowsResult,
-            subDocsResult,
-            projectExpensesResult,
-            productionCatalogResult,
-            projectOverridesResult,
-            productionReportsResult,
-          ] = await Promise.all([
-            supabase.from("subcontractors").select("id, name").eq("company_id", cid),
-            supabase.from("subcontractor_documents").select("*").eq("company_id", cid).limit(500),
-            supabase
-              .from("project_expenses")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("expense_date", { ascending: false })
-              .limit(2000),
-            supabase
-              .from("production_catalog")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("created_at", { ascending: false })
-              .limit(5000),
-            supabase
-              .from("project_task_overrides")
-              .select("*")
-              .eq("company_id", cid)
-              .order("created_at", { ascending: false })
-              .limit(5000),
-            supabase
-              .from("production_reports")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("report_date", { ascending: false })
-              .limit(2000),
-          ]);
-
           const { data: expData, error: expErr } = projectExpensesResult;
           if (expErr) {
             console.error("[page] project_expenses load", expErr);
@@ -3240,6 +3283,8 @@ export default function Home() {
             if (subDocsErr) console.error("[page] subcontractor_documents watchdog load", subDocsErr);
             setSubcontractorsForWatchdog([]);
           }
+
+          if (!cancelled) setDashboardOfficeHydrated(true);
 
           const cacheWriteOk =
             !cancelled &&
@@ -6194,6 +6239,8 @@ export default function Home() {
           <div className="max-w-7xl mx-auto space-y-6 min-w-0 w-full">
             {activeSection === "office" && perms.office && (
               <>
+              {!dashboardOfficeHydrated ? <DashboardOfficeSkeletonBlock /> : null}
+              <div className={!dashboardOfficeHydrated ? "hidden" : "contents"}>
               <CentralModule
                 labels={labels}
                 employees={(() => {
@@ -6551,6 +6598,7 @@ export default function Home() {
                 dashboardCanManageProjectRFI={!!rolePerms.canManageProjectRFI}
                 dashboardCanAccessSubcontractors={!!perms.canAccessSubcontractors}
               />
+              </div>
               <ModuleHelpFab
                 moduleKey="office"
                 labels={t as Record<string, string>}
