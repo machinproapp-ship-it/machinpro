@@ -10,10 +10,9 @@ const LandingPwaInstallBar = dynamic(
   { ssr: false }
 );
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
+import { LandingLanguageSelect } from "@/components/LandingLanguageSelect";
 import { Star, HardHat, ClipboardList, TrendingUp } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
-import { LANGUAGES } from "@/lib/i18n";
-import type { Language } from "@/types/shared";
 import { detectGeo, getCurrencyForCountry, type GeoDetect } from "@/lib/geoTier";
 import {
   PAID_PLAN_ORDER,
@@ -435,22 +434,12 @@ export default function LandingPage() {
             </button>
           </nav>
           <div className="flex flex-wrap items-center gap-2">
-            <select
+            <LandingLanguageSelect
               value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
-              className={`min-h-[44px] max-w-[11.5rem] rounded-lg border px-2 text-sm font-semibold sm:max-w-[14rem] ${
-                navSolid
-                  ? "border-slate-300 bg-white text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                  : "border-white/30 bg-white/10 text-white"
-              }`}
-              aria-label={tx("landing_lang_select", "Language")}
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.flag} {l.label}
-                </option>
-              ))}
-            </select>
+              onChange={setLanguage}
+              navSolid={navSolid}
+              ariaLabel={tx("landing_lang_select", "Language")}
+            />
             <button
               type="button"
               onClick={toggleDark}

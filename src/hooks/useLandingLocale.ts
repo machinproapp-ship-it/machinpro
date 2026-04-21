@@ -3,7 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ALL_TRANSLATIONS, LANGUAGES, loadLocale, isLazyLocale, type Language } from "@/lib/i18n";
 
-const LANDING_LANG_KEY = "machinpro_landing_lang";
+/** Prefer canonical `machinpro_lang`; keep legacy keys for backward compatibility. */
+const STORAGE_LANG_KEYS = ["machinpro_lang", "machinpro_language", "machinpro_landing_lang"] as const;
+
+function readStoredLanguageFromLocalStorage(): Language | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    for (const key of STORAGE_LANG_KEYS) {
+      const raw = localStorage.getItem(key)?.trim();
+      if (raw && LANGUAGES.some((l) => l.code === raw)) return raw as Language;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 const STATIC = ALL_TRANSLATIONS;
 
@@ -22,23 +36,17 @@ export function useLandingLocale() {
   const lazyLocaleCacheRef = useRef<Map<string, Record<string, string>>>(new Map());
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LANDING_LANG_KEY);
-      if (stored && LANGUAGES.some((l) => l.code === stored)) {
-        setLanguageState(stored as Language);
-        return;
-      }
-    } catch {
-      /* ignore */
-    }
-    setLanguageState(browserLanguageGuess());
+    const stored = readStoredLanguageFromLocalStorage();
+    if (stored) setLanguageState(stored);
+    else setLanguageState(browserLanguageGuess());
   }, []);
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     try {
-      localStorage.setItem(LANDING_LANG_KEY, lang);
+      localStorage.setItem("machinpro_lang", lang);
       localStorage.setItem("machinpro_language", lang);
+      localStorage.setItem("machinpro_landing_lang", lang);
     } catch {
       /* ignore */
     }
