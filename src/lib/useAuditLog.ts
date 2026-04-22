@@ -46,6 +46,9 @@ export type AuditAction =
   | "photos_bulk_downloaded"
   | "manual_clock_in"
   | "manual_clock_out"
+  | "clock_break_started"
+  | "clock_break_ended"
+  | "clock_project_switched"
   | "rental_created"
   | "rental_updated"
   | "rental_deleted";

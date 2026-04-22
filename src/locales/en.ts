@@ -567,6 +567,14 @@ export default {
   clockInDone: "Shift completed",
   clock_in_success: "Clock-in recorded",
   clock_out_success: "Clock-out recorded",
+  clock_break: "Break",
+  clock_end_break: "End Break",
+  clock_switch_project: "Switch Project",
+  clock_switch_no_projects: "No other projects available",
+  clock_on_break: "On break",
+  clock_break_started: "Break started",
+  clock_break_ended: "Break ended",
+  clock_project_switched: "Project switched",
   clockInEntry: "In",
   clockOutEntry: "Out",
   clock_working_for: "Working for {time}",
@@ -2005,7 +2013,8 @@ export default {
     "Essential + QR inventory, fleet, rentals, suppliers, orders + Security",
   pricing_operations_includes:
     "Essential + projects, GPS gallery, blueprints, forms, visitors, RFI, daily report + Security",
-  pricing_essential_includes: "Employees, compliance, schedules and dashboard",
+  pricing_essential_includes:
+    "Employees, compliance, documents, real-time dashboard, offline mode. Clock-in, shifts, vacations and timesheets included.",
   pricing_all_inclusive_includes: "All modules included",
   pricing_feat_esencial_1: "Employees and roles with granular permissions",
   pricing_feat_esencial_2: "Automatic compliance with alerts",
@@ -2833,11 +2842,11 @@ export default {
   landing_pricing_usd_note: "Prices in USD. Taxes not included.",
   landing_pricing_region_note: "Price adjusted for your region",
   landing_plan_blurb_esencial:
-    "Employees and compliance, documents, real-time dashboard and offline mode.",
+    "Employees, compliance, documents, real-time dashboard, offline mode. Clock-in, shifts, vacations and timesheets included.",
   landing_plan_blurb_operaciones:
     "Everything in Essential plus sites: GPS, blueprints, visitor QR, RFI, daily report, work orders, costs and profitability.",
   landing_plan_blurb_logistica:
-    "Everything in Foundation plus GPS clock, shifts, vacations, timesheets, payroll and export for your accountant.",
+    "Essential plus full inventory with QR codes, fleet management, rentals, suppliers and purchase orders.",
   landing_plan_blurb_todo:
     "QR inventory, transfers, Training Hub, Safety Passport, push and integrations (coming soon).",
 

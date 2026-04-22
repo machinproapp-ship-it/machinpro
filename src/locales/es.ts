@@ -492,6 +492,14 @@ export default {
   clockInDone: "Jornada completada",
   clock_in_success: "Entrada registrada",
   clock_out_success: "Salida registrada",
+  clock_break: "Pausa",
+  clock_end_break: "Fin de pausa",
+  clock_switch_project: "Cambiar proyecto",
+  clock_switch_no_projects: "No hay otros proyectos disponibles",
+  clock_on_break: "En pausa",
+  clock_break_started: "Pausa iniciada",
+  clock_break_ended: "Pausa finalizada",
+  clock_project_switched: "Proyecto cambiado",
   clockInEntry: "Entrada",
   clockOutEntry: "Salida",
   clock_working_for: "Llevas {time} trabajando",
@@ -1858,7 +1866,8 @@ export default {
     "Essential + inventario QR, flota, alquileres, proveedores, pedidos + Seguridad",
   pricing_operations_includes:
     "Essential + proyectos, galería GPS, planos, formularios, visitantes, RFI, parte diario + Seguridad",
-  pricing_essential_includes: "Empleados, compliance, horarios y dashboard",
+  pricing_essential_includes:
+    "Empleados, compliance, documentos, panel en tiempo real, modo offline. Fichaje, turnos, vacaciones y hojas de horas incluidos.",
   pricing_all_inclusive_includes: "Todos los módulos incluidos",
   pricing_feat_esencial_1: "Empleados y roles con permisos granulares",
   pricing_feat_esencial_2: "Compliance automático con alertas",
@@ -2657,11 +2666,11 @@ export default {
   landing_pricing_usd_note: "Precios en USD. Impuestos no incluidos.",
   landing_pricing_region_note: "Precio ajustado para tu región",
   landing_plan_blurb_esencial:
-    "Empleados y compliance, documentos, dashboard en tiempo real y modo offline.",
+    "Empleados, compliance, documentos, panel en tiempo real, modo offline. Fichaje, turnos, vacaciones y hojas de horas incluidos.",
   landing_plan_blurb_operaciones:
     "Todo Esencial más obras: GPS, planos, visitantes QR, RFI, parte diario, órdenes de trabajo, costes y rentabilidad.",
   landing_plan_blurb_logistica:
-    "Todo Foundation más fichaje GPS, turnos, vacaciones, hojas de horas, nóminas y exportación para gestoría.",
+    "Essential más inventario completo con QR, gestión de flota, alquileres, proveedores y pedidos de compra.",
   landing_plan_blurb_todo:
     "Inventario QR, transferencias, Training Hub, Pasaporte de Seguridad, push e integraciones (próximamente).",
 

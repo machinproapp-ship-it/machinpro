@@ -11,7 +11,29 @@ const LandingPwaInstallBar = dynamic(
 );
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { LandingLanguageSelect } from "@/components/LandingLanguageSelect";
-import { HardHat, ClipboardList, TrendingUp, Play } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BarChart2,
+  Bell,
+  Building2,
+  Calendar,
+  ClipboardCheck,
+  ClipboardList,
+  Clock,
+  DollarSign,
+  FileText,
+  GraduationCap,
+  HardHat,
+  History,
+  LayoutDashboard,
+  Package,
+  QrCode,
+  ShieldAlert,
+  ShieldCheck,
+  TrendingUp,
+  WifiOff,
+  type LucideIcon,
+} from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
 import { resolveRegionTier, type GeoDetect } from "@/lib/geoTier";
 import type { BillingPeriod } from "@/lib/stripe";
@@ -134,7 +156,20 @@ function HeroDashboardMockup({ tx }: { tx: TxFn }) {
   );
 }
 
-type FeatureRow = { emoji: string; titleKey: string; descKey: string };
+type FeatureRow = { Icon: LucideIcon; titleKey: string; descKey: string };
+
+const LANDING_ICON_BADGE =
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f97316]/15 text-[#f97316] dark:bg-orange-500/20 dark:text-orange-400";
+
+const MODULE_ICONS: Record<"central" | "operations" | "schedule" | "logistics" | "security" | "forms", LucideIcon> =
+  {
+    central: LayoutDashboard,
+    operations: Building2,
+    schedule: Calendar,
+    logistics: Package,
+    security: ShieldAlert,
+    forms: FileText,
+  };
 
 const PERSONALIZE_TITLE_FB: Record<string, string> = {
   feature_payroll_production: "Payroll & production pay",
@@ -308,71 +343,17 @@ export default function LandingPage() {
 
   const features = useMemo(
     (): FeatureRow[] => [
-      {
-        emoji: "💰",
-        titleKey: "feature_payroll_production",
-        descKey: "feature_payroll_production_desc",
-      },
-      {
-        emoji: "📋",
-        titleKey: "feature_work_orders",
-        descKey: "feature_work_orders_desc",
-      },
-      {
-        emoji: "📦",
-        titleKey: "feature_inventory_qr",
-        descKey: "feature_inventory_qr_desc",
-      },
-      {
-        emoji: "🎓",
-        titleKey: "feature_training_hub",
-        descKey: "feature_training_hub_desc",
-      },
-      {
-        emoji: "🛡️",
-        titleKey: "feature_safety_passport",
-        descKey: "feature_safety_passport_desc",
-      },
-      {
-        emoji: "⏱️",
-        titleKey: "feature_timesheets_approval",
-        descKey: "feature_timesheets_approval_desc",
-      },
-      {
-        emoji: "📵",
-        titleKey: "feature_offline_mode",
-        descKey: "feature_offline_mode_desc",
-      },
-      {
-        emoji: "🔔",
-        titleKey: "feature_push_notifications",
-        descKey: "feature_push_notifications_desc",
-      },
-      {
-        emoji: "🔄",
-        titleKey: "feature_inventory_transfers",
-        descKey: "feature_inventory_transfers_desc",
-      },
-      {
-        emoji: "📊",
-        titleKey: "feature_benefit_report",
-        descKey: "feature_benefit_report_desc",
-      },
+      { Icon: DollarSign, titleKey: "feature_payroll_production", descKey: "feature_payroll_production_desc" },
+      { Icon: ClipboardList, titleKey: "feature_work_orders", descKey: "feature_work_orders_desc" },
+      { Icon: QrCode, titleKey: "feature_inventory_qr", descKey: "feature_inventory_qr_desc" },
+      { Icon: GraduationCap, titleKey: "feature_training_hub", descKey: "feature_training_hub_desc" },
+      { Icon: ShieldCheck, titleKey: "feature_safety_passport", descKey: "feature_safety_passport_desc" },
+      { Icon: Clock, titleKey: "feature_timesheets_approval", descKey: "feature_timesheets_approval_desc" },
+      { Icon: WifiOff, titleKey: "feature_offline_mode", descKey: "feature_offline_mode_desc" },
+      { Icon: Bell, titleKey: "feature_push_notifications", descKey: "feature_push_notifications_desc" },
+      { Icon: ArrowLeftRight, titleKey: "feature_inventory_transfers", descKey: "feature_inventory_transfers_desc" },
+      { Icon: TrendingUp, titleKey: "feature_benefit_report", descKey: "feature_benefit_report_desc" },
     ],
-    []
-  );
-
-  const comingSoonCards = useMemo(
-    () =>
-      [
-        { emoji: "📱", titleKey: "landing_coming_soon_app", descKey: "landing_coming_soon_app_desc" },
-        {
-          emoji: "🔗",
-          titleKey: "landing_coming_soon_integrations",
-          descKey: "landing_coming_soon_integrations_desc",
-        },
-        { emoji: "🌍", titleKey: "landing_coming_soon_certs", descKey: "landing_coming_soon_certs_desc" },
-      ] as const,
     []
   );
 
@@ -567,46 +548,15 @@ export default function LandingPage() {
                   key={f.titleKey}
                   className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
                 >
-                  <p className="text-2xl" aria-hidden>
-                    {f.emoji}
-                  </p>
-                  <h3 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
+                  <span className={LANDING_ICON_BADGE} aria-hidden>
+                    <f.Icon className="h-7 w-7" strokeWidth={2} />
+                  </span>
+                  <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">
                     {tx(f.titleKey, PERSONALIZE_TITLE_FB[f.titleKey] ?? "")}
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                     {tx(f.descKey, PERSONALIZE_DESC_FB[f.descKey] ?? "")}
                   </p>
-                </div>
-              ))}
-            </div>
-          </FadeSection>
-        </div>
-      </section>
-
-      <section
-        id="coming-soon"
-        className="scroll-mt-24 border-t border-slate-200 bg-slate-50/90 px-4 py-16 dark:border-slate-800 dark:bg-slate-900/40 sm:py-24"
-      >
-        <div className="mx-auto max-w-6xl">
-          <FadeSection>
-            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              <TextWithBrandMarks
-                text={tx("landing_coming_soon_title", "Coming soon to MachinPro")}
-                tone="onLight"
-                className="contents"
-              />
-            </h2>
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {comingSoonCards.map((c) => (
-                <div
-                  key={c.titleKey}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
-                >
-                  <p className="text-2xl" aria-hidden>
-                    {c.emoji}
-                  </p>
-                  <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
                 </div>
               ))}
             </div>
@@ -628,20 +578,22 @@ export default function LandingPage() {
                 [
                   { Icon: HardHat, titleKey: "landing_usecase_contractor_title", descKey: "landing_usecase_contractor_desc", featKey: "landing_usecase_contractor_features" },
                   {
-                    Icon: ClipboardList,
+                    Icon: ClipboardCheck,
                     titleKey: "landing_usecase_sitemanager_title",
                     descKey: "landing_usecase_sitemanager_desc",
                     featKey: "landing_usecase_sitemanager_features",
                   },
-                  { Icon: TrendingUp, titleKey: "landing_usecase_owner_title", descKey: "landing_usecase_owner_desc", featKey: "landing_usecase_owner_features" },
+                  { Icon: BarChart2, titleKey: "landing_usecase_owner_title", descKey: "landing_usecase_owner_desc", featKey: "landing_usecase_owner_features" },
                 ] as const
               ).map((c) => (
                 <div
                   key={c.titleKey}
                   className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/90"
                 >
-                  <c.Icon className="h-10 w-10 text-[#f97316]" aria-hidden />
-                  <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
+                  <span className={LANDING_ICON_BADGE} aria-hidden>
+                    <c.Icon className="h-7 w-7" strokeWidth={2} />
+                  </span>
+                  <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{tx(c.titleKey, "")}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{tx(c.descKey, "")}</p>
                   <p className="mt-4 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-500">
                     {tx(c.featKey, "")}
@@ -668,18 +620,18 @@ export default function LandingPage() {
             <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
               {(
                 [
-                  { k: "landing_logistics_qr", icon: "📱" },
-                  { k: "landing_logistics_transfer", icon: "↔" },
-                  { k: "landing_logistics_history", icon: "📜" },
+                  { k: "landing_logistics_qr", Icon: QrCode },
+                  { k: "landing_logistics_transfer", Icon: ArrowLeftRight },
+                  { k: "landing_logistics_history", Icon: History },
                 ] as const
               ).map((item) => (
                 <div
                   key={item.k}
                   className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
                 >
-                  <p className="text-2xl" aria-hidden>
-                    {item.icon}
-                  </p>
+                  <span className={LANDING_ICON_BADGE} aria-hidden>
+                    <item.Icon className="h-7 w-7" strokeWidth={2} />
+                  </span>
                   <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
                     {tx(item.k, "")}
                   </p>
@@ -714,14 +666,21 @@ export default function LandingPage() {
               {tx("landing_features_heading", "")}
             </h2>
             <div className="mt-10 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-              {(["central", "operations", "schedule", "logistics", "security", "forms"] as const).map((id) => (
+              {(["central", "operations", "schedule", "logistics", "security", "forms"] as const).map((id) => {
+                const ModIcon = MODULE_ICONS[id];
+                return (
                 <div
                   key={id}
                   className="flex min-h-[200px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
                 >
-                  <h3 className="text-base font-semibold text-[#1a4f5e] dark:text-teal-300">
+                  <div className="mb-3 flex items-start gap-3">
+                    <span className={LANDING_ICON_BADGE} aria-hidden>
+                      <ModIcon className="h-7 w-7" strokeWidth={2} />
+                    </span>
+                    <h3 className="text-base font-semibold leading-snug text-[#1a4f5e] dark:text-teal-300">
                     {tx(`landing_features_module_${id}`, "")}
                   </h3>
+                  </div>
                   <ul className="mt-3 flex-1 space-y-2 text-sm text-slate-600 dark:text-slate-400">
                     {(tx(`landing_features_lines_${id}`, "") || "")
                       .split("\n")
@@ -736,7 +695,8 @@ export default function LandingPage() {
                       ))}
                   </ul>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </FadeSection>
         </div>
@@ -758,27 +718,6 @@ export default function LandingPage() {
                   "🇨🇦 Canada · 🇺🇸 USA · 🇪🇸 Spain · 🇲🇽 Mexico · 🇬🇧 UK · 🇩🇪 Germany · 🇦🇺 Australia · 🇳🇿 New Zealand"
                 )}
               </p>
-            </div>
-          </FadeSection>
-        </div>
-      </section>
-
-      <section
-        id="landing-video"
-        className="scroll-mt-24 bg-slate-100 px-4 py-14 dark:bg-slate-900/80 sm:py-16"
-      >
-        <div className="mx-auto max-w-3xl">
-          <FadeSection>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 px-6 py-10 text-center shadow-lg dark:border-slate-700">
-              <Play className="mx-auto h-14 w-14 text-orange-400 sm:h-16 sm:w-16" aria-hidden />
-              <p className="mt-4 text-lg font-semibold text-white">{tx("landing_video_placeholder_title", "Demo video coming soon")}</p>
-              <p className="mt-2 text-sm text-slate-400">{tx("landing_video_placeholder_subtitle", "Full walkthrough of MachinPro in action")}</p>
-              <Link
-                href="/beta"
-                className="mt-6 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-[#f97316] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
-              >
-                {tx("landing_video_early_access", "Get early access")}
-              </Link>
             </div>
           </FadeSection>
         </div>

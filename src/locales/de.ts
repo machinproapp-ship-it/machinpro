@@ -447,6 +447,14 @@ export default {
   clockInDone: "Schicht abgeschlossen",
   clock_in_success: "Eingang erfasst",
   clock_out_success: "Ausgang erfasst",
+  clock_break: "Pause",
+  clock_end_break: "Pause beenden",
+  clock_switch_project: "Projekt wechseln",
+  clock_switch_no_projects: "Keine anderen Projekte verfügbar",
+  clock_on_break: "In der Pause",
+  clock_break_started: "Pause begonnen",
+  clock_break_ended: "Pause beendet",
+  clock_project_switched: "Projekt gewechselt",
   clockInEntry: "Ankunft",
   clockOutEntry: "Abgang",
   clock_working_for: "Arbeitet seit {time}",
@@ -1758,7 +1766,8 @@ export default {
     "Essential + QR-Inventar, Flotte, Mieten, Lieferanten, Bestellungen + Sicherheit",
   pricing_operations_includes:
     "Essential + Projekte, GPS-Galerie, Pläne, Formulare, Besucher, RFI, Tagesbericht + Sicherheit",
-  pricing_essential_includes: "Mitarbeiter, Compliance, Zeitpläne und Dashboard",
+  pricing_essential_includes:
+    "Mitarbeiter, Compliance, Dokumente, Echtzeit-Dashboard, Offline-Modus. Zeiterfassung, Schichten, Urlaub und Stundenzettel inklusive.",
   pricing_all_inclusive_includes: "Alle Module inklusive",
   pricing_feat_esencial_1: "Mitarbeiter und Rollen mit granularen Berechtigungen",
   pricing_feat_esencial_2: "Automatisches Compliance mit Warnungen",
@@ -2550,11 +2559,11 @@ export default {
   landing_pricing_usd_note: "Preise in USD. Steuern nicht inbegriffen.",
   landing_pricing_region_note: "Für Ihre Region angepasster Preis",
   landing_plan_blurb_esencial:
-    "Mitarbeiter und Compliance, Dokumente, Echtzeit-Dashboard und Offline-Modus.",
+    "Mitarbeiter, Compliance, Dokumente, Echtzeit-Dashboard, Offline-Modus. Zeiterfassung, Schichten, Urlaub und Stundenzettel inklusive.",
   landing_plan_blurb_operaciones:
     "Alles Wesentliche plus Baustellen: GPS, Pläne, Besucher-QR, RFI, Tagesbericht, Arbeitsaufträge, Kosten und Rentabilität.",
   landing_plan_blurb_logistica:
-    "Alles Foundation plus GPS-Zeiterfassung, Schichten, Urlaub, Stundenzettel, Lohn und Export für den Steuerberater.",
+    "Essential plus vollständiges Inventar mit QR, Flottenmanagement, Vermietungen, Lieferanten und Bestellungen.",
   landing_plan_blurb_todo:
     "QR-Inventar, Transfers, Training Hub, Sicherheitspass, Push und Integrationen (demnächst).",
 

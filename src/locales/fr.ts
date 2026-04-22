@@ -447,6 +447,14 @@ export default {
   clockInDone: "Poste terminé",
   clock_in_success: "Entrée enregistrée",
   clock_out_success: "Sortie enregistrée",
+  clock_break: "Pause",
+  clock_end_break: "Fin de pause",
+  clock_switch_project: "Changer de projet",
+  clock_switch_no_projects: "Aucun autre projet disponible",
+  clock_on_break: "En pause",
+  clock_break_started: "Pause commencée",
+  clock_break_ended: "Pause terminée",
+  clock_project_switched: "Projet changé",
   clockInEntry: "Entrée",
   clockOutEntry: "Sortie",
   clock_working_for: "En travail depuis {time}",
@@ -1744,7 +1752,8 @@ export default {
     "Essentiel + inventaire QR, flotte, locations, fournisseurs, commandes + Sécurité",
   pricing_operations_includes:
     "Essentiel + projets, galerie GPS, plans, formulaires, visiteurs, RFI, rapport journalier + Sécurité",
-  pricing_essential_includes: "Employés, conformité, horaires et tableau de bord",
+  pricing_essential_includes:
+    "Employés, conformité, documents, tableau de bord en temps réel, mode hors ligne. Pointage, quarts, congés et feuilles de temps inclus.",
   pricing_all_inclusive_includes: "Tous les modules inclus",
   pricing_feat_esencial_1: "Employés et rôles avec permissions granulaires",
   pricing_feat_esencial_2: "Conformité automatique avec alertes",
@@ -2534,11 +2543,11 @@ export default {
   landing_pricing_usd_note: "Prix en USD. Taxes non incluses.",
   landing_pricing_region_note: "Prix ajusté pour votre région",
   landing_plan_blurb_esencial:
-    "Employés et conformité, documents, tableau de bord temps réel et mode hors ligne.",
+    "Employés, conformité, documents, tableau de bord en temps réel, mode hors ligne. Pointage, quarts, congés et feuilles de temps inclus.",
   landing_plan_blurb_operaciones:
     "Tout Essentiel plus chantiers : GPS, plans, visiteurs QR, RFI, rapport journalier, ordres de travail, coûts et rentabilité.",
   landing_plan_blurb_logistica:
-    "Tout Foundation plus pointage GPS, équipes, congés, feuilles de temps, paie et export comptable.",
+    "Essential plus inventaire complet avec QR, gestion de flotte, locations, fournisseurs et bons de commande.",
   landing_plan_blurb_todo:
     "Inventaire QR, transferts, Training Hub, Passeport de sécurité, push et intégrations (bientôt).",
 

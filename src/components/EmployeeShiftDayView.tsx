@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Briefcase, Clock, MapPin, Users, X } from "lucide-react";
+import { ArrowLeftRight, Briefcase, Clock, Coffee, MapPin, Users, X } from "lucide-react";
 import type { ProjectTask } from "@/types/projectTask";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import { supabase } from "@/lib/supabase";
@@ -98,6 +98,10 @@ export function EmployeeShiftDayView({
   onDismissClockInAlert,
   onClockIn,
   onClockOut,
+  onClockBreakToggle,
+  onClockProjectSwitch,
+  clockProjectSwitchOptions = [],
+  clockBreakActive = false,
   assignedClockInProjects = [],
   clockInProjectCode = "",
   setClockInProjectCode,
@@ -124,6 +128,12 @@ export function EmployeeShiftDayView({
   onDismissClockInAlert?: () => void;
   onClockIn: (override?: { projectId?: string; projectCode?: string }) => void;
   onClockOut: () => void;
+  /** AH-41: fichaje activo Supabase UUID — pausa / cambio de obra */
+  onClockBreakToggle?: () => void | Promise<void>;
+  onClockProjectSwitch?: (projectId: string) => void | Promise<void>;
+  /** Proyectos asignados distintos al proyecto activo del fichaje */
+  clockProjectSwitchOptions?: Array<{ id: string; name: string; projectCode?: string }>;
+  clockBreakActive?: boolean;
   assignedClockInProjects?: ClockInAssignedProject[];
   clockInProjectCode?: string;
   setClockInProjectCode?: (v: string) => void;
@@ -148,6 +158,21 @@ export function EmployeeShiftDayView({
   const [signBusy, setSignBusy] = useState(false);
   const [signErr, setSignErr] = useState<string | null>(null);
   const [shiftClockManual, setShiftClockManual] = useState(true);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+
+  const canUseAdvancedClock =
+    canActClock &&
+    !!onClockBreakToggle &&
+    !!onClockProjectSwitch &&
+    !!clockEntry?.id &&
+    !clockEntry.clockOut &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clockEntry.id);
+
+  const clockSwitchDisabled = !canUseAdvancedClock || clockProjectSwitchOptions.length === 0;
+
+  useEffect(() => {
+    if (!open) setProjectPickerOpen(false);
+  }, [open]);
 
   useEffect(() => {
     if (!open || clockEntry?.clockOut || !clockEntry) return;
@@ -428,6 +453,11 @@ export function EmployeeShiftDayView({
                   {tl.clockInEntry ?? "Entrada"}:{" "}
                   <span className="font-mono font-medium">{wallClockLabel(clockEntry.clockIn)}</span>
                 </p>
+                {clockBreakActive ? (
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                    {(tl as Record<string, string>).clock_on_break ?? "On break"}
+                  </p>
+                ) : null}
                 {elapsedLive ? (
                   <p className={`text-sm font-semibold ${elapsedLive.cls}`}>{elapsedLive.text}</p>
                 ) : null}
@@ -435,10 +465,75 @@ export function EmployeeShiftDayView({
                   type="button"
                   onClick={onClockOut}
                   disabled={gpsStatus === "locating"}
-                  className="w-full min-h-[48px] rounded-2xl bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white font-semibold text-base"
+                  className="flex w-full min-h-[48px] items-center justify-center rounded-2xl bg-red-600 px-4 py-3 text-base font-semibold text-white hover:bg-red-500 disabled:opacity-60"
                 >
                   {gpsStatus === "locating" ? (tl.gpsLocating ?? "…") : (tl.clockOut ?? "Terminar jornada")}
                 </button>
+                {canUseAdvancedClock ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void onClockBreakToggle?.()}
+                        disabled={gpsStatus === "locating"}
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60 dark:bg-amber-600 dark:hover:bg-amber-500"
+                      >
+                        <Coffee className="h-4 w-4 shrink-0" aria-hidden />
+                        <span className="truncate">
+                          {clockBreakActive
+                            ? ((tl as Record<string, string>).clock_end_break ?? "End Break")
+                            : ((tl as Record<string, string>).clock_break ?? "Break")}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={gpsStatus === "locating" || clockSwitchDisabled}
+                        title={
+                          clockSwitchDisabled
+                            ? ((tl as Record<string, string>).clock_switch_no_projects ??
+                              "No other projects available")
+                            : undefined
+                        }
+                        onClick={() => setProjectPickerOpen((o) => !o)}
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                      >
+                        <ArrowLeftRight className="h-4 w-4 shrink-0" aria-hidden />
+                        <span className="truncate">
+                          {(tl as Record<string, string>).clock_switch_project ?? "Switch Project"}
+                        </span>
+                      </button>
+                    </div>
+                    {projectPickerOpen && clockProjectSwitchOptions.length > 0 ? (
+                      <div
+                        className="rounded-xl border border-zinc-200 bg-white p-2 shadow-sm dark:border-slate-600 dark:bg-slate-900"
+                        role="listbox"
+                        aria-label={(tl as Record<string, string>).clock_switch_project ?? "Projects"}
+                      >
+                        <p className="px-2 pb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {(tl as Record<string, string>).clock_switch_project ?? "Switch Project"}
+                        </p>
+                        <div className="max-h-[min(40vh,240px)] space-y-1 overflow-y-auto overscroll-contain">
+                          {clockProjectSwitchOptions.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              className="flex min-h-[44px] w-full items-center rounded-lg px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50 dark:text-slate-100 dark:hover:bg-slate-800"
+                              onClick={() => {
+                                setProjectPickerOpen(false);
+                                void onClockProjectSwitch?.(p.id);
+                              }}
+                            >
+                              <span className="break-words">{p.name}</span>
+                              {p.projectCode ? (
+                                <span className="ms-2 shrink-0 text-xs text-zinc-500">{p.projectCode}</span>
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
               </div>
             ) : (
               <div className="space-y-2 text-sm">

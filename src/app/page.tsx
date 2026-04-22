@@ -4284,6 +4284,8 @@ export default function Home() {
       .map((p) => ({ id: p.id, name: p.name, projectCode: p.projectCode }));
   }, [projects, scheduleSelfIds]);
 
+  const [shiftModalOnBreak, setShiftModalOnBreak] = useState(false);
+
   const [profileEditName, setProfileEditName] = useState("");
   const [profileEditPhone, setProfileEditPhone] = useState("");
   const [profileEditAvatarUrl, setProfileEditAvatarUrl] = useState("");
@@ -4750,6 +4752,105 @@ export default function Home() {
     t,
   ]);
 
+  const handleClockBreakToggle = useCallback(async () => {
+    const todayYmd = localTodayYmd();
+    const openEntry = displayClockEntries.find(
+      (e) =>
+        e.employeeId === (currentUserEmployeeId ?? "") &&
+        e.date === todayYmd &&
+        !e.clockOut
+    );
+    if (!openEntry || !companyId || !session?.access_token) return;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(openEntry.id)) return;
+    const tl = t as Record<string, string>;
+    const res = await fetch("/api/clock/activity", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        companyId,
+        timeEntryId: openEntry.id,
+        action: "break_toggle",
+      }),
+    });
+    const j = (await res.json()) as { ok?: boolean; onBreak?: boolean; error?: string };
+    if (!res.ok || !j.ok) {
+      showToast("error", String(j.error ?? tl.billing_loading ?? "Error"));
+      return;
+    }
+    if (typeof j.onBreak === "boolean") {
+      setShiftModalOnBreak(j.onBreak);
+      showToast(
+        "success",
+        j.onBreak ? tl.clock_break_started ?? "Break started" : tl.clock_break_ended ?? "Break ended"
+      );
+    }
+  }, [
+    displayClockEntries,
+    currentUserEmployeeId,
+    companyId,
+    session?.access_token,
+    showToast,
+    t,
+  ]);
+
+  const handleClockProjectSwitch = useCallback(
+    async (toProjectId: string) => {
+      const todayYmd = localTodayYmd();
+      const openEntry = displayClockEntries.find(
+        (e) =>
+          e.employeeId === (currentUserEmployeeId ?? "") &&
+          e.date === todayYmd &&
+          !e.clockOut
+      );
+      if (!openEntry || !companyId || !session?.access_token) return;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(openEntry.id)) return;
+      const tl = t as Record<string, string>;
+      const res = await fetch("/api/clock/activity", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          companyId,
+          timeEntryId: openEntry.id,
+          action: "project_switch",
+          toProjectId,
+        }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        showToast("error", String(j.error ?? tl.billing_loading ?? "Error"));
+        return;
+      }
+      const meta = projects?.find((p) => p.id === toProjectId);
+      setDbClockEntries((prev) =>
+        prev.map((e) =>
+          e.id === openEntry.id
+            ? {
+                ...e,
+                projectId: toProjectId,
+                projectCode: meta?.projectCode ?? e.projectCode,
+              }
+            : e
+        )
+      );
+      showToast("success", tl.clock_project_switched ?? "Project switched");
+    },
+    [
+      displayClockEntries,
+      currentUserEmployeeId,
+      companyId,
+      session?.access_token,
+      projects,
+      showToast,
+      t,
+    ]
+  );
+
   const handleManualClockIn = useCallback(
     async (params: {
       targetUserId: string;
@@ -5199,6 +5300,15 @@ export default function Home() {
     if (!employeeShiftDayOpen) return null;
     const entry = scheduleEntries.find((e) => e.id === employeeShiftDayOpen.entryId);
     if (!entry || entry.type !== "shift") return null;
+    const dateStr = entry.date;
+    const clockCandidates = displayClockEntries.filter(
+      (e) =>
+        e.date === dateStr &&
+        (e.employeeId === currentUserEmployeeId || e.employeeId === profile?.id)
+    );
+    const clockEntry =
+      clockCandidates.find((e) => e.projectId === entry.projectId) ?? clockCandidates[0];
+
     let resolvedProject = entry.projectId
       ? ((projects ?? []).find((p) => p.id === entry.projectId) ?? null)
       : null;
@@ -5206,6 +5316,10 @@ export default function Home() {
       const codeU = entry.projectCode.trim().toUpperCase();
       resolvedProject =
         (projects ?? []).find((p) => (p.projectCode ?? "").toUpperCase() === codeU) ?? null;
+    }
+    if (clockEntry?.projectId) {
+      const fromClock = (projects ?? []).find((p) => p.id === clockEntry.projectId);
+      if (fromClock) resolvedProject = fromClock;
     }
     const codeFallback =
       entry.projectCode?.trim() || entry.projectId || "—";
@@ -5229,14 +5343,6 @@ export default function Home() {
               locationLng: undefined,
             }
           : null;
-    const dateStr = entry.date;
-    const clockCandidates = displayClockEntries.filter(
-      (e) =>
-        e.date === dateStr &&
-        (e.employeeId === currentUserEmployeeId || e.employeeId === profile?.id)
-    );
-    const clockEntry =
-      clockCandidates.find((e) => e.projectId === entry.projectId) ?? clockCandidates[0];
     const colleagueNames = (entry.employeeIds ?? [])
       .filter((id) => !scheduleSelfIds.includes(id))
       .map(
@@ -5244,17 +5350,18 @@ export default function Home() {
           scheduleEmployeeLabels[id] ?? employees.find((em) => em.id === id)?.name ?? ""
       )
       .filter((n) => n.trim().length > 0);
+    const taskProjectId = clockEntry?.projectId ?? entry.projectId;
     const shiftTasks = projectTasks.filter(
       (task) =>
-        task.projectId === entry.projectId &&
+        task.projectId === taskProjectId &&
         (task.assignedToEmployeeId === currentUserEmployeeId ||
           task.assignedToEmployeeId === profile?.id) &&
         (task.dueDate == null || task.dueDate === dateStr)
     );
-    const dr = entry.projectId
+    const dr = taskProjectId
       ? dailyReports.find(
           (r) =>
-            r.projectId === entry.projectId && r.date === dateStr && r.status === "published"
+            r.projectId === taskProjectId && r.date === dateStr && r.status === "published"
         ) ?? null
       : null;
     const canActClock = dateStr === localTodayYmd() && effectiveRole !== "admin";
@@ -5280,6 +5387,38 @@ export default function Home() {
     projectTasks,
     dailyReports,
     effectiveRole,
+  ]);
+
+  useEffect(() => {
+    const ce = employeeShiftModalModel?.clockEntry;
+    if (!ce || ce.clockOut || !companyId || !session?.access_token) {
+      setShiftModalOnBreak(false);
+      return;
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ce.id)) {
+      setShiftModalOnBreak(false);
+      return;
+    }
+    let cancelled = false;
+    void fetch(
+      `/api/clock/activity?companyId=${encodeURIComponent(companyId)}&timeEntryId=${encodeURIComponent(ce.id)}`,
+      { headers: { Authorization: `Bearer ${session.access_token}` } }
+    )
+      .then((r) => r.json())
+      .then((j: { onBreak?: boolean }) => {
+        if (!cancelled && typeof j.onBreak === "boolean") setShiftModalOnBreak(j.onBreak);
+      })
+      .catch(() => {
+        if (!cancelled) setShiftModalOnBreak(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    employeeShiftModalModel?.clockEntry?.id,
+    employeeShiftModalModel?.clockEntry?.clockOut,
+    companyId,
+    session?.access_token,
   ]);
 
   const handleAddBlueprint = (bp: Blueprint) => {
@@ -9216,6 +9355,14 @@ export default function Home() {
             projectCode: p.projectCode,
           }))}
           onClockOut={handleClockOut}
+          onClockBreakToggle={handleClockBreakToggle}
+          onClockProjectSwitch={handleClockProjectSwitch}
+          clockProjectSwitchOptions={assignedClockInProjects.filter(
+            (p) =>
+              p.id !==
+              (employeeShiftModalModel.clockEntry?.projectId ?? employeeShiftModalModel.entry.projectId)
+          )}
+          clockBreakActive={shiftModalOnBreak}
           tasks={employeeShiftModalModel.shiftTasks}
           onToggleProjectTask={(taskId, completed) => {
             setProjectTasks((prev) =>
