@@ -1832,6 +1832,13 @@ export default {
   ppp_discount: "{{percent}}% de descuento aplicado",
   pricing_ppp_notice: "Precio ajustado para tu región",
   pricing_region_adjusted: "Precio ajustado para tu región",
+  ppp_original: "Precio original: ~{{amount}} USD",
+  ppp_country_label: "Mostrando precios para {{country}}",
+  ppp_wrong_country: "¿No es tu país?",
+  ppp_select_country: "Seleccionar región",
+  ppp_tier2_note: "20% de descuento aplicado para tu región",
+  ppp_tier3_note: "40% de descuento aplicado para tu región",
+  landing_country_auto: "Automático (detección)",
   pricing_plan_trial: "Prueba",
   pricing_unlimited_users: "Usuarios ilimitados",
   pricing_charged_usd:

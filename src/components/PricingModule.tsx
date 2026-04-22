@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Sparkles, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import type { GeoTier } from "@/lib/geoTier";
-import { useGeo } from "@/hooks/useGeo";
+import { usePPPPricing } from "@/hooks/usePPPPricing";
 import { formatPricingMoney } from "@/lib/pricingMoney";
 import {
   PLANS,
@@ -67,9 +66,11 @@ export function PricingModule({
 }: PricingModuleProps) {
   const lx = t as Record<string, string>;
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
-  const { country: geoCountry, tier: geoTierRaw, discount: pppDiscount, loading: loadingTier } = useGeo();
-  const geoTier = geoTierRaw as GeoTier;
-  const countryCode = geoCountry ? geoCountry : null;
+  const ppp = usePPPPricing();
+  const geoTier = ppp.tier;
+  const countryCode = ppp.effectiveCountryCode;
+  const pppDiscount = ppp.discount;
+  const loadingTier = ppp.loadingGeo;
   const [checkoutLoading, setCheckoutLoading] = useState<PaidPlanKey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [betaFounder, setBetaFounder] = useState(false);
@@ -124,8 +125,8 @@ export function PricingModule({
             period,
             billingCycle: period,
             priceId: getStripePriceId(plan, period),
-            countryCode: geoCountry,
-            country: geoCountry,
+            countryCode,
+            country: countryCode,
             companyId,
             companyName: companyName ?? "",
             email: email ?? "",
@@ -144,7 +145,7 @@ export function PricingModule({
         setCheckoutLoading(null);
       }
     },
-    [companyId, companyName, email, geoCountry, period, lx, betaFounder]
+    [companyId, companyName, email, countryCode, period, lx, betaFounder]
   );
 
   return (

@@ -6,7 +6,6 @@ import { getPppTierFromCountryCode } from "@/lib/geoTier";
 import {
   getStripe,
   getStripePriceId,
-  ensurePppCoupons,
   checkoutDiscountsForTier,
   getPlanFromPriceId,
   resolvePaidPlanForCheckout,
@@ -116,7 +115,6 @@ export async function POST(req: NextRequest) {
       priceId = getStripePriceId(plan, period);
     }
 
-    await ensurePppCoupons(stripe);
     const betaFounder = body.betaFounder === true;
     const discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined = betaFounder
       ? [{ coupon: STRIPE_COUPON_BETA_FOUNDER_ID }]

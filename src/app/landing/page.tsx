@@ -11,33 +11,15 @@ const LandingPwaInstallBar = dynamic(
 );
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { LandingLanguageSelect } from "@/components/LandingLanguageSelect";
-import { Star, HardHat, ClipboardList, TrendingUp, Play } from "lucide-react";
+import { HardHat, ClipboardList, TrendingUp, Play } from "lucide-react";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
-import { detectGeo, type GeoDetect } from "@/lib/geoTier";
-import { formatPricingMoney } from "@/lib/pricingMoney";
-import {
-  PAID_PLAN_ORDER,
-  PLANS,
-  getPriceForTier,
-  getPricingDisplayCurrencyCode,
-  type BillingPeriod,
-  type PaidPlanKey,
-} from "@/lib/stripe";
+import { resolveRegionTier, type GeoDetect } from "@/lib/geoTier";
+import type { BillingPeriod } from "@/lib/stripe";
+import { usePPPPricing } from "@/hooks/usePPPPricing";
+import { PricingPlansPublicSection } from "@/components/PricingPlansPublic";
+import { PppLandingFooterBar } from "@/components/PppLandingFooter";
 
 type TxFn = (key: string, fallback: string) => string;
-
-const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
-  pricing_essential_users: "Unlimited users",
-  pricing_operations_users: "Unlimited users",
-  pricing_logistics_users: "Unlimited users",
-  pricing_all_inclusive_users: "Unlimited users",
-};
-const PLAN_STORAGE_DESCRIPTION_FALLBACK: Record<string, string> = {
-  pricing_essential_storage: "15 GB storage",
-  pricing_operations_storage: "30 GB storage",
-  pricing_logistics_storage: "30 GB storage",
-  pricing_all_inclusive_storage: "200 GB storage",
-};
 
 function useFadeIn() {
   const ref = useRef<HTMLElement | null>(null);
@@ -186,23 +168,13 @@ const PERSONALIZE_DESC_FB: Record<string, string> = {
   feature_benefit_report_desc: "Income vs costs per job site. Real-time margin. Export PDF.",
 };
 
-function landingPlanBlurbKey(plan: PaidPlanKey): string {
-  const m: Record<PaidPlanKey, string> = {
-    esencial: "landing_plan_blurb_esencial",
-    operaciones: "landing_plan_blurb_operaciones",
-    logistica: "landing_plan_blurb_logistica",
-    todo_incluido: "landing_plan_blurb_todo",
-  };
-  return m[plan];
-}
-
 export default function LandingPage() {
   const { language, setLanguage, tx } = useLandingLocale();
+  const ppp = usePPPPricing();
 
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [dark, setDark] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
-  const [geoDetect, setGeoDetect] = useState<GeoDetect | null>(null);
   const betaHeadline = useMemo(
     () =>
       `${tx("landing_beta_open", "Beta privada abierta")} — ${tx(
@@ -212,15 +184,18 @@ export default function LandingPage() {
     [tx]
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    void detectGeo().then((g) => {
-      if (!cancelled) setGeoDetect(g);
-    });
-    return () => {
-      cancelled = true;
+  const geoDetect = useMemo((): GeoDetect | null => {
+    if (!ppp.pricingReady) return null;
+    const cc = ppp.effectiveCountryCode;
+    const { region } = resolveRegionTier(cc);
+    return {
+      tier: ppp.tier,
+      country: cc,
+      countryCode: cc,
+      region,
+      usState: null,
     };
-  }, []);
+  }, [ppp.pricingReady, ppp.effectiveCountryCode, ppp.tier]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -283,10 +258,6 @@ export default function LandingPage() {
     }
     setDark(next);
   };
-
-  const tierReady = geoDetect !== null;
-  const displayCurrencyCode = tierReady ? getPricingDisplayCurrencyCode(geoDetect.countryCode) : "USD";
-  const showRegionNote = tierReady && geoDetect.tier !== 1;
 
   const scrollToId = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -722,148 +693,13 @@ export default function LandingPage() {
       <section id="pricing" className="scroll-mt-24 bg-slate-100 dark:bg-slate-900/80 px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <FadeSection>
-            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_pricing_title", "Pricing")}
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-              {tx("landing_pricing_subtitle", "")}
-            </p>
-            <p className="mx-auto mt-4 max-w-xl rounded-xl border border-emerald-300/80 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100 sm:text-base">
-              {tx("landing_pricing_trial_banner", "")}
-            </p>
-            <div className="mt-8 flex flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center">
-              <div className="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900 sm:w-auto sm:justify-center">
-                <button
-                  type="button"
-                  onClick={() => setPeriod("monthly")}
-                  className={`min-h-[44px] flex-1 rounded-lg px-5 text-sm font-semibold transition-colors sm:flex-none ${
-                    period === "monthly"
-                      ? "bg-[#f97316] text-white shadow"
-                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {tx("landing_pricing_monthly", "Monthly")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPeriod("annual")}
-                  className={`min-h-[44px] flex-1 rounded-lg px-5 text-sm font-semibold transition-colors sm:flex-none ${
-                    period === "annual"
-                      ? "bg-[#f97316] text-white shadow"
-                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {tx("landing_pricing_annual", "Annual")}{" "}
-                  <span className="opacity-90">({tx("landing_pricing_save", "save 20%")})</span>
-                </button>
-              </div>
-            </div>
-            <div className="mt-10 min-w-0 overflow-x-auto pb-1">
-            <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-              {PAID_PLAN_ORDER.map((key) => {
-                const plan = PLANS[key];
-                const title = tx(plan.labelKey, key);
-                const popular = key === "todo_incluido";
-                const price = tierReady
-                  ? getPriceForTier(key, period, geoDetect.tier, geoDetect.countryCode)
-                  : null;
-                return (
-                  <div
-                    key={key}
-                    className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm dark:bg-slate-950 ${
-                      popular
-                        ? "border-[#f97316] ring-2 ring-[#f97316]/35 z-[1]"
-                        : "border-slate-200 dark:border-slate-800"
-                    }`}
-                  >
-                    {popular ? (
-                      <div className="absolute -top-3 left-1/2 max-w-[90%] -translate-x-1/2">
-                        <div className="inline-flex items-center gap-1 rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white shadow">
-                          <Star className="h-3.5 w-3.5 fill-white" aria-hidden />
-                          {tx("landing_pricing_popular", "Most popular")}
-                        </div>
-                      </div>
-                    ) : null}
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
-                    <p className="mt-4 flex min-h-[3rem] flex-wrap items-baseline gap-x-1 gap-y-0">
-                      {!tierReady || price === null ? (
-                        <span className="inline-block h-10 w-28 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
-                      ) : (
-                        <>
-                          <span className="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">
-                            {formatPricingMoney(price, displayCurrencyCode)}
-                          </span>
-                          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                            {period === "monthly"
-                              ? tx("landing_price_suffix", "/mo")
-                              : tx("landing_price_suffix_annual", "/yr")}
-                          </span>
-                        </>
-                      )}
-                    </p>
-                    <ul className="mt-5 flex-1 space-y-2 text-left text-sm text-slate-600 dark:text-slate-400">
-                      <li className="flex gap-2 leading-snug">
-                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
-                          ✓
-                        </span>
-                        <span>
-                          {tx(
-                            plan.usersDescriptionKey,
-                            PLAN_USERS_DESCRIPTION_FALLBACK[plan.usersDescriptionKey] ?? ""
-                          )}
-                        </span>
-                      </li>
-                      <li className="flex gap-2 leading-snug">
-                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
-                          ✓
-                        </span>
-                        <span>
-                          {tx(
-                            plan.storageDescriptionKey,
-                            PLAN_STORAGE_DESCRIPTION_FALLBACK[plan.storageDescriptionKey] ??
-                              `${plan.storageGb} GB ${tx("pricing_storage", "storage")}`
-                          )}
-                        </span>
-                      </li>
-                      <li className="flex gap-2 leading-snug">
-                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
-                          ✓
-                        </span>
-                        <span>{tx(landingPlanBlurbKey(key), "")}</span>
-                      </li>
-                    </ul>
-                    <Link
-                      href="/register"
-                      className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#f97316] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-                    >
-                      {tx("landing_pricing_plan_cta", "Start free — 14 days")}
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-            </div>
-            {showRegionNote ? (
-              <div
-                role="status"
-                className="mx-auto mt-8 flex max-w-2xl min-h-[44px] items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 dark:border-amber-600 dark:bg-amber-950/35 dark:text-amber-100"
-              >
-                {tx("pricing_ppp_applied", "")}
-              </div>
-            ) : null}
-            <div className="mt-8 space-y-2 text-center text-xs font-medium text-slate-600 dark:text-slate-400 max-w-2xl mx-auto px-2">
-              <p className="break-words">
-                {(tx("pricing_charged_usd", "") || "").trim()
-                  ? tx("pricing_charged_usd", "").replace(/\{currency\}/g, displayCurrencyCode)
-                  : `Prices shown in ${displayCurrencyCode}. Charged in USD.`}
-              </p>
-              <p className="text-slate-500 dark:text-slate-500">
-                {tx("pricing_local_currency_note", tx("landing_pricing_usd_note", ""))}
-              </p>
-              {showRegionNote ? (
-                <p className="text-slate-500">{tx("pricing_ppp_notice", tx("landing_pricing_region_note", ""))}</p>
-              ) : null}
-            </div>
+            <PricingPlansPublicSection
+              tx={tx}
+              period={period}
+              onPeriodChange={setPeriod}
+              ppp={ppp}
+              variant="landing"
+            />
           </FadeSection>
         </div>
       </section>
@@ -1014,6 +850,7 @@ export default function LandingPage() {
 
       <footer className="border-t border-slate-200 bg-white px-4 py-12 dark:border-slate-800 dark:bg-slate-950">
         <div className="mx-auto max-w-6xl">
+          <PppLandingFooterBar tx={tx} ppp={ppp} />
           <div className="flex flex-col gap-10 md:flex-row md:justify-between">
             <div className="max-w-sm">
               <div className="flex items-center gap-2">

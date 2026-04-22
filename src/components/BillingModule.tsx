@@ -10,6 +10,7 @@ import type { UserRole } from "@/types/shared";
 import { formatDate } from "@/lib/dateUtils";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 import { planUsersDescriptionI18nKey } from "@/lib/stripe";
+import { usePPPPricing } from "@/hooks/usePPPPricing";
 
 export interface BillingModuleProps {
   t: Record<string, string>;
@@ -88,6 +89,8 @@ export function BillingModule({
   timeZone,
 }: BillingModuleProps) {
   void useMachinProDisplayPrefs();
+  const ppp = usePPPPricing();
+  const lx = t as Record<string, string>;
   const {
     subscription,
     loading,
@@ -255,6 +258,13 @@ export function BillingModule({
                   style={{ width: `${trialProgress}%` }}
                 />
               </div>
+              {ppp.pricingReady && ppp.tier > 1 ? (
+                <p className="mt-3 text-xs font-medium text-amber-900/95 dark:text-amber-100/95">
+                  {ppp.tier === 2
+                    ? (lx.ppp_tier2_note ?? lx.ppp_badge ?? "")
+                    : (lx.ppp_tier3_note ?? lx.ppp_badge ?? "")}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

@@ -6,6 +6,10 @@ import { Copy, Check } from "lucide-react";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale";
+import { usePPPPricing } from "@/hooks/usePPPPricing";
+import { PricingPlansPublicSection } from "@/components/PricingPlansPublic";
+import { PppLandingFooterBar } from "@/components/PppLandingFooter";
+import type { BillingPeriod } from "@/lib/stripe";
 import { COUNTRY_CONFIG } from "@/lib/countryConfig";
 import { LANGUAGES } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
@@ -50,6 +54,8 @@ function companyTypeTxKey(v: CompanyTypeValue): string {
 
 export default function BetaFounderRequestPage() {
   const { language, setLanguage, tx } = useLandingLocale();
+  const ppp = usePPPPricing();
+  const [pricingPeriod, setPricingPeriod] = useState<BillingPeriod>("monthly");
   const [dark, setDark] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -408,6 +414,17 @@ export default function BetaFounderRequestPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mx-auto mt-14 w-full max-w-6xl pb-14 sm:mt-20 sm:pb-20">
+          <PricingPlansPublicSection
+            variant="beta"
+            tx={tx}
+            period={pricingPeriod}
+            onPeriodChange={setPricingPeriod}
+            ppp={ppp}
+          />
+          <PppLandingFooterBar tx={tx} ppp={ppp} />
         </div>
       </main>
     </div>
