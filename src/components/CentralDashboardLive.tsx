@@ -2344,10 +2344,10 @@ function CentralDashboardBody(
         return (
           <section
             className="mb-4 w-full min-w-0 max-w-full rounded-xl border border-orange-200/70 bg-white p-4 shadow-sm dark:border-orange-900/40 dark:bg-slate-900"
-            aria-label={L("dashboard_quick_actions_title")}
+            aria-label={labels.quick_actions || L("dashboard_quick_actions_title")}
           >
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-              {L("dashboard_quick_actions_title")}
+              {labels.quick_actions || L("dashboard_quick_actions_title")}
             </p>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {showInvite ? (
@@ -2357,7 +2357,9 @@ function CentralDashboardBody(
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 dark:hover:bg-slate-800"
                 >
                   <UserCheck className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">{L("dashboard_quick_invite")}</span>
+                  <span className="text-center leading-tight">
+                    {labels.quick_invite_employee || L("dashboard_quick_invite")}
+                  </span>
                 </button>
               ) : null}
               {showProject ? (
@@ -2367,7 +2369,9 @@ function CentralDashboardBody(
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 dark:hover:bg-slate-800"
                 >
                   <Briefcase className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">{L("dashboard_quick_project")}</span>
+                  <span className="text-center leading-tight">
+                    {labels.quick_new_project || L("dashboard_quick_project")}
+                  </span>
                 </button>
               ) : null}
               {showClock ? (
@@ -2377,7 +2381,9 @@ function CentralDashboardBody(
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 dark:hover:bg-slate-800"
                 >
                   <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">{L("dashboard_quick_clock")}</span>
+                  <span className="text-center leading-tight">
+                    {labels.quick_clock_in || L("dashboard_quick_clock")}
+                  </span>
                 </button>
               ) : null}
               {showHazard ? (
@@ -2387,7 +2393,9 @@ function CentralDashboardBody(
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-red-500"
                 >
                   <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">{L("dashboard_quick_hazard")}</span>
+                  <span className="text-center leading-tight">
+                    {labels.quick_report_hazard || L("dashboard_quick_hazard")}
+                  </span>
                 </button>
               ) : null}
             </div>

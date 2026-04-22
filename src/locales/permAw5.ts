@@ -87,7 +87,7 @@ const BODY_EN: Record<keyof RolePermissions, string> = {
   canManageProjectTeam: "Manage project team",
   canViewTimeclock: "View team time clock",
   canManageTimeclock: "Manage team time clock",
-  canManageCompliance: "Manage compliance & certificates",
+  canManageCompliance: "Manage compliance and certificates",
   canViewDashboardWidgets: "View operations dashboard",
   canViewProjects: "View projects",
   canViewOnlyAssignedProjects: "Only assigned projects",

@@ -49,6 +49,8 @@ export type AuditAction =
   | "clock_break_started"
   | "clock_break_ended"
   | "clock_project_switched"
+  | "clock_manual_correction"
+  | "hazard_reported_quick_action"
   | "rental_created"
   | "rental_updated"
   | "rental_deleted";

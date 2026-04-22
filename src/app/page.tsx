@@ -37,6 +37,9 @@ import { SettingsModule } from "@/components/SettingsModule";
 import { SecurityModule } from "@/components/SecurityModule";
 import ScheduleModule from "@/components/ScheduleModule";
 import { EmployeeShiftDayView } from "@/components/EmployeeShiftDayView";
+import { QuickHazardModal } from "@/components/QuickHazardModal";
+import { usePPPPricing } from "@/hooks/usePPPPricing";
+import { CURRENCY_BY_TIER } from "@/lib/stripe";
 import { FormsModule } from "@/components/FormsModule";
 import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
@@ -1351,6 +1354,11 @@ export default function Home() {
   }, []);
 
   const [currency, setCurrency] = useState<Currency>("CAD");
+  const ppp = usePPPPricing();
+  const projectBudgetCurrencyCode = useMemo(
+    () => (String(currency ?? "").trim() ? String(currency).trim() : CURRENCY_BY_TIER[ppp.tier] ?? "CAD"),
+    [currency, ppp.tier]
+  );
   const currencyManuallyChangedRef = useRef(false);
   const [measurementSystem, setMeasurementSystem] = useState<"metric" | "imperial">("metric");
   const [timesheetWeeklyRegularCap, setTimesheetWeeklyRegularCap] = useState(40);
@@ -1377,6 +1385,7 @@ export default function Home() {
   const [companyProfileSaveBusy, setCompanyProfileSaveBusy] = useState(false);
   const ONBOARDING_LS_KEY = "machinpro_onboarding_complete";
   const [gettingStartedRefreshTk, setGettingStartedRefreshTk] = useState(0);
+  const [quickHazardOpen, setQuickHazardOpen] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -4411,6 +4420,43 @@ export default function Home() {
     setEmployeeShiftDayOpen({ date, entryId });
   }, []);
 
+  const handleDashboardQuickClockIn = useCallback(() => {
+    const ymd = localTodayYmd();
+    const empKey = currentUserEmployeeId ?? profile?.id ?? "";
+    const active = displayClockEntries.find(
+      (e) => e.date === ymd && e.employeeId === empKey && !e.clockOut
+    );
+    const mine = scheduleEntries.filter(
+      (e) =>
+        e.date === ymd &&
+        e.type === "shift" &&
+        scheduleSelfIds.some((id) => (e.employeeIds ?? []).includes(id))
+    );
+    if (active) {
+      showToast(
+        "info",
+        (t as Record<string, string>).quick_clock_already_active ?? "Ya tienes una jornada activa"
+      );
+      if (mine.length >= 1) openEmployeeShiftDay(ymd, mine[0]!.id);
+      return;
+    }
+    if (mine.length >= 1) {
+      openEmployeeShiftDay(ymd, mine[0]!.id);
+      setActiveSection("schedule");
+      return;
+    }
+    setActiveSection("schedule");
+  }, [
+    displayClockEntries,
+    scheduleEntries,
+    scheduleSelfIds,
+    currentUserEmployeeId,
+    profile?.id,
+    openEmployeeShiftDay,
+    showToast,
+    t,
+  ]);
+
   useEffect(() => {
     if (effectiveRole === "admin") return;
     if (!session || scheduleSelfIds.length === 0) return;
@@ -6713,8 +6759,7 @@ export default function Home() {
                   perms.canViewSettings ? openSettingsProductionCatalog : undefined
                 }
                 onQuickNewHazard={() => {
-                  navigateToOperationsProjectSecurity();
-                  setDashHazardCreateSig((n) => n + 1);
+                  if (companyId) setQuickHazardOpen(true);
                 }}
                 onQuickNewAction={() => {
                   navigateToOperationsProjectSecurity();
@@ -6777,16 +6822,7 @@ export default function Home() {
                   setProjectsOpenRfiSig((n) => n + 1);
                 }}
                 onQuickNewSubcontractor={() => setActiveSection("subcontractors")}
-                onOpenMyShiftView={() => {
-                  const ymd = localTodayYmd();
-                  const mine = scheduleEntries.filter(
-                    (e) =>
-                      e.date === ymd &&
-                      e.type === "shift" &&
-                      scheduleSelfIds.some((id) => (e.employeeIds ?? []).includes(id))
-                  );
-                  if (mine.length >= 1) openEmployeeShiftDay(ymd, mine[0]!.id);
-                }}
+                onOpenMyShiftView={handleDashboardQuickClockIn}
                 myShiftCentralCard={myShiftCentralCard}
                 manualClockEmployeeOptions={activeEmployees.map((e) => ({ id: e.id, name: e.name }))}
                 manualClockProjectOptions={(projects ?? [])
@@ -8594,7 +8630,7 @@ export default function Home() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  {(t as Record<string, string>).projectFormBudgetTotal ?? ""}
+                  {`${(t as Record<string, string>).project_budget || (t as Record<string, string>).projectFormBudgetTotal || "Presupuesto total"} (${projectBudgetCurrencyCode})`}
                 </label>
                 <input type="number" min={0} value={projectFormBudget}
                   onChange={(e) => setProjectFormBudget(e.target.value)}
@@ -9217,7 +9253,9 @@ export default function Home() {
                 <input type="text" value={newEmployeeName} onChange={(e) => setNewEmployeeName(e.target.value)} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.roleLabel ?? "Rol"}</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(t as Record<string, string>).assigned_role ?? t.roleLabel ?? "Rol asignado"}
+                </label>
                 <div className="flex items-center gap-2">
                   {newEmployeeRoleMode === "list" && newEmployeeCustomRoleId ? (() => {
                     const cr = customRoles.find((r) => r.id === newEmployeeCustomRoleId);
@@ -9385,8 +9423,54 @@ export default function Home() {
           colleagueNames={employeeShiftModalModel.colleagueNames}
           onDailyReportSigned={() => void reloadDailyReports()}
           timeZone={userTimeZone}
+          companyId={companyId ?? ""}
+          clockCorrectionAllowed={
+            !!employeeShiftModalModel.clockEntry?.clockOut &&
+            (!!rolePerms.canManageTeamAvailability ||
+              (employeeShiftModalModel.entry.date === localTodayYmd() && effectiveRole !== "admin"))
+          }
+          onClockCorrectionApplied={(_entryId, clockInIso, clockOutIso) => {
+            showToast(
+              "success",
+              (t as Record<string, string>).clock_correction_saved ?? "Corrección guardada"
+            );
+            const isoHm = (iso: string) => {
+              const d = new Date(iso);
+              return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+            };
+            setDbClockEntries((prev) =>
+              prev.map((e) =>
+                e.id === _entryId
+                  ? {
+                      ...e,
+                      clockIn: isoHm(clockInIso),
+                      clockOut: isoHm(clockOutIso),
+                      clockInAtIso: clockInIso,
+                      clockOutAtIso: clockOutIso,
+                    }
+                  : e
+              )
+            );
+          }}
         />
       )}
+      {companyId ? (
+        <QuickHazardModal
+          open={quickHazardOpen}
+          onClose={() => setQuickHazardOpen(false)}
+          companyId={companyId}
+          labels={t as Record<string, string>}
+          projects={(visibleProjects ?? [])
+            .filter((p) => !p.archived)
+            .map((p) => ({ id: p.id, name: p.name }))}
+          onSaved={() =>
+            showToast(
+              "success",
+              (t as Record<string, string>).toast_saved ?? (t as Record<string, string>).saved ?? ""
+            )
+          }
+        />
+      ) : null}
       {session && effectiveRole === "admin" ? (
         <BetaWelcomeModal
           open={betaWelcomeOpen}

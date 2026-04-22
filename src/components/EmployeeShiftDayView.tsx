@@ -56,6 +56,26 @@ export type EmployeeShiftDayViewProject = {
 
 type Labels = Record<string, string>;
 
+function localIsoFromDateAndHm(dateYmd: string, hm: string): string {
+  const parts = dateYmd.split("-").map((x) => parseInt(x, 10));
+  const y = parts[0] ?? 0;
+  const mo = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
+  const hmParts = hm.split(":").map((x) => parseInt(x, 10));
+  const h = hmParts[0] ?? 0;
+  const mi = hmParts[1] ?? 0;
+  return new Date(y, mo - 1, d, h, mi, 0, 0).toISOString();
+}
+
+function hmForTimeInput(raw: string): string {
+  const s = String(raw ?? "").trim();
+  if (/^\d{1,2}:\d{2}$/.test(s)) {
+    const [a, b] = s.split(":");
+    return `${a!.padStart(2, "0")}:${b}`;
+  }
+  return "09:00";
+}
+
 function localeFromLanguage(language: string): string {
   const m: Record<string, string> = {
     es: "es-ES",
@@ -114,6 +134,9 @@ export function EmployeeShiftDayView({
   colleagueNames,
   onDailyReportSigned,
   timeZone: timeZoneProp,
+  clockCorrectionAllowed = false,
+  companyId: companyIdProp,
+  onClockCorrectionApplied,
 }: {
   open: boolean;
   onClose: () => void;
@@ -147,6 +170,9 @@ export function EmployeeShiftDayView({
   colleagueNames: string[];
   onDailyReportSigned?: () => void;
   timeZone?: string;
+  clockCorrectionAllowed?: boolean;
+  companyId?: string | null;
+  onClockCorrectionApplied?: (entryId: string, clockInIso: string, clockOutIso: string) => void;
 }) {
   const tl = labels;
   const locale = localeFromLanguage(language);
@@ -159,6 +185,12 @@ export function EmployeeShiftDayView({
   const [signErr, setSignErr] = useState<string | null>(null);
   const [shiftClockManual, setShiftClockManual] = useState(true);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [corrOpen, setCorrOpen] = useState(false);
+  const [corrIn, setCorrIn] = useState("09:00");
+  const [corrOut, setCorrOut] = useState("18:00");
+  const [corrNote, setCorrNote] = useState("");
+  const [corrBusy, setCorrBusy] = useState(false);
+  const [corrErr, setCorrErr] = useState<string | null>(null);
 
   const canUseAdvancedClock =
     canActClock &&
@@ -170,9 +202,81 @@ export function EmployeeShiftDayView({
 
   const clockSwitchDisabled = !canUseAdvancedClock || clockProjectSwitchOptions.length === 0;
 
+  const lx = tl as Record<string, string>;
+  const teUuid =
+    clockEntry?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clockEntry.id)
+      ? clockEntry.id
+      : null;
+  const canShowCorrection =
+    !!clockCorrectionAllowed && !!clockEntry?.clockOut && !!teUuid && !!companyIdProp?.trim();
+
+  const submitCorrection = useCallback(async () => {
+    if (!teUuid || !companyIdProp?.trim()) return;
+    const note = corrNote.trim();
+    if (!note) {
+        setCorrErr((tl as Record<string, string>).clock_correction_note ?? "Note required");
+      return;
+    }
+    setCorrBusy(true);
+    setCorrErr(null);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        setCorrBusy(false);
+        return;
+      }
+      const clockInIso = localIsoFromDateAndHm(scheduleEntry.date, corrIn);
+      const clockOutIso = localIsoFromDateAndHm(scheduleEntry.date, corrOut);
+      const res = await fetch("/api/clock/manual-correction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          companyId: companyIdProp,
+          timeEntryId: teUuid,
+          clockInIso,
+          clockOutIso,
+          note,
+        }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setCorrErr(j.error ?? "Error");
+        setCorrBusy(false);
+        return;
+      }
+      onClockCorrectionApplied?.(teUuid, clockInIso, clockOutIso);
+      setCorrBusy(false);
+      setCorrOpen(false);
+    } catch (e) {
+      setCorrErr(e instanceof Error ? e.message : "Error");
+      setCorrBusy(false);
+    }
+  }, [
+    teUuid,
+    companyIdProp,
+    corrNote,
+    corrIn,
+    corrOut,
+    scheduleEntry.date,
+    tl,
+    onClockCorrectionApplied,
+  ]);
+
   useEffect(() => {
     if (!open) setProjectPickerOpen(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !corrOpen || !clockEntry?.clockIn) return;
+    setCorrIn(hmForTimeInput(clockEntry.clockIn));
+    setCorrOut(hmForTimeInput(clockEntry.clockOut ?? clockEntry.clockIn));
+    setCorrNote("");
+    setCorrErr(null);
+  }, [open, corrOpen, clockEntry?.clockIn, clockEntry?.clockOut]);
 
   useEffect(() => {
     if (!open || clockEntry?.clockOut || !clockEntry) return;
@@ -548,6 +652,15 @@ export function EmployeeShiftDayView({
                     `${tl.timeWorked ?? "Tiempo trabajado"}: ${workedCompleted}`}
                 </p>
                 <p className="text-emerald-700 dark:text-emerald-400 font-medium">{tl.shiftCompleted ?? "Jornada completada"}</p>
+                {canShowCorrection ? (
+                  <button
+                    type="button"
+                    onClick={() => setCorrOpen(true)}
+                    className="mt-1 inline-flex min-h-[44px] items-center text-xs font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  >
+                    {lx.clock_reopen ?? "Corregir fichaje"}
+                  </button>
+                ) : null}
               </div>
             )}
             {clockInAlertMessage && (
@@ -633,6 +746,74 @@ export function EmployeeShiftDayView({
           )}
         </div>
       </div>
+      {corrOpen && canShowCorrection ? (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/50 touch-none"
+            aria-hidden
+            onClick={() => {
+              if (!corrBusy) setCorrOpen(false);
+            }}
+          />
+          <div className="fixed left-1/2 top-1/2 z-[61] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{lx.clock_reopen ?? "Corregir fichaje"}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {tl.clockInEntry ?? "Entrada"}
+                </label>
+                <input
+                  type="time"
+                  value={corrIn}
+                  onChange={(e) => setCorrIn(e.target.value)}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {tl.clockOutEntry ?? "Salida"}
+                </label>
+                <input
+                  type="time"
+                  value={corrOut}
+                  onChange={(e) => setCorrOut(e.target.value)}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {(tl as Record<string, string>).clock_correction_note ?? "Motivo"}
+                </label>
+                <textarea
+                  value={corrNote}
+                  onChange={(e) => setCorrNote(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                />
+              </div>
+              {corrErr ? <p className="text-sm text-red-600">{corrErr}</p> : null}
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                disabled={corrBusy}
+                onClick={() => setCorrOpen(false)}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium min-h-[44px]"
+              >
+                {tl.cancel ?? "Cancelar"}
+              </button>
+              <button
+                type="button"
+                disabled={corrBusy}
+                onClick={() => void submitCorrection()}
+                className="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-medium text-white min-h-[44px]"
+              >
+                {corrBusy ? "…" : tl.save ?? "Guardar"}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

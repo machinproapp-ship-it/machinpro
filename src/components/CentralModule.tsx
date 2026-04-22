@@ -2002,7 +2002,7 @@ export function CentralModule({
                           className="inline-flex rounded-full bg-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-600 dark:text-zinc-200"
                           title={tl.employee_badge_missing_tooltip ?? ""}
                         >
-                          {tl.employee_badge_missing ?? "Missing"}
+                          {tl.compliance_missing ?? tl.employee_badge_missing ?? "Missing"}
                         </span>
                       ) : null}
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status === "al_dia" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" : status === "pendiente" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>

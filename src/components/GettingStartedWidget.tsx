@@ -6,8 +6,7 @@ import { supabase } from "@/lib/supabase";
 import type { MainSection } from "@/types/shared";
 import { s } from "@/lib/safeReactString";
 
-/** Distinto del wizard inicial (`machinpro_onboarding_complete`): solo cuando el checklist 5/5 está terminado. */
-const GETTING_STARTED_FINISHED_KEY = "machinpro_getting_started_finished";
+const ONBOARDING_COMPLETE_KEY = "machinpro_onboarding_complete";
 
 export interface GettingStartedWidgetProps {
   companyId: string;
@@ -15,6 +14,8 @@ export interface GettingStartedWidgetProps {
   onNavigateAppSection: (section: MainSection) => void;
   refreshToken?: number;
 }
+
+type ApiItem = { id: number; done: boolean; section: MainSection };
 
 export function GettingStartedWidget({
   companyId,
@@ -24,14 +25,16 @@ export function GettingStartedWidget({
 }: GettingStartedWidgetProps) {
   const L = (k: string, fb: string) => labels[k] ?? fb;
   const [minimized, setMinimized] = useState(false);
-  const [steps, setSteps] = useState<boolean[] | null>(null);
+  const [items, setItems] = useState<ApiItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [removedAfterComplete, setRemovedAfterComplete] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
+  const celebrationStartedRef = useRef(false);
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(GETTING_STARTED_FINISHED_KEY) === "true") {
+      if (localStorage.getItem(ONBOARDING_COMPLETE_KEY) === "true") {
         setRemovedAfterComplete(true);
       }
     } catch {
@@ -42,14 +45,14 @@ export function GettingStartedWidget({
   const fetchStatus = useCallback(async () => {
     if (!supabase || !companyId) {
       setLoading(false);
-      setSteps(null);
+      setItems(null);
       return;
     }
     const { data: sess } = await supabase.auth.getSession();
     const token = sess.session?.access_token;
     if (!token) {
       setLoading(false);
-      setSteps(null);
+      setItems(null);
       return;
     }
     try {
@@ -58,13 +61,13 @@ export function GettingStartedWidget({
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) {
-        setSteps(null);
+        setItems(null);
         return;
       }
-      const j = (await res.json()) as { steps?: boolean[] };
-      setSteps(Array.isArray(j.steps) ? j.steps : null);
+      const j = (await res.json()) as { items?: ApiItem[] };
+      setItems(Array.isArray(j.items) ? j.items : null);
     } catch {
-      setSteps(null);
+      setItems(null);
     } finally {
       setLoading(false);
     }
@@ -80,23 +83,25 @@ export function GettingStartedWidget({
     if (refreshToken > 0) void fetchStatus();
   }, [refreshToken, fetchStatus]);
 
-  const done = steps ? steps.filter(Boolean).length : 0;
-  const total = steps?.length ?? 0;
-  const allDone = Boolean(steps?.length && steps.every(Boolean));
+  const done = items ? items.filter((x) => x.done).length : 0;
+  const total = items?.length ?? 0;
+  const allDone = Boolean(items?.length && items.every((x) => x.done));
 
-  /** Tras completar los 5 pasos: mensaje breve y ocultar definitivamente (localStorage). */
+  /** All steps complete: celebration 3s then hide forever */
   useEffect(() => {
-    if (!allDone || removedAfterComplete) return;
-    if (hideTimerRef.current != null) return;
+    if (!allDone || removedAfterComplete || celebrationStartedRef.current) return;
+    celebrationStartedRef.current = true;
+    setCelebrate(true);
     hideTimerRef.current = window.setTimeout(() => {
       hideTimerRef.current = null;
       try {
-        localStorage.setItem(GETTING_STARTED_FINISHED_KEY, "true");
+        localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
       } catch {
         /* */
       }
       setRemovedAfterComplete(true);
-    }, 2000);
+      setCelebrate(false);
+    }, 3000);
     return () => {
       if (hideTimerRef.current != null) {
         window.clearTimeout(hideTimerRef.current);
@@ -105,56 +110,44 @@ export function GettingStartedWidget({
     };
   }, [allDone, removedAfterComplete]);
 
-  if (loading || !steps || removedAfterComplete) return null;
+  if (removedAfterComplete) return null;
+
+  if (loading || !items?.length) return null;
 
   const progressPct = Math.round((done / total) * 100);
   const progressLabel = `${done} / ${total}`;
 
-  const items: {
-    done: boolean;
-    emoji: string;
-    title: string;
-    hint: string;
-    section: MainSection;
-  }[] = [
-    {
-      done: steps[0] ?? false,
-      emoji: "✅",
-      title: L("onboarding_gs_company_done", "Create your company"),
-      hint: L("onboarding_gs_company_hint", "Your workspace is ready."),
-      section: "settings",
-    },
-    {
-      done: steps[1] ?? false,
-      emoji: "👥",
-      title: L("onboarding_gs_invite", "Invite your first employee"),
-      hint: `${L("nav_central", L("office", "Central"))} · ${L("employees_title", "Employees")}`,
-      section: "office",
-    },
-    {
-      done: steps[2] ?? false,
-      emoji: "🏗️",
-      title: L("onboarding_gs_project", "Create your first project"),
-      hint: `${L("nav_operations", L("site", "Operations"))} · ${L("projects_title", "Projects")}`,
-      section: "site",
-    },
-    {
-      done: steps[3] ?? false,
-      emoji: "⏱️",
-      title: L("onboarding_gs_clock", "Clock in for the first time"),
-      hint: `${L("nav_schedule", L("schedule", "Schedule"))}`,
-      section: "schedule",
-    },
-    {
-      done: steps[4] ?? false,
-      emoji: "🛡️",
-      title: L("onboarding_gs_compliance_setup", "Complete compliance setup"),
-      hint: `${L("nav_settings", L("settings", "Settings"))}`,
-      section: "settings",
-    },
-  ];
+  const titleFor = (id: number) => {
+    if (id === 6) {
+      return L("onboarding_compliance", L(`onboarding_step${id}`, ""));
+    }
+    return L(`onboarding_step${id}`, "");
+  };
 
-  if (allDone) {
+  const hintFor = (id: number) => {
+    if (id === 6) {
+      return L("onboarding_compliance_sub", L(`onboarding_step${id}_sub`, ""));
+    }
+    return L(`onboarding_step${id}_sub`, "");
+  };
+
+  const emojiFor = (id: number) =>
+    (
+      ({
+        1: "🏢",
+        2: "👤",
+        3: "👥",
+        4: "🔐",
+        5: "📅",
+        6: "📋",
+        7: "🏗️",
+        8: "🧑‍🤝‍🧑",
+        9: "📦",
+        10: "⚠️",
+      }) as Record<number, string>
+    )[id] ?? "•";
+
+  if (celebrate && allDone) {
     return (
       <section
         id="getting-started-widget"
@@ -162,7 +155,7 @@ export function GettingStartedWidget({
         aria-live="polite"
       >
         <p className="break-words text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-          {L("onboarding_complete", "Everything is ready! Your company is set up.")}
+          {L("onboarding_complete_msg", L("onboarding_complete", "All done!"))}
         </p>
       </section>
     );
@@ -229,9 +222,9 @@ export function GettingStartedWidget({
       </div>
 
       <ul className="mt-4 space-y-2">
-        {items.map((item, i) => (
+        {items.map((item) => (
           <li
-            key={i}
+            key={item.id}
             className="rounded-lg border border-amber-200/70 bg-white/80 p-3 dark:border-amber-800/40 dark:bg-amber-950/20"
           >
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -240,16 +233,16 @@ export function GettingStartedWidget({
                   {item.done ? (
                     <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
                   ) : (
-                    <span>{item.emoji}</span>
+                    <span>{emojiFor(item.id)}</span>
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p
                     className={`break-words text-sm font-medium ${item.done ? "text-amber-800/80 line-through dark:text-amber-200/70" : "text-amber-950 dark:text-amber-100"}`}
                   >
-                    {s(item.title)}
+                    {s(titleFor(item.id))}
                   </p>
-                  <p className="mt-0.5 break-words text-xs text-amber-900/80 dark:text-amber-200/80">{s(item.hint)}</p>
+                  <p className="mt-0.5 break-words text-xs text-amber-900/80 dark:text-amber-200/80">{s(hintFor(item.id))}</p>
                 </div>
               </div>
               <button

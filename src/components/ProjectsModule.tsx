@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
+import { usePPPPricing } from "@/hooks/usePPPPricing";
 import {
   Building2,
   Package,
@@ -68,6 +69,7 @@ import { ProjectSecurityTab } from "@/components/ProjectSecurityTab";
 import type { FormTemplate } from "@/types/forms";
 import type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
+import { CURRENCY_BY_TIER } from "@/lib/stripe";
 import type { ProjectTask, TaskPriority } from "@/types/projectTask";
 import type { ProjectExpenseCategory, ProjectExpenseRow } from "@/types/homePage";
 import { ALL_TRANSLATIONS, type Currency } from "@/lib/i18n";
@@ -717,6 +719,9 @@ export function ProjectsModule({
   onOpenNewProject,
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
+  const ppp = usePPPPricing();
+  const budgetCurrencyDisplay = (companyCurrency?.trim() || CURRENCY_BY_TIER[ppp.tier] || "CAD") as string;
+  const projectBudgetInfoLabel = `${tl.project_budget || tl.projectFormBudgetTotal || "Total budget"} (${budgetCurrencyDisplay})`;
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const [projectMapActiveCount, setProjectMapActiveCount] = useState(0);
@@ -2435,10 +2440,7 @@ export function ProjectsModule({
               <InfoRow label={tl.projectFormDateStart ?? PM_EN.projectFormDateStart} value={fmtYmd(selectedProject.estimatedStart)} />
               <InfoRow label={tl.projectFormDateEnd ?? PM_EN.projectFormDateEnd} value={fmtYmd(selectedProject.estimatedEnd)} />
               {selectedProject.budgetCAD != null && (
-                <InfoRow
-                  label={tl.projectFormBudgetTotal ?? PM_EN.projectFormBudgetTotal}
-                  value={formatCurrency(selectedProject.budgetCAD, companyCurrency, dateLoc)}
-                />
+                <InfoRow label={projectBudgetInfoLabel} value={formatCurrency(selectedProject.budgetCAD, companyCurrency, dateLoc)} />
               )}
               {selectedProject.spentCAD != null && (
                 <InfoRow

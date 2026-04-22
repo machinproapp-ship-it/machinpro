@@ -380,7 +380,7 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageProjectTeam: "Gestionar equipo del proyecto",
   canViewTimeclock: "Ver fichajes del equipo",
   canManageTimeclock: "Gestionar fichajes del equipo",
-  canManageCompliance: "Gestionar compliance y certificados",
+  canManageCompliance: "Gestionar cumplimiento normativo y certificados",
   canViewDashboardWidgets: "Ver panel operativo",
   canViewProjects: "Ver proyectos",
   canViewOnlyAssignedProjects: "Solo proyectos asignados",
