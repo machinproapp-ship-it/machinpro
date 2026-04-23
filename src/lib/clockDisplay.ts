@@ -38,6 +38,25 @@ export function formatWorkDurationCompact(totalMinutes: number, lx: Record<strin
   return hoursTpl.replace(/\{h\}/g, String(h)).replace(/\{m\}/g, String(min));
 }
 
+/** Minutes between scheduled shift start/end (handles overnight). Min 30. Default 8h if unparsable. */
+export function shiftGoalMinutesFromSchedule(entry: { startTime: string; endTime: string }): number {
+  const parseHm = (raw: string) => {
+    const s = String(raw ?? "").trim();
+    const m = /^(\d{1,2}):(\d{2})$/.exec(s);
+    if (!m) return null;
+    const hh = parseInt(m[1]!, 10);
+    const mm = parseInt(m[2]!, 10);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+    return hh * 60 + mm;
+  };
+  const s = parseHm(entry.startTime);
+  const e = parseHm(entry.endTime);
+  if (s == null || e == null) return 8 * 60;
+  let delta = e - s;
+  if (delta <= 0) delta += 24 * 60;
+  return Math.max(30, delta);
+}
+
 export function formatCompletedWorkFromHmPair(
   clockIn: string,
   clockOut: string,

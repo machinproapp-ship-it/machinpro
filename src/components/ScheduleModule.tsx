@@ -40,8 +40,10 @@ import {
   elapsedMinutesSinceClockStart,
   formatCompletedWorkFromHmPair,
   formatWorkDurationCompact,
+  shiftGoalMinutesFromSchedule,
   trafficLightClassFromElapsedHours,
 } from "@/lib/clockDisplay";
+import { ClockRingTimer } from "@/components/clock/ClockRingTimer";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { jsPDF } from "jspdf";
 import { PayrollSchedulePanel } from "@/components/PayrollSchedulePanel";
@@ -55,6 +57,7 @@ export interface SchedEmployee {
   role: string;
   /** admin | supervisor | worker | logistic | custom:<roleId> */
   scheduleRoleKey?: string;
+  payType?: "hourly" | "salary" | "production";
 }
 
 export interface SchedProject {
@@ -1835,9 +1838,52 @@ export default function ScheduleModule({
     const hours = mins / 60;
     const dur = formatWorkDurationCompact(mins, lx);
     const cls = trafficLightClassFromElapsedHours(hours);
-    const text = (lx.clock_working_for ?? "Working for {time}").replace(/\{time\}/g, dur);
+    const text = (lx.clock_working_for ?? "Trabajando: {time}").replace(/\{time\}/g, dur);
     return { kind: "live" as const, text, cls };
   }, [clockLiveTick, todayEntry, labels]);
+
+  const todaysShiftForUser = useMemo(() => {
+    const pid = (currentUserProfileId ?? "").trim();
+    const leg = (currentUserEmployeeId ?? "").trim();
+    const ids = new Set([pid, leg].filter(Boolean));
+    if (ids.size === 0) return undefined;
+    return entries.find(
+      (e) =>
+        e.type === "shift" &&
+        e.date === todayYmd &&
+        (e.employeeIds ?? []).some((id) => ids.has(id))
+    );
+  }, [entries, todayYmd, currentUserProfileId, currentUserEmployeeId]);
+
+  const scheduleClockGoalMinutes = useMemo(
+    () =>
+      todaysShiftForUser
+        ? shiftGoalMinutesFromSchedule({
+            startTime: todaysShiftForUser.startTime,
+            endTime: todaysShiftForUser.endTime,
+          })
+        : 8 * 60,
+    [todaysShiftForUser]
+  );
+
+  const scheduleClockPaymentType = useMemo(() => {
+    const pid = (currentUserProfileId ?? "").trim();
+    const emp = pid ? employees.find((e) => e.id === pid) : undefined;
+    if (emp?.payType === "production") return "production" as const;
+    if (emp?.payType === "hourly") return "hourly" as const;
+    return "salary" as const;
+  }, [employees, currentUserProfileId]);
+
+  const scheduleActiveMinutes = useMemo(() => {
+    void clockLiveTick;
+    if (!todayEntry?.clockIn || todayEntry.clockOut) return 0;
+    return elapsedMinutesSinceClockStart({
+      dateYmd: todayEntry.date,
+      clockInHm: todayEntry.clockIn,
+      clockInAtIso: todayEntry.clockInAtIso,
+    });
+  }, [clockLiveTick, todayEntry]);
+
   const showCalendarTab = canViewScheduleCalendar;
   const showClockTab =
     !!canViewTimeclock && (Boolean(canClockIn) || Boolean(canManageEmployees));
@@ -2491,25 +2537,45 @@ export default function ScheduleModule({
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
                 {labels.clockInTitle ?? "Fichaje de hoy"}
               </h3>
-              {todayEntry && (
+              {todayEntry && !todayEntry.clockOut ? (
+                <div className="space-y-3">
+                  <ClockRingTimer
+                    currentMinutes={scheduleActiveMinutes}
+                    goalMinutes={scheduleClockGoalMinutes}
+                    isOnBreak={false}
+                    paymentType={scheduleClockPaymentType}
+                    labels={lx}
+                    clockInHmDisplay={wallClockLabel(todayEntry.clockIn)}
+                    compact={scheduleClockPaymentType === "production"}
+                  />
+                  {scheduleClockPaymentType === "production" ? (
+                    <section className="rounded-xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-slate-600 dark:bg-slate-900/70">
+                      <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                        {lx.production_today ?? "Mi producción hoy"}
+                      </h4>
+                      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                        {lx.production_today_placeholder ??
+                          "Configura tu catálogo de trabajo para registrar producción"}
+                      </p>
+                    </section>
+                  ) : null}
+                </div>
+              ) : null}
+              {todayEntry?.clockOut ? (
                 <div className="space-y-2 text-sm">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-emerald-600 dark:text-emerald-400">
                       ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
                     </span>
-                    {todayEntry.clockOut && (
-                      <span className="text-zinc-500 dark:text-zinc-400">
-                        · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
-                      </span>
-                    )}
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
+                    </span>
                   </div>
-                  {todayEntryLiveLine?.kind === "live" ? (
-                    <p className={`text-sm font-semibold ${todayEntryLiveLine.cls}`}>{todayEntryLiveLine.text}</p>
-                  ) : todayEntryLiveLine?.kind === "done" ? (
+                  {todayEntryLiveLine?.kind === "done" ? (
                     <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{todayEntryLiveLine.text}</p>
                   ) : null}
                 </div>
-              )}
+              ) : null}
               {!todayEntry && setClockInProjectCode && (
                 <>
                   <ClockInProjectPicker
@@ -2527,14 +2593,14 @@ export default function ScheduleModule({
                   />
                 </>
               )}
-              <div className="grid grid-cols-1 gap-3 place-items-center max-md:w-full">
+              <div className="grid w-full max-w-md grid-cols-1 gap-3 place-items-stretch mx-auto">
                 {!todayEntry ? (
                   clockInManualNeeded ? (
                     <button
                       type="button"
                       onClick={() => onClockIn?.()}
                       disabled={gpsStatus === "locating"}
-                      className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
+                      className="flex min-h-[56px] w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-center text-base font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-60"
                     >
                       {gpsStatus === "locating"
                         ? (labels.gpsLocating ?? "…")
@@ -2549,7 +2615,7 @@ export default function ScheduleModule({
                     type="button"
                     onClick={onClockOut}
                     disabled={gpsStatus === "locating"}
-                    className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
+                    className="flex h-14 min-h-[56px] w-full items-center justify-center rounded-xl bg-red-600 px-4 text-lg font-bold text-white transition-colors hover:bg-red-500 disabled:opacity-60"
                   >
                     {gpsStatus === "locating"
                       ? (labels.gpsLocating ?? "…")
@@ -3754,21 +3820,52 @@ export default function ScheduleModule({
                   <h4 className="text-base font-semibold text-zinc-900 dark:text-white">
                     {labels.clockInTitle ?? "Fichaje de hoy"}
                   </h4>
-                  {todayEntry && (
+                  {todayEntry && !todayEntry.clockOut ? (
+                    <div className="space-y-3">
+                      <ClockRingTimer
+                        currentMinutes={scheduleActiveMinutes}
+                        goalMinutes={scheduleClockGoalMinutes}
+                        isOnBreak={false}
+                        paymentType={scheduleClockPaymentType}
+                        labels={lx}
+                        clockInHmDisplay={wallClockLabel(todayEntry.clockIn)}
+                        compact={scheduleClockPaymentType === "production"}
+                      />
+                      {scheduleClockPaymentType === "production" ? (
+                        <section className="rounded-xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-slate-600 dark:bg-slate-900/70">
+                          <h5 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                            {lx.production_today ?? "Mi producción hoy"}
+                          </h5>
+                          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                            {lx.production_today_placeholder ??
+                              "Configura tu catálogo de trabajo para registrar producción"}
+                          </p>
+                        </section>
+                      ) : null}
+                      {todayEntry.locationAlert && (
+                        <span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          {(labels as Record<string, string>).outsideZone ?? "Fuera de zona"}
+                          {todayEntry.locationAlertMeters != null && ` (${Math.round(todayEntry.locationAlertMeters)}m)`}
+                        </span>
+                      )}
+                      {todayEntry.hadPendingCerts && (
+                        <span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                          {(labels as Record<string, string>).pendingCertsAtClockIn ?? "Certs pendientes al fichar"}
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
+                  {todayEntry?.clockOut ? (
                     <div className="space-y-2 text-sm">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-emerald-600 dark:text-emerald-400">
                           ✓ {labels.clockInEntry ?? "Entrada"}: {wallClockLabel(todayEntry.clockIn)}
                         </span>
-                        {todayEntry.clockOut && (
-                          <span className="text-zinc-500 dark:text-zinc-400">
-                            · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
-                          </span>
-                        )}
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                          · {labels.clockOutEntry ?? "Salida"}: {wallClockLabel(todayEntry.clockOut)}
+                        </span>
                       </div>
-                      {todayEntryLiveLine?.kind === "live" ? (
-                        <p className={`text-sm font-semibold ${todayEntryLiveLine.cls}`}>{todayEntryLiveLine.text}</p>
-                      ) : todayEntryLiveLine?.kind === "done" ? (
+                      {todayEntryLiveLine?.kind === "done" ? (
                         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{todayEntryLiveLine.text}</p>
                       ) : null}
                       {todayEntry.locationAlert && (
@@ -3783,7 +3880,7 @@ export default function ScheduleModule({
                         </span>
                       )}
                     </div>
-                  )}
+                  ) : null}
                   {!todayEntry && setClockInProjectCode && (
                     <>
                       <ClockInProjectPicker
@@ -3819,14 +3916,14 @@ export default function ScheduleModule({
                       ) : null}
                     </>
                   )}
-                  <div className="grid grid-cols-1 gap-3 place-items-center max-md:w-full">
+                  <div className="mx-auto grid w-full max-w-md grid-cols-1 gap-3 place-items-stretch">
                     {!todayEntry ? (
                       clockInManualNeeded ? (
                         <button
                           type="button"
                           onClick={() => onClockIn?.()}
                           disabled={gpsStatus === "locating"}
-                          className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-emerald-600 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-500 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
+                          className="flex min-h-[56px] w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-center text-base font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-60"
                         >
                           {gpsStatus === "locating"
                             ? (labels.gpsLocating ?? "Obteniendo ubicación…")
@@ -3841,7 +3938,7 @@ export default function ScheduleModule({
                         type="button"
                         onClick={onClockOut}
                         disabled={gpsStatus === "locating"}
-                        className="flex h-[60px] w-[60px] min-h-[60px] min-w-[60px] max-w-full items-center justify-center rounded-full bg-red-500 text-center text-sm font-semibold leading-tight text-white transition-colors hover:bg-red-600 disabled:opacity-60 md:h-14 md:min-h-[44px] md:w-full md:min-w-0 md:rounded-2xl md:text-base"
+                        className="flex h-14 min-h-[56px] w-full items-center justify-center rounded-xl bg-red-600 px-4 text-lg font-bold text-white transition-colors hover:bg-red-500 disabled:opacity-60"
                       >
                         {gpsStatus === "locating"
                           ? (labels.gpsLocating ?? "Obteniendo ubicación…")

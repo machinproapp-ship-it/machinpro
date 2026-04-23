@@ -133,6 +133,7 @@ import {
   companyHasConfiguredLaborRates,
   type ProjectLaborSummary,
 } from "@/lib/laborCosting";
+import { shiftGoalMinutesFromSchedule } from "@/lib/clockDisplay";
 import { resolveEmployeeRate } from "@/lib/payroll";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import {
@@ -5411,6 +5412,18 @@ export default function Home() {
         ) ?? null
       : null;
     const canActClock = dateStr === localTodayYmd() && effectiveRole !== "admin";
+    const uid = profile?.id ?? "";
+    const empPay = uid ? employees.find((e) => e.id === uid) : undefined;
+    const employeePaymentType: "hourly" | "salary" | "production" =
+      empPay?.payType === "production"
+        ? "production"
+        : empPay?.payType === "hourly"
+          ? "hourly"
+          : "salary";
+    const clockGoalMinutes = shiftGoalMinutesFromSchedule({
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+    });
     return {
       entry,
       shiftViewProject,
@@ -5419,6 +5432,8 @@ export default function Home() {
       shiftTasks,
       dailyReport: dr ?? null,
       canActClock,
+      employeePaymentType,
+      clockGoalMinutes,
     };
   }, [
     employeeShiftDayOpen,
@@ -5434,6 +5449,20 @@ export default function Home() {
     dailyReports,
     effectiveRole,
   ]);
+
+  const headerRoleDisplayName = useMemo(() => {
+    const tx = t as Record<string, string>;
+    const customName = activeCustomRole?.name?.trim();
+    if (customName) return customName;
+    const map: Partial<Record<UserRole, string>> = {
+      admin: tx.admin ?? "",
+      supervisor: tx.supervisor ?? "",
+      worker: tx.worker ?? "",
+      logistic: tx.logistic ?? "",
+      projectManager: tx.projectManager ?? "",
+    };
+    return map[effectiveRole]?.trim() || effectiveRole;
+  }, [activeCustomRole?.name, effectiveRole, t]);
 
   useEffect(() => {
     const ce = employeeShiftModalModel?.clockEntry;
@@ -6261,9 +6290,12 @@ export default function Home() {
                     >
                       {profile?.fullName ?? profile?.email ?? user?.email ?? ""}
                     </p>
-                    {profile?.role ? (
-                      <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400" title={profile.role}>
-                        {profile.role}
+                    {headerRoleDisplayName ? (
+                      <p
+                        className="truncate text-[11px] text-zinc-500 dark:text-zinc-400"
+                        title={headerRoleDisplayName}
+                      >
+                        {headerRoleDisplayName}
                       </p>
                     ) : null}
                   </div>
@@ -6398,12 +6430,14 @@ export default function Home() {
                   <span className="hidden sm:block">
                     <BrandWordmark tone="onLight" className="text-xs font-semibold" />
                   </span>
-                  <span
-                    className="hidden max-w-[12rem] truncate text-xs text-zinc-500 dark:text-zinc-400 sm:block"
-                    title={(profile?.role ?? "").trim() || undefined}
-                  >
-                    {profile?.role ?? ""}
-                  </span>
+                  {headerRoleDisplayName ? (
+                    <span
+                      className="hidden max-w-[12rem] truncate text-xs text-zinc-500 dark:text-zinc-400 sm:block"
+                      title={headerRoleDisplayName}
+                    >
+                      {headerRoleDisplayName}
+                    </span>
+                  ) : null}
                   {profile?.isSuperadmin && (
                     <Link
                       href="/superadmin"
@@ -7688,6 +7722,7 @@ export default function Home() {
                   name: e.name,
                   role: e.role,
                   scheduleRoleKey: scheduleRoleKeyForEmployee(e, customRoles),
+                  payType: e.payType,
                 }))}
                 customRoles={customRoles.map((r) => ({ id: r.id, name: r.name }))}
                 projects={projects.map((p) => ({
@@ -9369,6 +9404,8 @@ export default function Home() {
           scheduleEntry={employeeShiftModalModel.entry}
           project={employeeShiftModalModel.shiftViewProject}
           clockEntry={employeeShiftModalModel.clockEntry}
+          employeePaymentType={employeeShiftModalModel.employeePaymentType}
+          clockGoalMinutes={employeeShiftModalModel.clockGoalMinutes}
           canActClock={employeeShiftModalModel.canActClock}
           gpsStatus={clockInGpsStatus}
           clockInAlertMessage={clockInAlertMessage}

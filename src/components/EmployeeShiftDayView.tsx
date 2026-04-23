@@ -14,8 +14,10 @@ import {
   elapsedMinutesSinceClockStart,
   formatCompletedWorkFromHmPair,
   formatWorkDurationCompact,
+  shiftGoalMinutesFromSchedule,
   trafficLightClassFromElapsedHours,
 } from "@/lib/clockDisplay";
+import { ClockRingTimer, type ClockRingPaymentType } from "@/components/clock/ClockRingTimer";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 /** Alineado con ScheduleEntry en page.tsx (evita import circular). */
@@ -137,6 +139,8 @@ export function EmployeeShiftDayView({
   clockCorrectionAllowed = false,
   companyId: companyIdProp,
   onClockCorrectionApplied,
+  employeePaymentType = "hourly",
+  clockGoalMinutes: clockGoalMinutesProp,
 }: {
   open: boolean;
   onClose: () => void;
@@ -173,6 +177,10 @@ export function EmployeeShiftDayView({
   clockCorrectionAllowed?: boolean;
   companyId?: string | null;
   onClockCorrectionApplied?: (entryId: string, clockInIso: string, clockOutIso: string) => void;
+  /** Aligned with employee pay settings — drives fichaje hero layout */
+  employeePaymentType?: ClockRingPaymentType;
+  /** Planned shift length in minutes (progress ring goal). Defaults from schedule start/end. */
+  clockGoalMinutes?: number;
 }) {
   const tl = labels;
   const locale = localeFromLanguage(language);
@@ -203,6 +211,14 @@ export function EmployeeShiftDayView({
   const clockSwitchDisabled = !canUseAdvancedClock || clockProjectSwitchOptions.length === 0;
 
   const lx = tl as Record<string, string>;
+  const resolvedGoalMinutes =
+    clockGoalMinutesProp ??
+    (scheduleEntry.type === "shift"
+      ? shiftGoalMinutesFromSchedule({
+          startTime: scheduleEntry.startTime,
+          endTime: scheduleEntry.endTime,
+        })
+      : 8 * 60);
   const teUuid =
     clockEntry?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clockEntry.id)
       ? clockEntry.id
@@ -314,9 +330,22 @@ export function EmployeeShiftDayView({
     const cls = trafficLightClassFromElapsedHours(hours);
     const text =
       (tl.clock_working_for as string | undefined)?.replace(/\{time\}/g, dur) ??
-      `Working for ${dur}`;
+      `Trabajando: ${dur}`;
     return { dur, cls, text };
   }, [clockEntry, scheduleEntry.date, tick, tl]);
+
+  const activeClockMinutes = useMemo(() => {
+    void tick;
+    if (!clockEntry?.clockIn || clockEntry.clockOut) return 0;
+    return elapsedMinutesSinceClockStart({
+      dateYmd: scheduleEntry.date,
+      clockInHm: clockEntry.clockIn,
+      clockInAtIso: clockEntry.clockInAtIso,
+    });
+  }, [clockEntry, scheduleEntry.date, tick]);
+
+  const ringPaymentType: ClockRingPaymentType =
+    employeePaymentType === "production" ? "production" : employeePaymentType === "salary" ? "salary" : "hourly";
 
   const workedCompleted = useMemo(() => {
     if (!clockEntry?.clockIn || !clockEntry.clockOut) return "";
@@ -460,13 +489,30 @@ export function EmployeeShiftDayView({
               {tl.myClockIn ?? "Mi fichaje"}
             </h2>
             {!canActClock ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {clockEntry
-                  ? clockEntry.clockOut
-                    ? `${tl.timeWorked ?? "Tiempo trabajado"}: ${workedCompleted || "—"}`
-                    : `${tl.clockInEntry ?? "Entrada"}: ${wallClockLabel(clockEntry.clockIn)}${elapsedLive && typeof elapsedLive === "object" ? ` · ${elapsedLive.text}` : ""}`
-                  : tl.shiftNoClockThatDay ?? ""}
-              </p>
+              <div className="space-y-3">
+                {clockEntry && !clockEntry.clockOut ? (
+                  <ClockRingTimer
+                    currentMinutes={activeClockMinutes}
+                    goalMinutes={resolvedGoalMinutes}
+                    isOnBreak={clockBreakActive}
+                    paymentType={ringPaymentType}
+                    labels={lx}
+                    clockInHmDisplay={wallClockLabel(clockEntry.clockIn)}
+                    compact={employeePaymentType === "production"}
+                  />
+                ) : null}
+                {!(clockEntry && !clockEntry.clockOut) ? (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {clockEntry
+                      ? clockEntry.clockOut
+                        ? `${tl.timeWorked ?? "Tiempo trabajado"}: ${workedCompleted || "—"}`
+                        : `${tl.clockInEntry ?? "Entrada"}: ${wallClockLabel(clockEntry.clockIn)}${
+                            !clockEntry.clockOut && elapsedLive ? ` · ${elapsedLive.text}` : ""
+                          }`
+                      : tl.shiftNoClockThatDay ?? ""}
+                  </p>
+                ) : null}
+              </div>
             ) : !clockEntry ? (
               (() => {
                 const shiftHasProject = !!(
@@ -552,35 +598,37 @@ export function EmployeeShiftDayView({
                 );
               })()
             ) : !clockEntry.clockOut ? (
-              <div className="space-y-3">
-                <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                  {tl.clockInEntry ?? "Entrada"}:{" "}
-                  <span className="font-mono font-medium">{wallClockLabel(clockEntry.clockIn)}</span>
-                </p>
-                {clockBreakActive ? (
-                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                    {(tl as Record<string, string>).clock_on_break ?? "On break"}
-                  </p>
+              <div className="space-y-4">
+                <ClockRingTimer
+                  currentMinutes={activeClockMinutes}
+                  goalMinutes={resolvedGoalMinutes}
+                  isOnBreak={clockBreakActive}
+                  paymentType={ringPaymentType}
+                  labels={lx}
+                  clockInHmDisplay={wallClockLabel(clockEntry.clockIn)}
+                  compact={employeePaymentType === "production"}
+                />
+
+                {employeePaymentType === "production" ? (
+                  <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-900/80">
+                    <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                      {lx.production_today ?? "Mi producción hoy"}
+                    </h3>
+                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                      {lx.production_today_placeholder ??
+                        "Configura tu catálogo de trabajo para registrar producción"}
+                    </p>
+                  </section>
                 ) : null}
-                {elapsedLive ? (
-                  <p className={`text-sm font-semibold ${elapsedLive.cls}`}>{elapsedLive.text}</p>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={onClockOut}
-                  disabled={gpsStatus === "locating"}
-                  className="flex w-full min-h-[48px] items-center justify-center rounded-2xl bg-red-600 px-4 py-3 text-base font-semibold text-white hover:bg-red-500 disabled:opacity-60"
-                >
-                  {gpsStatus === "locating" ? (tl.gpsLocating ?? "…") : (tl.clockOut ?? "Terminar jornada")}
-                </button>
+
                 {canUseAdvancedClock ? (
                   <>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid w-full grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => void onClockBreakToggle?.()}
                         disabled={gpsStatus === "locating"}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60 dark:bg-amber-600 dark:hover:bg-amber-500"
+                        className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-3 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
                       >
                         <Coffee className="h-4 w-4 shrink-0" aria-hidden />
                         <span className="truncate">
@@ -599,7 +647,7 @@ export function EmployeeShiftDayView({
                             : undefined
                         }
                         onClick={() => setProjectPickerOpen((o) => !o)}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                        className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-gray-700 px-3 py-3 text-sm font-semibold text-white hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:hover:bg-gray-600"
                       >
                         <ArrowLeftRight className="h-4 w-4 shrink-0" aria-hidden />
                         <span className="truncate">
@@ -638,6 +686,15 @@ export function EmployeeShiftDayView({
                     ) : null}
                   </>
                 ) : null}
+
+                <button
+                  type="button"
+                  onClick={onClockOut}
+                  disabled={gpsStatus === "locating"}
+                  className="flex h-14 w-full min-h-[56px] items-center justify-center rounded-xl bg-red-600 px-4 text-lg font-bold text-white hover:bg-red-500 disabled:opacity-60"
+                >
+                  {gpsStatus === "locating" ? (tl.gpsLocating ?? "…") : (tl.clockOut ?? "Terminar jornada")}
+                </button>
               </div>
             ) : (
               <div className="space-y-2 text-sm">
