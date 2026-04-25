@@ -86,7 +86,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: exErr.message }, { status: 500 });
   }
 
+  const audit = async (entryId: string) => {
+    const { data: prof } = await admin
+      .from("user_profiles")
+      .select("full_name, display_name, email")
+      .eq("id", auth.userId)
+      .maybeSingle();
+    const p = prof as { full_name?: string | null; display_name?: string | null; email?: string | null } | null;
+    const userName = (p?.full_name || p?.display_name || p?.email || auth.userId).trim();
+    await admin.from("audit_logs").insert({
+      company_id: companyId,
+      user_id: auth.userId,
+      user_name: userName,
+      action: "production_entry_saved",
+      entity_type: "production_entry",
+      entity_id: entryId,
+      new_value: {
+        work_order_item_id: workOrderItemId,
+        employee_id: targetEmployeeId,
+        date,
+        units,
+        amount,
+      },
+    });
+  };
+
   if (existing?.id) {
+    const eid = (existing as { id: string }).id;
     const { data: upd, error: uErr } = await admin
       .from("production_entries")
       .update({
@@ -94,12 +120,13 @@ export async function POST(req: NextRequest) {
         amount,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", (existing as { id: string }).id)
+      .eq("id", eid)
       .select("id, company_id, project_id, work_order_item_id, employee_id, date, units, amount")
       .maybeSingle();
     if (uErr) {
       return NextResponse.json({ error: uErr.message }, { status: 500 });
     }
+    await audit(eid);
     return NextResponse.json({ entry: upd, updated: true });
   }
 
@@ -119,5 +146,7 @@ export async function POST(req: NextRequest) {
   if (iErr) {
     return NextResponse.json({ error: iErr.message }, { status: 500 });
   }
+  const insRow = ins as { id: string } | null;
+  if (insRow?.id) await audit(insRow.id);
   return NextResponse.json({ entry: ins, updated: false });
 }

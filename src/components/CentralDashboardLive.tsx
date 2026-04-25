@@ -159,6 +159,28 @@ function applyLocalStorageWidgetOrder(parsed: ResolvedDashboardConfig): Resolved
   }
 }
 
+/** companies.settings.dashboardWidgets tiene prioridad sobre orden en localStorage. */
+function applyServerOrLocalWidgetOrder(
+  parsed: ResolvedDashboardConfig,
+  serverOrder?: string[] | null
+): ResolvedDashboardConfig {
+  if (serverOrder && serverOrder.length > 0) {
+    const base = parsed.orderedWidgets;
+    const baseSet = new Set(base);
+    const preferred = serverOrder.filter(
+      (x): x is DashboardWidgetId =>
+        typeof x === "string" &&
+        (DASHBOARD_WIDGET_IDS as readonly string[]).includes(x) &&
+        baseSet.has(x as DashboardWidgetId)
+    );
+    if (preferred.length > 0) {
+      const tail = base.filter((id) => !preferred.includes(id));
+      return { ...parsed, orderedWidgets: [...preferred, ...tail] };
+    }
+  }
+  return applyLocalStorageWidgetOrder(parsed);
+}
+
 function DashboardSortableShell({
   id,
   className,
@@ -489,6 +511,10 @@ export interface CentralDashboardLiveProps {
   onNavigateToFormsNew?: () => void;
   /** Quick Actions bar — opens create flows when permitted. */
   onQuickNewProject?: () => void;
+  /** Orden de widgets persistido en companies.settings (Supabase). */
+  dashboardCompanySettingsWidgetOrder?: string[] | null;
+  /** Tras guardar layout del panel, sincronizar `dashboardWidgets` en companies.settings. */
+  onPersistCompanySettingsWidgetOrder?: (widgetIds: string[]) => void | Promise<void>;
 }
 
 type TimeRow = {
@@ -686,6 +712,8 @@ function CentralDashboardBody(
     onNavigateToForms,
     onNavigateToFormsNew,
     onQuickNewProject,
+    dashboardCompanySettingsWidgetOrder = null,
+    onPersistCompanySettingsWidgetOrder,
   } = props;
 
   const labels = labelsProp;
@@ -893,7 +921,10 @@ function CentralDashboardBody(
     try {
       const cached = readCentralDashboardConfigCache(companyId, currentUserId);
       if (cached != null) {
-        const parsed = applyLocalStorageWidgetOrder(parseDashboardConfig(cached));
+        const parsed = applyServerOrLocalWidgetOrder(
+          parseDashboardConfig(cached),
+          dashboardCompanySettingsWidgetOrder
+        );
         setResolvedConfig(parsed);
         return parsed;
       }
@@ -906,17 +937,28 @@ function CentralDashboardBody(
       const userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
       const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
       writeCentralDashboardConfigCache(companyId, currentUserId, merged);
-      const parsed = applyLocalStorageWidgetOrder(parseDashboardConfig(merged));
+      const parsed = applyServerOrLocalWidgetOrder(
+        parseDashboardConfig(merged),
+        dashboardCompanySettingsWidgetOrder
+      );
       setResolvedConfig(parsed);
       return parsed;
     } catch (e) {
       console.error("[CentralDashboard] loadDashboardConfig", e);
       setLoadErrors((prev) => [...prev, errMessage(e)]);
-      const fallback = applyLocalStorageWidgetOrder(parseDashboardConfig(null));
+      const fallback = applyServerOrLocalWidgetOrder(
+        parseDashboardConfig(null),
+        dashboardCompanySettingsWidgetOrder
+      );
       setResolvedConfig(fallback);
       return fallback;
     }
-  }, [companyId, currentUserId]);
+  }, [companyId, currentUserId, dashboardCompanySettingsWidgetOrder]);
+
+  useEffect(() => {
+    if (!dashboardCompanySettingsWidgetOrder?.length) return;
+    setResolvedConfig((prev) => applyServerOrLocalWidgetOrder(prev, dashboardCompanySettingsWidgetOrder));
+  }, [dashboardCompanySettingsWidgetOrder]);
 
   useEffect(() => {
     if (customizeOpen) setDraftConfig(resolvedConfig);
@@ -953,10 +995,14 @@ function CentralDashboardBody(
         }
         try {
           if (typeof window !== "undefined") {
-            localStorage.setItem(
-              "machinpro_dashboard_widget_order",
-              JSON.stringify(next.orderedWidgets)
-            );
+            if (onPersistCompanySettingsWidgetOrder) {
+              await onPersistCompanySettingsWidgetOrder(next.orderedWidgets);
+            } else {
+              localStorage.setItem(
+                "machinpro_dashboard_widget_order",
+                JSON.stringify(next.orderedWidgets)
+              );
+            }
           }
         } catch {
           /* ignore quota */
@@ -974,7 +1020,7 @@ function CentralDashboardBody(
         setSavingConfig(false);
       }
     },
-    [companyId, canManageEmployees, showToast, labels, loadDashboardConfig]
+    [companyId, canManageEmployees, showToast, labels, loadDashboardConfig, onPersistCompanySettingsWidgetOrder]
   );
 
   useEffect(() => {

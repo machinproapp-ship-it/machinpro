@@ -356,6 +356,8 @@ interface CentralModuleProps {
   dashboardCanManageCorrectiveActions?: boolean;
   dashboardCanManageProjectRFI?: boolean;
   dashboardCanAccessSubcontractors?: boolean;
+  dashboardCompanySettingsWidgetOrder?: string[] | null;
+  onPersistCompanySettingsWidgetOrder?: (widgetIds: string[]) => void | Promise<void>;
 }
 
 function computeComplianceRecordStatus(
@@ -526,6 +528,8 @@ export function CentralModule({
   dashboardCanManageCorrectiveActions = false,
   dashboardCanManageProjectRFI = false,
   dashboardCanAccessSubcontractors = false,
+  dashboardCompanySettingsWidgetOrder = null,
+  onPersistCompanySettingsWidgetOrder,
 }: CentralModuleProps) {
   const canViewProjects = canViewProjectsProp ?? canEdit;
   const canCreateProjects = canCreateProjectsProp ?? canEdit;
@@ -1046,6 +1050,8 @@ export function CentralModule({
                 onOpenSubcontractorsInOperations={onOpenSubcontractorsInOperations}
                 onOpenMyShiftView={onOpenMyShiftView}
                 onProjectsManagementCardClick={onProjectsManagementCardClick ?? (() => setCentralView("projects"))}
+                dashboardCompanySettingsWidgetOrder={dashboardCompanySettingsWidgetOrder}
+                onPersistCompanySettingsWidgetOrder={onPersistCompanySettingsWidgetOrder}
                 onQuickNewProject={
                   canCreateProjects && onAddProject ? () => onAddProject() : undefined
                 }

@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
   if (!auth) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const dateParam = req.nextUrl.searchParams.get("date")?.trim().slice(0, 10) ?? "";
+  const today =
+    /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : new Date().toISOString().slice(0, 10);
   const admin = createSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });

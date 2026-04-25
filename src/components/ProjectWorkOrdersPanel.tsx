@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, FileDown, Plus, Users } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import {
@@ -68,6 +68,21 @@ export function ProjectWorkOrdersPanel({
   const [view, setView] = useState<"list" | "week">("list");
   const [assignItem, setAssignItem] = useState<WorkOrderItemApi | null>(null);
   const [assignPick, setAssignPick] = useState<Record<string, boolean>>({});
+  const [prodBreakdown, setProdBreakdown] = useState<
+    {
+      date: string;
+      work_order_item_id: string;
+      employee_id: string;
+      employee_name: string;
+      units: number;
+    }[]
+  >([]);
+  const [cellPopover, setCellPopover] = useState<{
+    itemId: string;
+    date: string;
+    conceptName: string;
+  } | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const reload = useCallback(async () => {
     if (!projectId || !accessToken) return;
@@ -80,7 +95,7 @@ export function ProjectWorkOrdersPanel({
         fetch(`/api/work-catalog?companyId=${encodeURIComponent(companyId)}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         }),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/production`, {
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/production?breakdown=true`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         }),
       ]);
@@ -95,10 +110,20 @@ export function ProjectWorkOrdersPanel({
           units: number;
           amount: number;
         }[];
+        breakdown?: {
+          date: string;
+          work_order_item_id: string;
+          employee_id: string;
+          employee_name: string;
+          units: number;
+        }[];
       };
       if (r1.ok) setItems(j1.items ?? []);
       if (r2.ok) setCatalog(j2.items ?? []);
-      if (r3.ok) setProdRows(j3.rows ?? []);
+      if (r3.ok) {
+        setProdRows(j3.rows ?? []);
+        setProdBreakdown(j3.breakdown ?? []);
+      }
     } catch {
       showToast("error", tl.toast_error ?? "Error");
     } finally {
@@ -110,7 +135,27 @@ export function ProjectWorkOrdersPanel({
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    if (!cellPopover) return;
+    const close = (ev: MouseEvent) => {
+      const el = popoverRef.current;
+      if (el && !el.contains(ev.target as Node)) setCellPopover(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [cellPopover]);
+
   const weekDays = useMemo(() => weekYmdsMondayFirstInTimeZone(timeZone, weekOffset), [timeZone, weekOffset]);
+
+  const breakByCell = useMemo(() => {
+    const m = new Map<string, { employee_name: string; units: number }[]>();
+    for (const b of prodBreakdown) {
+      const k = `${b.work_order_item_id}|${b.date}`;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push({ employee_name: b.employee_name, units: b.units });
+    }
+    return m;
+  }, [prodBreakdown]);
 
   const prodByItemDate = useMemo(() => {
     const m = new Map<string, number>();
@@ -327,7 +372,7 @@ export function ProjectWorkOrdersPanel({
             className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 px-3 text-sm dark:border-zinc-600"
           >
             {view === "list"
-              ? L(tl, "work_order_view_week", "Weekly view")
+              ? L(tl, "work_order_view_weekly", L(tl, "work_order_view_week", "Weekly view"))
               : L(tl, "work_order_view_list", "List view")}
           </button>
           {canManage ? (
@@ -392,7 +437,7 @@ export function ProjectWorkOrdersPanel({
       {loading ? (
         <p className="text-sm text-zinc-500">{tl.billing_loading ?? ""}</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-zinc-500">{tl.work_order_empty ?? ""}</p>
+        <p className="text-sm text-zinc-500">{tl.work_order_no_items ?? tl.work_order_empty ?? ""}</p>
       ) : view === "list" ? (
         <div className="space-y-4">
           {grouped.map(([cat, rows]) => (
@@ -443,7 +488,9 @@ export function ProjectWorkOrdersPanel({
                                 setAssignItem(it);
                               }}
                               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-600"
-                              aria-label={tl.work_order_assign ?? ""}
+                              aria-label={
+                                L(tl, "work_order_assign_employees", tl.work_order_assign ?? "")
+                              }
                             >
                               <Users className="h-4 w-4" />
                             </button>
@@ -458,7 +505,8 @@ export function ProjectWorkOrdersPanel({
           ))}
           <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
             {tl.work_order_week_total ?? "This week"}: {companyCurrency} {weekTotalAll.toFixed(2)} ·{" "}
-            {tl.work_order_acc_total ?? "Accumulated"}: {companyCurrency} {accTotalAll.toFixed(2)}
+            {tl.work_order_accumulated ?? tl.work_order_acc_total ?? "Accumulated"}: {companyCurrency}{" "}
+            {accTotalAll.toFixed(2)}
           </p>
         </div>
       ) : (
@@ -483,8 +531,17 @@ export function ProjectWorkOrdersPanel({
                   {weekDays.map((d) => {
                     const u = prodByItemDate.get(`${it.id}|${d}`) ?? 0;
                     return (
-                      <td key={d} className="px-2 py-2 text-center tabular-nums" title={String(u)}>
-                        {u}
+                      <td key={d} className="px-1 py-1 text-center">
+                        <button
+                          type="button"
+                          className="min-h-[44px] min-w-[44px] w-full rounded-lg border border-transparent px-1 tabular-nums hover:border-amber-400/60 hover:bg-amber-50/80 dark:hover:bg-amber-950/30"
+                          onClick={() => {
+                            if (u <= 0) return;
+                            setCellPopover({ itemId: it.id, date: d, conceptName: it.name });
+                          }}
+                        >
+                          {u}
+                        </button>
                       </td>
                     );
                   })}
@@ -501,6 +558,39 @@ export function ProjectWorkOrdersPanel({
         </div>
       )}
 
+      {cellPopover ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          role="presentation"
+        >
+          <div
+            ref={popoverRef}
+            className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+          >
+            <p className="text-sm font-semibold text-zinc-900 dark:text-white">{cellPopover.conceptName}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{cellPopover.date}</p>
+            <ul className="mt-3 max-h-[40vh] space-y-2 overflow-y-auto">
+              {(breakByCell.get(`${cellPopover.itemId}|${cellPopover.date}`) ?? []).map((row, idx) => (
+                <li
+                  key={`${row.employee_name}-${idx}`}
+                  className="flex justify-between gap-2 text-sm text-zinc-800 dark:text-zinc-200"
+                >
+                  <span className="min-w-0 truncate">{row.employee_name}</span>
+                  <span className="shrink-0 tabular-nums font-medium">{row.units}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="mt-4 min-h-[44px] w-full rounded-lg border border-zinc-300 text-sm dark:border-zinc-600"
+              onClick={() => setCellPopover(null)}
+            >
+              {tl.cancel ?? "Close"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {importOpen ? (
         <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/50 p-4 sm:items-center">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -510,7 +600,7 @@ export function ProjectWorkOrdersPanel({
                 className={`min-h-[44px] rounded-lg px-3 text-sm font-medium ${importTab === "mine" ? "bg-amber-100 dark:bg-amber-900/40" : ""}`}
                 onClick={() => setImportTab("mine")}
               >
-                {tl.work_order_import_tab_mine ?? "My catalog"}
+                {L(tl, "work_order_import_tab_own", L(tl, "work_order_import_tab_mine", "My catalog"))}
               </button>
               <button
                 type="button"
@@ -521,6 +611,9 @@ export function ProjectWorkOrdersPanel({
               </button>
             </div>
             {importTab === "mine" ? (
+              catalog.length === 0 ? (
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">{tl.work_order_import_empty ?? ""}</p>
+              ) : (
               <ul className="max-h-[50vh] space-y-2 overflow-y-auto">
                 {catalog.map((c) => (
                   <li key={c.id} className="rounded-lg border border-zinc-100 p-2 dark:border-slate-700 space-y-2">
@@ -547,6 +640,7 @@ export function ProjectWorkOrdersPanel({
                   </li>
                 ))}
               </ul>
+              )
             ) : (
               <ul className="max-h-[50vh] space-y-4 overflow-y-auto">
                 {machinCatalogByCategory.map(([catKey, rows]) => (

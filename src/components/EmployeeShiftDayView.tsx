@@ -18,6 +18,7 @@ import {
   trafficLightClassFromElapsedHours,
 } from "@/lib/clockDisplay";
 import { ClockRingTimer, type ClockRingPaymentType } from "@/components/clock/ClockRingTimer";
+import { WorkerProductionTodaySection } from "@/components/WorkerProductionTodaySection";
 import { useMachinProDisplayPrefs } from "@/hooks/useMachinProDisplayPrefs";
 
 /** Alineado con ScheduleEntry en page.tsx (evita import circular). */
@@ -138,6 +139,8 @@ export function EmployeeShiftDayView({
   timeZone: timeZoneProp,
   clockCorrectionAllowed = false,
   companyId: companyIdProp,
+  productionAccessToken = null,
+  companyCurrency = "CAD",
   onClockCorrectionApplied,
   employeePaymentType = "hourly",
   clockGoalMinutes: clockGoalMinutesProp,
@@ -176,6 +179,9 @@ export function EmployeeShiftDayView({
   timeZone?: string;
   clockCorrectionAllowed?: boolean;
   companyId?: string | null;
+  /** Bearer token para registrar producción (misma empresa). */
+  productionAccessToken?: string | null;
+  companyCurrency?: string;
   onClockCorrectionApplied?: (entryId: string, clockInIso: string, clockOutIso: string) => void;
   /** Aligned with employee pay settings — drives fichaje hero layout */
   employeePaymentType?: ClockRingPaymentType;
@@ -614,10 +620,23 @@ export function EmployeeShiftDayView({
                     <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
                       {lx.production_today ?? "Mi producción hoy"}
                     </h3>
-                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                      {lx.production_today_placeholder ??
-                        "Configura tu catálogo de trabajo para registrar producción"}
-                    </p>
+                    {companyIdProp?.trim() && productionAccessToken ? (
+                      <div className="mt-3">
+                        <WorkerProductionTodaySection
+                          labels={lx}
+                          companyId={companyIdProp.trim()}
+                          accessToken={productionAccessToken}
+                          timeZone={tz}
+                          companyCurrency={companyCurrency}
+                        />
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                        {(lx as Record<string, string>).work_orders_need_session ??
+                          lx.production_today_placeholder ??
+                          ""}
+                      </p>
+                    )}
                   </section>
                 ) : null}
 

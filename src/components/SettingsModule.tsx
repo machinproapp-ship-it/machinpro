@@ -1527,13 +1527,6 @@ export function SettingsModule({
                       if (!Number.isFinite(n)) return;
                       const v = Math.min(168, Math.max(1, n));
                       onTimesheetWeeklyRegularCapChange?.(v);
-                      if (companyId) {
-                        try {
-                          localStorage.setItem(`machinpro_weekly_regular_cap_${companyId}`, String(v));
-                        } catch {
-                          /* ignore */
-                        }
-                      }
                     }}
                     className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                   />
@@ -1558,13 +1551,6 @@ export function SettingsModule({
                       if (!Number.isFinite(n)) return;
                       const v = Math.min(366, Math.max(0, n));
                       onCompanyDefaultVacationDaysChange?.(v);
-                      if (companyId) {
-                        try {
-                          localStorage.setItem(`machinpro_default_vacation_days_${companyId}`, String(v));
-                        } catch {
-                          /* ignore */
-                        }
-                      }
                     }}
                     className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
                   />

@@ -44,6 +44,7 @@ import {
   trafficLightClassFromElapsedHours,
 } from "@/lib/clockDisplay";
 import { ClockRingTimer } from "@/components/clock/ClockRingTimer";
+import { WorkerProductionTodaySection } from "@/components/WorkerProductionTodaySection";
 import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { jsPDF } from "jspdf";
 import { PayrollSchedulePanel } from "@/components/PayrollSchedulePanel";
@@ -445,6 +446,9 @@ export interface ScheduleModuleProps {
   vacationAllowanceByUserId?: Record<string, number>;
   /** Días anuales por defecto (Ajustes → Regional) si el empleado no tiene anulación en perfil. */
   companyDefaultAnnualVacationDays?: number;
+  /** Token para registrar / listar producción del trabajador (API Supabase). */
+  scheduleProductionAuthToken?: string | null;
+  scheduleProductionCurrency?: string;
 }
 
 function startOfWeek(date: Date): Date {
@@ -809,6 +813,8 @@ function TimesheetsView({
   timesheetCostCurrency = "CAD",
   employeeLaborRatesByEmployeeId = {},
   weeklyRegularCap = 40,
+  timesheetCompanyId = "",
+  timesheetAuthToken = null as string | null,
 }: {
   clockEntries: ClockEntryForSchedule[];
   employees: SchedEmployee[];
@@ -826,6 +832,8 @@ function TimesheetsView({
   timesheetCostCurrency?: string;
   employeeLaborRatesByEmployeeId?: Record<string, number>;
   weeklyRegularCap?: number;
+  timesheetCompanyId?: string;
+  timesheetAuthToken?: string | null;
 }) {
   const { showToast } = useToast();
   const tz = sheetTz ?? resolveUserTimezone(null);
@@ -871,6 +879,43 @@ function TimesheetsView({
   const [sheetStatus, setSheetStatus] = useState<Record<string, { status: TsFlow; notes?: string }>>({});
   const [dayNotes, setDayNotes] = useState<Record<string, string>>({});
   const [notesDraft, setNotesDraft] = useState("");
+
+  type ProdApiRow = {
+    employee_id: string;
+    date: string;
+    units: number;
+    amount: number | null;
+    concept_name: string;
+    concept_unit: string;
+  };
+  const [prodRows, setProdRows] = useState<ProdApiRow[]>([]);
+
+  useEffect(() => {
+    const cid = timesheetCompanyId.trim();
+    const tok = timesheetAuthToken?.trim();
+    if (!cid || !tok) {
+      setProdRows([]);
+      return;
+    }
+    const from = exportFrom <= exportTo ? exportFrom : exportTo;
+    const to = exportFrom <= exportTo ? exportTo : exportFrom;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/production/company-period?companyId=${encodeURIComponent(cid)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+          { headers: { Authorization: `Bearer ${tok}` } }
+        );
+        const j = (await res.json()) as { entries?: ProdApiRow[] };
+        if (!cancelled) setProdRows(res.ok ? j.entries ?? [] : []);
+      } catch {
+        if (!cancelled) setProdRows([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [timesheetCompanyId, timesheetAuthToken, exportFrom, exportTo]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1014,6 +1059,38 @@ function TimesheetsView({
     return out.sort((a, b) => b.weekStart.localeCompare(a.weekStart) || a.employeeId.localeCompare(b.employeeId));
   }, [filteredClockForTs, projects, lx.schedule_no_project, showTimesheetCosts, employeeLaborRatesByEmployeeId]);
 
+  const weeklySummariesWithProd = useMemo(() => {
+    return weeklySummaries.map((row) => {
+      let productionUsd = 0;
+      for (const pr of prodRows) {
+        if (pr.employee_id !== row.employeeId) continue;
+        if (pr.date < row.weekStart || pr.date > row.weekEnd) continue;
+        productionUsd += Number(pr.amount) || 0;
+      }
+      return { ...row, productionUsd };
+    });
+  }, [weeklySummaries, prodRows]);
+
+  const showProdCols = useMemo(() => employees.some((e) => e.payType === "production"), [employees]);
+
+  const isProductionEmployee = useCallback(
+    (empClockId: string) => employees.find((e) => e.id === empClockId)?.payType === "production",
+    [employees]
+  );
+
+  const productionByEmpDate = useMemo(() => {
+    const m = new Map<string, { detail: string; usd: number }>();
+    for (const r of prodRows) {
+      const k = `${r.employee_id}|${r.date}`;
+      const part = `${(r.concept_name || "—").trim()}: ${r.units}${r.concept_unit ? ` ${r.concept_unit}` : ""}`;
+      const cur = m.get(k) ?? { detail: "", usd: 0 };
+      cur.usd += Number(r.amount) || 0;
+      cur.detail = cur.detail ? `${cur.detail}; ${part}` : part;
+      m.set(k, cur);
+    }
+    return m;
+  }, [prodRows]);
+
   const selectedSheet = selectedSheetId ? sheets.find((s) => s.id === selectedSheetId) : null;
   const selectedSheetEmployeeRate = selectedSheet ? rateFor(selectedSheet.employeeId) : null;
   const selectedSheetTotalCost =
@@ -1025,6 +1102,31 @@ function TimesheetsView({
           ) * 100
         ) / 100
       : 0;
+  const selectedIsProduction =
+    !!selectedSheet && isProductionEmployee(selectedSheet.employeeId);
+  const selectedProductionPdfRows = useMemo(() => {
+    if (!selectedSheet || !selectedIsProduction) return [] as { dateYmd: string; detail: string }[];
+    const byDay = new Map<string, string>();
+    for (const pr of prodRows) {
+      if (pr.employee_id !== selectedSheet.employeeId) continue;
+      if (pr.date < selectedSheet.weekStart || pr.date > selectedSheet.weekEnd) continue;
+      const part = `${(pr.concept_name || "").trim()}: ${pr.units}${pr.concept_unit ? ` ${pr.concept_unit}` : ""}`;
+      byDay.set(pr.date, byDay.has(pr.date) ? `${byDay.get(pr.date)!}; ${part}` : part);
+    }
+    return [...byDay.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateYmd, detail]) => ({ dateYmd, detail }));
+  }, [selectedSheet, selectedIsProduction, prodRows]);
+  const selectedProductionPdfTotal = useMemo(() => {
+    if (!selectedSheet || !selectedIsProduction) return 0;
+    let s = 0;
+    for (const pr of prodRows) {
+      if (pr.employee_id !== selectedSheet.employeeId) continue;
+      if (pr.date < selectedSheet.weekStart || pr.date > selectedSheet.weekEnd) continue;
+      s += Number(pr.amount) || 0;
+    }
+    return Math.round(s * 100) / 100;
+  }, [selectedSheet, selectedIsProduction, prodRows]);
   const effectiveStatus = (sheet: TimeSheetForSchedule): TsFlow => {
     const s = sheetStatus[sheet.id]?.status;
     if (s) return s;
@@ -1167,6 +1269,9 @@ function TimesheetsView({
         lx.date ?? "Date",
         lx.hours ?? "Hours",
         ...(showTimesheetCosts ? [lx.labor_cost_column ?? "Cost"] : []),
+        ...(showProdCols
+          ? [lx.timesheet_production_units_detail ?? "", lx.timesheet_production_total_usd ?? ""]
+          : []),
         lx.project ?? "Project",
         labels.pending ?? "Status",
       ];
@@ -1176,9 +1281,12 @@ function TimesheetsView({
         const status = effectiveStatus(sheet);
         const rowStatusText = statusLabel(status);
         const rowRate = rateFor(sheet.employeeId);
+        const prodEmp = isProductionEmployee(sheet.employeeId);
         for (const ent of sheet.entries) {
           if (ent.date < from || ent.date > to) continue;
           const rowCost = showTimesheetCosts ? laborCostForHours(ent.hoursWorked, rowRate) : 0;
+          const pk = `${sheet.employeeId}|${ent.date}`;
+          const pcell = productionByEmpDate.get(pk);
           lines.push(
             [
               csvCell(getEmployeeName(sheet.employeeId)),
@@ -1186,6 +1294,12 @@ function TimesheetsView({
               csvCell(String(ent.hoursWorked)),
               ...(showTimesheetCosts
                 ? [csvCell(rowCost > 0 ? String(rowCost) : rowRate != null && rowRate > 0 ? "0" : "—")]
+                : []),
+              ...(showProdCols
+                ? [
+                    csvCell(prodEmp ? pcell?.detail ?? "" : ""),
+                    csvCell(prodEmp && pcell ? String(Math.round(pcell.usd * 100) / 100) : ""),
+                  ]
                 : []),
               csvCell(ent.projectName ?? "—"),
               csvCell(rowStatusText),
@@ -1352,7 +1466,7 @@ function TimesheetsView({
           </p>
         ) : (
           <ul className="mt-3 space-y-3">
-            {weeklySummaries.slice(0, 24).map((row) => (
+            {weeklySummariesWithProd.slice(0, 24).map((row) => (
               <li
                 key={`${row.employeeId}-${row.weekStart}`}
                 className="rounded-lg border border-zinc-100 dark:border-slate-800 p-3 text-sm"
@@ -1364,6 +1478,12 @@ function TimesheetsView({
                   </span>
                 </div>
                 <p className="mt-1 tabular-nums font-semibold text-amber-700 dark:text-amber-400">{row.totalHours.toFixed(1)}h</p>
+                {isProductionEmployee(row.employeeId) && row.productionUsd > 0 ? (
+                  <p className="mt-0.5 text-xs tabular-nums font-medium text-sky-700 dark:text-sky-300">
+                    {lx.timesheet_production_column ?? ""}:{" "}
+                    {formatCurrency(row.productionUsd, timesheetCostCurrency, dateLocale)}
+                  </p>
+                ) : null}
                 {showTimesheetCosts ? (
                   <p className="mt-0.5 text-xs tabular-nums font-medium text-emerald-700 dark:text-emerald-400">
                     {lx.labor_cost_total ?? "Cost"}: {formatCurrency(row.totalCost, timesheetCostCurrency, dateLocale)}
@@ -1399,6 +1519,15 @@ function TimesheetsView({
             const sheetLaborCost = showTimesheetCosts
               ? laborCostForHours(sheet.totalHours, rateFor(sheet.employeeId))
               : 0;
+            let sheetProductionUsd = 0;
+            if (isProductionEmployee(sheet.employeeId)) {
+              for (const pr of prodRows) {
+                if (pr.employee_id !== sheet.employeeId) continue;
+                if (pr.date < sheet.weekStart || pr.date > sheet.weekEnd) continue;
+                sheetProductionUsd += Number(pr.amount) || 0;
+              }
+              sheetProductionUsd = Math.round(sheetProductionUsd * 100) / 100;
+            }
             return (
               <div
                 key={sheet.id}
@@ -1460,6 +1589,12 @@ function TimesheetsView({
                         {formatCurrency(sheetLaborCost, timesheetCostCurrency, dateLocale)}
                       </p>
                     ) : null}
+                    {isProductionEmployee(sheet.employeeId) && sheetProductionUsd > 0 ? (
+                      <p className="text-xs font-medium text-sky-700 dark:text-sky-300 tabular-nums">
+                        {lx.timesheet_production_column ?? ""}:{" "}
+                        {formatCurrency(sheetProductionUsd, timesheetCostCurrency, dateLocale)}
+                      </p>
+                    ) : null}
                     <span
                       className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         status === "approved"
@@ -1519,6 +1654,16 @@ function TimesheetsView({
                         {lx.labor_cost_column ?? "Cost"}
                       </th>
                     ) : null}
+                    {selectedIsProduction ? (
+                      <>
+                        <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
+                          {lx.timesheet_production_units_detail ?? ""}
+                        </th>
+                        <th className="py-2 text-right font-medium text-zinc-700 dark:text-zinc-300">
+                          {lx.timesheet_production_total_usd ?? ""}
+                        </th>
+                      </>
+                    ) : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -1557,6 +1702,22 @@ function TimesheetsView({
                             : "—"}
                         </td>
                       ) : null}
+                      {selectedIsProduction ? (() => {
+                        const pk = `${selectedSheet.employeeId}|${ent.date}`;
+                        const pc = productionByEmpDate.get(pk);
+                        return (
+                          <>
+                            <td className="py-2 text-left text-xs text-zinc-600 dark:text-zinc-400 max-w-[200px]">
+                              {pc?.detail ?? "—"}
+                            </td>
+                            <td className="py-2 text-right tabular-nums text-sky-700 dark:text-sky-300">
+                              {pc && pc.usd > 0
+                                ? formatCurrency(pc.usd, timesheetCostCurrency, dateLocale)
+                                : "—"}
+                            </td>
+                          </>
+                        );
+                      })() : null}
                     </tr>
                   ))}
                 </tbody>
@@ -1596,6 +1757,15 @@ function TimesheetsView({
                   </span>
                 </>
               ) : null}
+              {selectedIsProduction ? (
+                <>
+                  {" · "}
+                  <span className="text-sky-700 dark:text-sky-300 tabular-nums">
+                    {lx.timesheet_production_column ?? ""}:{" "}
+                    {formatCurrency(selectedProductionPdfTotal, timesheetCostCurrency, dateLocale)}
+                  </span>
+                </>
+              ) : null}
             </p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <button
@@ -1626,6 +1796,11 @@ function TimesheetsView({
                       statusLabel: statusLabel(effectiveStatus(selectedSheet)),
                       companyName: companyName || "MachinPro",
                       filenameSlug: fileSlugCompany(companyName, companyIdFallback || "co"),
+                      productionUnitsByDay:
+                        selectedIsProduction && selectedProductionPdfRows.length > 0
+                          ? selectedProductionPdfRows
+                          : undefined,
+                      productionTotalUsd: selectedIsProduction ? selectedProductionPdfTotal : undefined,
                       labels: {
                         title: lx.timesheet_pdf_title ?? lx.timesheet_export_individual ?? "Timesheet",
                         period: lx.timesheet_pdf_period ?? lx.timesheet_date_from ?? "Period",
@@ -1642,6 +1817,8 @@ function TimesheetsView({
                         signatureDate: lx.timesheet_signature_date ?? "Date",
                         footer: lx.timesheet_pdf_generated ?? "MachinPro",
                         byProject: lx.timesheet_hours_by_project ?? "By project",
+                        productionUnits: lx.timesheet_production_units_detail ?? "",
+                        productionTotalUsd: lx.timesheet_production_total_usd ?? "",
                       },
                     });
                     showToast("success", lx.export_success ?? "OK");
@@ -1796,6 +1973,8 @@ export default function ScheduleModule({
   timesheetWeeklyRegularCap = 40,
   vacationAllowanceByUserId = {},
   companyDefaultAnnualVacationDays = DEFAULT_ANNUAL_VACATION_DAYS,
+  scheduleProductionAuthToken = null,
+  scheduleProductionCurrency = "CAD",
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
@@ -2562,10 +2741,21 @@ export default function ScheduleModule({
                       <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
                         {lx.production_today ?? "Mi producción hoy"}
                       </h4>
-                      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                        {lx.production_today_placeholder ??
-                          "Configura tu catálogo de trabajo para registrar producción"}
-                      </p>
+                      {companyId.trim() && scheduleProductionAuthToken ? (
+                        <div className="mt-3">
+                          <WorkerProductionTodaySection
+                            labels={lx}
+                            companyId={companyId.trim()}
+                            accessToken={scheduleProductionAuthToken}
+                            timeZone={scheduleTz}
+                            companyCurrency={scheduleProductionCurrency}
+                          />
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                          {lx.work_orders_need_session ?? lx.production_today_placeholder ?? ""}
+                        </p>
+                      )}
                     </section>
                   ) : null}
                 </div>
@@ -3629,6 +3819,8 @@ export default function ScheduleModule({
           timesheetCostCurrency={timesheetCostCurrency}
           employeeLaborRatesByEmployeeId={employeeLaborRatesByEmployeeId}
           weeklyRegularCap={timesheetWeeklyRegularCap}
+          timesheetCompanyId={companyId}
+          timesheetAuthToken={scheduleProductionAuthToken}
         />
       )}
 
@@ -3864,10 +4056,21 @@ export default function ScheduleModule({
                           <h5 className="text-sm font-semibold text-zinc-900 dark:text-white">
                             {lx.production_today ?? "Mi producción hoy"}
                           </h5>
-                          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                            {lx.production_today_placeholder ??
-                              "Configura tu catálogo de trabajo para registrar producción"}
-                          </p>
+                          {companyId.trim() && scheduleProductionAuthToken ? (
+                            <div className="mt-3">
+                              <WorkerProductionTodaySection
+                                labels={lx}
+                                companyId={companyId.trim()}
+                                accessToken={scheduleProductionAuthToken}
+                                timeZone={scheduleTz}
+                                companyCurrency={scheduleProductionCurrency}
+                              />
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                              {lx.work_orders_need_session ?? lx.production_today_placeholder ?? ""}
+                            </p>
+                          )}
                         </section>
                       ) : null}
                       {todayEntry.locationAlert && (

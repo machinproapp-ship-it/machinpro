@@ -93,6 +93,8 @@ import type { AppNotificationRow } from "@/hooks/useNotifications";
 import { GlobalSearchModal } from "@/components/GlobalSearchModal";
 import { buildVisitorCheckInUrl } from "@/lib/visitorQrUrl";
 import { useProjectPhotos } from "@/lib/useProjectPhotos";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { WorkerProductionTodaySection } from "@/components/WorkerProductionTodaySection";
 import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
 import {
   mergeComplianceAlerts,
@@ -1209,6 +1211,28 @@ export default function Home() {
     setLanguage(detectLanguageFromNavigator());
   };
   const companyId = profile?.companyId ?? null;
+  const companySettings = useCompanySettings(companyId, session?.access_token ?? null);
+  const companySettingsHydratedRef = useRef<string | null>(null);
+  useEffect(() => {
+    companySettingsHydratedRef.current = null;
+  }, [companyId]);
+  useEffect(() => {
+    if (!companyId) return;
+    if (companySettings.isLoading) return;
+    if (companySettingsHydratedRef.current === companyId) return;
+    companySettingsHydratedRef.current = companyId;
+    setTimesheetWeeklyRegularCap(companySettings.weeklyHoursGoal);
+    setCompanyDefaultVacationDays(companySettings.defaultVacationDays);
+  }, [
+    companyId,
+    companySettings.isLoading,
+    companySettings.weeklyHoursGoal,
+    companySettings.defaultVacationDays,
+  ]);
+  const centralDashboardWidgetOrder = useMemo((): string[] | null => {
+    const w = companySettings.dashboardWidgets;
+    return w.length > 0 ? w : null;
+  }, [companySettings.dashboardWidgets.join("\n")]);
   const { subscription: subscriptionRow } = useSubscription(companyId);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -1424,32 +1448,6 @@ export default function Home() {
       }
     })();
   }, [supabase, companyId, session]);
-
-  useEffect(() => {
-    if (!companyId || typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(`machinpro_weekly_regular_cap_${companyId}`);
-      if (raw) {
-        const n = parseInt(raw, 10);
-        if (Number.isFinite(n) && n >= 1 && n <= 168) setTimesheetWeeklyRegularCap(n);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [companyId]);
-
-  useEffect(() => {
-    if (!companyId || typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(`machinpro_default_vacation_days_${companyId}`);
-      if (raw) {
-        const n = parseInt(raw, 10);
-        if (Number.isFinite(n) && n >= 0 && n <= 366) setCompanyDefaultVacationDays(n);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [companyId]);
 
   const handleLogoUpload = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -4735,7 +4733,7 @@ export default function Home() {
     ]
   );
 
-  const handleClockOut = useCallback(() => {
+  const performClockOut = useCallback(() => {
     const todayYmd = localTodayYmd();
     const openEntry = displayClockEntries.find(
       (e) =>
@@ -4830,6 +4828,16 @@ export default function Home() {
     showToast,
     t,
   ]);
+
+  const [productionClockOutOpen, setProductionClockOutOpen] = useState(false);
+
+  const handleClockOut = useCallback(() => {
+    if (profile?.payType === "production" && companyId && session?.access_token) {
+      setProductionClockOutOpen(true);
+      return;
+    }
+    performClockOut();
+  }, [profile?.payType, companyId, session?.access_token, performClockOut]);
 
   const handleClockBreakToggle = useCallback(async () => {
     const todayYmd = localTodayYmd();
@@ -6913,6 +6921,10 @@ export default function Home() {
                 laborCostingEnabled={laborCostingEnabled}
                 canViewLaborCosting={!!rolePerms.canViewLaborCosting}
                 gettingStartedRefreshTk={gettingStartedRefreshTk}
+                dashboardCompanySettingsWidgetOrder={centralDashboardWidgetOrder}
+                onPersistCompanySettingsWidgetOrder={async (ids) => {
+                  await companySettings.updateSetting("dashboardWidgets", ids);
+                }}
                 laborCostingCurrency={currency}
                 laborCostingRateByUserId={laborCostingRateByUserId}
                 laborCostingEmployeeLabels={laborCostingEmployeeLabels}
@@ -7275,6 +7287,7 @@ export default function Home() {
                 onManualClockIn={handleManualClockIn}
                 onManualClockOut={handleManualClockOut}
                 canViewLaborCosting={!!rolePerms.canViewLaborCosting}
+                employeeProductionAuthToken={session?.access_token ?? null}
               />
               <ModuleHelpFab
                 moduleKey="employees"
@@ -7833,6 +7846,8 @@ export default function Home() {
                 vacationEmployeeNames={vacationEmployeeNames}
                 timesheetWeeklyRegularCap={timesheetWeeklyRegularCap}
                 companyDefaultAnnualVacationDays={companyDefaultVacationDays}
+                scheduleProductionAuthToken={session?.access_token ?? null}
+                scheduleProductionCurrency={String(currency)}
                 vacationAllowanceByUserId={vacationAllowanceByUserId}
                 currentUserId={user?.id ?? ""}
                 onApproveVacation={handleApproveVacation}
@@ -8402,23 +8417,15 @@ export default function Home() {
                 timesheetWeeklyRegularCap={timesheetWeeklyRegularCap}
                 onTimesheetWeeklyRegularCapChange={(n) => {
                   setTimesheetWeeklyRegularCap(n);
-                  if (companyId) {
-                    try {
-                      localStorage.setItem(`machinpro_weekly_regular_cap_${companyId}`, String(n));
-                    } catch {
-                      /* ignore */
-                    }
+                  if (companyId && session?.access_token) {
+                    void companySettings.updateSetting("weeklyHoursGoal", n);
                   }
                 }}
                 companyDefaultVacationDays={companyDefaultVacationDays}
                 onCompanyDefaultVacationDaysChange={(n) => {
                   setCompanyDefaultVacationDays(n);
-                  if (companyId) {
-                    try {
-                      localStorage.setItem(`machinpro_default_vacation_days_${companyId}`, String(n));
-                    } catch {
-                      /* ignore */
-                    }
+                  if (companyId && session?.access_token) {
+                    void companySettings.updateSetting("defaultVacationDays", n);
                   }
                 }}
               />
@@ -9552,6 +9559,8 @@ export default function Home() {
           onDailyReportSigned={() => void reloadDailyReports()}
           timeZone={userTimeZone}
           companyId={companyId ?? ""}
+          productionAccessToken={session?.access_token ?? null}
+          companyCurrency={String(currency)}
           clockCorrectionAllowed={employeeShiftModalModel.clockCorrectionAllowed}
           onClockCorrectionApplied={(_entryId, clockInIso, clockOutIso) => {
             showToast(
@@ -9578,6 +9587,48 @@ export default function Home() {
           }}
         />
       )}
+      {productionClockOutOpen && companyId && session?.access_token ? (
+        <>
+          <div
+            role="presentation"
+            className="fixed inset-0 z-[55] bg-black/50"
+            onClick={() => {
+              setProductionClockOutOpen(false);
+              performClockOut();
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            className="fixed left-1/2 top-1/2 z-[60] w-[min(100vw-1.5rem,28rem)] max-h-[min(90vh,32rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+          >
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+              {(t as Record<string, string>).production_register_prompt ?? ""}
+            </h3>
+            <div className="mt-4">
+              <WorkerProductionTodaySection
+                labels={t as Record<string, string>}
+                companyId={companyId}
+                accessToken={session.access_token}
+                timeZone={userTimeZone}
+                companyCurrency={String(currency)}
+              />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setProductionClockOutOpen(false);
+                  performClockOut();
+                }}
+                className="min-h-[44px] rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-slate-800"
+              >
+                {(t as Record<string, string>).production_skip ?? "Skip"}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
       {companyId ? (
         <QuickHazardModal
           open={quickHazardOpen}

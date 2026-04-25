@@ -14,6 +14,9 @@ export function downloadIndividualTimesheetPdf(opts: {
   statusLabel: string;
   companyName: string;
   filenameSlug: string;
+  /** Pago por producción: detalle unidades por día y total $ en el período. */
+  productionUnitsByDay?: { dateYmd: string; detail: string }[];
+  productionTotalUsd?: number | null;
   labels: {
     title: string;
     period: string;
@@ -30,6 +33,8 @@ export function downloadIndividualTimesheetPdf(opts: {
     signatureDate: string;
     footer: string;
     byProject: string;
+    productionUnits?: string;
+    productionTotalUsd?: string;
   };
 }): void {
   const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -98,6 +103,31 @@ export function downloadIndividualTimesheetPdf(opts: {
     }
     pdf.text(`· ${bp.name}: ${Math.round(bp.hours * 10) / 10}h`, m + 2, y);
     y += 4;
+  }
+
+  if (opts.productionUnitsByDay?.length) {
+    y += 4;
+    pdf.setFontSize(8);
+    pdf.setTextColor(30, 30, 30);
+    pdf.text(opts.labels.productionUnits ?? "Production (units)", m, y);
+    y += 5;
+    for (const row of opts.productionUnitsByDay) {
+      if (y > 270) {
+        pdf.addPage();
+        y = 16;
+      }
+      pdf.text(`${row.dateYmd}: ${String(row.detail).slice(0, 120)}`, m + 2, y, { maxWidth: 180 });
+      y += 5;
+    }
+    if (opts.productionTotalUsd != null && Number.isFinite(opts.productionTotalUsd)) {
+      pdf.setFontSize(9);
+      pdf.text(
+        `${opts.labels.productionTotalUsd ?? "Total production ($)"}: ${opts.productionTotalUsd.toFixed(2)}`,
+        m,
+        y
+      );
+      y += 6;
+    }
   }
 
   y += 6;

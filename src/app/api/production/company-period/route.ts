@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyCompanyMembership } from "@/lib/verify-api-session";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
+/** Resumen de producción por empresa y rango de fechas (hojas de horas / export). */
 export async function GET(req: NextRequest) {
   const companyId = req.nextUrl.searchParams.get("companyId")?.trim() ?? "";
-  if (!companyId) {
-    return NextResponse.json({ error: "companyId required" }, { status: 400 });
+  const from = req.nextUrl.searchParams.get("from")?.trim().slice(0, 10) ?? "";
+  const to = req.nextUrl.searchParams.get("to")?.trim().slice(0, 10) ?? "";
+  if (!companyId || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    return NextResponse.json({ error: "companyId, from, to (YMD) required" }, { status: 400 });
   }
   const auth = await verifyCompanyMembership(req, companyId);
   if (!auth) {
@@ -15,20 +18,24 @@ export async function GET(req: NextRequest) {
   if (!admin) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
-  const since = new Date();
-  since.setUTCDate(since.getUTCDate() - 7);
-  const sinceStr = since.toISOString().slice(0, 10);
+  const lo = from <= to ? from : to;
+  const hi = from <= to ? to : from;
   const { data: raw, error } = await admin
     .from("production_entries")
-    .select("id, company_id, project_id, work_order_item_id, employee_id, date, units, amount, notes, created_at")
+    .select("employee_id, date, work_order_item_id, units, amount")
     .eq("company_id", companyId)
-    .eq("employee_id", auth.userId)
-    .gte("date", sinceStr)
-    .order("date", { ascending: false });
+    .gte("date", lo)
+    .lte("date", hi);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  const rows = (raw ?? []) as { work_order_item_id: string }[];
+  const rows = (raw ?? []) as {
+    employee_id: string;
+    date: string;
+    work_order_item_id: string;
+    units: number;
+    amount: number | null;
+  }[];
   const itemIds = [...new Set(rows.map((r) => r.work_order_item_id))];
   const { data: items } =
     itemIds.length > 0
@@ -39,9 +46,10 @@ export async function GET(req: NextRequest) {
           .eq("company_id", companyId)
       : { data: [] as { id: string; name: string; unit: string }[] };
   const im = new Map((items ?? []).map((i) => [i.id, i]));
-  const entries = rows.map((r) => {
-    const w = im.get(r.work_order_item_id);
-    return { ...r, concept_name: w?.name ?? "", concept_unit: w?.unit ?? "" };
-  });
+  const entries = rows.map((r) => ({
+    ...r,
+    concept_name: im.get(r.work_order_item_id)?.name ?? "",
+    concept_unit: im.get(r.work_order_item_id)?.unit ?? "",
+  }));
   return NextResponse.json({ entries });
 }

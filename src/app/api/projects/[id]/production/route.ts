@@ -90,5 +90,42 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     }
   }
 
-  return NextResponse.json({ rows: Array.from(byKey.values()) });
+  const breakdownRequested = req.nextUrl.searchParams.get("breakdown") === "true";
+  if (!breakdownRequested) {
+    return NextResponse.json({ rows: Array.from(byKey.values()) });
+  }
+
+  const empIds = [...new Set(rows.map((r) => r.employee_id))];
+  const { data: profs } =
+    empIds.length > 0
+      ? await admin
+          .from("user_profiles")
+          .select("id, full_name, display_name, email")
+          .eq("company_id", companyId)
+          .in("id", empIds)
+      : { data: [] as { id: string; full_name?: string | null; display_name?: string | null; email?: string | null }[] };
+  const nameByEmp = new Map<string, string>();
+  for (const p of profs ?? []) {
+    const fn = (p.full_name || p.display_name || p.email || p.id).trim();
+    nameByEmp.set(p.id, fn);
+  }
+
+  const breakdown = rows.map((r) => {
+    const w = itemMap.get(r.work_order_item_id);
+    const p = Number(w?.price_per_unit ?? 0);
+    const u = Number(r.units) || 0;
+    const amt = r.amount != null && Number.isFinite(Number(r.amount)) ? Number(r.amount) : u * p;
+    return {
+      date: r.date,
+      work_order_item_id: r.work_order_item_id,
+      employee_id: r.employee_id,
+      employee_name: nameByEmp.get(r.employee_id) ?? r.employee_id.slice(0, 8),
+      concept_name: w?.name ?? "",
+      unit: w?.unit ?? "",
+      units: u,
+      amount: amt,
+    };
+  });
+
+  return NextResponse.json({ rows: Array.from(byKey.values()), breakdown });
 }

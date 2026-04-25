@@ -32,6 +32,7 @@ import {
   ModuleEmptyState,
 } from "@/components/ModuleEmptyState";
 import { SafetyPassportPanel } from "@/components/SafetyPassportPanel";
+import { EmployeeProductionProfileSection } from "@/components/EmployeeProductionProfileSection";
 import { useToast } from "@/components/Toast";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
@@ -146,6 +147,8 @@ export interface EmployeesModuleProps {
     time: string;
     notes?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  /** API producción por empleado (perfil admin). */
+  employeeProductionAuthToken?: string | null;
 }
 
 type ProfileRow = {
@@ -436,6 +439,7 @@ export function EmployeesModule({
   canClockInPersonal = false,
   onManualClockIn,
   onManualClockOut,
+  employeeProductionAuthToken = null,
 }: EmployeesModuleProps) {
   const { showToast } = useToast();
   void useMachinProDisplayPrefs();
@@ -2029,6 +2033,25 @@ export function EmployeesModule({
             </div>
           ) : null}
         </section>
+        ) : null}
+
+        {(draft.pay_type ?? selected.pay_type) === "production" &&
+        companyId &&
+        employeeProductionAuthToken ? (
+          <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+              {tl.employee_production_section ?? "Production"}
+            </h3>
+            <EmployeeProductionProfileSection
+              labels={tl}
+              companyId={companyId}
+              employeeId={selected.id}
+              accessToken={employeeProductionAuthToken}
+              currency={(defaultPayCurrency ?? "CAD").trim() || "CAD"}
+              dateLocale={dateLocale}
+              timeZone={timeZone}
+            />
+          </section>
         ) : null}
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3">
