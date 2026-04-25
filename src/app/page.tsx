@@ -171,7 +171,10 @@ import {
 } from "@/lib/productionCatalog";
 import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
 import { useSubscription } from "@/lib/useSubscription";
-import { applyPlanToModulePermissions } from "@/lib/planPermissions";
+import {
+  applyPlanToModulePermissions,
+  planIncludesOperationsOrHigher,
+} from "@/lib/planPermissions";
 import { getCurrencyForCountry } from "@/lib/geoTier";
 import type {
   ScheduleEntry,
@@ -8428,6 +8431,13 @@ export default function Home() {
                     void companySettings.updateSetting("defaultVacationDays", n);
                   }
                 }}
+                showWorkCatalogSection={
+                  planIncludesOperationsOrHigher(
+                    subscriptionRow?.plan ?? null,
+                    subscriptionRow?.status ?? null
+                  ) &&
+                  !!(rolePerms.canManageWorkOrders && companyId && session?.access_token)
+                }
               />
               <ModuleHelpFab
                 moduleKey="settings"

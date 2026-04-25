@@ -49,6 +49,16 @@ export function normalizePlanForModules(raw: string | null | undefined): AppPlan
   return map[r] ?? "unknown";
 }
 
+/** AH-43E: catálogo de trabajo / work orders — plan Operaciones o superior (incl. logística y todo incluido). */
+export function planIncludesOperationsOrHigher(
+  plan: string | null | undefined,
+  subscriptionStatus?: string | null
+): boolean {
+  if (String(subscriptionStatus ?? "").toLowerCase() === "trialing") return true;
+  const tier = normalizePlanForModules(plan);
+  return tier === "operaciones" || tier === "logistica" || tier === "todo_incluido";
+}
+
 type SidebarModule = "office" | "schedule" | "site" | "warehouse" | "security";
 
 function tierAllowsModule(tier: AppPlanTier, mod: SidebarModule): boolean {

@@ -75,6 +75,7 @@ export function ProjectWorkOrdersPanel({
       employee_id: string;
       employee_name: string;
       units: number;
+      amount: number;
     }[]
   >([]);
   const [cellPopover, setCellPopover] = useState<{
@@ -116,6 +117,7 @@ export function ProjectWorkOrdersPanel({
           employee_id: string;
           employee_name: string;
           units: number;
+          amount: number;
         }[];
       };
       if (r1.ok) setItems(j1.items ?? []);
@@ -145,14 +147,42 @@ export function ProjectWorkOrdersPanel({
     return () => document.removeEventListener("mousedown", close);
   }, [cellPopover]);
 
+  useEffect(() => {
+    if (!cellPopover) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCellPopover(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cellPopover]);
+
   const weekDays = useMemo(() => weekYmdsMondayFirstInTimeZone(timeZone, weekOffset), [timeZone, weekOffset]);
 
   const breakByCell = useMemo(() => {
-    const m = new Map<string, { employee_name: string; units: number }[]>();
+    const m = new Map<
+      string,
+      { employee_id: string; employee_name: string; units: number; amount: number }[]
+    >();
     for (const b of prodBreakdown) {
       const k = `${b.work_order_item_id}|${b.date}`;
       if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push({ employee_name: b.employee_name, units: b.units });
+      const arr = m.get(k)!;
+      const amt = typeof b.amount === "number" && Number.isFinite(b.amount) ? b.amount : 0;
+      const idx = arr.findIndex((x) => x.employee_id === b.employee_id);
+      if (idx >= 0) {
+        arr[idx] = {
+          ...arr[idx],
+          units: arr[idx].units + b.units,
+          amount: arr[idx].amount + amt,
+        };
+      } else {
+        arr.push({
+          employee_id: b.employee_id,
+          employee_name: b.employee_name,
+          units: b.units,
+          amount: amt,
+        });
+      }
     }
     return m;
   }, [prodBreakdown]);
@@ -530,13 +560,24 @@ export function ProjectWorkOrdersPanel({
                   <td className="px-2 py-2 font-medium">{it.name}</td>
                   {weekDays.map((d) => {
                     const u = prodByItemDate.get(`${it.id}|${d}`) ?? 0;
+                    const br = breakByCell.get(`${it.id}|${d}`) ?? [];
+                    const titleAttr =
+                      u > 0
+                        ? br.length === 1
+                          ? `${br[0].employee_name}: ${br[0].units} · ${companyCurrency} ${br[0].amount.toFixed(2)}`
+                          : br.length > 1
+                            ? `${u} · ${br.length} ${L(tl, "work_order_assign_employees", tl.work_order_assigned ?? "")}`
+                            : String(u)
+                        : undefined;
                     return (
                       <td key={d} className="px-1 py-1 text-center">
                         <button
                           type="button"
-                          className="min-h-[44px] min-w-[44px] w-full rounded-lg border border-transparent px-1 tabular-nums hover:border-amber-400/60 hover:bg-amber-50/80 dark:hover:bg-amber-950/30"
+                          title={titleAttr}
+                          className="min-h-[44px] min-w-[44px] w-full rounded-lg border border-transparent px-1 tabular-nums text-zinc-900 hover:border-amber-400/60 hover:bg-amber-50/80 dark:text-zinc-100 dark:hover:bg-amber-950/30"
                           onClick={() => {
                             if (u <= 0) return;
+                            if (br.length <= 1) return;
                             setCellPopover({ itemId: it.id, date: d, conceptName: it.name });
                           }}
                         >
@@ -562,27 +603,43 @@ export function ProjectWorkOrdersPanel({
         <div
           className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
           role="presentation"
+          onClick={() => setCellPopover(null)}
         >
           <div
             ref={popoverRef}
+            role="dialog"
+            aria-modal="true"
             className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
           >
             <p className="text-sm font-semibold text-zinc-900 dark:text-white">{cellPopover.conceptName}</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">{cellPopover.date}</p>
             <ul className="mt-3 max-h-[40vh] space-y-2 overflow-y-auto">
               {(breakByCell.get(`${cellPopover.itemId}|${cellPopover.date}`) ?? []).map((row, idx) => (
                 <li
-                  key={`${row.employee_name}-${idx}`}
+                  key={`${row.employee_id}-${idx}`}
                   className="flex justify-between gap-2 text-sm text-zinc-800 dark:text-zinc-200"
                 >
                   <span className="min-w-0 truncate">{row.employee_name}</span>
-                  <span className="shrink-0 tabular-nums font-medium">{row.units}</span>
+                  <span className="shrink-0 text-right tabular-nums font-medium">
+                    {row.units} · {companyCurrency}
+                    {row.amount.toFixed(2)}
+                  </span>
                 </li>
               ))}
             </ul>
+            <p className="mt-3 flex justify-between gap-2 border-t border-zinc-200 pt-2 text-sm font-semibold text-zinc-900 dark:border-slate-700 dark:text-white">
+              <span>{tl.production_accumulated ?? tl.work_order_accumulated ?? "Total"}</span>
+              <span className="tabular-nums">
+                {companyCurrency}
+                {(breakByCell.get(`${cellPopover.itemId}|${cellPopover.date}`) ?? [])
+                  .reduce((s, r) => s + r.amount, 0)
+                  .toFixed(2)}
+              </span>
+            </p>
             <button
               type="button"
-              className="mt-4 min-h-[44px] w-full rounded-lg border border-zinc-300 text-sm dark:border-zinc-600"
+              className="mt-4 min-h-[44px] w-full rounded-lg border border-zinc-300 text-sm text-zinc-800 dark:border-zinc-600 dark:text-zinc-100"
               onClick={() => setCellPopover(null)}
             >
               {tl.cancel ?? "Close"}

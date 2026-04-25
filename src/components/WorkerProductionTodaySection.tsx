@@ -173,7 +173,10 @@ export function WorkerProductionTodaySection({
               <div className="min-w-0">
                 <p className="font-medium text-zinc-900 dark:text-white">{l.name}</p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {(tl[`production_unit_${l.unit}` as keyof typeof tl] as string) || l.unit} ·{" "}
+                  {(tl[
+                    (l.unit === "hours" ? "production_unit_hours" : `production_unit_${l.unit}`) as keyof typeof tl
+                  ] as string) || l.unit}{" "}
+                  ·{" "}
                   {companyCurrency} {Number(l.price_per_unit).toFixed(2)}
                 </p>
               </div>
@@ -203,13 +206,13 @@ export function WorkerProductionTodaySection({
           onClick={() => void save()}
           className="min-h-[44px] rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {tl.production_save_button ?? tl.save ?? "Save"}
+          {tl.production_save ?? tl.production_save_button ?? tl.save ?? "Save"}
         </button>
       </div>
       {history.length > 0 ? (
         <div className="rounded-lg border border-zinc-200 p-3 dark:border-slate-600">
           <h5 className="text-sm font-semibold text-zinc-900 dark:text-white">
-            {tl.production_history_title ?? ""}
+            {tl.production_history ?? tl.production_history_title ?? ""}
           </h5>
           <ul className="mt-2 max-h-[220px] space-y-2 overflow-y-auto text-sm">
             {history.map((h, idx) => (
@@ -224,7 +227,8 @@ export function WorkerProductionTodaySection({
             ))}
           </ul>
           <p className="mt-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            {tl.production_week_total ?? ""}: {companyCurrency} {weekTotal.toFixed(2)}
+            {tl.production_weekly_total ?? tl.production_week_total ?? ""}: {companyCurrency}{" "}
+            {weekTotal.toFixed(2)}
           </p>
         </div>
       ) : null}

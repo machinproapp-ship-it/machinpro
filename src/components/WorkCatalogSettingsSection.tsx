@@ -4,9 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Factory } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import {
+  MACHINPRO_WORK_CATALOG_ALUMINUM,
+  MACHINPRO_WORK_CATALOG_CLADDING,
+  MACHINPRO_WORK_CATALOG_FINISHING,
+  MACHINPRO_WORK_CATALOG_PREP,
+  MACHINPRO_WORK_CATALOG_STRUCTURE,
   MACHINPRO_WORK_CATALOG_ALL,
   WORK_CATALOG_UNIT_OPTIONS,
   type WorkCatalogUnitOption,
+  type MachinProCatalogSeedRow,
 } from "@/lib/machinproWorkCatalogSeed";
 
 export type WorkCatalogRow = {
@@ -60,6 +66,30 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    if (!modal && !importOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setModal(null);
+        setImportOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal, importOpen]);
+
+  const importCatalogGroups: readonly (readonly [string, MachinProCatalogSeedRow[]])[] = useMemo(
+    () =>
+      [
+        ["al", MACHINPRO_WORK_CATALOG_ALUMINUM],
+        ["cl", MACHINPRO_WORK_CATALOG_CLADDING],
+        ["pr", MACHINPRO_WORK_CATALOG_PREP],
+        ["fi", MACHINPRO_WORK_CATALOG_FINISHING],
+        ["st", MACHINPRO_WORK_CATALOG_STRUCTURE],
+      ] as const,
+    []
+  );
+
   const categories = useMemo(() => {
     const s = new Set<string>();
     for (const it of items) {
@@ -67,6 +97,11 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
     }
     return [...s].sort();
   }, [items]);
+
+  const existingNameLower = useMemo(
+    () => new Set(items.map((x) => x.name.trim().toLowerCase())),
+    [items]
+  );
 
   const grouped = useMemo(() => {
     const m = new Map<string, WorkCatalogRow[]>();
@@ -174,8 +209,10 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
       showToast("error", tl.toast_error ?? "Error");
       return;
     }
+    const usedNames = new Set(existingNameLower);
     for (const row of selected) {
-      const name = L(tl, row.nameKey, row.nameKey);
+      const name = L(tl, row.nameKey, row.nameKey).trim();
+      if (usedNames.has(name.toLowerCase())) continue;
       const category = L(tl, row.categoryKey, row.categoryKey);
       const pr = importPrices[row.nameKey]?.trim();
       const price =
@@ -194,11 +231,15 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
           price_per_unit: price,
         }),
       });
-      if (res.status === 409) continue;
+      if (res.status === 409) {
+        usedNames.add(name.toLowerCase());
+        continue;
+      }
       if (!res.ok) {
         showToast("error", tl.toast_error ?? "Error");
         return;
       }
+      usedNames.add(name.toLowerCase());
     }
     showToast("success", tl.toast_saved ?? "Saved");
     setImportOpen(false);
@@ -212,15 +253,15 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
           <Factory className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-          {tl.settings_work_catalog_title ?? "Work catalog"}
+          {tl.work_catalog ?? tl.settings_work_catalog_title ?? "Work catalog"}
         </h3>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium dark:border-zinc-600 dark:bg-slate-900"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium dark:border-zinc-600 dark:bg-slate-900 dark:text-zinc-100"
           >
-            {tl.work_catalog_import_machinpro ?? "Import"}
+            {tl.work_catalog_import ?? tl.work_catalog_import_machinpro ?? "Import"}
           </button>
           <button
             type="button"
@@ -228,7 +269,7 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
             className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500"
           >
             <Plus className="h-4 w-4 shrink-0" aria-hidden />
-            {tl.work_catalog_new ?? "New"}
+            {tl.work_catalog_new_item ?? tl.work_catalog_new ?? "New"}
           </button>
         </div>
       </div>
@@ -249,9 +290,12 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
                 <table className="w-full min-w-[480px] text-sm">
                   <thead className="bg-zinc-50 text-left text-zinc-600 dark:bg-slate-800 dark:text-zinc-400">
                     <tr>
-                      <th className="px-3 py-2">{tl.work_catalog_name ?? ""}</th>
-                      <th className="px-3 py-2">{tl.work_catalog_unit ?? ""}</th>
-                      <th className="px-3 py-2 text-right">{tl.work_catalog_price ?? ""}</th>
+                      <th className="px-3 py-2">{tl.work_item_name ?? tl.work_catalog_name ?? ""}</th>
+                      <th className="px-3 py-2">{tl.work_item_unit ?? tl.work_catalog_unit ?? ""}</th>
+                      <th className="px-3 py-2 text-right">
+                        {tl.work_item_price ?? tl.work_catalog_price ?? ""}
+                      </th>
+                      <th className="px-3 py-2">{tl.work_item_category ?? tl.work_catalog_category ?? ""}</th>
                       <th className="px-3 py-2 w-28" />
                     </tr>
                   </thead>
@@ -260,10 +304,17 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
                       <tr key={r.id}>
                         <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">{r.name}</td>
                         <td className="px-3 py-2">
-                          {(tl[`production_unit_${r.unit}` as keyof typeof tl] as string) || r.unit}
+                          {(tl[
+                            (r.unit === "hours"
+                              ? "production_unit_hours"
+                              : `production_unit_${r.unit}`) as keyof typeof tl
+                          ] as string) || r.unit}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {r.price_per_unit != null ? r.price_per_unit.toFixed(2) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
+                          {r.category?.trim() || "—"}
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex gap-1">
@@ -296,8 +347,17 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
       )}
 
       {modal ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+          role="presentation"
+          onClick={() => setModal(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h4 className="text-lg font-semibold text-zinc-900 dark:text-white mb-3">
               {modal.mode === "new"
                 ? tl.work_catalog_modal_new_title ?? ""
@@ -335,7 +395,9 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
                 >
                   {WORK_CATALOG_UNIT_OPTIONS.map((u) => (
                     <option key={u} value={u}>
-                      {(tl[`production_unit_${u}` as keyof typeof tl] as string) || u}
+                      {(tl[
+                        (u === "hours" ? "production_unit_hours" : `production_unit_${u}`) as keyof typeof tl
+                      ] as string) || u}
                     </option>
                   ))}
                 </select>
@@ -373,46 +435,64 @@ export function WorkCatalogSettingsSection({ labels: t, companyId, accessToken }
       ) : null}
 
       {importOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+          role="presentation"
+          onClick={() => setImportOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h4 className="text-lg font-semibold text-zinc-900 dark:text-white mb-3">
               {tl.work_catalog_import_title ?? ""}
             </h4>
-            <ul className="max-h-[55vh] space-y-2 overflow-y-auto">
-              {MACHINPRO_WORK_CATALOG_ALL.map((row) => {
-                const label = L(tl, row.nameKey, row.nameKey);
-                return (
-                  <li
-                    key={row.nameKey}
-                    className="rounded-lg border border-zinc-200 p-3 dark:border-slate-600 space-y-2"
-                  >
-                    <label className="flex items-center gap-2 min-h-[44px]">
-                      <input
-                        type="checkbox"
-                        checked={!!importPick[row.nameKey]}
-                        onChange={(e) =>
-                          setImportPick((p) => ({ ...p, [row.nameKey]: e.target.checked }))
-                        }
-                        className="h-5 w-5"
-                      />
-                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{label}</span>
-                    </label>
-                    {importPick[row.nameKey] ? (
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        placeholder={tl.work_catalog_price ?? ""}
-                        value={importPrices[row.nameKey] ?? ""}
-                        onChange={(e) =>
-                          setImportPrices((p) => ({ ...p, [row.nameKey]: e.target.value }))
-                        }
-                        className="w-full min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-slate-800"
-                      />
-                    ) : null}
-                  </li>
-                );
-              })}
+            <ul className="max-h-[55vh] space-y-4 overflow-y-auto">
+              {importCatalogGroups.map(([gk, groupRows]) => (
+                <li key={gk} className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                    {L(tl, groupRows[0]?.categoryKey ?? "", "")}
+                  </p>
+                  <ul className="space-y-2">
+                    {groupRows.map((row) => {
+                      const label = L(tl, row.nameKey, row.nameKey);
+                      return (
+                        <li
+                          key={row.nameKey}
+                          className="rounded-lg border border-zinc-200 p-3 dark:border-slate-600 space-y-2"
+                        >
+                          <label className="flex items-center gap-2 min-h-[44px]">
+                            <input
+                              type="checkbox"
+                              checked={!!importPick[row.nameKey]}
+                              onChange={(e) =>
+                                setImportPick((p) => ({ ...p, [row.nameKey]: e.target.checked }))
+                              }
+                              className="h-5 w-5"
+                            />
+                            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{label}</span>
+                          </label>
+                          {importPick[row.nameKey] ? (
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              placeholder={tl.work_catalog_price ?? ""}
+                              value={importPrices[row.nameKey] ?? ""}
+                              onChange={(e) =>
+                                setImportPrices((p) => ({ ...p, [row.nameKey]: e.target.value }))
+                              }
+                              className="w-full min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100"
+                            />
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </li>
+              ))}
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">
               <button

@@ -15,6 +15,7 @@ import {
   Shield,
   Factory,
   Puzzle,
+  ClipboardList,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/components/Toast";
@@ -42,6 +43,7 @@ import { supabase } from "@/lib/supabase";
 import type { Factor } from "@supabase/supabase-js";
 import type { CatalogItem } from "@/lib/productionCatalog";
 import { ProductionCatalogSettingsSection } from "@/components/ProductionCatalogSettingsSection";
+import { WorkCatalogSettingsSection } from "@/components/WorkCatalogSettingsSection";
 
 const SETTINGS_SUPPORT_EMAIL = "support@machin.pro";
 
@@ -121,6 +123,8 @@ export interface SettingsModuleProps {
   /** Días de vacaciones por defecto (empresa) cuando el empleado no tiene anulación individual. */
   companyDefaultVacationDays?: number;
   onCompanyDefaultVacationDaysChange?: (n: number) => void;
+  /** AH-43E: catálogo de trabajo (plan Operaciones+). */
+  showWorkCatalogSection?: boolean;
 }
 
 export function SettingsModule({
@@ -186,6 +190,7 @@ export function SettingsModule({
   onTimesheetWeeklyRegularCapChange,
   companyDefaultVacationDays = 20,
   onCompanyDefaultVacationDaysChange,
+  showWorkCatalogSection = false,
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -297,6 +302,7 @@ export function SettingsModule({
     | "regional"
     | "integrations"
     | "production"
+    | "work_catalog"
     | "billing"
     | "help";
 
@@ -308,6 +314,7 @@ export function SettingsModule({
     regional: Globe,
     integrations: Puzzle,
     production: Factory,
+    work_catalog: ClipboardList,
     billing: CreditCard,
     help: HelpCircle,
   };
@@ -493,6 +500,7 @@ export function SettingsModule({
       ["regional", tl.settings_regional_title ?? tl.settingsRegional ?? ""] as const,
       ["integrations", tl.integrations_title ?? "Integrations"] as const,
       ["production", tl.production_catalog_title ?? ""] as const,
+      ["work_catalog", tl.work_catalog ?? tl.settings_work_catalog_title ?? ""] as const,
       ["billing", tl.settingsBilling ?? ""] as const,
       ["help", tl.helpAndTutorials ?? ""] as const,
     ] as const;
@@ -504,6 +512,8 @@ export function SettingsModule({
       if (id === "integrations") return canEditCompanyProfile;
       if (id === "production")
         return !!(canManageProductionCatalog && companyId && onRefreshProductionCatalog);
+      if (id === "work_catalog")
+        return !!(showWorkCatalogSection && companyId && session?.access_token);
       if (id === "billing") return showBillingSection && !!billingSection;
       return true;
     });
@@ -520,6 +530,7 @@ export function SettingsModule({
     canManageProductionCatalog,
     companyId,
     onRefreshProductionCatalog,
+    showWorkCatalogSection,
   ]);
 
   const persistPushPref = useCallback(
@@ -1672,6 +1683,17 @@ export function SettingsModule({
                   onRefresh={onRefreshProductionCatalog}
                 />
               </div>
+            )}
+
+          {activeSettingsSection === "work_catalog" &&
+            showWorkCatalogSection &&
+            companyId &&
+            session?.access_token && (
+              <WorkCatalogSettingsSection
+                labels={tl}
+                companyId={companyId}
+                accessToken={session.access_token}
+              />
             )}
 
           {activeSettingsSection === "billing" && showBillingSection && billingSection && (
