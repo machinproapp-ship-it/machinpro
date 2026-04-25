@@ -51,7 +51,6 @@ import {
 import type { ProjectPhoto } from "@/lib/useProjectPhotos";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { EmptyIllustrationFolder, ModuleEmptyState } from "@/components/ModuleEmptyState";
-import { RFIModule } from "@/components/RFIModule";
 import {
   generatePhotoReport,
   type PhotoReportOrientation,
@@ -60,12 +59,9 @@ import {
   type PhotoReportSortBy,
 } from "@/lib/generatePhotoReport";
 import { generateInspectionReportPDF } from "@/lib/generateInspectionReportPDF";
-import BlueprintViewer from "@/components/BlueprintViewer";
-import { ProjectTimeclockSection } from "@/components/ProjectTimeclockSection";
 import type { ToolStatus, ResourceRequest, Rental } from "@/components/LogisticsModule";
 import type { Blueprint, Annotation, BlueprintRevision } from "@/types/blueprints";
 import type { UserRole } from "@/types/shared";
-import { ProjectSecurityTab } from "@/components/ProjectSecurityTab";
 import type { FormTemplate } from "@/types/forms";
 import type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
@@ -88,11 +84,9 @@ import {
   PROJECT_FORM_BLANK_TEMPLATE_ID,
 } from "@/lib/projectFormTemplateCategories";
 import { generateSafetyChecklistPdf } from "@/lib/generateSafetyChecklistReport";
-import { DailyFieldReportView } from "@/components/DailyFieldReportView";
 import { formatReportDate } from "@/lib/dailyReportFormat";
 import type { ProjectLaborSummary } from "@/lib/laborCosting";
 import { VisitorModule } from "@/components/VisitorModule";
-import { ProjectEpiSafetyTab } from "@/components/ProjectEpiSafetyTab";
 import { useToast } from "@/components/Toast";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { supabase } from "@/lib/supabase";
@@ -113,7 +107,6 @@ import {
   formatTodayYmdInTimeZone,
   zonedYmdHmToUtcIso,
 } from "@/lib/dateUtils";
-import { ProjectWorkOrdersPanel } from "@/components/ProjectWorkOrdersPanel";
 import {
   parseSafetyRequirementsJson,
   findCertForRequirement,
@@ -137,6 +130,45 @@ const TeamGpsMapWidget = dynamic(
 const ProjectsMapDynamic = dynamic(
   () => import("@/components/maps/ProjectsMapDynamic").then((m) => ({ default: m.ProjectsMapDynamic })),
   { ssr: false }
+);
+
+const tabHeavyFallback = () => (
+  <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+);
+
+const BlueprintViewer = dynamic(() => import("@/components/BlueprintViewer"), {
+  ssr: false,
+  loading: tabHeavyFallback,
+});
+
+const RFIModule = dynamic(
+  () => import("@/components/RFIModule").then((m) => ({ default: m.RFIModule })),
+  { ssr: false, loading: tabHeavyFallback }
+);
+
+const ProjectWorkOrdersPanel = dynamic(
+  () => import("@/components/ProjectWorkOrdersPanel").then((m) => ({ default: m.ProjectWorkOrdersPanel })),
+  { ssr: false, loading: tabHeavyFallback }
+);
+
+const ProjectSecurityTab = dynamic(
+  () => import("@/components/ProjectSecurityTab").then((m) => ({ default: m.ProjectSecurityTab })),
+  { ssr: false, loading: tabHeavyFallback }
+);
+
+const ProjectEpiSafetyTab = dynamic(
+  () => import("@/components/ProjectEpiSafetyTab").then((m) => ({ default: m.ProjectEpiSafetyTab })),
+  { ssr: false, loading: tabHeavyFallback }
+);
+
+const DailyFieldReportView = dynamic(
+  () => import("@/components/DailyFieldReportView").then((m) => ({ default: m.DailyFieldReportView })),
+  { ssr: false, loading: tabHeavyFallback }
+);
+
+const ProjectTimeclockSection = dynamic(
+  () => import("@/components/ProjectTimeclockSection").then((m) => ({ default: m.ProjectTimeclockSection })),
+  { ssr: false, loading: tabHeavyFallback }
 );
 
 export type { SafetyChecklist, SafetyChecklistItem, SafetyChecklistResponse } from "@/types/safetyChecklist";
@@ -2168,7 +2200,7 @@ export function ProjectsModule({
           );
         return (
           <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 min-w-0">
-            <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto overflow-y-hidden px-4 pb-0.5 sm:px-6 [scrollbar-width:thin]">
+            <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto overflow-y-hidden scroll-smooth snap-x snap-mandatory px-4 pb-0.5 sm:px-6 [scrollbar-width:thin]">
             {TABS.filter((tab) => projectTabAllowed(tab.id)).map((tab) => {
               const label =
                 tab.id === "general"
@@ -2212,7 +2244,7 @@ export function ProjectsModule({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex shrink-0 items-center gap-1.5 px-3 py-3.5 text-sm font-medium border-b-[3px] transition-colors whitespace-nowrap min-h-[44px] ${
+                  className={`flex shrink-0 snap-start items-center gap-1.5 px-3 py-3.5 text-sm font-medium border-b-[3px] transition-colors whitespace-nowrap min-h-[44px] ${
                     activeTab === tab.id
                       ? "border-amber-500 text-amber-700 dark:border-amber-400 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/25"
                       : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
@@ -2520,35 +2552,63 @@ export function ProjectsModule({
                           {tl.dashboard_trend_neutral ?? PM_EN.common_dash}
                         </p>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[280px] text-xs border-collapse">
-                            <thead>
-                              <tr className="border-b border-zinc-200 dark:border-slate-600 text-left text-zinc-500 dark:text-zinc-400">
-                                <th className="py-2 pe-2 font-medium">{tl.personnel ?? PM_EN.personnel}</th>
-                                <th className="py-2 pe-2 font-medium text-right">
-                                  {tl.labor_hours_worked ?? "Hours"}
-                                </th>
-                                <th className="py-2 font-medium text-right">
-                                  {tl.labor_cost_column ?? "Cost"}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {laborSum.byEmployee.map((row) => (
-                                <tr
-                                  key={row.employeeId}
-                                  className="border-b border-zinc-100 dark:border-slate-800 text-zinc-800 dark:text-zinc-200"
-                                >
-                                  <td className="py-2 pe-2 min-w-0 truncate">{row.name}</td>
-                                  <td className="py-2 pe-2 text-right tabular-nums">{row.hours.toFixed(1)}h</td>
-                                  <td className="py-2 text-right tabular-nums">
+                        <>
+                          <div className="space-y-2 md:hidden">
+                            {laborSum.byEmployee.map((row) => (
+                              <div
+                                key={row.employeeId}
+                                className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/40"
+                              >
+                                <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">{row.name}</p>
+                                <div className="mt-2 flex items-center justify-between text-sm">
+                                  <span className="text-zinc-500 dark:text-zinc-400">
+                                    {tl.labor_hours_worked ?? "Hours"}
+                                  </span>
+                                  <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                    {row.hours.toFixed(1)}h
+                                  </span>
+                                </div>
+                                <div className="mt-1 flex items-center justify-between text-sm">
+                                  <span className="text-zinc-500 dark:text-zinc-400">
+                                    {tl.labor_cost_column ?? "Cost"}
+                                  </span>
+                                  <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
                                     {formatCurrency(row.cost, companyCurrency, dateLoc)}
-                                  </td>
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="hidden overflow-x-auto md:block">
+                            <table className="w-full min-w-[280px] text-xs border-collapse">
+                              <thead>
+                                <tr className="border-b border-zinc-200 dark:border-slate-600 text-left text-zinc-500 dark:text-zinc-400">
+                                  <th className="py-2 pe-2 font-medium">{tl.personnel ?? PM_EN.personnel}</th>
+                                  <th className="py-2 pe-2 font-medium text-right">
+                                    {tl.labor_hours_worked ?? "Hours"}
+                                  </th>
+                                  <th className="py-2 font-medium text-right">
+                                    {tl.labor_cost_column ?? "Cost"}
+                                  </th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                              </thead>
+                              <tbody>
+                                {laborSum.byEmployee.map((row) => (
+                                  <tr
+                                    key={row.employeeId}
+                                    className="border-b border-zinc-100 dark:border-slate-800 text-zinc-800 dark:text-zinc-200"
+                                  >
+                                    <td className="py-2 pe-2 min-w-0 truncate">{row.name}</td>
+                                    <td className="py-2 pe-2 text-right tabular-nums">{row.hours.toFixed(1)}h</td>
+                                    <td className="py-2 text-right tabular-nums">
+                                      {formatCurrency(row.cost, companyCurrency, dateLoc)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )}
                     </>
                   );
@@ -2962,7 +3022,7 @@ export function ProjectsModule({
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                   <Camera className="h-4 w-4 text-orange-500" />{t.invPhotosTitle ?? PM_EN.invPhotosTitle}
                 </h3>
-                <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
+                <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 lg:gap-4">
                   {invPhotos.flatMap((entry) =>
                     (entry.photoUrls || []).map((url, i) => (
                       <button
@@ -3006,7 +3066,7 @@ export function ProjectsModule({
               onChange={handleGalleryPhotoChange}
             />
             <div
-              className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-slate-700 pb-3"
+              className="-mx-4 flex flex-nowrap gap-2 overflow-x-auto scroll-smooth snap-x snap-mandatory border-b border-zinc-200 px-4 pb-3 dark:border-slate-700 sm:mx-0 sm:px-0 [scrollbar-width:thin]"
               role="tablist"
               aria-label={(t as Record<string, string>).galleryTabBrowse ?? PM_EN.galleryTabBrowse}
             >
@@ -3015,7 +3075,7 @@ export function ProjectsModule({
                 role="tab"
                 aria-selected={gallerySubTab === "browse"}
                 onClick={() => setGallerySubTab("browse")}
-                className={`min-h-[44px] rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`min-h-[44px] shrink-0 snap-start rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
                   gallerySubTab === "browse"
                     ? "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
                     : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-slate-800"
@@ -3028,7 +3088,7 @@ export function ProjectsModule({
                 role="tab"
                 aria-selected={gallerySubTab === "inspection"}
                 onClick={() => setGallerySubTab("inspection")}
-                className={`min-h-[44px] rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`min-h-[44px] shrink-0 snap-start rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
                   gallerySubTab === "inspection"
                     ? "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
                     : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-slate-800"
@@ -3226,7 +3286,7 @@ export function ProjectsModule({
                     })}
                   </div>
                 ) : (
-                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 lg:gap-4">
                     {filteredPendingObra.map((entry) => {
                       const cat = entry.photoCategory ?? "progress";
                       const catBadgeClass =
@@ -3296,7 +3356,7 @@ export function ProjectsModule({
                   text={t.noApprovedPhotos ?? PM_EN.noApprovedPhotos}
                 />
               ) : (
-                <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
+                <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 lg:gap-4">
                   {filteredApprovedObra.map((entry) => {
                     const showDl =
                       selectedProject &&
@@ -3317,7 +3377,7 @@ export function ProjectsModule({
                             <button
                               type="button"
                               onClick={() => void downloadDiaryPhoto(entry)}
-                              className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
+                              className="absolute right-1 top-1 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
                               aria-label={
                                 (t as Record<string, string>).gallery_download ?? PM_EN.gallery_download
                               }
@@ -3380,7 +3440,7 @@ export function ProjectsModule({
                     }
                   />
                 ) : (
-                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-4">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 lg:gap-4">
                     {[...inspectionPhotosPool]
                       .sort(
                         (a, b) =>
@@ -3432,7 +3492,7 @@ export function ProjectsModule({
                                   e.stopPropagation();
                                   void downloadProjectPhotoRow(ph);
                                 }}
-                                className="absolute right-1 top-1 z-10 flex h-11 w-11 items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
+                                className="absolute right-1 top-1 z-10 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-black/55 text-white hover:bg-black/70 dark:bg-black/60"
                                 aria-label={
                                   (t as Record<string, string>).gallery_download ?? PM_EN.gallery_download
                                 }
@@ -3700,7 +3760,7 @@ export function ProjectsModule({
                                 });
                               }
                             }}
-                            className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300"
+                            className="shrink-0 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300"
                           >
                             {isDone ? (
                               <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
@@ -3759,7 +3819,7 @@ export function ProjectsModule({
                                 e.stopPropagation();
                                 onDeleteTask?.(tk.id);
                               }}
-                              className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                              className="shrink-0 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -4427,7 +4487,7 @@ export function ProjectsModule({
             {openDailyReportKey !== null &&
               selectedProject &&
               (openDailyReportKey === "new" || dailyReports.some((r) => r.id === openDailyReportKey)) && (
-              <div className="fixed inset-0 z-[70] flex min-h-0 flex-col bg-zinc-50 dark:bg-zinc-950">
+              <div className="fixed inset-0 z-[70] flex min-h-0 flex-col bg-zinc-50 pb-[env(safe-area-inset-bottom)] dark:bg-zinc-950">
                 <DailyFieldReportView
                   key={openDailyReportKey === "new" ? `dfr-new-${selectedProject.id}` : openDailyReportKey}
                   variant={dailyReportViewVariant}
@@ -5321,7 +5381,7 @@ export function ProjectsModule({
             role="dialog"
             aria-modal="true"
             aria-labelledby="gallery-category-modal-title"
-            className="fixed left-1/2 top-1/2 z-[61] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl"
+            className="fixed z-[61] max-h-[min(90dvh,90vh)] w-full overflow-y-auto border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:left-0 max-md:top-auto max-md:max-h-[88dvh] max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:rounded-t-2xl max-md:p-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3
@@ -5406,7 +5466,7 @@ export function ProjectsModule({
       {photoCategoryModal && (
         <>
           <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={() => setPhotoCategoryModal(null)} />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
+          <div className="fixed z-50 max-h-[min(90dvh,90vh)] w-full overflow-y-auto border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:left-0 max-md:top-auto max-md:max-h-[88dvh] max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:rounded-t-2xl max-md:p-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-3">
               {(t as Record<string, string>).photoCategoryLabel ?? PM_EN.photoCategoryLabel}
             </h3>
