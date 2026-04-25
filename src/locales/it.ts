@@ -445,6 +445,7 @@ export default {
   clockIn: "Timbratura entrata",
   clockOut: "Timbratura uscita",
   clockInDone: "Turno completato",
+  clock_correct_entry: "Correggi timbratura",
   clock_in_success: "Entrata registrata",
   clock_out_success: "Uscita registrata",
   clock_break: "Pausa",

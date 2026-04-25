@@ -164,6 +164,7 @@ export interface ScheduleModuleProps {
     clockIn?: string;
     clockOut?: string;
     clockInDone?: string;
+    clock_correct_entry?: string;
     clockInEntry?: string;
     clockOutEntry?: string;
     gpsLocating?: string;
@@ -2608,6 +2609,21 @@ export default function ScheduleModule({
     setFormOpen(true);
   };
 
+  const openCorrectClockEntry = useCallback(() => {
+    if (!todayEntry?.id || !currentUserEmployeeId || !onManualClockOut) return;
+    const pad2 = (n: number) => String(n).padStart(2, "0");
+    const d = new Date();
+    setSchedManualTime(
+      (todayEntry.clockOut ?? "").trim() || `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+    );
+    setSchedManualNotes("");
+    setSchedManualModal({
+      mode: "out",
+      targetUserId: currentUserEmployeeId,
+      timeEntryId: todayEntry.id,
+    });
+  }, [todayEntry, currentUserEmployeeId, onManualClockOut]);
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -2821,8 +2837,19 @@ export default function ScheduleModule({
                       : (labels.clockOut ?? "Fichar Salida")}
                   </button>
                 ) : (
-                  <div className="flex min-h-[3.5rem] w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-zinc-100 px-3 text-center font-semibold text-emerald-600 dark:bg-zinc-800 dark:text-emerald-400">
-                    ✓ {labels.clockInDone ?? "Jornada completada"}
+                  <div className="w-full max-w-sm space-y-2">
+                    <div className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-2xl bg-zinc-100 px-3 text-center font-semibold text-emerald-600 dark:bg-zinc-800 dark:text-emerald-400">
+                      ✓ {labels.clockInDone ?? "Jornada completada"}
+                    </div>
+                    {onManualClockOut && currentUserEmployeeId && todayEntry?.id ? (
+                      <button
+                        type="button"
+                        onClick={openCorrectClockEntry}
+                        className="w-full min-h-[44px] rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-slate-900 dark:text-zinc-200 dark:hover:bg-slate-800"
+                      >
+                        {labels.clock_correct_entry ?? "Corregir fichaje"}
+                      </button>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -4176,8 +4203,19 @@ export default function ScheduleModule({
                           : (labels.clockOut ?? "Fichar Salida")}
                       </button>
                     ) : (
-                      <div className="flex min-h-[3.5rem] w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-zinc-100 px-3 text-center font-semibold text-emerald-600 dark:bg-zinc-800 dark:text-emerald-400 md:min-h-[3.5rem]">
-                        ✓ {labels.clockInDone ?? "Jornada completada"}
+                      <div className="w-full max-w-sm space-y-2">
+                        <div className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-2xl bg-zinc-100 px-3 text-center font-semibold text-emerald-600 dark:bg-zinc-800 dark:text-emerald-400 md:min-h-[3.5rem]">
+                          ✓ {labels.clockInDone ?? "Jornada completada"}
+                        </div>
+                        {onManualClockOut && currentUserEmployeeId && todayEntry?.id ? (
+                          <button
+                            type="button"
+                            onClick={openCorrectClockEntry}
+                            className="w-full min-h-[44px] rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-slate-900 dark:text-zinc-200 dark:hover:bg-slate-800"
+                          >
+                            {labels.clock_correct_entry ?? "Corregir fichaje"}
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </div>

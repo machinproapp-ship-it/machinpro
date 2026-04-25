@@ -565,6 +565,7 @@ export default {
   clockIn: "Clock in",
   clockOut: "Clock out",
   clockInDone: "Shift completed",
+  clock_correct_entry: "Correct time entry",
   clock_in_success: "Clock-in recorded",
   clock_out_success: "Clock-out recorded",
   clock_break: "Break",

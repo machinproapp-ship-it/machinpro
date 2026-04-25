@@ -445,6 +445,7 @@ export default {
   clockIn: "Registar entrada",
   clockOut: "Registar saída",
   clockInDone: "Jornada concluída",
+  clock_correct_entry: "Corrigir registo",
   clock_in_success: "Entrada registada",
   clock_out_success: "Saída registada",
   clock_break: "Pausa",

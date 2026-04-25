@@ -445,6 +445,7 @@ export default {
   clockIn: "Einstempeln",
   clockOut: "Ausstempeln",
   clockInDone: "Schicht abgeschlossen",
+  clock_correct_entry: "Zeiterfassung korrigieren",
   clock_in_success: "Eingang erfasst",
   clock_out_success: "Ausgang erfasst",
   clock_break: "Pause",

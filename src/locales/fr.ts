@@ -445,6 +445,7 @@ export default {
   clockIn: "Pointer l'entrée",
   clockOut: "Pointer la sortie",
   clockInDone: "Poste terminé",
+  clock_correct_entry: "Corriger le pointage",
   clock_in_success: "Entrée enregistrée",
   clock_out_success: "Sortie enregistrée",
   clock_break: "Pause",

@@ -1186,7 +1186,8 @@ function CentralDashboardBody(
             .from("user_profiles")
             .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
-            .eq("profile_status", "active");
+            .eq("profile_status", "active")
+            .is("deleted_at", null);
           if (error) throw error;
           const value = count ?? 0;
           c.empCount = { at: Date.now(), value };

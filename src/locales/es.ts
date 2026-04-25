@@ -490,6 +490,7 @@ export default {
   clockIn: "Fichar entrada",
   clockOut: "Terminar jornada",
   clockInDone: "Jornada completada",
+  clock_correct_entry: "Corregir fichaje",
   clock_in_success: "Entrada registrada",
   clock_out_success: "Salida registrada",
   clock_break: "Pausa",

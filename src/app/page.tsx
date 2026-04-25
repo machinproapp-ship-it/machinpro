@@ -33,22 +33,14 @@ import {
 import type { SafetyChecklist } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask } from "@/types/projectTask";
-import { SettingsModule } from "@/components/SettingsModule";
-import { SecurityModule } from "@/components/SecurityModule";
 import ScheduleModule from "@/components/ScheduleModule";
 import { EmployeeShiftDayView } from "@/components/EmployeeShiftDayView";
 import { QuickHazardModal } from "@/components/QuickHazardModal";
 import { usePPPPricing } from "@/hooks/usePPPPricing";
 import { CURRENCY_BY_TIER } from "@/lib/stripe";
-import { FormsModule } from "@/components/FormsModule";
 import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
-import { BindersModule } from "@/components/BindersModule";
-import { TrainingHubModule } from "@/components/TrainingHubModule";
-import { EmployeesModule } from "@/components/EmployeesModule";
-import { WorkerHub } from "@/components/WorkerHub";
-import { SubcontractorsModule } from "@/components/SubcontractorsModule";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
@@ -62,6 +54,41 @@ import { FeedbackWidget } from "@/components/FeedbackWidget";
 const ProductTour = dynamic(
   () => import("@/components/ProductTour").then((mod) => ({ default: mod.ProductTour })),
   { ssr: false }
+);
+const heavyModuleFallback = () => (
+  <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+);
+const SettingsModule = dynamic(
+  () => import("@/components/SettingsModule").then((m) => ({ default: m.SettingsModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const SecurityModule = dynamic(
+  () => import("@/components/SecurityModule").then((m) => ({ default: m.SecurityModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const FormsModule = dynamic(
+  () => import("@/components/FormsModule").then((m) => ({ default: m.FormsModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const BindersModule = dynamic(
+  () => import("@/components/BindersModule").then((m) => ({ default: m.BindersModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const TrainingHubModule = dynamic(
+  () => import("@/components/TrainingHubModule").then((m) => ({ default: m.TrainingHubModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const SubcontractorsModule = dynamic(
+  () => import("@/components/SubcontractorsModule").then((m) => ({ default: m.SubcontractorsModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const WorkerHub = dynamic(
+  () => import("@/components/WorkerHub").then((m) => ({ default: m.WorkerHub })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const EmployeesModule = dynamic(
+  () => import("@/components/EmployeesModule").then((m) => ({ default: m.EmployeesModule })),
+  { ssr: false, loading: heavyModuleFallback }
 );
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { countOperationallyActiveProjects } from "@/lib/projectFilters";

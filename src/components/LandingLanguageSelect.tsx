@@ -53,7 +53,7 @@ export function LandingLanguageSelect({
     : "border-white/35 bg-white/15 text-white hover:bg-white/20";
 
   const panelClasses =
-    "absolute right-0 z-[60] mt-1 max-h-[min(70vh,26rem)] w-[min(calc(100vw-2rem),18rem)] overflow-y-auto overscroll-contain rounded-lg border py-1 shadow-xl " +
+    "absolute left-0 md:left-auto md:right-0 z-[60] mt-1 max-h-[min(70vh,26rem)] w-[min(calc(100vw-2rem),18rem)] overflow-y-auto overscroll-contain rounded-lg border py-1 shadow-xl " +
     (navSolid
       ? "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-900"
       : "border-white/20 bg-[#0f3a45] dark:border-slate-600 dark:bg-slate-900");

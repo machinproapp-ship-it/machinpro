@@ -661,7 +661,10 @@ export function CentralModule({
     const s = new Set<string>();
     for (const e of safeEmployees) {
       const st = (e.profileStatus ?? "active").toLowerCase().trim();
-      if (st === "active") s.add(e.id);
+      const deletedAt =
+        (e as { deletedAt?: string | null; deleted_at?: string | null }).deletedAt ??
+        (e as { deletedAt?: string | null; deleted_at?: string | null }).deleted_at;
+      if (st === "active" && !deletedAt) s.add(e.id);
     }
     return s;
   }, [safeEmployees]);
@@ -1805,7 +1808,7 @@ export function CentralModule({
                   const tl = labels as Record<string, string>;
                   const life = resolveProjectLifecycleStatus(p, today);
                   const startStr = formatProjectListDate(p.estimatedStart, dateLoc, timeZone);
-                  const nEmp = (p.assignedEmployeeIds ?? []).length;
+                  const nEmp = (p.assignedEmployeeIds ?? []).filter((id) => activeEmployeeIdSet.has(id)).length;
                   const statusText =
                     life === "paused"
                       ? tl.projects_status_paused ?? "Paused"
