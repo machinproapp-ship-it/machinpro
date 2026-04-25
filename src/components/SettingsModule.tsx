@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import {
   Sliders,
@@ -42,8 +43,26 @@ import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 import { supabase } from "@/lib/supabase";
 import type { Factor } from "@supabase/supabase-js";
 import type { CatalogItem } from "@/lib/productionCatalog";
-import { ProductionCatalogSettingsSection } from "@/components/ProductionCatalogSettingsSection";
-import { WorkCatalogSettingsSection } from "@/components/WorkCatalogSettingsSection";
+
+const settingsHeavySectionFallback = () => (
+  <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+);
+
+const ProductionCatalogSettingsSection = dynamic(
+  () =>
+    import("@/components/ProductionCatalogSettingsSection").then((m) => ({
+      default: m.ProductionCatalogSettingsSection,
+    })),
+  { ssr: false, loading: settingsHeavySectionFallback }
+);
+
+const WorkCatalogSettingsSection = dynamic(
+  () =>
+    import("@/components/WorkCatalogSettingsSection").then((m) => ({
+      default: m.WorkCatalogSettingsSection,
+    })),
+  { ssr: false, loading: settingsHeavySectionFallback }
+);
 
 const SETTINGS_SUPPORT_EMAIL = "support@machin.pro";
 
@@ -692,7 +711,7 @@ export function SettingsModule({
       <div className="md:hidden min-w-0 -mx-1">
         <HorizontalScrollFade variant="inherit">
           <div
-            className="flex w-full min-w-0 max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+            className="flex w-full min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto pb-1 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
             role="tablist"
             aria-label={t.settings || ALL_TRANSLATIONS.en.settings}
           >
@@ -706,7 +725,7 @@ export function SettingsModule({
                   role="tab"
                   aria-selected={active}
                   onClick={() => requestTabChange(id)}
-                  className={`inline-flex shrink-0 items-center gap-2 min-h-[44px] rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  className={`inline-flex shrink-0 snap-start items-center gap-2 min-h-[44px] rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                     active
                       ? "border-amber-400 bg-amber-100 text-amber-950 ring-2 ring-amber-400/60 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:ring-amber-500/40"
                       : "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-slate-600 dark:bg-slate-800/80 dark:text-zinc-200"
@@ -716,7 +735,7 @@ export function SettingsModule({
                     className={`h-4 w-4 shrink-0 ${active ? "text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400"}`}
                     aria-hidden
                   />
-                  <span className="max-w-[140px] truncate sm:max-w-none">{label}</span>
+                  <span className="whitespace-nowrap">{label}</span>
                 </button>
               );
             })}
