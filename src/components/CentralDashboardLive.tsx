@@ -18,10 +18,8 @@ import {
   AlertTriangle,
   ClipboardCheck,
   Clock,
-  Layers,
   StickyNote,
   Plus,
-  QrCode,
   FileSearch,
   ChevronRight,
   ChevronUp,
@@ -36,7 +34,6 @@ import {
   Settings2,
   Package,
   MapPin,
-  CalendarClock,
 } from "lucide-react";
 
 const TeamGpsMapWidget = dynamic(
@@ -63,9 +60,7 @@ import {
   mergeDashboardRaw,
   parseDashboardConfig,
   type DashboardWidgetId,
-  type QuickAccessKey,
   type ResolvedDashboardConfig,
-  QUICK_ACCESS_KEYS,
 } from "@/lib/dashboardConfig";
 import {
   clearCentralDashboardConfigCache,
@@ -90,6 +85,11 @@ import {
   formatWorkDurationCompact,
   trafficLightClassFromElapsedHours,
 } from "@/lib/clockDisplay";
+import {
+  centralDashboardWidgetAllowedForPlan,
+  normalizePlanForModules,
+  type AppPlanTier,
+} from "@/lib/planPermissions";
 import { s } from "@/lib/safeReactString";
 
 function startEndLocalDay(offsetDays: number): { start: string; end: string } {
@@ -204,35 +204,9 @@ function DashboardSortableShell({
   );
 }
 
-/** Evita huecos en grid 2 columnas (md+): último impar a ancho completo; antes de `quick_access` (ancho completo) también. */
+/** Último widget impar ocupa ancho completo en md+. */
 function mdColSpanForOperationsWidget(ids: DashboardWidgetId[], index: number): string {
-  let col = 0;
-  for (let i = 0; i < ids.length; i++) {
-    const w = ids[i]!;
-    if (w === "quick_access") {
-      if (i === index) return "md:col-span-2";
-      col = 0;
-      continue;
-    }
-    if (col === 0) {
-      const isLast = i === ids.length - 1;
-      if (isLast) {
-        if (i === index) return "md:col-span-2";
-        col = 0;
-        continue;
-      }
-      if (ids[i + 1] === "quick_access") {
-        if (i === index) return "md:col-span-2";
-        col = 0;
-        continue;
-      }
-      if (i === index) return "";
-      col = 1;
-      continue;
-    }
-    if (i === index) return "";
-    col = 0;
-  }
+  if (ids.length % 2 === 1 && index === ids.length - 1) return "md:col-span-2";
   return "";
 }
 
@@ -466,6 +440,9 @@ export interface CentralDashboardLiveProps {
   currentUserId?: string | null;
   canViewLogistics: boolean;
   canViewDashboardWidgets?: boolean;
+  /** Plan de suscripción — filtra widgets del panel operativo (AH-43B). */
+  subscriptionPlan?: string | null;
+  subscriptionStatus?: string | null;
   criticalInventoryCount?: number;
   criticalInventoryLines?: { itemId: string; text: string }[];
   onCriticalInventoryNavigate?: (itemId: string) => void;
@@ -679,6 +656,8 @@ function CentralDashboardBody(
     currentUserId,
     canViewLogistics,
     canViewDashboardWidgets = true,
+    subscriptionPlan = null,
+    subscriptionStatus = null,
     criticalInventoryCount = 0,
     criticalInventoryLines = [],
     onCriticalInventoryNavigate,
@@ -744,6 +723,16 @@ function CentralDashboardBody(
   const [manualTimeHm, setManualTimeHm] = useState("");
   const [manualProjectId, setManualProjectId] = useState("");
   const [manualNotes, setManualNotes] = useState("");
+
+  const dashboardPlanTier: AppPlanTier = useMemo(() => {
+    if (String(subscriptionStatus ?? "").toLowerCase() === "trialing") return "trial";
+    return normalizePlanForModules(subscriptionPlan);
+  }, [subscriptionPlan, subscriptionStatus]);
+
+  const widgetAllowedOnPlan = useCallback(
+    (id: DashboardWidgetId) => centralDashboardWidgetAllowedForPlan(id, dashboardPlanTier),
+    [dashboardPlanTier]
+  );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
   const [narrowViewport, setNarrowViewport] = useState(false);
@@ -1457,11 +1446,11 @@ function CentralDashboardBody(
       };
 
       await Promise.all([
-        scheduleDelayed(400, loadSchedule),
-        scheduleDelayed(500, auditPipeline),
-        scheduleDelayed(600, loadDailyBundle),
-        scheduleDelayed(800, fetchVisitors),
-        scheduleDelayed(1000, fetchHazards),
+        scheduleDelayed(100, loadSchedule),
+        scheduleDelayed(200, auditPipeline),
+        scheduleDelayed(300, loadDailyBundle),
+        scheduleDelayed(400, fetchVisitors),
+        scheduleDelayed(500, fetchHazards),
       ]);
 
       if (cancelled) return;
@@ -1526,20 +1515,22 @@ function CentralDashboardBody(
 
   /** Enabled widgets in saved order only — do not append “missing” ids or turning everything off cannot persist. */
   const orderedVisibleWidgets = useMemo(() => {
-    const allowed = new Set(DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id)));
+    const allowed = new Set(
+      DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id) && widgetAllowedOnPlan(id))
+    );
     return resolvedConfig.orderedWidgets.filter((id) => allowed.has(id));
-  }, [resolvedConfig.orderedWidgets, canShowWidget]);
+  }, [resolvedConfig.orderedWidgets, canShowWidget, widgetAllowedOnPlan]);
 
   const moveWidget = useCallback(
     async (id: DashboardWidgetId, dir: -1 | 1) => {
-      const order = orderedVisibleWidgets.filter((w) => canShowWidget(w));
+      const order = orderedVisibleWidgets.filter((w) => canShowWidget(w) && widgetAllowedOnPlan(w));
       const i = order.indexOf(id);
       const j = i + dir;
       if (i < 0 || j < 0 || j >= order.length) return;
       const nextOrder = [...order];
       [nextOrder[i], nextOrder[j]] = [nextOrder[j], nextOrder[i]];
       const full = DEFAULT_DASHBOARD_WIDGET_ORDER.filter(
-        (w) => canShowWidget(w) && !nextOrder.includes(w as DashboardWidgetId)
+        (w) => canShowWidget(w) && widgetAllowedOnPlan(w) && !nextOrder.includes(w as DashboardWidgetId)
       );
       const merged = [...nextOrder, ...full];
       const next = { ...resolvedConfig, orderedWidgets: merged };
@@ -1547,7 +1538,7 @@ function CentralDashboardBody(
       const ok = await persistConfig(next);
       if (!ok) void loadDashboardConfig();
     },
-    [orderedVisibleWidgets, canShowWidget, resolvedConfig, persistConfig, loadDashboardConfig]
+    [orderedVisibleWidgets, canShowWidget, widgetAllowedOnPlan, resolvedConfig, persistConfig, loadDashboardConfig]
   );
 
   const handleOperationsDragEnd = useCallback(
@@ -1555,13 +1546,13 @@ function CentralDashboardBody(
       if (!canManageEmployees) return;
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-      const order = orderedVisibleWidgets.filter((w) => canShowWidget(w));
+      const order = orderedVisibleWidgets.filter((w) => canShowWidget(w) && widgetAllowedOnPlan(w));
       const oldIndex = order.indexOf(active.id as DashboardWidgetId);
       const newIndex = order.indexOf(over.id as DashboardWidgetId);
       if (oldIndex < 0 || newIndex < 0) return;
       const nextOrder = arrayMove(order, oldIndex, newIndex);
       const full = DEFAULT_DASHBOARD_WIDGET_ORDER.filter(
-        (w) => canShowWidget(w) && !nextOrder.includes(w as DashboardWidgetId)
+        (w) => canShowWidget(w) && widgetAllowedOnPlan(w) && !nextOrder.includes(w as DashboardWidgetId)
       );
       const merged = [...nextOrder, ...full];
       const next = { ...resolvedConfig, orderedWidgets: merged };
@@ -1569,7 +1560,15 @@ function CentralDashboardBody(
       const ok = await persistConfig(next);
       if (!ok) void loadDashboardConfig();
     },
-    [canManageEmployees, orderedVisibleWidgets, canShowWidget, resolvedConfig, persistConfig, loadDashboardConfig]
+    [
+      canManageEmployees,
+      orderedVisibleWidgets,
+      canShowWidget,
+      widgetAllowedOnPlan,
+      resolvedConfig,
+      persistConfig,
+      loadDashboardConfig,
+    ]
   );
 
   const resetDashboardLayout = useCallback(async () => {
@@ -1592,121 +1591,14 @@ function CentralDashboardBody(
   };
 
   const saveCustomize = async () => {
-    const allowed = new Set(DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id)));
+    const allowed = new Set(
+      DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => canShowWidget(id) && widgetAllowedOnPlan(id))
+    );
     const filtered = draftConfig.orderedWidgets.filter((id) => allowed.has(id));
     const next = { ...draftConfig, orderedWidgets: filtered };
     const ok = await persistConfig(next);
     if (ok) setCustomizeOpen(false);
   };
-
-  const renderQuickButtons = (quickKeys: QuickAccessKey[]) => (
-    <div className="flex flex-wrap gap-2">
-      {quickKeys.map((k) => {
-        if (k === "hazard" && canManageHazards) {
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={onQuickNewHazard}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 text-sm font-semibold"
-            >
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
-              {L("new_hazard") || L("dashboard_new_hazard")}
-            </button>
-          );
-        }
-        if (k === "corrective" && canManageCorrectiveActions) {
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={onQuickNewAction}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 text-sm font-semibold"
-            >
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
-              {L("dashboard_new_action")}
-            </button>
-          );
-        }
-        if (
-          k === "visitor" &&
-          (canManageProjectVisitors || (currentUserRole === "worker" && visitorCheckInUrl))
-        ) {
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => {
-                if (canManageProjectVisitors) onQuickVisitorQr();
-                else if (visitorCheckInUrl) window.open(visitorCheckInUrl, "_blank", "noopener,noreferrer");
-              }}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <QrCode className="h-4 w-4 shrink-0" aria-hidden />
-              {L("dashboard_register_visitor")}
-            </button>
-          );
-        }
-        if (k === "audit" && canViewAuditLog) {
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={onOpenAuditInCentral}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <FileSearch className="h-4 w-4 shrink-0" aria-hidden />
-              {L("dashboard_view_audit")}
-            </button>
-          );
-        }
-        if (k === "employee" && onQuickNewEmployee && canManageEmployees) {
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={onQuickNewEmployee}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <UserCheck className="h-4 w-4 shrink-0" aria-hidden />
-              {L("dashboard_quick_employee")}
-            </button>
-          );
-        }
-        if (k === "rfi" && onQuickNewRfi && canManageProjectRFI) {
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={onQuickNewRfi}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <Layers className="h-4 w-4 shrink-0" aria-hidden />
-              {L("dashboard_quick_rfi")}
-            </button>
-          );
-        }
-        if (
-          k === "subcontractor" &&
-          canAccessSubcontractors &&
-          (onQuickNewSubcontractor || onOpenSubcontractorsInOperations)
-        ) {
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={onQuickNewSubcontractor ?? onOpenSubcontractorsInOperations}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <Briefcase className="h-4 w-4 shrink-0" aria-hidden />
-              {L("dashboard_quick_subcontractor")}
-            </button>
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
 
   const widgetChrome = (id: DashboardWidgetId, children: React.ReactNode) => (
     <div className="relative min-w-0 max-w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
@@ -2282,14 +2174,7 @@ function CentralDashboardBody(
           </>
         );
       case "quick_access":
-        if (!primaryReady) return widgetSkeleton(2);
-        return widgetChrome(
-          id,
-          <>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 pe-14">{s(title)}</h3>
-            {renderQuickButtons(resolvedConfig.quickAccess)}
-          </>
-        );
+        return null;
       case "labor_costing":
         if (!laborCostingEnabled || !canViewLaborCosting) return null;
         return widgetChrome(
@@ -2334,74 +2219,6 @@ function CentralDashboardBody(
           {(labels.dashboard_all_clear_named ?? "").replace("{company}", companyName ?? L("dashboard_company"))}
         </p>
       </section>
-
-      {canViewDashboardWidgets ? (() => {
-        const showInvite = !!(canManageEmployees && onQuickNewEmployee);
-        const showProject = !!(canViewProjectsManagement && onQuickNewProject);
-        const showClock = typeof onOpenMyShiftView === "function";
-        const showHazard = !!(canManageHazards && onQuickNewHazard);
-        if (!showInvite && !showProject && !showClock && !showHazard) return null;
-        return (
-          <section
-            className="mb-4 w-full min-w-0 max-w-full rounded-xl border border-orange-200/70 bg-white p-4 shadow-sm dark:border-orange-900/40 dark:bg-slate-900"
-            aria-label={labels.quick_actions || L("dashboard_quick_actions_title")}
-          >
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-              {labels.quick_actions || L("dashboard_quick_actions_title")}
-            </p>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {showInvite ? (
-                <button
-                  type="button"
-                  onClick={() => onQuickNewEmployee?.()}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 dark:hover:bg-slate-800"
-                >
-                  <UserCheck className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">
-                    {labels.quick_invite_employee || L("dashboard_quick_invite")}
-                  </span>
-                </button>
-              ) : null}
-              {showProject ? (
-                <button
-                  type="button"
-                  onClick={() => onQuickNewProject?.()}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 dark:hover:bg-slate-800"
-                >
-                  <Briefcase className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">
-                    {labels.quick_new_project || L("dashboard_quick_project")}
-                  </span>
-                </button>
-              ) : null}
-              {showClock ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenMyShiftView?.()}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 dark:hover:bg-slate-800"
-                >
-                  <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">
-                    {labels.quick_clock_in || L("dashboard_quick_clock")}
-                  </span>
-                </button>
-              ) : null}
-              {showHazard ? (
-                <button
-                  type="button"
-                  onClick={() => onQuickNewHazard()}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-red-500"
-                >
-                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="text-center leading-tight">
-                    {labels.quick_report_hazard || L("dashboard_quick_hazard")}
-                  </span>
-                </button>
-              ) : null}
-            </div>
-          </section>
-        );
-      })() : null}
 
       {loadErrors.length > 0 ? (
         <div
@@ -2577,7 +2394,7 @@ function CentralDashboardBody(
           </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleOperationsDragEnd(e)}>
             <SortableContext
-              items={orderedVisibleWidgets.filter(canShowWidget)}
+              items={orderedVisibleWidgets.filter((w) => canShowWidget(w) && widgetAllowedOnPlan(w))}
               strategy={rectSortingStrategy}
             >
               <div className="grid grid-cols-1 gap-3 min-w-0 md:grid-cols-2 md:gap-6 md:grid-flow-dense">
@@ -2622,7 +2439,9 @@ function CentralDashboardBody(
             <div className="p-4 space-y-3 overflow-y-auto">
               <p className="text-xs text-gray-500">{L("dashboard_customize_hint")}</p>
               <ul className="space-y-2">
-                {DEFAULT_DASHBOARD_WIDGET_ORDER.filter(canShowWidget).map((id) => (
+                {DEFAULT_DASHBOARD_WIDGET_ORDER.filter(
+                  (id) => canShowWidget(id) && widgetAllowedOnPlan(id)
+                ).map((id) => (
                   <li
                     key={id}
                     className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2"
@@ -2643,57 +2462,6 @@ function CentralDashboardBody(
                     </button>
                   </li>
                 ))}
-              </ul>
-              <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 pt-2">{L("dashboard_widget_quickaccess")}</p>
-              <ul className="space-y-2">
-                {QUICK_ACCESS_KEYS.map((k) => {
-                  const labelKey =
-                    k === "hazard"
-                      ? "new_hazard"
-                      : k === "corrective"
-                        ? "dashboard_new_action"
-                        : k === "visitor"
-                          ? "dashboard_register_visitor"
-                          : k === "audit"
-                            ? "dashboard_view_audit"
-                            : k === "employee"
-                              ? "dashboard_quick_employee"
-                              : k === "rfi"
-                                ? "dashboard_quick_rfi"
-                                : "dashboard_quick_subcontractor";
-                  const quickLbl =
-                    k === "hazard"
-                      ? L("new_hazard") || L("dashboard_new_hazard")
-                      : L(labelKey);
-                  return (
-                    <li
-                      key={k}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2"
-                    >
-                      <span className="text-sm text-gray-800 dark:text-gray-200">{quickLbl}</span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={draftConfig.quickAccess.includes(k)}
-                        onClick={() => {
-                          const has = draftConfig.quickAccess.includes(k);
-                          let qa = [...draftConfig.quickAccess];
-                          if (has) {
-                            qa = qa.filter((x) => x !== k);
-                          } else qa.push(k);
-                          setDraftConfig({ ...draftConfig, quickAccess: qa });
-                        }}
-                        className={`min-h-[44px] min-w-[52px] rounded-full border-2 px-2 text-xs font-semibold ${
-                          draftConfig.quickAccess.includes(k)
-                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200"
-                            : "border-gray-300 dark:border-gray-600 text-gray-500"
-                        }`}
-                      >
-                        {draftConfig.quickAccess.includes(k) ? L("common_on") : L("common_off")}
-                      </button>
-                    </li>
-                  );
-                })}
               </ul>
             </div>
             <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-gray-700 dark:bg-gray-900 sm:flex-row sm:flex-wrap sm:justify-end md:px-6">

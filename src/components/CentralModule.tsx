@@ -294,6 +294,9 @@ interface CentralModuleProps {
   dashboardCanViewRoles?: boolean;
   dashboardCanViewAuditLog?: boolean;
   dashboardCanViewDashboardWidgets?: boolean;
+  /** Plan Stripe / Supabase — filtro de widgets del panel Central (AH-43B). */
+  dashboardSubscriptionPlan?: string | null;
+  dashboardSubscriptionStatus?: string | null;
   /** Tarjeta Proyectos en Zona de gestión (Central). */
   dashboardCanViewProjectsManagement?: boolean;
   dashboardCriticalInventoryCount?: number;
@@ -483,6 +486,8 @@ export function CentralModule({
   dashboardCanViewRoles = false,
   dashboardCanViewAuditLog = false,
   dashboardCanViewDashboardWidgets = false,
+  dashboardSubscriptionPlan = null,
+  dashboardSubscriptionStatus = null,
   dashboardCanViewProjectsManagement = false,
   dashboardCriticalInventoryCount = 0,
   dashboardCriticalInventoryLines = [],
@@ -993,6 +998,8 @@ export function CentralModule({
                 canManageComplianceAlerts={dashboardCanManageComplianceAlerts}
                 canViewLogistics={dashboardCanViewLogistics}
                 canViewDashboardWidgets={dashboardCanViewDashboardWidgets}
+                subscriptionPlan={dashboardSubscriptionPlan}
+                subscriptionStatus={dashboardSubscriptionStatus}
                 criticalInventoryCount={dashboardCriticalInventoryCount}
                 criticalInventoryLines={dashboardCriticalInventoryLines}
                 onCriticalInventoryNavigate={onDashboardCriticalInventoryNavigate}

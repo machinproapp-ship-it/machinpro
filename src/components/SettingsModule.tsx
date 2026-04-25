@@ -35,6 +35,7 @@ import {
 } from "@/lib/dateUtils";
 import { REGIONAL_TIMEZONE_GROUPS, allGroupedTimezones, cityLabelFromIana } from "@/lib/regionalTimezones";
 import { REGIONAL_COUNTRY_DEFAULTS as COUNTRY_DEFAULTS, REGIONAL_COUNTRIES as COUNTRIES } from "@/lib/regionalCountries";
+import { vacationLegalMinimumDays } from "@/lib/vacationLegalReference";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 import { supabase } from "@/lib/supabase";
@@ -117,6 +118,9 @@ export interface SettingsModuleProps {
   /** Horas regulares semanales para hojas de horas (1–168). */
   timesheetWeeklyRegularCap?: number;
   onTimesheetWeeklyRegularCapChange?: (n: number) => void;
+  /** Días de vacaciones por defecto (empresa) cuando el empleado no tiene anulación individual. */
+  companyDefaultVacationDays?: number;
+  onCompanyDefaultVacationDaysChange?: (n: number) => void;
 }
 
 export function SettingsModule({
@@ -180,6 +184,8 @@ export function SettingsModule({
   productionCatalogCurrencyDefault = "CAD",
   timesheetWeeklyRegularCap = 40,
   onTimesheetWeeklyRegularCapChange,
+  companyDefaultVacationDays = 20,
+  onCompanyDefaultVacationDaysChange,
 }: SettingsModuleProps) {
   const tl = t as Record<string, string>;
   const { showToast } = useToast();
@@ -650,6 +656,20 @@ export function SettingsModule({
     onCountryChange(country, defaults);
     if (defaults) setAutoSetupMessage(t.autoSetupConfirm ?? "Country updated — currency and units configured");
   };
+
+  const vacationLegalHintLine = useMemo(() => {
+    const tx = t as Record<string, string>;
+    const code = (companyCountry || "CA").trim().toUpperCase();
+    const countryLabel = COUNTRIES.find((c) => c.code === code)?.name ?? code;
+    const min = vacationLegalMinimumDays(code);
+    if (min === null) {
+      const tpl = tx.vacation_legal_reference_us ?? tx.vacation_legal_reference ?? "";
+      return tpl.replace(/\{country\}/g, countryLabel);
+    }
+    return (tx.vacation_legal_reference ?? "")
+      .replace(/\{country\}/g, countryLabel)
+      .replace(/\{days\}/g, String(min));
+  }, [companyCountry, t]);
 
   return (
     <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-8 md:p-8 lg:p-10">
@@ -1520,6 +1540,37 @@ export function SettingsModule({
                   <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                     {tl.settings_timesheet_weekly_cap_hint ?? ""}
                   </p>
+                </div>
+              ) : null}
+
+              {canEditCompanyProfile ? (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                    {tl.vacation_default_days ?? "Default vacation days"}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={366}
+                    value={companyDefaultVacationDays}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      if (!Number.isFinite(n)) return;
+                      const v = Math.min(366, Math.max(0, n));
+                      onCompanyDefaultVacationDaysChange?.(v);
+                      if (companyId) {
+                        try {
+                          localStorage.setItem(`machinpro_default_vacation_days_${companyId}`, String(v));
+                        } catch {
+                          /* ignore */
+                        }
+                      }
+                    }}
+                    className="w-full min-w-0 sm:max-w-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px]"
+                  />
+                  {vacationLegalHintLine.trim() ? (
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 max-w-lg">{vacationLegalHintLine}</p>
+                  ) : null}
                 </div>
               ) : null}
 

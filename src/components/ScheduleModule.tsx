@@ -401,6 +401,8 @@ export interface ScheduleModuleProps {
   onDismissClockInAlert?: () => void;
   onClockIn?: (override?: { projectId?: string; projectCode?: string }) => void;
   onClockOut?: () => void;
+  /** Estado real de pausa (GET /api/clock/activity), misma fuente que EmployeeShiftDayView. */
+  clockBreakActive?: boolean;
   /** Proyectos asignados al usuario para fichaje inteligente (sin turno / código libre). */
   assignedClockInProjects?: ClockInAssignedProject[];
   /** full_name/display_name/email y mapeo demo e1… desde page */
@@ -441,6 +443,8 @@ export interface ScheduleModuleProps {
   timesheetWeeklyRegularCap?: number;
   /** Días de vacaciones anuales por usuario (perfil auth id); si falta, se usa el default del módulo. */
   vacationAllowanceByUserId?: Record<string, number>;
+  /** Días anuales por defecto (Ajustes → Regional) si el empleado no tiene anulación en perfil. */
+  companyDefaultAnnualVacationDays?: number;
 }
 
 function startOfWeek(date: Date): Date {
@@ -724,7 +728,7 @@ function absenceDotClass(kind: string): string {
   return "bg-emerald-500";
 }
 
-const DEFAULT_ANNUAL_VACATION_DAYS = 22;
+const DEFAULT_ANNUAL_VACATION_DAYS = 20;
 
 function generateTimeSheetsFromClock(
   clockEntries: ClockEntryForSchedule[],
@@ -1764,6 +1768,7 @@ export default function ScheduleModule({
   onDismissClockInAlert,
   onClockIn,
   onClockOut,
+  clockBreakActive = false,
   assignedClockInProjects = [],
   customRoles = [],
   employeeLabels = {},
@@ -1790,12 +1795,16 @@ export default function ScheduleModule({
   onRefreshProductionReports,
   timesheetWeeklyRegularCap = 40,
   vacationAllowanceByUserId = {},
+  companyDefaultAnnualVacationDays = DEFAULT_ANNUAL_VACATION_DAYS,
 }: ScheduleModuleProps) {
   const lx = labels as Record<string, string>;
   const { showToast } = useToast();
   const allowanceForUser = useCallback(
-    (uid: string) => vacationAllowanceByUserId[uid] ?? DEFAULT_ANNUAL_VACATION_DAYS,
-    [vacationAllowanceByUserId]
+    (uid: string) =>
+      vacationAllowanceByUserId[uid] ??
+      companyDefaultAnnualVacationDays ??
+      DEFAULT_ANNUAL_VACATION_DAYS,
+    [vacationAllowanceByUserId, companyDefaultAnnualVacationDays]
   );
   const scheduleTz = scheduleTimeZoneProp ?? resolveUserTimezone(null);
   void useMachinProDisplayPrefs();
@@ -2542,7 +2551,7 @@ export default function ScheduleModule({
                   <ClockRingTimer
                     currentMinutes={scheduleActiveMinutes}
                     goalMinutes={scheduleClockGoalMinutes}
-                    isOnBreak={false}
+                    isOnBreak={clockBreakActive}
                     paymentType={scheduleClockPaymentType}
                     labels={lx}
                     clockInHmDisplay={wallClockLabel(todayEntry.clockIn)}
@@ -2901,10 +2910,10 @@ export default function ScheduleModule({
                           {vacationEmployeeNames[uid] ?? uid}
                         </p>
                         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-                          {lx.vacations_days_used ?? "Used"}: {used} / {cap}
+                          {lx.vacation_days_used ?? lx.vacations_days_used ?? "Used"}: {used} / {cap}
                         </p>
                         <p className="text-amber-700 dark:text-amber-400">
-                          {lx.vacations_days_remaining ?? "Remaining"}: {rem}
+                          {lx.vacation_days_remaining ?? lx.vacations_days_remaining ?? "Remaining"}: {rem}
                         </p>
                       </li>
                     );
@@ -2917,13 +2926,13 @@ export default function ScheduleModule({
               <div className="rounded-lg border border-zinc-100 dark:border-slate-800 bg-zinc-50/80 dark:bg-slate-800/40 p-3 text-sm">
                 <p className="font-medium text-zinc-900 dark:text-white">{vacationBalanceYear}</p>
                 <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-                  {lx.vacations_days_used ?? "Used"}:{" "}
+                  {lx.vacation_days_used ?? lx.vacations_days_used ?? "Used"}:{" "}
                   <span className="tabular-nums font-semibold text-zinc-900 dark:text-white">
                     {approvedVacationDaysByUser.get(currentUserId) ?? 0} / {allowanceForUser(currentUserId)}
                   </span>
                 </p>
                 <p className="text-amber-700 dark:text-amber-400">
-                  {lx.vacations_days_remaining ?? "Remaining"}:{" "}
+                  {lx.vacation_days_remaining ?? lx.vacations_days_remaining ?? "Remaining"}:{" "}
                   <span className="tabular-nums font-semibold">
                     {Math.max(
                       0,
@@ -2937,45 +2946,61 @@ export default function ScheduleModule({
             {onRequestVacation && canRequestVacation && (
               <div className="space-y-3 border-t border-zinc-200 dark:border-slate-700 pt-4">
                 <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {lx.vacation_request_title ?? lx.vacations_request ?? lx.schedule_vacation_request ?? ""}
+                  {lx.vacation_request ??
+                    lx.vacation_request_title ??
+                    lx.vacations_request ??
+                    lx.schedule_vacation_request ??
+                    ""}
                 </h4>
                 {currentUserId ? (
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {(lx.vacation_request_available_of ?? "{available} / {total}")
+                    {(lx.vacation_available ?? lx.vacation_request_available_of ?? "{n} / {total}")
+                      .replace(/\{n\}/g, String(vacRequestAvailableNow))
                       .replace(/\{available\}/g, String(vacRequestAvailableNow))
                       .replace(/\{total\}/g, String(vacRequestAnnualCap))}
                   </p>
                 ) : null}
                 <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  {lx.absence_type_label ?? "Absence type"}
+                  {lx.vacation_absence_type ?? lx.absence_type_label ?? "Absence type"}
                   <select
                     value={vacReqAbsenceKind}
                     onChange={(e) => setVacReqAbsenceKind(e.target.value)}
                     className="mt-1 w-full max-w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:max-w-xs"
-                    aria-label={lx.vacation_request_title ?? lx.schedule_vacation_request ?? "Absence"}
+                    aria-label={
+                      lx.vacation_request ??
+                      lx.vacation_request_title ??
+                      lx.schedule_vacation_request ??
+                      "Absence"
+                    }
                   >
                     <option value="vacation">{lx.vacation_type_vacation ?? "Vacation"}</option>
                     <option value="sick">{lx.vacation_type_sick ?? "Sick leave"}</option>
-                    <option value="permission">{lx.vacation_type_permission ?? "Leave"}</option>
+                    <option value="permission">
+                      {lx.vacation_type_leave ?? lx.vacation_type_permission ?? "Leave"}
+                    </option>
                     <option value="training">{lx.vacation_type_training ?? "Training"}</option>
                     <option value="other">{lx.vacation_type_other ?? "Other"}</option>
                   </select>
                 </label>
-                <div className="flex flex-col flex-wrap gap-2 sm:flex-row">
-                  <input
-                    type="date"
-                    value={vacReqStart}
-                    onChange={(e) => setVacReqStart(e.target.value)}
-                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:w-auto"
-                    aria-label={lx.date ?? "Start"}
-                  />
-                  <input
-                    type="date"
-                    value={vacReqEnd}
-                    onChange={(e) => setVacReqEnd(e.target.value)}
-                    className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm sm:w-auto"
-                    aria-label={lx.date ?? "End"}
-                  />
+                <div className="flex flex-col flex-wrap gap-2 sm:flex-row sm:items-end">
+                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:max-w-[11rem]">
+                    <span>{lx.vacation_start_date ?? lx.date ?? "Start"}</span>
+                    <input
+                      type="date"
+                      value={vacReqStart}
+                      onChange={(e) => setVacReqStart(e.target.value)}
+                      className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:max-w-[11rem]">
+                    <span>{lx.vacation_end_date ?? lx.date ?? "End"}</span>
+                    <input
+                      type="date"
+                      value={vacReqEnd}
+                      onChange={(e) => setVacReqEnd(e.target.value)}
+                      className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                    />
+                  </label>
                   <input
                     type="text"
                     value={vacReqNote}
@@ -2992,7 +3017,10 @@ export default function ScheduleModule({
                     }}
                     className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 sm:w-auto"
                   >
-                    {lx.vacations_request ?? lx.employees_request_vacation ?? ""}
+                    {lx.vacation_request ??
+                      lx.vacations_request ??
+                      lx.employees_request_vacation ??
+                      ""}
                   </button>
                 </div>
                 {vacReqBizDays != null && vacReqBizDays > 0 ? (
@@ -3008,7 +3036,7 @@ export default function ScheduleModule({
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                {lx.vacation_team_calendar_title ?? "Team absence calendar"}
+                {lx.vacation_team_calendar ?? lx.vacation_team_calendar_title ?? "Team absence calendar"}
               </h4>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -3825,7 +3853,7 @@ export default function ScheduleModule({
                       <ClockRingTimer
                         currentMinutes={scheduleActiveMinutes}
                         goalMinutes={scheduleClockGoalMinutes}
-                        isOnBreak={false}
+                        isOnBreak={clockBreakActive}
                         paymentType={scheduleClockPaymentType}
                         labels={lx}
                         clockInHmDisplay={wallClockLabel(todayEntry.clockIn)}

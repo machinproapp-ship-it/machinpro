@@ -1363,6 +1363,7 @@ export default function Home() {
   const currencyManuallyChangedRef = useRef(false);
   const [measurementSystem, setMeasurementSystem] = useState<"metric" | "imperial">("metric");
   const [timesheetWeeklyRegularCap, setTimesheetWeeklyRegularCap] = useState(40);
+  const [companyDefaultVacationDays, setCompanyDefaultVacationDays] = useState(20);
   const [companyCountry, setCompanyCountry] = useState<string>("CA");
   const userTimeZone = useMemo(() => resolveUserTimezone(profile?.timezone ?? null), [profile?.timezone]);
   const dateLocaleBcp47 = useMemo(() => dateLocaleForUser(language, companyCountry), [language, companyCountry]);
@@ -1431,6 +1432,19 @@ export default function Home() {
       if (raw) {
         const n = parseInt(raw, 10);
         if (Number.isFinite(n) && n >= 1 && n <= 168) setTimesheetWeeklyRegularCap(n);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId || typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(`machinpro_default_vacation_days_${companyId}`);
+      if (raw) {
+        const n = parseInt(raw, 10);
+        if (Number.isFinite(n) && n >= 0 && n <= 366) setCompanyDefaultVacationDays(n);
       }
     } catch {
       /* ignore */
@@ -4098,6 +4112,23 @@ export default function Home() {
 
   const currentUserEmployeeId = effectiveRole === "worker" ? effectiveEmployeeId : effectiveRole === "supervisor" ? effectiveEmployeeId : null;
 
+  /** Open fichaje del usuario hoy (misma lógica que ScheduleModule) — para estado de pausa en pestaña Fichaje. */
+  const scheduleTabOpenClockEntry = useMemo(() => {
+    const tz = userTimeZone ?? resolveUserTimezone(null);
+    const todayYmd = formatTodayYmdInTimeZone(tz);
+    const pid = (profile?.id ?? "").trim();
+    const leg = (currentUserEmployeeId ?? "").trim();
+    const mapLeg = pid && userToEmployeeMap[pid] ? String(userToEmployeeMap[pid]) : "";
+    return displayClockEntries.find(
+      (e) =>
+        e.date === todayYmd &&
+        !e.clockOut &&
+        ((!!pid && e.employeeId === pid) ||
+          (!!leg && e.employeeId === leg) ||
+          (!!mapLeg && e.employeeId === mapLeg))
+    );
+  }, [displayClockEntries, userTimeZone, profile?.id, currentUserEmployeeId, userToEmployeeMap]);
+
   const activeShiftTimeEntryId = useMemo(() => {
     const ymd = formatTodayYmdInTimeZone(userTimeZone);
     const ids = new Set(
@@ -4295,6 +4326,7 @@ export default function Home() {
   }, [projects, scheduleSelfIds]);
 
   const [shiftModalOnBreak, setShiftModalOnBreak] = useState(false);
+  const [scheduleTabClockOnBreak, setScheduleTabClockOnBreak] = useState(false);
 
   const [profileEditName, setProfileEditName] = useState("");
   const [profileEditPhone, setProfileEditPhone] = useState("");
@@ -4829,6 +4861,7 @@ export default function Home() {
     }
     if (typeof j.onBreak === "boolean") {
       setShiftModalOnBreak(j.onBreak);
+      setScheduleTabClockOnBreak(j.onBreak);
       showToast(
         "success",
         j.onBreak ? tl.clock_break_started ?? "Break started" : tl.clock_break_ended ?? "Break ended"
@@ -5411,7 +5444,18 @@ export default function Home() {
             r.projectId === taskProjectId && r.date === dateStr && r.status === "published"
         ) ?? null
       : null;
-    const canActClock = dateStr === localTodayYmd() && effectiveRole !== "admin";
+    const todayYmdTz = formatTodayYmdInTimeZone(userTimeZone);
+    const canActClock = dateStr === todayYmdTz && effectiveRole !== "admin";
+    const shiftEmpIds = entry.employeeIds ?? [];
+    const isOwnShift = scheduleSelfIds.some((sid) =>
+      shiftEmpIds.some((eid) => String(eid) === String(sid))
+    );
+    const teId = clockEntry?.id ?? "";
+    const clockEntryUuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(teId);
+    const clockCorrectionAllowed =
+      !!clockEntry?.clockOut &&
+      clockEntryUuidOk &&
+      (!!rolePerms.canManageTeamAvailability || (isOwnShift && entry.date === todayYmdTz));
     const uid = profile?.id ?? "";
     const empPay = uid ? employees.find((e) => e.id === uid) : undefined;
     const employeePaymentType: "hourly" | "salary" | "production" =
@@ -5434,6 +5478,7 @@ export default function Home() {
       canActClock,
       employeePaymentType,
       clockGoalMinutes,
+      clockCorrectionAllowed,
     };
   }, [
     employeeShiftDayOpen,
@@ -5448,20 +5493,23 @@ export default function Home() {
     projectTasks,
     dailyReports,
     effectiveRole,
+    userTimeZone,
+    rolePerms.canManageTeamAvailability,
   ]);
 
   const headerRoleDisplayName = useMemo(() => {
     const tx = t as Record<string, string>;
     const customName = activeCustomRole?.name?.trim();
     if (customName) return customName;
-    const map: Partial<Record<UserRole, string>> = {
-      admin: tx.admin ?? "",
-      supervisor: tx.supervisor ?? "",
-      worker: tx.worker ?? "",
-      logistic: tx.logistic ?? "",
-      projectManager: tx.projectManager ?? "",
+    const fromTx = (key: keyof typeof tx) => String(tx[key] ?? "").trim();
+    const fallbacks: Record<UserRole, string> = {
+      admin: fromTx("admin") || "Admin",
+      supervisor: fromTx("supervisor") || "Supervisor",
+      worker: fromTx("worker") || "Trabajador",
+      logistic: fromTx("logistic") || "Logística",
+      projectManager: fromTx("projectManager") || "Gestor de proyecto",
     };
-    return map[effectiveRole]?.trim() || effectiveRole;
+    return fallbacks[effectiveRole] || "—";
   }, [activeCustomRole?.name, effectiveRole, t]);
 
   useEffect(() => {
@@ -5495,6 +5543,33 @@ export default function Home() {
     companyId,
     session?.access_token,
   ]);
+
+  useEffect(() => {
+    const ce = scheduleTabOpenClockEntry;
+    if (!ce || ce.clockOut || !companyId || !session?.access_token) {
+      setScheduleTabClockOnBreak(false);
+      return;
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ce.id)) {
+      setScheduleTabClockOnBreak(false);
+      return;
+    }
+    let cancelled = false;
+    void fetch(
+      `/api/clock/activity?companyId=${encodeURIComponent(companyId)}&timeEntryId=${encodeURIComponent(ce.id)}`,
+      { headers: { Authorization: `Bearer ${session.access_token}` } }
+    )
+      .then((r) => r.json())
+      .then((j: { onBreak?: boolean }) => {
+        if (!cancelled && typeof j.onBreak === "boolean") setScheduleTabClockOnBreak(j.onBreak);
+      })
+      .catch(() => {
+        if (!cancelled) setScheduleTabClockOnBreak(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scheduleTabOpenClockEntry?.id, scheduleTabOpenClockEntry?.clockOut, companyId, session?.access_token]);
 
   const handleAddBlueprint = (bp: Blueprint) => {
     setBlueprints((prev) => [...prev, bp]);
@@ -6829,6 +6904,8 @@ export default function Home() {
                 }
                 dashboardCanViewAuditLog={!!rolePerms.canViewAuditLog}
                 dashboardCanViewDashboardWidgets={!!rolePerms.canViewDashboardWidgets}
+                dashboardSubscriptionPlan={subscriptionRow?.plan ?? null}
+                dashboardSubscriptionStatus={subscriptionRow?.status ?? null}
                 dashboardCanViewProjectsManagement={!!rolePerms.canViewProjects}
                 dashboardCriticalInventoryCount={criticalInventoryCount}
                 dashboardCriticalInventoryLines={dashboardCriticalInventoryLines}
@@ -7754,6 +7831,7 @@ export default function Home() {
                 vacationRequests={vacationRequests}
                 vacationEmployeeNames={vacationEmployeeNames}
                 timesheetWeeklyRegularCap={timesheetWeeklyRegularCap}
+                companyDefaultAnnualVacationDays={companyDefaultVacationDays}
                 vacationAllowanceByUserId={vacationAllowanceByUserId}
                 currentUserId={user?.id ?? ""}
                 onApproveVacation={handleApproveVacation}
@@ -7985,6 +8063,7 @@ export default function Home() {
                 onDismissClockInAlert={() => setClockInAlertMessage(null)}
                 onClockIn={handleClockIn}
                 onClockOut={handleClockOut}
+                clockBreakActive={scheduleTabClockOnBreak}
                 onOpenMyShiftView={openEmployeeShiftDay}
                 scheduleSelfIds={scheduleSelfIds}
                 assignedClockInProjects={assignedClockInProjects}
@@ -8325,6 +8404,17 @@ export default function Home() {
                   if (companyId) {
                     try {
                       localStorage.setItem(`machinpro_weekly_regular_cap_${companyId}`, String(n));
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                }}
+                companyDefaultVacationDays={companyDefaultVacationDays}
+                onCompanyDefaultVacationDaysChange={(n) => {
+                  setCompanyDefaultVacationDays(n);
+                  if (companyId) {
+                    try {
+                      localStorage.setItem(`machinpro_default_vacation_days_${companyId}`, String(n));
                     } catch {
                       /* ignore */
                     }
@@ -9461,11 +9551,7 @@ export default function Home() {
           onDailyReportSigned={() => void reloadDailyReports()}
           timeZone={userTimeZone}
           companyId={companyId ?? ""}
-          clockCorrectionAllowed={
-            !!employeeShiftModalModel.clockEntry?.clockOut &&
-            (!!rolePerms.canManageTeamAvailability ||
-              (employeeShiftModalModel.entry.date === localTodayYmd() && effectiveRole !== "admin"))
-          }
+          clockCorrectionAllowed={employeeShiftModalModel.clockCorrectionAllowed}
           onClockCorrectionApplied={(_entryId, clockInIso, clockOutIso) => {
             showToast(
               "success",

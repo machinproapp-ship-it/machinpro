@@ -22,6 +22,16 @@ export const DASHBOARD_WIDGET_IDS = [
 
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
+/** AH-43B: widgets removed from Central (never restored from stored config). */
+export const CENTRAL_STRIPPED_WIDGET_IDS = new Set<DashboardWidgetId>([
+  "quick_access",
+  "team_map",
+  "labor_costing",
+  "my_tasks",
+  "my_timeclock",
+  "hazards",
+]);
+
 const LEGACY_WIDGET_EXPAND: Record<string, DashboardWidgetId[]> = {
   timeclock: ["team_timeclock", "my_timeclock"],
   activity: ["activity"],
@@ -107,6 +117,7 @@ export function parseDashboardConfig(raw: unknown): ResolvedDashboardConfig {
   } else {
     ordered = DEFAULT_DASHBOARD_WIDGET_ORDER.filter((id) => !hidden[id]);
   }
+  ordered = ordered.filter((id) => !CENTRAL_STRIPPED_WIDGET_IDS.has(id));
 
   const quickAccess: QuickAccessKey[] = [];
   const qaKeyPresent =

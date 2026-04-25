@@ -1,4 +1,6 @@
 import type { PaidPlanKey } from "@/lib/stripe";
+import type { DashboardWidgetId } from "@/lib/dashboardConfig";
+import { CENTRAL_STRIPPED_WIDGET_IDS } from "@/lib/dashboardConfig";
 
 /** Shape aligned with ModulePermissions in page.tsx — plan gating merges with role permissions. */
 export interface ModulePermissionsShape {
@@ -91,4 +93,22 @@ export function applyPlanToModulePermissions<T extends ModulePermissionsShape>(
     warehouse: base.warehouse && tierAllowsModule(tier, "warehouse"),
     canAccessSecurity: (base.canAccessSecurity ?? false) && tierAllowsModule(tier, "security"),
   };
+}
+
+/** AH-43B: Central operational panel widget vs subscription tier (after permission checks). */
+export function centralDashboardWidgetAllowedForPlan(id: DashboardWidgetId, tier: AppPlanTier): boolean {
+  if (CENTRAL_STRIPPED_WIDGET_IDS.has(id)) return false;
+  if (tier === "trial" || tier === "unknown") return true;
+  const core: DashboardWidgetId[] = ["team_timeclock", "activity", "compliance_alerts"];
+  if (core.includes(id)) return true;
+  if (id === "visitors" || id === "daily_report" || id === "forms_pending") {
+    return tier === "operaciones" || tier === "todo_incluido";
+  }
+  if (id === "critical_inventory") {
+    return tier === "logistica" || tier === "todo_incluido";
+  }
+  if (id === "security_summary") {
+    return tier === "todo_incluido";
+  }
+  return false;
 }

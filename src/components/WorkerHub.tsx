@@ -126,8 +126,7 @@ export function WorkerHub({
     const dur = formatWorkDurationCompact(mins, lx as Record<string, string>);
     const cls = trafficLightClassFromElapsedHours(hours);
     const line =
-      (lx.clock_working_for as string | undefined)?.replace(/\{time\}/g, dur) ??
-      `Working for ${dur}`;
+      (lx.clock_working_for as string | undefined)?.replace(/\{time\}/g, dur) ?? `Working for ${dur}`;
     return { dur, cls, line };
   }, [todayClock, clockTick, lx]);
 
@@ -154,11 +153,11 @@ export function WorkerHub({
     return (
       <div className="mb-6 space-y-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-          {L(lx, "worker_view_my_forms", "Mis formularios")}
+          {L(lx, "my_forms", L(lx, "worker_view_my_forms", "Mis formularios"))}
         </h2>
         {pendingForms.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {L(lx, "forms_empty", L(lx, "noEntries", "Sin entradas"))}
+            {L(lx, "forms_empty", L(lx, "no_entries", L(lx, "noEntries", "Sin entradas")))}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -221,11 +220,11 @@ export function WorkerHub({
       {canViewSchedule ? (
         <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
           <h2 className="mb-2 text-base font-semibold text-zinc-900 dark:text-white">
-            {L(lx, "worker_view_my_clock", "Mi fichaje")}
+            {L(lx, "my_clockin", L(lx, "worker_view_my_clock", "Mi fichaje"))}
           </h2>
           {!todayClock ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {L(lx, "noEntries", "Sin fichajes hoy")}
+              {L(lx, "no_entries", L(lx, "noEntries", "Sin fichajes hoy"))}
             </p>
           ) : (
             <dl className="space-y-1 text-sm text-zinc-800 dark:text-zinc-200">
@@ -266,7 +265,7 @@ export function WorkerHub({
         <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 sm:col-span-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
-              {L(lx, "worker_view_my_forms", "Mis formularios")}
+              {L(lx, "my_forms", L(lx, "worker_view_my_forms", "Mis formularios"))}
             </h2>
             <button
               type="button"
@@ -278,7 +277,7 @@ export function WorkerHub({
           </div>
           {pendingForms.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {L(lx, "forms_empty", L(lx, "noEntries", "Sin formularios pendientes"))}
+              {L(lx, "forms_empty", L(lx, "no_entries", L(lx, "noEntries", "Sin formularios pendientes")))}
             </p>
           ) : (
             <ul className="grid gap-2 sm:grid-cols-2">
