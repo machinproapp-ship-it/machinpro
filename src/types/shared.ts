@@ -91,6 +91,8 @@ export interface CentralEmployee {
   email?: string;
   /** Mirrors `user_profiles.profile_status` (e.g. active / inactive / invited). */
   profileStatus?: string | null;
+  /** Soft-delete timestamp from `user_profiles.deleted_at` when loaded for Central HR. */
+  deleted_at?: string | null;
   certificates?: { id: string; name: string; expiryDate?: string }[];
   payType?: "hourly" | "salary" | "production";
   hourlyRate?: number;

@@ -8,6 +8,7 @@ export type AuditAction =
   | "employee_updated"
   | "employee_deleted"
   | "employee_hard_deleted"
+  | "hard_delete"
   | "document_uploaded"
   | "document_deleted"
   | "form_created"

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react';
-import { Users, Briefcase, HardHat, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound, Download } from 'lucide-react';
+import { Users, Briefcase, HardHat, ShieldCheck, Shield, ShieldAlert, ShieldOff, X, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, UserPlus, Lock, AlertTriangle, Clock, FileCheck, Star, Phone, MapPin, FileText, Image, Loader2, Check, Calendar, Camera, KeyRound, Download } from 'lucide-react';
 import type { CustomRole, RolePermissions } from '@/types/roles';
 import {
   ROLE_PERMISSION_KEYS,
@@ -35,6 +35,7 @@ import {
 import { useMachinProDisplayPrefs } from '@/hooks/useMachinProDisplayPrefs';
 import { isProjectOperationallyActive, resolveProjectLifecycleStatus } from '@/lib/projectFilters';
 import { useToast } from "@/components/Toast";
+import { supabase } from "@/lib/supabase";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { s } from "@/lib/safeReactString";
@@ -227,6 +228,8 @@ interface CentralModuleProps {
   onAddEmployee?: () => void;
   onUpdateEmployee?: (id: string, upd?: { name?: string; role?: string; hours?: number; certificates?: unknown[] }) => void;
   onConfirmDeleteEmployee?: (id: string) => void;
+  /** After successful GDPR hard delete via API — remove from local lists / invalidate cache. */
+  onCentralEmployeeHardDeleted?: (id: string) => void;
   onAddSubcontractor?: (sub: Subcontractor) => void;
   onUpdateSubcontractor?: (sub: Subcontractor) => void;
   onConfirmDeleteSubcontractor?: (id: string) => void;
@@ -429,6 +432,7 @@ export function CentralModule({
   onAddEmployee,
   onUpdateEmployee,
   onConfirmDeleteEmployee,
+  onCentralEmployeeHardDeleted,
   onAddSubcontractor,
   onUpdateSubcontractor,
   onConfirmDeleteSubcontractor,
@@ -575,6 +579,8 @@ export function CentralModule({
   const [roleDeleteBusy, setRoleDeleteBusy] = useState(false);
   const [employeeDeleteConfirmId, setEmployeeDeleteConfirmId] = useState<string | null>(null);
   const [employeeDeleteBusy, setEmployeeDeleteBusy] = useState(false);
+  const [employeeHardDeleteConfirmId, setEmployeeHardDeleteConfirmId] = useState<string | null>(null);
+  const [employeeHardDeleteBusy, setEmployeeHardDeleteBusy] = useState(false);
   const [employeesCsvExportBusy, setEmployeesCsvExportBusy] = useState(false);
   const edDocFileRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
@@ -652,7 +658,7 @@ export function CentralModule({
     }
   };
 
-  // PROTECCI?N CR?TICA: Aseguramos que las listas existan antes de usar .slice()
+  // PROTECCIÓN CRÍTICA: Aseguramos que las listas existan antes de usar .slice()
   const safeEmployees = Array.isArray(employees) ? employees : [];
   const safeProjects = Array.isArray(projects) ? projects : [];
   const safeDisplayProjects = Array.isArray(displayProjects) ? displayProjects : (safeProjects as CentralProject[]);
@@ -673,7 +679,22 @@ export function CentralModule({
   const personnelDirectoryEmployees = useMemo(() => {
     return safeEmployees.filter((e) => {
       const st = (e.profileStatus ?? "active").toLowerCase().trim();
+      const del =
+        (e as { deletedAt?: string | null; deleted_at?: string | null }).deletedAt ??
+        (e as { deletedAt?: string | null; deleted_at?: string | null }).deleted_at;
+      if (del != null && String(del).trim() !== "") return false;
       return st !== "inactive" && st !== "deleted";
+    });
+  }, [safeEmployees]);
+
+  const personnelRemovedEmployees = useMemo(() => {
+    return safeEmployees.filter((e) => {
+      const st = (e.profileStatus ?? "active").toLowerCase().trim();
+      const del =
+        (e as { deletedAt?: string | null; deleted_at?: string | null }).deletedAt ??
+        (e as { deletedAt?: string | null; deleted_at?: string | null }).deleted_at;
+      if (del != null && String(del).trim() !== "") return true;
+      return st === "inactive" || st === "deleted";
     });
   }, [safeEmployees]);
 
@@ -1159,7 +1180,7 @@ export function CentralModule({
                             <Download className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden />
                           ) : row.action.startsWith("photo_") ? (
                             <Camera className="h-4 w-4 text-amber-600" aria-hidden />
-                          ) : row.action.startsWith("employee_") ? (
+                          ) : row.action.startsWith("employee_") || row.action === "hard_delete" ? (
                             <Users className="h-4 w-4 text-blue-600" aria-hidden />
                           ) : row.action.startsWith("document_") ? (
                             <FileText className="h-4 w-4 text-zinc-600" aria-hidden />
@@ -1206,7 +1227,7 @@ export function CentralModule({
                         <Download className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
                       ) : row.action.startsWith("photo_") ? (
                         <Camera className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-                      ) : row.action.startsWith("employee_") ? (
+                      ) : row.action.startsWith("employee_") || row.action === "hard_delete" ? (
                         <Users className="h-4 w-4 shrink-0 text-blue-600" aria-hidden />
                       ) : row.action.startsWith("document_") ? (
                         <FileText className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
@@ -1750,11 +1771,11 @@ export function CentralModule({
           </div>
           <div className="border-b border-zinc-200 dark:border-white/10 px-2 sm:px-4">
             <HorizontalScrollFade className="-mx-2 px-2 sm:mx-0 sm:px-0" variant="inherit">
-              <div className="flex gap-1 min-h-[48px] items-stretch">
+              <div className="flex min-h-[44px] flex-nowrap snap-x snap-mandatory items-stretch gap-1 overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setProjectsMgmtTab("active")}
-                  className={`shrink-0 rounded-t-lg px-4 py-3 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                  className={`shrink-0 snap-start rounded-t-lg px-4 py-3 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
                     projectsMgmtTab === "active"
                       ? "border-[#f97316] text-zinc-900 dark:text-white"
                       : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
@@ -1765,7 +1786,7 @@ export function CentralModule({
                 <button
                   type="button"
                   onClick={() => setProjectsMgmtTab("archived")}
-                  className={`shrink-0 rounded-t-lg px-4 py-3 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                  className={`shrink-0 snap-start rounded-t-lg px-4 py-3 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
                     projectsMgmtTab === "archived"
                       ? "border-[#f97316] text-zinc-900 dark:text-white"
                       : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
@@ -1967,7 +1988,7 @@ export function CentralModule({
                 {canEdit && onAddEmployee ? (
                   <button type="button" onClick={onAddEmployee} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 dark:bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-600 min-h-[44px] sm:w-auto">
                     <UserPlus className="h-4 w-4" />
-                    {labels.addNew ?? "A?adir empleado"}
+                    {labels.addNew ?? "Añadir empleado"}
                   </button>
                 ) : null}
               </div>
@@ -1977,62 +1998,259 @@ export function CentralModule({
             {(personnelDirectoryEmployees ?? []).length === 0 ? (
               <p className="p-8 text-center text-zinc-500 italic text-sm">{labels.noStaff ?? "No hay personal registrado"}</p>
             ) : (
-              (personnelDirectoryEmployees ?? []).map((emp) => {
-                const certs = emp.certificates ?? [];
-                const status = getTrainingStatus(certs);
-                const certLabel = certs.length === 0 ? (labels.securityNoCerts ?? "Sin certificados") : `${certs.length} ${labels.certificates ?? "certificados"}`;
-                const ps = (emp.profileStatus ?? "").toLowerCase().trim();
-                const invited = ps === "invited";
-                const missingInfo = !String(emp.email ?? "").trim();
-                const tl = labels as Record<string, string>;
-                return (
-                  <div
-                    key={emp.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setEmployeePanelId(emp.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEmployeePanelId(emp.id); } }}
-                    className="p-4 flex items-center justify-between gap-3 min-h-[64px] cursor-pointer hover:bg-zinc-50 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">
-                        {s(emp.name).charAt(0) || "?"}
+              <>
+                <div className="md:hidden divide-y divide-zinc-200 dark:divide-white/10">
+                  {(personnelDirectoryEmployees ?? []).map((emp) => {
+                    const certs = emp.certificates ?? [];
+                    const status = getTrainingStatus(certs);
+                    const certLabel =
+                      certs.length === 0
+                        ? (labels.securityNoCerts ?? "Sin certificados")
+                        : `${certs.length} ${labels.certificates ?? "certificados"}`;
+                    const ps = (emp.profileStatus ?? "").toLowerCase().trim();
+                    const invited = ps === "invited";
+                    const missingInfo = !String(emp.email ?? "").trim();
+                    const tl = labels as Record<string, string>;
+                    return (
+                      <div
+                        key={emp.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setEmployeePanelId(emp.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setEmployeePanelId(emp.id);
+                          }
+                        }}
+                        className="flex min-h-[64px] cursor-pointer items-center justify-between gap-3 p-4 transition-colors hover:bg-zinc-50 dark:hover:bg-slate-800/50"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-bold dark:bg-zinc-800">
+                            {s(emp.name).charAt(0) || "?"}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{s(emp.name) || "?"}</p>
+                            <p className="truncate text-xs text-zinc-500">{s(emp.role)}</p>
+                            <p className="mt-0.5 truncate text-xs text-zinc-400">{certLabel}</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                          {invited ? (
+                            <span
+                              className="inline-flex max-w-[11rem] items-center rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-900 dark:bg-sky-900/40 dark:text-sky-100"
+                              title={tl.employee_invitation_pending ?? ""}
+                            >
+                              {tl.employee_badge_invited ?? "Invitation pending"}
+                            </span>
+                          ) : null}
+                          {missingInfo ? (
+                            <span
+                              className="inline-flex rounded-full bg-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-600 dark:text-zinc-200"
+                              title={tl.employee_badge_missing_tooltip ?? ""}
+                            >
+                              {tl.compliance_missing ?? tl.employee_badge_missing ?? "Missing"}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              status === "al_dia"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                : status === "pendiente"
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                  : "bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400"
+                            }`}
+                          >
+                            {status === "al_dia" && <ShieldCheck className="h-3 w-3" aria-hidden />}
+                            {status === "pendiente" && <ShieldAlert className="h-3 w-3" aria-hidden />}
+                            {status === "sin_certs" && <ShieldOff className="h-3 w-3" aria-hidden />}
+                            {status === "al_dia"
+                              ? (labels.upToDate ?? labels.securityOk ?? "Al día")
+                              : status === "pendiente"
+                                ? (labels.pending ?? labels.securityPending ?? "Pendiente")
+                                : (labels.withoutCerts ?? labels.securityNoCerts ?? "Sin certificados")}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{s(emp.name) || "?"}</p>
-                        <p className="text-xs text-zinc-500">{s(emp.role)}</p>
-                        <p className="text-xs text-zinc-400 mt-0.5">{certLabel}</p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      {invited ? (
-                        <span
-                          className="inline-flex max-w-[11rem] items-center rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-900 dark:bg-sky-900/40 dark:text-sky-100"
-                          title={tl.employee_invitation_pending ?? ""}
-                        >
-                          {tl.employee_badge_invited ?? "Invitation pending"}
-                        </span>
-                      ) : null}
-                      {missingInfo ? (
-                        <span
-                          className="inline-flex rounded-full bg-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-600 dark:text-zinc-200"
-                          title={tl.employee_badge_missing_tooltip ?? ""}
-                        >
-                          {tl.compliance_missing ?? tl.employee_badge_missing ?? "Missing"}
-                        </span>
-                      ) : null}
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status === "al_dia" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" : status === "pendiente" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"}`}>
-                      {status === "al_dia" && <ShieldCheck className="h-3 w-3" />}
-                      {status === "pendiente" && <ShieldAlert className="h-3 w-3" />}
-                      {status === "sin_certs" && <ShieldOff className="h-3 w-3" />}
-                      {status === "al_dia" ? (labels.upToDate ?? labels.securityOk ?? "Al d?a") : status === "pendiente" ? (labels.pending ?? labels.securityPending ?? "Pendiente") : (labels.withoutCerts ?? labels.securityNoCerts ?? "Sin certificados")}
-                    </span>
-                    </div>
-                  </div>
-                );
-              })
+                    );
+                  })}
+                </div>
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-zinc-800/50">
+                        <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                          {(labels as Record<string, string>).export_col_name ?? "Name"}
+                        </th>
+                        <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                          {(labels as Record<string, string>).export_col_role ?? "Role"}
+                        </th>
+                        <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                          {(labels as Record<string, string>).common_status ?? "Status"}
+                        </th>
+                        <th className="w-12 px-4 py-3" aria-hidden />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(personnelDirectoryEmployees ?? []).map((emp) => {
+                        const ps = (emp.profileStatus ?? "").toLowerCase().trim();
+                        const stLabel =
+                          ps === "active"
+                            ? s((labels as Record<string, string>).common_active ?? "Active")
+                            : s((labels as Record<string, string>).common_inactive ?? "Inactive");
+                        return (
+                          <tr
+                            key={emp.id}
+                            className="cursor-pointer border-b border-zinc-100 hover:bg-zinc-50 dark:border-white/5 dark:hover:bg-zinc-800/40"
+                            onClick={() => setEmployeePanelId(emp.id)}
+                          >
+                            <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{s(emp.name)}</td>
+                            <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{s(emp.role)}</td>
+                            <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{stLabel}</td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                aria-label={s((labels as Record<string, string>).employee_detail_title ?? "Open")}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEmployeePanelId(emp.id);
+                                }}
+                              >
+                                <ChevronRight className="h-4 w-4" aria-hidden />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
+          {personnelRemovedEmployees.length > 0 ? (
+            <div className="border-t border-zinc-200 dark:border-white/10">
+              <div className="px-4 py-3">
+                <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                  {s(
+                    (labels as Record<string, string>).central_personnel_removed_heading ??
+                      (labels as Record<string, string>).common_inactive ??
+                      "Inactive / removed"
+                  )}
+                </h4>
+              </div>
+              <div className="md:hidden divide-y divide-zinc-200 dark:divide-white/10">
+                {personnelRemovedEmployees.map((emp) => {
+                  const tl = labels as Record<string, string>;
+                  const ps = (emp.profileStatus ?? "").toLowerCase().trim();
+                  const delAt =
+                    (emp as { deletedAt?: string | null; deleted_at?: string | null }).deletedAt ??
+                    (emp as { deletedAt?: string | null; deleted_at?: string | null }).deleted_at;
+                  const hasDeletedAt = delAt != null && String(delAt).trim() !== "";
+                  const statusLine = hasDeletedAt
+                    ? s(tl.employees_status_inactive ?? tl.common_inactive ?? "Inactive")
+                    : ps === "deleted"
+                      ? s(tl.common_inactive ?? "Inactive")
+                      : s(tl.employees_status_inactive ?? tl.common_inactive ?? "Inactive");
+                  return (
+                    <div key={emp.id} className="flex flex-col gap-3 p-4">
+                      <button
+                        type="button"
+                        className="flex w-full min-w-0 items-center gap-3 rounded-xl text-left"
+                        onClick={() => setEmployeePanelId(emp.id)}
+                      >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-bold dark:bg-zinc-800">
+                          {s(emp.name).charAt(0) || "?"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">{s(emp.name) || "?"}</p>
+                          <p className="truncate text-xs text-zinc-500">{s(emp.role)}</p>
+                          <p className="mt-0.5 text-xs text-zinc-400">{statusLine}</p>
+                        </div>
+                      </button>
+                      {currentUserRole === "admin" && hasDeletedAt && companyId ? (
+                        <button
+                          type="button"
+                          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEmployeeHardDeleteConfirmId(emp.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                          {s(tl.hard_delete_employee ?? tl.hard_delete_button ?? tl.employee_hard_delete ?? "")}
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-zinc-800/50">
+                      <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                        {(labels as Record<string, string>).export_col_name ?? "Name"}
+                      </th>
+                      <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                        {(labels as Record<string, string>).export_col_role ?? "Role"}
+                      </th>
+                      <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                        {(labels as Record<string, string>).common_status ?? "Status"}
+                      </th>
+                      <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                        {(labels as Record<string, string>).actions ?? "Actions"}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {personnelRemovedEmployees.map((emp) => {
+                      const tl = labels as Record<string, string>;
+                      const ps = (emp.profileStatus ?? "").toLowerCase().trim();
+                      const delAt =
+                        (emp as { deletedAt?: string | null; deleted_at?: string | null }).deletedAt ??
+                        (emp as { deletedAt?: string | null; deleted_at?: string | null }).deleted_at;
+                      const hasDeletedAt = delAt != null && String(delAt).trim() !== "";
+                      const statusLine = hasDeletedAt
+                        ? s(tl.employees_status_inactive ?? tl.common_inactive ?? "Inactive")
+                        : ps === "deleted"
+                          ? s(tl.common_inactive ?? "Inactive")
+                          : s(tl.employees_status_inactive ?? tl.common_inactive ?? "Inactive");
+                      return (
+                        <tr key={emp.id} className="border-b border-zinc-100 dark:border-white/5">
+                          <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{s(emp.name)}</td>
+                          <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{s(emp.role)}</td>
+                          <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{statusLine}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-300 px-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                onClick={() => setEmployeePanelId(emp.id)}
+                              >
+                                {s(tl.employee_detail_title ?? "Profile")}
+                              </button>
+                              {currentUserRole === "admin" && hasDeletedAt && companyId ? (
+                                <button
+                                  type="button"
+                                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-lg bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-500"
+                                  onClick={() => setEmployeeHardDeleteConfirmId(emp.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                                  {s(tl.hard_delete_employee ?? tl.hard_delete_button ?? "")}
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -2041,18 +2259,23 @@ export function CentralModule({
         if (!emp) return null;
         const t = sanitizeLabelRecord(labels as Record<string, unknown>);
         const psLower = String(emp.profileStatus ?? "active").toLowerCase().trim();
-        const isInactive = psLower === "inactive";
+        const empExt = emp as CentralEmployee;
+        const delAt =
+          (empExt as { deleted_at?: string | null; deletedAt?: string | null }).deleted_at ??
+          (empExt as { deleted_at?: string | null; deletedAt?: string | null }).deletedAt;
+        const hasHardDeleteEligible =
+          delAt != null && String(delAt).trim() !== "" && currentUserRole === "admin" && !!companyId;
+        const isInactive = psLower === "inactive" || psLower === "deleted";
         const statusLabel =
-          psLower === "active"
+          psLower === "active" && !hasHardDeleteEligible
             ? s(t.common_active ?? "Active")
             : s(t.common_inactive ?? "Inactive");
-        const empExt = emp as CentralEmployee;
         const fullNameStr = s(empExt.full_name ?? "");
         const initialsSource =
           fullNameStr.trim() !== "" ? fullNameStr : s(emp.name ?? "");
         const editLabel = s(t.edit ?? "Edit");
         const closeLabel = s(t.common_close ?? "Close");
-        const hardDelLabel = s(t.hard_delete_button ?? t.employee_hard_delete ?? "Hard delete");
+        const hardDelLabel = s(t.hard_delete_employee ?? t.hard_delete_button ?? t.employee_hard_delete ?? "Hard delete");
         return (
           <>
             <div
@@ -2066,10 +2289,10 @@ export function CentralModule({
               aria-labelledby="central-employee-panel-title"
               className="
               fixed inset-x-0 bottom-0 z-50 max-h-[min(90vh,100dvh)] w-full max-w-full overflow-y-auto overflow-x-hidden
-              rounded-t-2xl border border-zinc-200 bg-white shadow-xl
+              rounded-t-2xl border border-zinc-200 bg-white shadow-xl max-md:pb-[max(1rem,env(safe-area-inset-bottom))]
               dark:border-slate-700 dark:bg-slate-900
               sm:inset-x-auto sm:inset-y-0 sm:left-auto sm:right-0 sm:top-0 sm:max-h-full sm:w-[min(100vw,480px)] sm:max-w-[480px]
-              sm:rounded-none sm:rounded-l-2xl
+              sm:rounded-none sm:rounded-l-2xl sm:pb-0
             "
             >
               <div className="flex justify-center pb-1 pt-3 sm:hidden">
@@ -2205,14 +2428,24 @@ export function CentralModule({
                       {editLabel}
                     </button>
                   ) : null}
-                  {currentUserRole === "admin" && isInactive && onConfirmDeleteEmployee ? (
+                  {currentUserRole === "admin" && hasHardDeleteEligible && onCentralEmployeeHardDeleted ? (
+                    <button
+                      type="button"
+                      onClick={() => setEmployeeHardDeleteConfirmId(emp.id)}
+                      className="inline-flex min-h-[44px] w-full min-w-[44px] items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 sm:w-auto"
+                    >
+                      <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                      {hardDelLabel}
+                    </button>
+                  ) : null}
+                  {currentUserRole === "admin" && isInactive && !hasHardDeleteEligible && onConfirmDeleteEmployee ? (
                     <button
                       type="button"
                       onClick={() => setEmployeeDeleteConfirmId(emp.id)}
                       className="inline-flex min-h-[44px] w-full min-w-[44px] items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 sm:w-auto"
                     >
                       <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
-                      {hardDelLabel}
+                      {s(t.hard_delete_button ?? t.employee_hard_delete ?? "Remove")}
                     </button>
                   ) : null}
                 </div>
@@ -2324,7 +2557,7 @@ export function CentralModule({
             <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => { setSubcontractorModalOpen(false); setSubcontractorDraft({}); }} />
             <div className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:max-w-xl lg:max-w-2xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{isNew ? (t.addSubcontractor ?? "A?adir subcontratista") : (t.edit ?? "Editar")}</h3>
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{isNew ? (t.addSubcontractor ?? "Añadir subcontratista") : (t.edit ?? "Editar")}</h3>
                 <button type="button" onClick={() => { setSubcontractorModalOpen(false); setSubcontractorDraft({}); }} className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700"><X className="h-5 w-5" /></button>
               </div>
               <div className="space-y-5">
@@ -2334,7 +2567,7 @@ export function CentralModule({
                     <div><label className="block text-xs text-zinc-500 mb-0.5">{t.name ?? "Nombre legal"}</label><input type="text" value={subcontractorDraft.name ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, name: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm" required /></div>
                     <div><label className="block text-xs text-zinc-500 mb-0.5">{t.specialty ?? "Especialidad"}</label><select value={subcontractorDraft.specialty ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, specialty: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm">{SUBCONTRACTOR_SPECIALTIES.map((sp) => <option key={sp} value={sp}>{t[sp] ?? sp}</option>)}</select></div>
                     <div><label className="block text-xs text-zinc-500 mb-0.5">{taxLabel}</label><input type="text" value={subcontractorDraft.taxId ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, taxId: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm" /></div>
-                    <div><label className="block text-xs text-zinc-500 mb-0.5">{t.address ?? "Direcci?n"}</label><input type="text" value={subcontractorDraft.address ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, address: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm" /></div>
+                    <div><label className="block text-xs text-zinc-500 mb-0.5">{t.address ?? "Dirección"}</label><input type="text" value={subcontractorDraft.address ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, address: e.target.value }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm" /></div>
                   </div>
                 </section>
                 <section>
@@ -2351,19 +2584,19 @@ export function CentralModule({
                   <div className="space-y-2">
                     <div><label className="block text-xs text-zinc-500 mb-0.5">{t.projects ?? "Proyectos asignados"}</label><select multiple value={subcontractorDraft.assignedProjectIds ?? []} onChange={(e) => { const sel = Array.from(e.target.selectedOptions, (o) => o.value); setSubcontractorDraft((d) => ({ ...d, assignedProjectIds: sel })); }} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[80px]">{safeProjects.map((p) => <option key={p.id} value={p.id}>{p.name ?? p.id}</option>)}</select></div>
                     <div><label className="block text-xs text-zinc-500 mb-0.5">{t.emergencyContact ?? "Contacto emergencia"}</label><input type="text" value={subcontractorDraft.emergencyContactName ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, emergencyContactName: e.target.value || undefined }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder={t.name ?? "Nombre"} /></div>
-                    <div><label className="block text-xs text-zinc-500 mb-0.5">{t.phone ?? "Tel?fono"}</label><input type="text" value={subcontractorDraft.emergencyContactPhone ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, emergencyContactPhone: e.target.value || undefined }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm" /></div>
+                    <div><label className="block text-xs text-zinc-500 mb-0.5">{t.phone ?? "Teléfono"}</label><input type="text" value={subcontractorDraft.emergencyContactPhone ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, emergencyContactPhone: e.target.value || undefined }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm" /></div>
                     <div><label className="block text-xs text-zinc-500 mb-0.5">{t.notes ?? "Notas"}</label><textarea value={subcontractorDraft.notes ?? ""} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, notes: e.target.value || undefined }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm resize-none" rows={2} /></div>
                   </div>
                 </section>
                 <section>
-                  <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{t.rating ?? "Valoraci?n"}</h4>
+                  <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">{t.rating ?? "Valoración"}</h4>
                   <div className="space-y-2">
                     <div className="flex items-center gap-1">
                       {[1,2,3,4,5].map((i) => (
                         <button key={i} type="button" onClick={() => setSubcontractorDraft((d) => ({ ...d, rating: i }))} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg"><Star className={`h-6 w-6 ${i <= (subcontractorDraft.rating ?? 0) ? "text-amber-500 fill-amber-500" : "text-zinc-300 dark:text-zinc-600"}`} /></button>
                       ))}
                     </div>
-                    <div><label className="block text-xs text-zinc-500 mb-0.5">{t.status ?? "Estado"}</label><select value={subcontractorDraft.status ?? "active"} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, status: e.target.value as "active" | "inactive" | "review" }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><option value="active">{t.active ?? "Activo"}</option><option value="inactive">{t.inactive ?? "Inactivo"}</option><option value="review">{t.underReview ?? "En revisi?n"}</option></select></div>
+                    <div><label className="block text-xs text-zinc-500 mb-0.5">{t.status ?? "Estado"}</label><select value={subcontractorDraft.status ?? "active"} onChange={(e) => setSubcontractorDraft((d) => ({ ...d, status: e.target.value as "active" | "inactive" | "review" }))} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><option value="active">{t.active ?? "Activo"}</option><option value="inactive">{t.inactive ?? "Inactivo"}</option><option value="review">{t.underReview ?? "En revisión"}</option></select></div>
                   </div>
                 </section>
               </div>
@@ -2571,7 +2804,7 @@ export function CentralModule({
                       onChange={(e) => setComplianceRecordDraft((d) => ({ ...d, value: e.target.checked ? "true" : "false" }))}
                       className="rounded border-zinc-300 dark:border-zinc-600"
                     />
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">{t.yes ?? "S?"}</span>
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">{t.yes ?? "Sí"}</span>
                   </div>
                 )}
               </div>
@@ -2647,6 +2880,103 @@ export function CentralModule({
         );
       })()}
 
+      {employeeHardDeleteConfirmId && companyId && onCentralEmployeeHardDeleted && (() => {
+        const lx = labels as Record<string, string>;
+        const targetId = employeeHardDeleteConfirmId;
+        const empRow = (safeEmployees ?? []).find((e) => e.id === targetId);
+        if (!empRow) return null;
+        return (
+          <>
+            <div
+              className="fixed inset-0 z-[10050] bg-black/50 touch-none"
+              aria-hidden
+              onClick={() => !employeeHardDeleteBusy && setEmployeeHardDeleteConfirmId(null)}
+            />
+            <div
+              role="dialog"
+              aria-modal
+              className="fixed z-[10051] w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:top-auto max-md:max-h-[min(92vh,100dvh)] max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:overflow-y-auto max-md:rounded-b-none max-md:rounded-t-2xl max-md:pb-[max(1rem,env(safe-area-inset-bottom))] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-md:translate-x-0 max-md:translate-y-0"
+            >
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white break-words">
+                {s(lx.hard_delete_employee ?? lx.hard_delete_title ?? "")}
+              </h3>
+              <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+                {s(
+                  lx.hard_delete_confirm ??
+                    "Esta acción es irreversible. Se eliminarán todos los datos del empleado incluyendo su acceso. ¿Confirmar?"
+                )}
+              </p>
+              <p className="mt-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 break-words">{s(empRow.name)}</p>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-3">
+                <button
+                  type="button"
+                  disabled={employeeHardDeleteBusy}
+                  onClick={() => setEmployeeHardDeleteConfirmId(null)}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 transition-opacity disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-100 sm:w-auto"
+                >
+                  {lx.cancel ?? "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  disabled={employeeHardDeleteBusy}
+                  onClick={() => {
+                    void (async () => {
+                      if (currentUserId && targetId === currentUserId) {
+                        showToast("error", s(lx.hard_delete_error ?? "Error"));
+                        return;
+                      }
+                      setEmployeeHardDeleteBusy(true);
+                      try {
+                        const { data: sessionData } = await supabase.auth.getSession();
+                        const token = sessionData.session?.access_token;
+                        if (!token) {
+                          showToast("error", s(lx.hard_delete_error ?? lx.auth_error ?? "Unauthorized"));
+                          return;
+                        }
+                        const res = await fetch("/api/employees/hard-delete", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({ companyId, employeeId: targetId }),
+                        });
+                        const j = (await res.json()) as { ok?: boolean; success?: boolean; error?: string; hint?: string };
+                        if (!res.ok || (!j.ok && !j.success)) {
+                          showToast(
+                            "error",
+                            userFacingErrorMessage(
+                              lx,
+                              new Error([j.error, j.hint].filter(Boolean).join(" ") || "request failed")
+                            )
+                          );
+                          return;
+                        }
+                        setEmployeeHardDeleteConfirmId(null);
+                        setEmployeePanelId(null);
+                        onCentralEmployeeHardDeleted(targetId);
+                        showToast(
+                          "success",
+                          s(lx.hard_delete_success ?? lx.employee_hard_delete_success ?? lx.toast_deleted ?? "")
+                        );
+                      } catch (e) {
+                        showToast("error", userFacingErrorMessage(lx, e));
+                      } finally {
+                        setEmployeeHardDeleteBusy(false);
+                      }
+                    })();
+                  }}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:bg-red-500 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                >
+                  {employeeHardDeleteBusy ? <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden /> : null}
+                  {s(lx.hard_delete_employee ?? lx.common_delete ?? "Delete")}
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {employeeDeleteConfirmId && onConfirmDeleteEmployee && (() => {
         const lx = labels as Record<string, string>;
         const empRow = (safeEmployees ?? []).find((e) => e.id === employeeDeleteConfirmId);
@@ -2661,7 +2991,7 @@ export function CentralModule({
             <div
               role="dialog"
               aria-modal
-              className="fixed z-[10051] w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              className="fixed z-[10051] w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:left-0 max-md:right-0 max-md:max-h-[min(88vh,96dvh)] max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:pb-[max(1rem,env(safe-area-inset-bottom))]"
             >
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white break-words">
                 {lx.common_confirm_delete ?? "Delete this item?"}

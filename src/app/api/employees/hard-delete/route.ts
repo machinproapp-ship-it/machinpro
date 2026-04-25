@@ -1,48 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRole } from "@/lib/supabase-admin";
-import { verifyCanManageEmployees } from "@/lib/verify-api-session";
+import { verifyCompanyAdmin } from "@/lib/verify-api-session";
 
 /**
  * GDPR / PIPEDA hard delete: removes personal data and Auth user.
- * Only for `profile_status` inactive or deleted (soft-deleted employees).
+ * Only profiles with `deleted_at` set (soft-deleted) may be purged.
+ * Requires company admin. Audit logs are insert-only (never delete target rows).
  */
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const admin = createSupabaseServiceRole();
   if (!admin) {
-    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500 });
   }
 
-  let body: { companyId?: string; userId?: string };
+  let body: { companyId?: string; employeeId?: string; userId?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
   const companyId = typeof body.companyId === "string" ? body.companyId.trim() : "";
-  const targetUserId = typeof body.userId === "string" ? body.userId.trim() : "";
+  const targetUserId = (
+    typeof body.employeeId === "string" && body.employeeId.trim()
+      ? body.employeeId.trim()
+      : typeof body.userId === "string"
+        ? body.userId.trim()
+        : ""
+  ) as string;
   if (!companyId || !targetUserId) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Missing fields" }, { status: 400 });
   }
 
-  const actor = await verifyCanManageEmployees(req, companyId);
+  const authHeader = req.headers.get("authorization")?.trim() ?? "";
+  const hasBearer = /^Bearer\s+\S+/i.test(authHeader);
+  if (!hasBearer) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const actor = await verifyCompanyAdmin(req, companyId);
   if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
   if (actor.userId === targetUserId) {
-    return NextResponse.json({ error: "Cannot delete own account" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Cannot delete own account" }, { status: 400 });
   }
 
   const { data: target, error: fetchErr } = await admin
     .from("user_profiles")
-    .select("id, company_id, full_name, email, role, profile_status, employee_id")
+    .select("id, company_id, full_name, email, role, profile_status, employee_id, deleted_at")
     .eq("id", targetUserId)
     .maybeSingle();
 
   if (fetchErr || !target) {
-    return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "Employee not found" }, { status: 404 });
   }
 
   const row = target as {
@@ -53,16 +66,17 @@ export async function POST(req: NextRequest) {
     role?: string | null;
     profile_status?: string | null;
     employee_id?: string | null;
+    deleted_at?: string | null;
   };
 
   if (row.company_id !== companyId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
-  const st = String(row.profile_status ?? "active").toLowerCase().trim();
-  if (st !== "inactive" && st !== "deleted") {
+  const delAt = row.deleted_at;
+  if (delAt == null || String(delAt).trim() === "") {
     return NextResponse.json(
-      { error: "Hard delete is only allowed for inactive or deleted profiles" },
+      { ok: false, error: "Hard delete is only allowed for soft-deleted employees (deleted_at set)" },
       { status: 400 }
     );
   }
@@ -116,6 +130,13 @@ export async function POST(req: NextRequest) {
   });
 
   if (legacyEmpId) {
+    await run("certificates", async () => {
+      const { error } = await admin.from("certificates").delete().eq("employee_id", legacyEmpId);
+      return { error };
+    });
+  }
+
+  if (legacyEmpId) {
     await run("clock_entries", async () => {
       const { error } = await admin.from("clock_entries").delete().eq("employee_id", legacyEmpId);
       return { error };
@@ -142,16 +163,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await run("audit_logs_target", async () => {
-    const { error } = await admin.from("audit_logs").delete().eq("user_id", targetUserId);
-    return { error };
-  });
-
   const { error: authDelErr } = await admin.auth.admin.deleteUser(targetUserId);
   if (authDelErr) {
     console.error("[employees/hard-delete] auth.admin.deleteUser", authDelErr);
     return NextResponse.json(
       {
+        ok: false,
         error: authDelErr.message,
         hint: "Related rows may block deletion. Check Supabase logs and FK constraints.",
       },
@@ -168,7 +185,7 @@ export async function POST(req: NextRequest) {
     company_id: companyId,
     user_id: actor.userId,
     user_name: actorName,
-    action: "employee_hard_deleted",
+    action: "hard_delete",
     entity_type: "employee",
     entity_id: targetUserId,
     entity_name: deletedEmployeeName,
@@ -178,5 +195,5 @@ export async function POST(req: NextRequest) {
     console.error("[employees/hard-delete] audit insert", auditErr);
   }
 
-  return NextResponse.json({ success: true, ok: true });
+  return NextResponse.json({ ok: true, success: true });
 }

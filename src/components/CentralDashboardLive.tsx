@@ -322,7 +322,7 @@ function SkeletonLoader() {
     <div className="space-y-6 animate-pulse" aria-busy="true" aria-live="polite">
       <div className="h-7 w-56 max-w-[80%] rounded-lg bg-gray-200 dark:bg-gray-600" />
       <div className="h-4 w-full max-w-md rounded bg-gray-100 dark:bg-gray-700" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-6">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-6">
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
@@ -766,7 +766,7 @@ function CentralDashboardBody(
   const [narrowViewport, setNarrowViewport] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 639px)");
+    const mq = window.matchMedia("(max-width: 767px)");
     const sync = () => setNarrowViewport(mq.matches);
     sync();
     mq.addEventListener("change", sync);
@@ -2306,7 +2306,7 @@ function CentralDashboardBody(
       {showZone1 ? (
         <section id="dashboard-management-cards" className="scroll-mt-24">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">{L("dashboard_management_section")}</h2>
-          <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:gap-6 items-stretch">
+          <div className="mb-6 flex min-w-0 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] md:grid md:grid-cols-2 md:gap-6 md:overflow-visible md:pb-0">
             {(
               (canViewEmployees || canManageEmployees
                 ? [
@@ -2413,7 +2413,10 @@ function CentralDashboardBody(
                     : []
                 )
                 .map((item) => (
-                  <div key={item.key} className="flex h-full min-h-0 min-w-0">
+                  <div
+                    key={item.key}
+                    className="flex h-full min-h-0 w-[min(100%,22rem)] shrink-0 snap-start md:w-auto md:shrink md:snap-none"
+                  >
                     {item.node}
                   </div>
                 ))
@@ -2468,7 +2471,7 @@ function CentralDashboardBody(
       {customizeOpen ? (
         <>
           <div className="fixed inset-0 z-[70] min-h-[100dvh] bg-black/50" aria-hidden onClick={() => setCustomizeOpen(false)} />
-          <div className="fixed z-[71] inset-x-0 bottom-0 max-h-[min(88vh,96dvh)] w-full max-w-none overflow-y-auto rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl flex flex-col sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl md:max-w-xl lg:max-w-2xl">
+          <div className="fixed z-[71] inset-x-0 bottom-0 flex max-h-[min(88vh,96dvh)] w-full max-w-none flex-col overflow-y-auto rounded-t-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl md:max-w-xl lg:max-w-2xl">
             <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700 md:px-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <GripVertical className="h-4 w-4" aria-hidden />

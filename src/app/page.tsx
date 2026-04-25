@@ -386,6 +386,82 @@ export interface Employee {
   laborHourlyRate?: number | null;
   /** Annual vacation allowance (calendar); `user_profiles.vacation_days_per_year`. */
   vacationDaysPerYear?: number | null;
+  /** `user_profiles.deleted_at` when row is soft-removed (Central GDPR hard delete). */
+  deleted_at?: string | null;
+}
+
+function mapUserProfileRowToEmployee(row: Record<string, unknown>): Employee {
+  const id = String(row.id);
+  const fn = row.full_name != null ? String(row.full_name).trim() : "";
+  const dn = row.display_name != null ? String(row.display_name).trim() : "";
+  const em = row.email != null ? String(row.email).trim() : "";
+  const name =
+    fn || dn || (em.includes("@") ? em.split("@")[0]!.trim() : em) || id.slice(0, 8);
+  const role = String(row.role ?? "worker");
+  let payType: Employee["payType"] | undefined;
+  const pt = String(row.pay_type ?? "").toLowerCase();
+  if (pt === "hourly") payType = "hourly";
+  else if (pt === "production") payType = "production";
+  else if (pt === "fixed" || pt === "salary") payType = "salary";
+  let hourlyRate: number | undefined;
+  let monthlySalary: number | undefined;
+  const payAmt = row.pay_amount != null ? Number(row.pay_amount) : undefined;
+  if (payType === "salary" && payAmt != null && Number.isFinite(payAmt)) monthlySalary = payAmt;
+  let laborHourlyRate: number | null | undefined;
+  const hrRaw = row.hourly_rate;
+  if (hrRaw != null && hrRaw !== "") {
+    const hn = typeof hrRaw === "number" ? hrRaw : Number(hrRaw);
+    if (Number.isFinite(hn) && hn > 0) laborHourlyRate = hn;
+    else laborHourlyRate = null;
+  }
+  if (payType === "hourly") {
+    const fromCol =
+      hrRaw != null && hrRaw !== "" ? (typeof hrRaw === "number" ? hrRaw : Number(hrRaw)) : NaN;
+    const fromPay = payAmt != null ? Number(payAmt) : NaN;
+    const eff =
+      Number.isFinite(fromCol) && fromCol > 0
+        ? fromCol
+        : Number.isFinite(fromPay) && fromPay > 0
+          ? fromPay
+          : undefined;
+    if (eff != null) {
+      laborHourlyRate = eff;
+      hourlyRate = eff;
+    }
+  }
+  let vacationDaysPerYear: number | null | undefined;
+  const vpy = row.vacation_days_per_year;
+  if (vpy != null && vpy !== "") {
+    const vn = typeof vpy === "number" ? vpy : Number(vpy);
+    if (Number.isFinite(vn) && vn >= 0) vacationDaysPerYear = Math.min(366, Math.round(vn));
+    else vacationDaysPerYear = null;
+  }
+  const createdRaw = row.created_at != null ? String(row.created_at) : undefined;
+  const delRaw = row.deleted_at;
+  const deleted_at =
+    delRaw != null && String(delRaw).trim() !== "" ? String(delRaw) : null;
+  return {
+    id,
+    name,
+    full_name: fn || undefined,
+    created_at: createdRaw ?? undefined,
+    role,
+    profileStatus: row.profile_status != null ? String(row.profile_status) : "active",
+    hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
+    payType,
+    hourlyRate,
+    laborHourlyRate,
+    monthlySalary,
+    vacationDaysPerYear,
+    phone: row.phone != null ? String(row.phone) : undefined,
+    email: em || undefined,
+    certificates: certificatesFromProfileJson(row.certificates),
+    hoursLog: [],
+    customRoleId: row.custom_role_id != null ? String(row.custom_role_id) : undefined,
+    customPermissions: row.custom_permissions as Employee["customPermissions"],
+    useRolePermissions: row.use_role_permissions != null ? Boolean(row.use_role_permissions) : undefined,
+    deleted_at,
+  };
 }
 
 function isActiveProfileEmployee(e: Pick<Employee, "profileStatus">): boolean {
@@ -1570,6 +1646,8 @@ export default function Home() {
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
+  /** Soft-removed profiles for Central (GDPR hard delete); disjoint from `employees`. */
+  const [removedEmployeesForCentral, setRemovedEmployeesForCentral] = useState<Employee[]>([]);
   const activeEmployees = useMemo(
     () =>
       Array.from(
@@ -1614,6 +1692,7 @@ export default function Home() {
   const dashboardCacheRef = useRef<{
     companyId: string;
     employees: Employee[];
+    removedEmployeesForCentral: Employee[];
     projects: Project[];
     clockEntries: ClockEntry[];
     vacationRequests: VacationRequestRow[];
@@ -2725,6 +2804,7 @@ export default function Home() {
       setVacationRequests([]);
       setUserToEmployeeMap({});
       userIdToEmployeeIdRef.current = new Map();
+      setRemovedEmployeesForCentral([]);
       setTeamProfiles([]);
       setSubcontractorsForWatchdog([]);
       setProjectExpenses([]);
@@ -2743,6 +2823,7 @@ export default function Home() {
       userIdToEmployeeIdRef.current = new Map(Object.entries(cached.userToEmployeeMap));
       setUserToEmployeeMap(cached.userToEmployeeMap);
       setEmployees(cached.employees);
+      setRemovedEmployeesForCentral(cached.removedEmployeesForCentral ?? []);
       setProjects(cached.projects);
       setDbClockEntries(cached.clockEntries);
       setVacationRequests(cached.vacationRequests);
@@ -2769,6 +2850,7 @@ export default function Home() {
     void (async () => {
       setDashboardOfficeHydrated(false);
       let mappedEmployees: Employee[] = [];
+      let mappedRemovedForCentral: Employee[] = [];
       let mappedTeamProfiles: {
         id: string;
         employeeId: string | null;
@@ -2858,7 +2940,7 @@ export default function Home() {
           supabase
             .from("user_profiles")
             .select(
-              "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, vacation_days_per_year, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status"
+              "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, vacation_days_per_year, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status, deleted_at"
             )
             .eq("company_id", cid)
             .order("created_at", { ascending: false }),
@@ -2895,92 +2977,22 @@ export default function Home() {
       if (!cancelled) {
         if (profilesErr || !profiles?.length) {
           mappedEmployees = [];
+          mappedRemovedForCentral = [];
           setEmployees([]);
+          setRemovedEmployeesForCentral([]);
         } else {
-          const allowedProfiles = (profiles as Record<string, unknown>[]).filter((row) => {
+          const allProfileRows = profiles as Record<string, unknown>[];
+          const allowedProfiles = allProfileRows.filter((row) => {
             const st = String(row.profile_status ?? "active").toLowerCase().trim();
             const delAt = row.deleted_at as string | null | undefined;
             if (delAt != null && String(delAt).trim() !== "") return false;
             return st !== "inactive" && st !== "deleted";
           });
-          mappedEmployees = allowedProfiles.map((row: Record<string, unknown>) => {
-            const id = String(row.id);
-            const fn = row.full_name != null ? String(row.full_name).trim() : "";
-            const dn = row.display_name != null ? String(row.display_name).trim() : "";
-            const em = row.email != null ? String(row.email).trim() : "";
-            const name =
-              fn ||
-              dn ||
-              (em.includes("@") ? em.split("@")[0]!.trim() : em) ||
-              id.slice(0, 8);
-            const role = String(row.role ?? "worker");
-            let payType: Employee["payType"] | undefined;
-            const pt = String(row.pay_type ?? "").toLowerCase();
-            if (pt === "hourly") payType = "hourly";
-            else if (pt === "production") payType = "production";
-            else if (pt === "fixed" || pt === "salary") payType = "salary";
-            let hourlyRate: number | undefined;
-            let monthlySalary: number | undefined;
-            const payAmt = row.pay_amount != null ? Number(row.pay_amount) : undefined;
-            if (payType === "salary" && payAmt != null && Number.isFinite(payAmt)) monthlySalary = payAmt;
-            let laborHourlyRate: number | null | undefined;
-            const hrRaw = row.hourly_rate;
-            if (hrRaw != null && hrRaw !== "") {
-              const hn = typeof hrRaw === "number" ? hrRaw : Number(hrRaw);
-              if (Number.isFinite(hn) && hn > 0) laborHourlyRate = hn;
-              else laborHourlyRate = null;
-            }
-            if (payType === "hourly") {
-              const fromCol =
-                hrRaw != null && hrRaw !== ""
-                  ? typeof hrRaw === "number"
-                    ? hrRaw
-                    : Number(hrRaw)
-                  : NaN;
-              const fromPay = payAmt != null ? Number(payAmt) : NaN;
-              const eff =
-                Number.isFinite(fromCol) && fromCol > 0
-                  ? fromCol
-                  : Number.isFinite(fromPay) && fromPay > 0
-                    ? fromPay
-                    : undefined;
-              if (eff != null) {
-                laborHourlyRate = eff;
-                hourlyRate = eff;
-              }
-            }
-            let vacationDaysPerYear: number | null | undefined;
-            const vpy = row.vacation_days_per_year;
-            if (vpy != null && vpy !== "") {
-              const vn = typeof vpy === "number" ? vpy : Number(vpy);
-              if (Number.isFinite(vn) && vn >= 0) vacationDaysPerYear = Math.min(366, Math.round(vn));
-              else vacationDaysPerYear = null;
-            }
-            const createdRaw = row.created_at != null ? String(row.created_at) : undefined;
-            return {
-              id,
-              name,
-              full_name: fn || undefined,
-              created_at: createdRaw ?? undefined,
-              role,
-              profileStatus: row.profile_status != null ? String(row.profile_status) : "active",
-              hours: typeof row.hours === "number" ? row.hours : Number(row.hours) || 0,
-              payType,
-              hourlyRate,
-              laborHourlyRate,
-              monthlySalary,
-              vacationDaysPerYear,
-              phone: row.phone != null ? String(row.phone) : undefined,
-              email: em || undefined,
-              certificates: certificatesFromProfileJson(row.certificates),
-              hoursLog: [],
-              customRoleId: row.custom_role_id != null ? String(row.custom_role_id) : undefined,
-              customPermissions: row.custom_permissions as Employee["customPermissions"],
-              useRolePermissions:
-                row.use_role_permissions != null ? Boolean(row.use_role_permissions) : undefined,
-            };
-          });
+          const removedProfiles = allProfileRows.filter((row) => !allowedProfiles.includes(row));
+          mappedEmployees = allowedProfiles.map(mapUserProfileRowToEmployee);
+          mappedRemovedForCentral = removedProfiles.map(mapUserProfileRowToEmployee);
           setEmployees(mappedEmployees);
+          setRemovedEmployeesForCentral(mappedRemovedForCentral);
         }
       }
 
@@ -3374,6 +3386,7 @@ export default function Home() {
             dashboardCacheRef.current = {
               companyId: cid,
               employees: mappedEmployees,
+              removedEmployeesForCentral: mappedRemovedForCentral,
               projects: mappedProjects,
               clockEntries: mappedClockEntries,
               vacationRequests: mappedVacations,
@@ -6698,20 +6711,18 @@ export default function Home() {
               <CentralModule
                 labels={labels}
                 employees={(() => {
-                  const activeProjects = currentUserRole === "supervisor"
+                  const activeProjects = effectiveRole === "supervisor"
                     ? (projects ?? []).filter((p) => p.id === "p1")
                     : (projects ?? []).filter((p) => !p.archived);
-                  const visible = currentUserRole === "supervisor"
-                    ? (employees ?? []).filter((e) => {
-                        const leg = userToEmployeeMap[e.id] ?? e.id;
-                        return activeProjects.some((p) =>
-                          (p.assignedEmployeeIds ?? []).some((aid) => aid === e.id || aid === leg)
-                        );
-                      })
-                    : (employees ?? []).filter((e) => {
-                        const st = (e.profileStatus ?? "active").toLowerCase().trim();
-                        return st !== "inactive" && st !== "deleted";
-                      });
+                  const visible =
+                    effectiveRole === "supervisor"
+                      ? (employees ?? []).filter((e) => {
+                          const leg = userToEmployeeMap[e.id] ?? e.id;
+                          return activeProjects.some((p) =>
+                            (p.assignedEmployeeIds ?? []).some((aid) => aid === e.id || aid === leg)
+                          );
+                        })
+                      : [...(employees ?? []), ...removedEmployeesForCentral];
                   return visible.map((e) => ({
                     id: e.id,
                     name: e.name,
@@ -6719,6 +6730,7 @@ export default function Home() {
                     created_at: e.created_at ?? undefined,
                     role: e.role,
                     profileStatus: e.profileStatus,
+                    deleted_at: e.deleted_at ?? null,
                     hours: e.hours,
                     phone: e.phone,
                     email: e.email,
@@ -6765,6 +6777,12 @@ export default function Home() {
                     entity_id: id,
                   });
                   setEmployees((prev) => prev.filter((e) => e.id !== id));
+                  setRemovedEmployeesForCentral((prev) => prev.filter((e) => e.id !== id));
+                  invalidateDashboardCache();
+                }}
+                onCentralEmployeeHardDeleted={(id) => {
+                  setEmployees((prev) => prev.filter((e) => e.id !== id));
+                  setRemovedEmployeesForCentral((prev) => prev.filter((e) => e.id !== id));
                   invalidateDashboardCache();
                 }}
                 subcontractorCountryCode={subcontractorCountryCode}
