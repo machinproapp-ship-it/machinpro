@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   AlertTriangle,
   Camera,
@@ -21,16 +22,12 @@ import type { CustomRole } from "@/types/roles";
 import type { AuditLogEntry } from "@/lib/useAuditLog";
 import { getAuditActionLabel, getAuditEntityTypeLabel } from "@/lib/auditDisplay";
 import type { Binder, BinderDocument } from "@/types/binders";
-import { HazardModule } from "@/components/HazardModule";
 import {
   CorrectiveActionsModule,
   type CorrectiveActionsPrefill,
 } from "@/components/CorrectiveActionsModule";
-import { BindersModule } from "@/components/BindersModule";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
-import { TrainingHubModule, type TrainingEmployeeOption } from "@/components/TrainingHubModule";
-import { SafetyPassportModule } from "@/components/SafetyPassportModule";
-import { SwpModule } from "@/components/SwpModule";
+import type { TrainingEmployeeOption } from "@/components/TrainingHubModule";
 import type { EmployeeDocument, ComplianceRecord } from "@/types/homePage";
 import { useToast } from "@/components/Toast";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
@@ -43,6 +40,35 @@ import { supabase } from "@/lib/supabase";
 import type { Hazard } from "@/types/hazard";
 import type { CorrectiveAction } from "@/types/correctiveAction";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
+
+const securityTabFallback = () => (
+  <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+);
+
+const HazardModule = dynamic(
+  () => import("@/components/HazardModule").then((m) => ({ default: m.HazardModule })),
+  { ssr: false, loading: securityTabFallback }
+);
+
+const BindersModule = dynamic(
+  () => import("@/components/BindersModule").then((m) => ({ default: m.BindersModule })),
+  { ssr: false, loading: securityTabFallback }
+);
+
+const TrainingHubModule = dynamic(
+  () => import("@/components/TrainingHubModule").then((m) => ({ default: m.TrainingHubModule })),
+  { ssr: false, loading: securityTabFallback }
+);
+
+const SafetyPassportModule = dynamic(
+  () => import("@/components/SafetyPassportModule").then((m) => ({ default: m.SafetyPassportModule })),
+  { ssr: false, loading: securityTabFallback }
+);
+
+const SwpModule = dynamic(
+  () => import("@/components/SwpModule").then((m) => ({ default: m.SwpModule })),
+  { ssr: false, loading: securityTabFallback }
+);
 
 export type SecurityTabId =
   | "overview"
@@ -406,7 +432,7 @@ export function SecurityModule({
 
       <HorizontalScrollFade className="border-b border-zinc-200 dark:border-slate-700 pb-2" variant="inherit">
         <div
-          className="flex w-full min-w-0 max-w-full flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+          className="flex w-full min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto pb-1 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
           role="tablist"
           aria-label={L("nav_security", "Security")}
         >
@@ -419,7 +445,7 @@ export function SecurityModule({
                 role="tab"
                 aria-selected={active}
                 onClick={() => selectSecurityTab(id)}
-                className={`inline-flex shrink-0 items-center gap-2 min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`inline-flex shrink-0 snap-start items-center gap-2 min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
                     ? "bg-amber-100 dark:bg-amber-900/40 text-amber-950 ring-2 ring-amber-400/70 dark:text-amber-100 dark:ring-amber-500/50"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-slate-800"
@@ -560,7 +586,7 @@ export function SecurityModule({
                 <>
                   <div className="hidden md:block overflow-x-auto">
                     <table className="w-full min-w-[720px]">
-                      <thead>
+                      <thead className="sticky top-0 z-10">
                         <tr className="border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50">
                           <th className="w-12 py-3 px-2" aria-hidden />
                           <th className="text-left py-3 px-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
