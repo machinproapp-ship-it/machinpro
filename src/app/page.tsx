@@ -2777,7 +2777,7 @@ export default function Home() {
       const [companyPhase0, phase0ProfilesLiteRes] = await Promise.all([
         supabase
           .from("companies")
-          .select("name, logo_url, address, phone, email, website, country_code")
+          .select("name, logo_url, address, phone, email, website, country_code, settings")
           .eq("id", cid)
           .maybeSingle(),
         supabase
@@ -7563,6 +7563,7 @@ export default function Home() {
                 }}
                 countryCode={companyCountry ?? "CA"}
                 timeZone={userTimeZone}
+                authAccessToken={session?.access_token ?? null}
                 companyCurrency={currency}
                 projectLaborSummaries={projectLaborSummaries}
                 canViewProjectLaborCosts={!!rolePerms.canViewLaborCosting}

@@ -29,6 +29,31 @@ export async function verifyCompanyAccess(
   return data?.company_id === companyId;
 }
 
+/** JWT + perfil en la empresa (para lecturas de datos de compañía). */
+export async function verifyCompanyMembership(
+  req: NextRequest,
+  companyId: string
+): Promise<{ userId: string } | null> {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!token || !companyId) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  const supabase = createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin.from("user_profiles").select("company_id").eq("id", user.id).maybeSingle();
+  if (data?.company_id !== companyId) return null;
+  return { userId: user.id };
+}
+
 /** Mismo company + permiso de gestionar empleados (admin, supervisor con rol base, o custom_permissions). */
 export async function verifyCanManageEmployees(
   req: NextRequest,

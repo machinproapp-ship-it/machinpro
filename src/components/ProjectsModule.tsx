@@ -109,12 +109,11 @@ import {
   defaultInvoiceTaxPercent,
 } from "@/lib/generateInvoicePdf";
 import { generateBenefitReportPdf } from "@/lib/generateBenefitReportPdf";
-import { generateWorkOrderPdf } from "@/lib/generateWorkOrderPdf";
-import { fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import {
   formatTodayYmdInTimeZone,
   zonedYmdHmToUtcIso,
 } from "@/lib/dateUtils";
+import { ProjectWorkOrdersPanel } from "@/components/ProjectWorkOrdersPanel";
 import {
   parseSafetyRequirementsJson,
   findCertForRequirement,
@@ -294,6 +293,8 @@ export interface ProjectsModuleProps {
   onDailyReportPublished?: (report: DailyFieldReport) => void;
   /** IANA; fechas de galería, parte diario y proyecto */
   timeZone?: string;
+  /** Bearer para APIs work_order_items (AH-43C). */
+  authAccessToken?: string | null;
   companyCurrency?: Currency;
   /** AH-17: labor hours/cost per project (from time entries). */
   projectLaborSummaries?: Record<string, ProjectLaborSummary>;
@@ -639,6 +640,7 @@ export function ProjectsModule({
   onRefreshDailyReports,
   onDailyReportPublished,
   timeZone: timeZoneProp,
+  authAccessToken = null,
   companyCurrency = "CAD",
   projectLaborSummaries = {},
   canViewProjectLaborCosts = false,
@@ -788,8 +790,6 @@ export function ProjectsModule({
   const [benefitOpen, setBenefitOpen] = useState(false);
   const [benefitStart, setBenefitStart] = useState("");
   const [benefitEnd, setBenefitEnd] = useState("");
-  const [workOrderImportOpen, setWorkOrderImportOpen] = useState(false);
-  const [workOrderImportPick, setWorkOrderImportPick] = useState<Record<string, boolean>>({});
   const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
   const [pdfExportBusy, setPdfExportBusy] = useState(false);
   const [safetyChecklistPdfBusy, setSafetyChecklistPdfBusy] = useState(false);
@@ -829,11 +829,6 @@ export function ProjectsModule({
     return lines;
   }, [workOrderOverridesForProject, productionCatalogById]);
 
-  const workOrderEstimatedTotal = useMemo(
-    () => workOrderLines.reduce((s, x) => s + x.eff.sell, 0),
-    [workOrderLines]
-  );
-
   const dailyReportWorkOrderLines = useMemo(
     () =>
       workOrderLines.map(({ override: o, catalog: cat, eff }) => ({
@@ -850,11 +845,6 @@ export function ProjectsModule({
         hasCostOverride: o.customCostPrice != null,
       })),
     [workOrderLines]
-  );
-
-  const importCatalogIdsExisting = useMemo(
-    () => new Set(workOrderOverridesForProject.map((o) => o.catalogItemId)),
-    [workOrderOverridesForProject]
   );
 
   const filteredMachinTemplates = useMemo(
@@ -5257,293 +5247,23 @@ export function ProjectsModule({
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {(t as Record<string, string>).employees_no_company ?? ""}
             </p>
+          ) : !authAccessToken?.trim() ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {(t as Record<string, string>).work_orders_need_session ?? "Sign in to load work orders."}
+            </p>
           ) : (
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {(t as Record<string, string>).work_order_title ?? "Orden de trabajo"}
-              </h3>
-              {canManageWorkOrders ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWorkOrderImportPick({});
-                    setWorkOrderImportOpen(true);
-                  }}
-                  className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-amber-500/80 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 dark:border-amber-600/60 dark:bg-amber-950/40 dark:text-amber-100"
-                >
-                  <Plus className="h-4 w-4" />
-                  {(t as Record<string, string>).work_order_import ?? "Import from catalog"}
-                </button>
-              ) : null}
-            </div>
-            {workOrderLines.length === 0 ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {(t as Record<string, string>).work_order_empty ?? "No tasks assigned"}
-              </p>
-            ) : (
-              <>
-                <div className="-mx-1 overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700 px-1 sm:mx-0 sm:px-0">
-                  <table className="w-full min-w-0 text-sm md:min-w-[720px]">
-                    <thead className="bg-zinc-50 dark:bg-slate-800/80 text-left text-zinc-600 dark:text-zinc-400">
-                      <tr>
-                        <th className="px-2 py-2 font-medium sm:px-3">
-                          {(t as Record<string, string>).production_catalog_name ?? "Task"}
-                        </th>
-                        <th className="hidden px-3 py-2 font-medium md:table-cell">
-                          {(t as Record<string, string>).production_catalog_unit ?? "Unit"}
-                        </th>
-                        <th className="hidden px-3 py-2 font-medium text-right lg:table-cell">
-                          {(t as Record<string, string>).production_catalog_cost_price ?? "Cost"}
-                        </th>
-                        <th className="px-2 py-2 font-medium text-right sm:px-3">
-                          {(t as Record<string, string>).production_catalog_sell_price ?? "Sell"}
-                        </th>
-                        {canManageWorkOrders ? (
-                          <th className="px-2 py-2 sm:px-3 md:w-36 lg:w-28" />
-                        ) : null}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-slate-800">
-                      {workOrderLines.map(({ override: o, catalog: cat, eff }) => {
-                        const ukey = cat.unit;
-                        const uLbl =
-                          (tl[`production_unit_${ukey}` as keyof typeof tl] as string) || ukey;
-                        return (
-                          <tr key={o.id}>
-                            <td className="max-w-[min(55vw,14rem)] px-2 py-2 font-medium text-zinc-900 dark:text-zinc-100 break-words sm:max-w-none sm:px-3 md:max-w-md">
-                              {cat.name}
-                            </td>
-                            <td className="hidden px-3 py-2 md:table-cell">{uLbl}</td>
-                            <td className="hidden px-3 py-2 text-right tabular-nums lg:table-cell">
-                              {o.customCostPrice != null ? (
-                                <>
-                                  <span className="line-through opacity-60">
-                                    {cat.currency} {cat.costPrice.toFixed(4)}
-                                  </span>{" "}
-                                  <span className="font-medium">
-                                    {cat.currency} {eff.cost.toFixed(4)}
-                                  </span>
-                                </>
-                              ) : (
-                                `${cat.currency} ${eff.cost.toFixed(4)}`
-                              )}
-                            </td>
-                            <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap sm:px-3">
-                              {o.customSellPrice != null ? (
-                                <>
-                                  <span className="line-through opacity-60">
-                                    {cat.currency} {cat.sellPrice.toFixed(4)}
-                                  </span>{" "}
-                                  <span className="font-medium">
-                                    {cat.currency} {eff.sell.toFixed(4)}
-                                  </span>
-                                </>
-                              ) : (
-                                `${cat.currency} ${eff.sell.toFixed(4)}`
-                              )}
-                            </td>
-                            {canManageWorkOrders ? (
-                              <td className="px-2 py-2 sm:px-3">
-                                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                                  <label className="block min-w-[100px]">
-                                    <span className="sr-only">
-                                      {(t as Record<string, string>).work_order_override_price ?? ""}
-                                    </span>
-                                    <input
-                                      key={`sell-${o.id}-${o.customSellPrice ?? "n"}`}
-                                      type="number"
-                                      step="0.0001"
-                                      min={0}
-                                      placeholder={(t as Record<string, string>).work_order_override_price ?? ""}
-                                      defaultValue={o.customSellPrice ?? ""}
-                                      onBlur={(e) => {
-                                        const raw = e.target.value.trim();
-                                        const v =
-                                          raw === "" ? null : parseFloat(raw.replace(",", "."));
-                                        if (v != null && !Number.isFinite(v)) return;
-                                        void (async () => {
-                                          if (!supabase) return;
-                                          const { error } = await supabase
-                                            .from("project_task_overrides")
-                                            .update({ custom_sell_price: v })
-                                            .eq("id", o.id)
-                                            .eq("company_id", companyId);
-                                          if (error) showToast("error", userFacingErrorMessage(tl, error));
-                                          else {
-                                            showToast(
-                                              "success",
-                                              (t as Record<string, string>).toast_saved ??
-                                                PM_EN.export_success
-                                            );
-                                            onRefreshProductionData?.();
-                                          }
-                                        })();
-                                      }}
-                                      className="w-full min-h-[44px] rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs tabular-nums"
-                                    />
-                                  </label>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void (async () => {
-                                        if (!supabase) return;
-                                        const { error } = await supabase
-                                          .from("project_task_overrides")
-                                          .update({ is_active: false })
-                                          .eq("id", o.id)
-                                          .eq("company_id", companyId);
-                                        if (error) showToast("error", userFacingErrorMessage(tl, error));
-                                        else onRefreshProductionData?.();
-                                      })();
-                                    }}
-                                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border border-red-300 text-red-600 dark:border-red-800"
-                                    aria-label={(t as Record<string, string>).work_order_remove ?? "Remove"}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            ) : null}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                  {(t as Record<string, string>).work_order_total ?? "Estimated total"}:{" "}
-                  <span className="tabular-nums">
-                    {workOrderLines[0]?.catalog.currency ?? companyCurrency}{" "}
-                    {workOrderEstimatedTotal.toFixed(4)}
-                  </span>
-                </p>
-                {canExportProjectCosts ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void (async () => {
-                        if (!selectedProject) return;
-                        try {
-                          const lines = workOrderLines.map(({ override: o, catalog: cat, eff }) => {
-                            const ukey = cat.unit;
-                            const uLbl =
-                              (tl[`production_unit_${ukey}` as keyof typeof tl] as string) || ukey;
-                            return {
-                              taskName: cat.name,
-                              unitLabel: uLbl,
-                              currency: cat.currency,
-                              catalogCost: cat.costPrice,
-                              catalogSell: cat.sellPrice,
-                              effCost: eff.cost,
-                              effSell: eff.sell,
-                              hasCostOverride: o.customCostPrice != null,
-                              hasSellOverride: o.customSellPrice != null,
-                            };
-                          });
-                          const blob = await generateWorkOrderPdf({
-                            labels: tl,
-                            companyName: companyName || "MachinPro",
-                            companyLogoUrl: companyLogoUrl?.trim() || undefined,
-                            companyAddress: companyAddress?.trim() || undefined,
-                            projectName: selectedProject.name,
-                            projectAddress: selectedProject.location?.trim() || undefined,
-                            reportDate: todayYmdLocal(),
-                            lines,
-                            totalSell: workOrderEstimatedTotal,
-                          });
-                          const slug = fileSlugCompany(companyName || "MachinPro", companyId || "co");
-                          const href = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = href;
-                          a.download = `work_order_${slug}_${filenameDateYmd()}.pdf`;
-                          a.click();
-                          URL.revokeObjectURL(href);
-                          showToast("success", tl.toast_saved ?? PM_EN.export_success);
-                        } catch (err) {
-                          showToast("error", userFacingErrorMessage(tl, err));
-                        }
-                      })()
-                    }
-                    className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-slate-700"
-                  >
-                    <FileDown className="h-4 w-4 shrink-0" aria-hidden />
-                    {(t as Record<string, string>).work_order_export_pdf ?? "Export Work Order PDF"}
-                  </button>
-                ) : null}
-              </>
-            )}
-            {workOrderImportOpen ? (
-              <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-                <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-                  <h4 className="text-lg font-semibold text-zinc-900 dark:text-white mb-3">
-                    {(t as Record<string, string>).work_order_import ?? ""}
-                  </h4>
-                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto mb-4">
-                    {productionCatalogItems
-                      .filter((c) => c.isActive && !importCatalogIdsExisting.has(c.id))
-                      .map((c) => (
-                        <li key={c.id}>
-                          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-600 px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={!!workOrderImportPick[c.id]}
-                              onChange={(e) =>
-                                setWorkOrderImportPick((p) => ({ ...p, [c.id]: e.target.checked }))
-                              }
-                              className="h-5 w-5"
-                            />
-                            <span className="text-sm text-zinc-800 dark:text-zinc-200">{c.name}</span>
-                          </label>
-                        </li>
-                      ))}
-                  </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void (async () => {
-                        if (!supabase || !selectedProjectId) return;
-                        const ids = Object.entries(workOrderImportPick)
-                          .filter(([, v]) => v)
-                          .map(([k]) => k);
-                        for (const catalogItemId of ids) {
-                          const { error } = await supabase.from("project_task_overrides").insert({
-                            company_id: companyId,
-                            project_id: selectedProjectId,
-                            catalog_item_id: catalogItemId,
-                            custom_cost_price: null,
-                            custom_sell_price: null,
-                            is_active: true,
-                          });
-                          if (error) {
-                            showToast("error", userFacingErrorMessage(tl, error));
-                            return;
-                          }
-                        }
-                        setWorkOrderImportOpen(false);
-                        setWorkOrderImportPick({});
-                        showToast(
-                          "success",
-                          (t as Record<string, string>).toast_saved ?? PM_EN.export_success
-                        );
-                        onRefreshProductionData?.();
-                      })()}
-                      className="min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white"
-                    >
-                      {(t as Record<string, string>).save ?? "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWorkOrderImportOpen(false)}
-                      className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-600"
-                    >
-                      {(t as Record<string, string>).cancel ?? "Cancel"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
+            <ProjectWorkOrdersPanel
+              labels={t as Record<string, string>}
+              companyId={companyId}
+              projectId={selectedProject.id}
+              projectName={selectedProject.name}
+              companyName={companyName || "MachinPro"}
+              accessToken={authAccessToken}
+              timeZone={userTz}
+              companyCurrency={companyCurrency}
+              employees={(allEmployees ?? []).map((e) => ({ id: e.id, name: e.name }))}
+              canManage={!!canManageWorkOrders}
+            />
           )
         ) : null}
 
