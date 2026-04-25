@@ -928,7 +928,7 @@ export function LogisticsModule({
       <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0 -mx-1 min-w-0 px-1 sm:mx-0 sm:px-0">
         <HorizontalScrollFade variant="card">
           <div
-            className="flex max-w-full overflow-x-auto scrollbar-hide gap-1.5 pe-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
+            className="flex max-w-full flex-nowrap gap-1.5 overflow-x-auto pe-1 scroll-smooth snap-x snap-mandatory scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
             role="tablist"
           >
             {tabs.map((tab) => (
@@ -937,7 +937,7 @@ export function LogisticsModule({
                 type="button"
                 role="tab"
                 onClick={() => setWarehouseSubTab(tab.id)}
-                className={`shrink-0 min-h-[44px] min-w-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow-md text-orange-600 dark:text-orange-400 ring-2 ring-orange-400/80 dark:ring-orange-500/50" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
+                className={`shrink-0 snap-start min-h-[44px] min-w-[44px] whitespace-nowrap py-2.5 px-3 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors ${warehouseSubTab === tab.id ? "bg-white dark:bg-zinc-700 shadow-md text-orange-600 dark:text-orange-400 ring-2 ring-orange-400/80 dark:ring-orange-500/50" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
               >
                 {tab.icon}
                 {tab.label}
@@ -1334,7 +1334,7 @@ export function LogisticsModule({
             {/* Tabla desde md (768px+) */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm text-left">
-              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
+              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
                 <tr>
                   <th className="px-4 py-3 font-medium">{t.category ?? "Category"}</th>
                   <th className="px-4 py-3 font-medium">{t.quantity ?? "Quantity"}</th>
@@ -1621,7 +1621,7 @@ export function LogisticsModule({
                   if (!importSubmitting) setImportOpen(false);
                 }}
               />
-              <div className="fixed inset-x-0 bottom-0 z-[10061] mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
+              <div className="fixed z-[10061] w-full border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:p-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-lg md:max-h-[90vh] md:overflow-y-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {(t as Record<string, string>).inventory_import_preview ?? "Import preview"}
@@ -1697,7 +1697,7 @@ export function LogisticsModule({
                   if (!transferSubmitting) setTransferItem(null);
                 }}
               />
-              <div className="fixed inset-x-0 bottom-0 z-[10061] mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
+              <div className="fixed z-[10061] w-full border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:p-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-full md:max-w-md md:max-h-[90vh] md:overflow-y-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
                   {(t as Record<string, string>).inventory_transfer ?? "Transfer"}
                 </h3>
@@ -1820,7 +1820,7 @@ export function LogisticsModule({
           {adjustModal && (
             <>
               <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={onCloseAdjustModal} />
-              <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
+              <div className="fixed z-50 w-full border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:overflow-y-auto max-md:overflow-x-hidden max-md:rounded-t-2xl max-md:rounded-b-none max-md:p-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:max-h-[90vh] md:overflow-y-auto md:overflow-x-hidden md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {adjustModal.type === "add" ? (t.addUnits ?? "Add units") : (t.removeUnits ?? "Remove units")}
@@ -1915,7 +1915,7 @@ export function LogisticsModule({
                   if (!returnSubmitting && !returnPhotoUploading) closeReturnModal();
                 }}
               />
-              <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl space-y-4 dark:border-slate-700 dark:bg-slate-900 md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
+              <div className="fixed z-50 w-full border border-zinc-200 bg-white shadow-xl space-y-4 dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:overflow-y-auto max-md:overflow-x-hidden max-md:rounded-t-2xl max-md:rounded-b-none max-md:p-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:w-[calc(100%-2rem)] md:max-w-sm md:max-h-[90vh] md:overflow-y-auto md:overflow-x-hidden md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-6">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white pr-2">
                     {tlLabels.returnToWarehouse ?? "Return to warehouse"}
@@ -2447,7 +2447,7 @@ export function LogisticsModule({
           {/* Tabla Flota desde md */}
           <div className="hidden md:block rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
             <table className="w-full text-sm text-left">
-              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
+              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
                 <tr>
                   <th className="px-4 py-3 font-medium">{tlLabels.wh_vehicle_plate ?? "License plate"}</th>
                   <th className="px-4 py-3 font-medium">{t.whUsualDriver ?? "Usual driver"}</th>
@@ -2676,9 +2676,12 @@ export function LogisticsModule({
                 </p>
                 <div className="rounded-xl border border-zinc-200 dark:border-slate-700 divide-y divide-zinc-200 dark:divide-slate-700 overflow-hidden">
                   {inv.length > 0 && (
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50">
-                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabInventory ?? "Inventory"}</h4>
-                      <ul className="space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <details className="group bg-zinc-50 dark:bg-zinc-800/50" open>
+                      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                        <span>{t.whTabInventory ?? "Inventory"}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <ul className="space-y-1 px-4 pb-4 text-sm text-zinc-700 dark:text-zinc-300">
                         {inv.map((i) => (
                           <li key={i.id} className="flex items-center gap-2">
                             {i.type === "tool" ? <Wrench className="h-4 w-4 text-zinc-400" /> : <Package className="h-4 w-4 text-zinc-400" />}
@@ -2686,12 +2689,15 @@ export function LogisticsModule({
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </details>
                   )}
                   {veh.length > 0 && (
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50">
-                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabFleet ?? "Fleet"}</h4>
-                      <ul className="space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <details className="group bg-zinc-50 dark:bg-zinc-800/50" open>
+                      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                        <span>{t.whTabFleet ?? "Fleet"}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <ul className="space-y-1 px-4 pb-4 text-sm text-zinc-700 dark:text-zinc-300">
                         {veh.map((v) => (
                           <li key={v.id} className="flex items-center gap-2">
                             <Truck className="h-4 w-4 text-zinc-400" />
@@ -2699,17 +2705,20 @@ export function LogisticsModule({
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </details>
                   )}
                   {rent.length > 0 && (
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50">
-                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">{t.whTabRentals ?? "Rentals"}</h4>
-                      <ul className="space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <details className="group bg-zinc-50 dark:bg-zinc-800/50" open>
+                      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                        <span>{t.whTabRentals ?? "Rentals"}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <ul className="space-y-1 px-4 pb-4 text-sm text-zinc-700 dark:text-zinc-300">
                         {rent.map((r) => (
                           <li key={r.id}>{r.name} · {r.supplier}</li>
                         ))}
                       </ul>
-                    </div>
+                    </details>
                   )}
                   {inv.length === 0 && veh.length === 0 && rent.length === 0 && (
                     <p className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
@@ -2880,7 +2889,7 @@ export function LogisticsModule({
         return (
           <>
             <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSupplierId(null)} />
-            <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-[calc(100vw-2rem)] border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 min-[480px]:max-w-md md:max-w-lg lg:max-w-xl">
+            <div className="fixed z-50 w-full border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:border max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:right-0 sm:top-0 sm:bottom-0 sm:max-w-md sm:overflow-y-auto sm:border-l md:max-w-lg lg:max-w-xl">
               <div className="p-4 border-b border-zinc-200 dark:border-slate-700 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">{s.name}</h3>
                 <button type="button" onClick={() => setSelectedSupplierId(null)} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center">
@@ -2946,7 +2955,7 @@ export function LogisticsModule({
       {selectedAsset && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedAsset(null)} />
-          <div className="fixed bottom-0 right-0 top-0 z-50 w-full max-w-[calc(100vw-2rem)] border-l border-zinc-200 bg-white shadow-xl overflow-y-auto dark:border-slate-700 dark:bg-slate-900 min-[480px]:max-w-md md:max-w-lg lg:max-w-xl">
+            <div className="fixed z-50 w-full border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:border max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:right-0 sm:top-0 sm:bottom-0 sm:max-w-md sm:overflow-y-auto sm:border-l md:max-w-lg lg:max-w-xl">
             <div className="p-4 border-b border-zinc-200 dark:border-slate-700 flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <h3 className="text-lg font-semibold text-zinc-900 break-words dark:text-white">
@@ -3360,7 +3369,7 @@ export function LogisticsModule({
             <div
               role="dialog"
               aria-modal
-              className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:max-w-lg lg:max-w-xl"
+              className="fixed z-50 max-h-[90vh] w-full overflow-y-auto border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:rounded-t-2xl max-md:rounded-b-none max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:top-1/2 sm:w-[calc(100vw-2rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6 md:max-w-lg lg:max-w-xl"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="mb-4 text-lg font-semibold text-zinc-900 break-words dark:text-white">{field.name}</h3>
@@ -3433,7 +3442,7 @@ export function LogisticsModule({
           <div
             role="dialog"
             aria-modal
-            className="fixed left-1/2 top-1/2 z-[10071] max-h-[90vh] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6"
+            className="fixed z-[10071] max-h-[90vh] w-full overflow-y-auto border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[90vh] max-md:rounded-t-2xl max-md:rounded-b-none max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:top-1/2 sm:w-[calc(100vw-2rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
