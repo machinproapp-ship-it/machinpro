@@ -1505,7 +1505,81 @@ function TimesheetsView({
         )}
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {sheets.length > 0 ? (
+        <div className="sm:hidden overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+          <table className="w-full min-w-[min(100%,20rem)] border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-left text-xs font-semibold text-zinc-600 dark:border-slate-700 dark:text-zinc-300">
+                <th className="sticky left-0 z-10 min-w-[9.5rem] max-w-[10rem] bg-zinc-50 py-2 pr-2 dark:bg-slate-900">
+                  {lx.personnel ?? "Employee"}
+                </th>
+                <th className="whitespace-nowrap px-2 py-2">{lx.timesheet_weekly_summary ?? "Week"}</th>
+                <th className="whitespace-nowrap px-2 py-2">{labels.regularHours ?? "Reg."}</th>
+                <th className="whitespace-nowrap px-2 py-2">{labels.overtimeHours ?? "OT"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sheets.map((sheet) => {
+                const status = effectiveStatus(sheet);
+                const stChip =
+                  status === "approved"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                    : status === "rejected"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                      : status === "submitted"
+                        ? "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-200"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+                return (
+                  <tr
+                    key={`m-${sheet.id}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedSheetId(sheet.id);
+                      setNotesDraft(sheetStatus[sheet.id]?.notes ?? "");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedSheetId(sheet.id);
+                        setNotesDraft(sheetStatus[sheet.id]?.notes ?? "");
+                      }
+                    }}
+                    className="cursor-pointer border-b border-zinc-100 hover:bg-zinc-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
+                  >
+                    <td className="sticky left-0 z-10 min-w-[9.5rem] max-w-[10rem] border-r border-zinc-100 bg-white py-2 pr-2 align-top shadow-[2px_0_8px_-4px_rgba(0,0,0,0.12)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-[2px_0_8px_-4px_rgba(0,0,0,0.4)]">
+                      <span className="line-clamp-2 font-medium text-zinc-900 dark:text-white">
+                        {getEmployeeName(sheet.employeeId)}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] tabular-nums font-semibold text-amber-700 dark:text-amber-400">
+                        {sheet.totalHours.toFixed(1)}h
+                      </span>
+                      <span
+                        className={`mt-1 inline-flex max-w-full rounded-full px-2 py-0.5 text-[10px] font-medium ${stChip}`}
+                      >
+                        <span className="truncate">{statusLabel(status)}</span>
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 align-top text-xs text-zinc-600 dark:text-zinc-300">
+                      {sheet.weekStart} – {sheet.weekEnd}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 align-top text-xs tabular-nums text-zinc-700 dark:text-zinc-200">
+                      {sheet.regularHours}h
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 align-top text-xs tabular-nums text-zinc-700 dark:text-zinc-200">
+                      {sheet.overtimeHours}h
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      <div
+        className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${sheets.length > 0 ? "hidden sm:grid" : ""}`}
+      >
         {sheets.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400 col-span-full">
             {lx.empty_state_timesheets ?? labels.noEntries ?? ""}
@@ -1620,7 +1694,7 @@ function TimesheetsView({
       {selectedSheet && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={() => setSelectedSheetId(null)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] w-full max-w-[calc(100vw-2rem)] mx-auto overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:mx-0 sm:max-h-[90vh] sm:w-[min(95vw,calc(100%-2rem))] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6 md:max-w-xl lg:max-w-2xl">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] w-full max-w-[calc(100vw-2rem)] mx-auto overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:mx-0 sm:max-h-[90vh] sm:w-[min(95vw,calc(100%-2rem))] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6 md:max-w-xl lg:max-w-2xl">
             <div className="mb-4 flex items-center justify-between gap-2">
               <h3 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-white sm:text-lg">
                 {getEmployeeName(selectedSheet.employeeId)} · {selectedSheet.weekStart} – {selectedSheet.weekEnd}
@@ -1637,7 +1711,7 @@ function TimesheetsView({
               <table className="w-full min-w-[560px] text-sm border-collapse sm:min-w-0">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                    <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
+                    <th className="sticky left-0 z-10 bg-white py-2 pr-2 text-left font-medium text-zinc-700 dark:bg-slate-900 dark:text-zinc-300 max-sm:min-w-[5.5rem] max-sm:shadow-[2px_0_8px_-4px_rgba(0,0,0,0.12)] dark:max-sm:shadow-[2px_0_8px_-4px_rgba(0,0,0,0.35)]">
                       {lx.date ?? "Date"}
                     </th>
                     <th className="py-2 text-left font-medium text-zinc-700 dark:text-zinc-300">
@@ -1670,7 +1744,9 @@ function TimesheetsView({
                 <tbody>
                   {selectedSheet.entries.map((ent) => (
                     <tr key={ent.id} className="border-b border-zinc-100 dark:border-zinc-800">
-                      <td className="py-2 text-zinc-600 dark:text-zinc-400">{ent.date}</td>
+                      <td className="sticky left-0 z-10 bg-white py-2 pr-2 text-zinc-600 max-sm:border-r max-sm:border-zinc-100 dark:bg-slate-900 dark:text-zinc-400 dark:max-sm:border-zinc-800">
+                        {ent.date}
+                      </td>
                       <td className="py-2 text-zinc-600 dark:text-zinc-400">
                         <span>{ent.projectName ?? "—"}</span>
                         {(ent.locationAlert ?? ent.hadPendingCerts) && (
@@ -2648,7 +2724,7 @@ export default function ScheduleModule({
         variant="inherit"
       >
         <div
-          className="flex flex-nowrap gap-2 overflow-x-auto pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
+          className="flex snap-x snap-mandatory flex-nowrap gap-2 overflow-x-auto pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
           role="tablist"
           aria-label={labels.schedule ?? ALL_TRANSLATIONS.en.schedule}
         >
@@ -2658,7 +2734,7 @@ export default function ScheduleModule({
               role="tab"
               aria-selected={scheduleSubTab === "calendar"}
               onClick={() => setScheduleSubTab("calendar")}
-              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+              className={`snap-start shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
                 scheduleSubTab === "calendar"
                   ? "border-amber-500 text-amber-600 dark:text-amber-400"
                   : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -2673,7 +2749,7 @@ export default function ScheduleModule({
               role="tab"
               aria-selected={scheduleSubTab === "clock"}
               onClick={() => setScheduleSubTab("clock")}
-              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+              className={`snap-start shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
                 scheduleSubTab === "clock"
                   ? "border-amber-500 text-amber-600 dark:text-amber-400"
                   : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -2688,7 +2764,7 @@ export default function ScheduleModule({
               role="tab"
               aria-selected={scheduleSubTab === "timesheets"}
               onClick={() => setScheduleSubTab("timesheets")}
-              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+              className={`snap-start shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
                 scheduleSubTab === "timesheets"
                   ? "border-amber-500 text-amber-600 dark:text-amber-400"
                   : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -2703,7 +2779,7 @@ export default function ScheduleModule({
               role="tab"
               aria-selected={scheduleSubTab === "payroll"}
               onClick={() => setScheduleSubTab("payroll")}
-              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+              className={`snap-start shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
                 scheduleSubTab === "payroll"
                   ? "border-amber-500 text-amber-600 dark:text-amber-400"
                   : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -2718,7 +2794,7 @@ export default function ScheduleModule({
               role="tab"
               aria-selected={scheduleSubTab === "vacations"}
               onClick={() => setScheduleSubTab("vacations")}
-              className={`shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+              className={`snap-start shrink-0 px-4 py-2.5 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
                 scheduleSubTab === "vacations"
                   ? "border-amber-500 text-amber-600 dark:text-amber-400"
                   : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -2735,7 +2811,7 @@ export default function ScheduleModule({
       </HorizontalScrollFade>
 
       {scheduleSubTab === "clock" && showClockTab ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-6">
+        <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-6 md:pb-4">
           {canClockIn ? (
             <div className="space-y-4">
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
@@ -2949,7 +3025,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={() => !schedManualSaving && setSchedManualModal(null)}
           />
-          <div className="fixed inset-x-0 bottom-0 z-[56] max-h-[90vh] space-y-3 overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl md:max-w-lg lg:max-w-xl">
+          <div className="fixed inset-x-0 bottom-0 z-[56] max-h-[90vh] space-y-3 overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl md:max-w-lg lg:max-w-xl">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                 {schedManualModal.mode === "in" ? lx.clock_manual_in ?? "" : lx.clock_manual_out ?? ""}
@@ -3495,7 +3571,7 @@ export default function ScheduleModule({
                 ← {labels.previousMonth ?? "Anterior"}
               </span>
             </button>
-            <h3 className="order-first w-full min-w-0 text-center text-sm font-semibold capitalize text-zinc-900 dark:text-white sm:order-none sm:flex-1 sm:text-lg sm:truncate">
+            <h3 className="order-first w-full min-w-0 text-center text-sm font-semibold capitalize text-zinc-900 dark:text-white sm:order-none sm:flex-1 sm:text-lg">
               {monthName} {viewYear}
             </h3>
             <button
@@ -3527,7 +3603,7 @@ export default function ScheduleModule({
               {["monShort", "tueShort", "wedShort", "thuShort", "friShort", "satShort", "sunShort"].map((key, i) => (
                 <div
                   key={key}
-                  className="py-1 text-center text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 sm:text-xs"
+                  className="py-1 text-center text-[11px] font-semibold leading-tight text-zinc-500 dark:text-zinc-400 sm:text-xs"
                 >
                   {(labels as Record<string, string>)[key] ?? "L M X J V S D".split(" ")[i]}
                 </div>
@@ -3543,6 +3619,10 @@ export default function ScheduleModule({
                 const moreDesktopText =
                   desktopExtra > 0
                     ? (lx.schedule_calendar_more ?? "+{n} más").replace("{n}", String(desktopExtra))
+                    : "";
+                const moreMobileText =
+                  mobileExtra > 0
+                    ? (lx.schedule_calendar_more ?? "+{n} más").replace("{n}", String(mobileExtra))
                     : "";
                 const openDayPanel = () => {
                   const dayList = entriesForDay(ymd);
@@ -3565,7 +3645,7 @@ export default function ScheduleModule({
                         openDayPanel();
                       }
                     }}
-                    className={`rounded-lg border p-1 sm:p-2 h-[52px] min-h-[52px] sm:h-24 sm:min-h-[96px] flex flex-col gap-0.5 cursor-pointer hover:ring-2 hover:ring-amber-400/50 transition-shadow sm:rounded-xl ${
+                    className={`rounded-lg border p-1 sm:p-2 h-[58px] min-h-[58px] sm:h-24 sm:min-h-[96px] flex flex-col gap-0.5 cursor-pointer hover:ring-2 hover:ring-amber-400/50 transition-shadow sm:rounded-xl ${
                       !isCurrentMonth ? "opacity-40" : ""
                     } ${
                       isToday
@@ -3575,7 +3655,9 @@ export default function ScheduleModule({
                           : "border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                     }`}
                   >
-                    <p className={`text-xs font-semibold shrink-0 ${isToday ? "text-amber-600 dark:text-amber-400" : "text-zinc-600 dark:text-zinc-400"}`}>
+                    <p
+                      className={`text-[11px] font-semibold leading-none tabular-nums sm:text-xs shrink-0 ${isToday ? "text-amber-600 dark:text-amber-400" : "text-zinc-600 dark:text-zinc-400"}`}
+                    >
                       {day.getDate()}
                     </p>
                     <div className="flex min-h-0 flex-1 flex-col justify-center gap-0.5 overflow-hidden">
@@ -3587,11 +3669,11 @@ export default function ScheduleModule({
                             aria-hidden
                           />
                         ))}
-                        {mobileExtra > 0 && (
-                          <span className="text-[10px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
-                            +{mobileExtra}
+                        {moreMobileText ? (
+                          <span className="max-w-[4.5rem] truncate text-[10px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+                            {moreMobileText}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="hidden min-h-0 flex-1 flex-col gap-0.5 overflow-hidden sm:flex">
                         {dayEntries.slice(0, 3).map((entry) => {
@@ -3722,7 +3804,59 @@ export default function ScheduleModule({
                         "Esta semana"}
                     </button>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="max-sm:space-y-2 max-sm:px-3 max-sm:py-2 sm:hidden">
+                    {teamWeekAvailabilityRows.length === 0 ? (
+                      <p className="py-3 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                        {(labels as Record<string, string>).noEntries ?? ""}
+                      </p>
+                    ) : (
+                      teamWeekAvailabilityRows.map(({ emp, cells }) => {
+                        const dayKeys = [
+                          "monShort",
+                          "tueShort",
+                          "wedShort",
+                          "thuShort",
+                          "friShort",
+                          "satShort",
+                          "sunShort",
+                        ] as const;
+                        return (
+                          <div
+                            key={emp.id}
+                            className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/50"
+                          >
+                            <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                              {resolveSchedulePerson(emp.id)}
+                            </p>
+                            <div className="mt-2 grid grid-cols-7 gap-1.5 text-center">
+                              {cells.map(({ ymd, count, title }, i) => {
+                                const k = dayKeys[i] ?? "monShort";
+                                const dayShort = String((labels as Record<string, string>)[k] ?? "").trim();
+                                const cellBg =
+                                  count === 0
+                                    ? "bg-emerald-100 dark:bg-emerald-900/35"
+                                    : count === 1
+                                      ? "bg-amber-100 dark:bg-amber-900/35"
+                                      : "bg-red-100 dark:bg-red-900/35";
+                                return (
+                                  <div key={ymd} className="flex min-w-0 flex-col items-center gap-0.5">
+                                    <span className="w-full truncate text-[9px] font-semibold leading-tight text-zinc-600 dark:text-zinc-300">
+                                      {dayShort ? `${dayShort} ${ymd.slice(8)}` : ymd.slice(8)}
+                                    </span>
+                                    <span
+                                      title={title || undefined}
+                                      className={`h-7 w-full max-w-[2.75rem] rounded-md ${cellBg}`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="hidden overflow-x-auto sm:block">
                     <table className="w-full min-w-[min(100%,520px)] text-xs sm:min-w-[640px]">
                       <thead>
                         <tr className="border-b border-zinc-200 dark:border-slate-700">
@@ -3934,7 +4068,7 @@ export default function ScheduleModule({
             aria-hidden
             onClick={() => setSelectedDay(null)}
           />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:top-0 sm:max-h-full sm:max-w-md sm:rounded-none sm:rounded-l-2xl md:max-w-lg lg:max-w-xl">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-y-0 sm:bottom-auto sm:left-auto sm:right-0 sm:top-0 sm:max-h-full sm:max-w-md sm:rounded-none sm:rounded-l-2xl sm:pb-0 md:max-w-lg lg:max-w-xl">
             <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-zinc-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                 {new Intl.DateTimeFormat(dateLocale, {

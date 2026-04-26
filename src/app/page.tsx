@@ -5596,13 +5596,18 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    const ce = scheduleTabOpenClockEntry;
-    if (!ce || ce.clockOut || !companyId || !session?.access_token) {
+    if (!companyId || !session?.access_token) {
       setScheduleTabClockOnBreak(false);
       return;
     }
+    const ce = scheduleTabOpenClockEntry;
+    if (!ce || ce.clockOut) {
+      // Avoid flashing "not on break" before FASE 2 `time_entries` hydrate `displayClockEntries`.
+      if (dashboardOfficeHydrated) setScheduleTabClockOnBreak(false);
+      return;
+    }
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ce.id)) {
-      setScheduleTabClockOnBreak(false);
+      if (dashboardOfficeHydrated) setScheduleTabClockOnBreak(false);
       return;
     }
     let cancelled = false;
@@ -5615,12 +5620,18 @@ export default function Home() {
         if (!cancelled && typeof j.onBreak === "boolean") setScheduleTabClockOnBreak(j.onBreak);
       })
       .catch(() => {
-        if (!cancelled) setScheduleTabClockOnBreak(false);
+        if (!cancelled && dashboardOfficeHydrated) setScheduleTabClockOnBreak(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [scheduleTabOpenClockEntry?.id, scheduleTabOpenClockEntry?.clockOut, companyId, session?.access_token]);
+  }, [
+    scheduleTabOpenClockEntry?.id,
+    scheduleTabOpenClockEntry?.clockOut,
+    companyId,
+    session?.access_token,
+    dashboardOfficeHydrated,
+  ]);
 
   const handleAddBlueprint = (bp: Blueprint) => {
     setBlueprints((prev) => [...prev, bp]);
