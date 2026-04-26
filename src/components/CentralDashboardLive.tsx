@@ -118,6 +118,27 @@ function errMessage(e: unknown): string {
   return String(e);
 }
 
+function shouldRetrySupabaseLikeError(e: unknown): boolean {
+  const m = errMessage(e).toLowerCase();
+  if (m.includes("timeout") || m.includes("timed out") || m.includes("fetch")) return true;
+  if (e && typeof e === "object" && "code" in e) {
+    const c = String((e as { code?: string }).code ?? "");
+    if (c === "57014" || c === "08P01") return true;
+  }
+  return false;
+}
+
+/** One silent retry after 2s for likely timeouts / network (AH-51). */
+async function withSilentRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (!shouldRetrySupabaseLikeError(e)) throw e;
+    await new Promise((r) => setTimeout(r, 2000));
+    return await fn();
+  }
+}
+
 type AuditProfileSnippet = {
   full_name?: string | null;
   display_name?: string | null;
@@ -928,12 +949,15 @@ function CentralDashboardBody(
         setResolvedConfig(parsed);
         return parsed;
       }
-      const [{ data: co, error: coErr }, { data: pr, error: prErr }] = await Promise.all([
-        supabase.from("companies").select("dashboard_config").eq("id", companyId).maybeSingle(),
-        supabase.from("user_profiles").select("dashboard_config").eq("id", currentUserId).maybeSingle(),
-      ]);
-      if (coErr) throw coErr;
-      if (prErr) throw prErr;
+      const [{ data: co }, { data: pr }] = await withSilentRetry(async () => {
+        const pair = await Promise.all([
+          supabase.from("companies").select("dashboard_config").eq("id", companyId).maybeSingle(),
+          supabase.from("user_profiles").select("dashboard_config").eq("id", currentUserId).maybeSingle(),
+        ]);
+        if (pair[0].error) throw pair[0].error;
+        if (pair[1].error) throw pair[1].error;
+        return pair;
+      });
       const userRaw = (pr as { dashboard_config?: unknown } | null)?.dashboard_config ?? null;
       const merged = mergeDashboardRaw(co?.dashboard_config ?? null, userRaw);
       writeCentralDashboardConfigCache(companyId, currentUserId, merged);
@@ -945,7 +969,7 @@ function CentralDashboardBody(
       return parsed;
     } catch (e) {
       console.error("[CentralDashboard] loadDashboardConfig", e);
-      setLoadErrors((prev) => [...prev, errMessage(e)]);
+      setLoadErrors((prev) => [...prev, `companies / user_profiles: ${errMessage(e)}`]);
       const fallback = applyServerOrLocalWidgetOrder(
         parseDashboardConfig(null),
         dashboardCompanySettingsWidgetOrder
@@ -1013,7 +1037,7 @@ function CentralDashboardBody(
         return true;
       } catch (e) {
         console.error("[CentralDashboard] persistConfig", e);
-        setLoadErrors((prev) => [...prev, errMessage(e)]);
+        setLoadErrors((prev) => [...prev, `dashboard_config: ${errMessage(e)}`]);
         showToast("error", L("dashboard_config_save_error") || L("toast_error") || errMessage(e));
         return false;
       } finally {
@@ -1034,9 +1058,11 @@ function CentralDashboardBody(
         timers.push(tid);
       });
 
-    const pushErr = (e: unknown, label: string) => {
+    const reportLoadError = (e: unknown, label: string, critical: boolean) => {
       if (cancelled) return;
-      setLoadErrors((prev) => [...prev, `${label}: ${errMessage(e)}`]);
+      const msg = `${label}: ${errMessage(e)}`;
+      console.error(`[CentralDashboardLive] ${msg}`, e);
+      if (critical) setLoadErrors((prev) => [...prev, msg]);
     };
 
     const cref = dashboardDataCacheRef;
@@ -1130,15 +1156,18 @@ function CentralDashboardBody(
       }> => {
         const empty = { myTimeRows: [] as TimeRow[], teamTimeRows: [] as TimeRow[], teamLabels: {} as Record<string, string> };
         try {
-          const { data, error } = await supabase
-            .from("time_entries")
-            .select("id, user_id, clock_in_at, clock_out_at")
-            .eq("company_id", companyId)
-            .gte("clock_in_at", tStart)
-            .lte("clock_in_at", tEnd)
-            .order("clock_in_at", { ascending: false })
-            .limit(20);
-          if (error) throw error;
+          const { data, error } = await withSilentRetry(async () => {
+            const r = await supabase
+              .from("time_entries")
+              .select("id, user_id, clock_in_at, clock_out_at")
+              .eq("company_id", companyId)
+              .gte("clock_in_at", tStart)
+              .lte("clock_in_at", tEnd)
+              .order("clock_in_at", { ascending: false })
+              .limit(20);
+            if (r.error) throw r.error;
+            return r;
+          });
           if (cancelled) return empty;
           const rows = (data ?? []) as TimeRow[];
           const myTimeRows = rows.filter((r) => String(r.user_id) === currentUserId);
@@ -1150,7 +1179,7 @@ function CentralDashboardBody(
               await fetchCentralUserProfilesMerged(companyId, ids);
               teamLabels = buildTeamClockLabelsFromCentralCache(companyId, ids);
             } catch (e) {
-              pushErr(e, "user_profiles");
+              reportLoadError(e, "user_profiles", false);
             }
           }
           if (!cancelled) {
@@ -1160,7 +1189,7 @@ function CentralDashboardBody(
           }
           return { myTimeRows, teamTimeRows, teamLabels };
         } catch (e) {
-          pushErr(e, L("myClockIn"));
+          reportLoadError(e, L("myClockIn"), false);
           if (!cancelled) {
             setMyTimeRows([]);
             setTeamTimeRows([]);
@@ -1182,19 +1211,22 @@ function CentralDashboardBody(
             if (!cancelled) setEmpActiveCount(cached.value);
             return cached.value;
           }
-          const { count, error } = await supabase
-            .from("user_profiles")
-            .select("id", { count: "exact", head: true })
-            .eq("company_id", companyId)
-            .eq("profile_status", "active")
-            .is("deleted_at", null);
-          if (error) throw error;
+          const { count, error } = await withSilentRetry(async () => {
+            const r = await supabase
+              .from("user_profiles")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .eq("profile_status", "active")
+              .is("deleted_at", null);
+            if (r.error) throw r.error;
+            return r;
+          });
           const value = count ?? 0;
           c.empCount = { at: Date.now(), value };
           if (!cancelled) setEmpActiveCount(value);
           return value;
         } catch (e) {
-          pushErr(e, "user_profiles");
+          reportLoadError(e, "user_profiles", false);
           return null;
         } finally {
           if (!cancelled) setEmpCountLoading(false);
@@ -1211,13 +1243,16 @@ function CentralDashboardBody(
 
       const loadSchedule = async () => {
         try {
-          const { data, error } = await supabase
-            .from("schedule_entries")
-            .select("id, employee_ids")
-            .eq("company_id", companyId)
-            .eq("date", todayIso)
-            .limit(50);
-          if (error) throw error;
+          const { data, error } = await withSilentRetry(async () => {
+            const r = await supabase
+              .from("schedule_entries")
+              .select("id, employee_ids")
+              .eq("company_id", companyId)
+              .eq("date", todayIso)
+              .limit(50);
+            if (r.error) throw r.error;
+            return r;
+          });
           const rows = (data ?? []) as Record<string, unknown>[];
           const mine = rows.filter((row) => {
             const ids = row.employee_ids;
@@ -1227,7 +1262,7 @@ function CentralDashboardBody(
           scheduleMine = mine;
           if (!cancelled) setScheduleToday(mine);
         } catch (e) {
-          pushErr(e, "schedule");
+          reportLoadError(e, "schedule", false);
         } finally {
           if (!cancelled) setScheduleLoading(false);
         }
@@ -1235,26 +1270,32 @@ function CentralDashboardBody(
 
       const loadDailyBundle = async () => {
         try {
-          const { data: epData, error: epErr } = await supabase
-            .from("employee_projects")
-            .select("project_id")
-            .eq("user_id", currentUserId)
-            .eq("company_id", companyId)
-            .limit(120);
-          if (epErr) throw epErr;
+          const { data: epData } = await withSilentRetry(async () => {
+            const r = await supabase
+              .from("employee_projects")
+              .select("project_id")
+              .eq("user_id", currentUserId)
+              .eq("company_id", companyId)
+              .limit(120);
+            if (r.error) throw r.error;
+            return r;
+          });
           const projectIdsForUser = ((epData ?? []) as { project_id: string }[]).map((r) =>
             String(r.project_id)
           );
 
-          const { data: drData, error: drErr } = await supabase
-            .from("daily_reports")
-            .select(
-              `id, project_id, date, status, title, daily_report_tasks (id, employee_id, description, completed)`
-            )
-            .eq("company_id", companyId)
-            .eq("date", todayIso)
-            .limit(50);
-          if (drErr) throw drErr;
+          const { data: drData } = await withSilentRetry(async () => {
+            const r = await supabase
+              .from("daily_reports")
+              .select(
+                `id, project_id, date, status, title, daily_report_tasks (id, employee_id, description, completed)`
+              )
+              .eq("company_id", companyId)
+              .eq("date", todayIso)
+              .limit(50);
+            if (r.error) throw r.error;
+            return r;
+          });
           const rows = (drData ?? []) as Record<string, unknown>[];
           let filtered = rows;
           if (projectIdsForUser.length > 0) {
@@ -1282,7 +1323,7 @@ function CentralDashboardBody(
             setMyTasksToday(tasks);
           }
         } catch (e) {
-          pushErr(e, "daily_reports");
+          reportLoadError(e, "daily_reports", false);
         } finally {
           if (!cancelled) setDailyLoading(false);
         }
@@ -1311,15 +1352,18 @@ function CentralDashboardBody(
             auditProfilesSnap = cached.profiles;
             return;
           }
-          const { data, error } = await supabase
-            .from("audit_logs")
-            .select(
-              "id, company_id, user_id, user_name, action, entity_type, entity_id, entity_name, new_value, created_at"
-            )
-            .eq("company_id", companyId)
-            .order("created_at", { ascending: false })
-            .limit(36);
-          if (error) throw error;
+          const { data } = await withSilentRetry(async () => {
+            const r = await supabase
+              .from("audit_logs")
+              .select(
+                "id, company_id, user_id, user_name, action, entity_type, entity_id, entity_name, new_value, created_at"
+              )
+              .eq("company_id", companyId)
+              .order("created_at", { ascending: false })
+              .limit(36);
+            if (r.error) throw r.error;
+            return r;
+          });
           const rows = (data ?? []) as AuditLogEntry[];
           const filteredRows = filterBusinessAuditRows(rows, 10);
           const ids = [...new Set(filteredRows.map((r) => r.user_id).filter(Boolean))] as string[];
@@ -1333,7 +1377,7 @@ function CentralDashboardBody(
             setAuditProfileByUserId(profileMap);
           }
         } catch (e) {
-          pushErr(e, L("dashboard_widget_activity"));
+          reportLoadError(e, L("dashboard_widget_activity"), false);
         } finally {
           if (!cancelled) setActivityLoading(false);
         }
@@ -1367,37 +1411,42 @@ function CentralDashboardBody(
           }
 
           const orFilter = `status.eq.checked_in,and(check_in.gte."${tStart}",check_in.lte."${tEnd}")`;
-          const merged = await supabase
-            .from("visitor_logs")
-            .select("id, visitor_name, check_in, project_name, status")
-            .eq("company_id", companyId)
-            .or(orFilter)
-            .order("check_in", { ascending: false })
-            .limit(72);
+          const merged = await withSilentRetry(async () =>
+            supabase
+              .from("visitor_logs")
+              .select("id, visitor_name, check_in, project_name, status")
+              .eq("company_id", companyId)
+              .or(orFilter)
+              .order("check_in", { ascending: false })
+              .limit(72)
+          );
 
           if (merged.error) {
-            const [todayRes, activeRes, recentRes] = await Promise.all([
-              supabase
-                .from("visitor_logs")
-                .select("id", { count: "exact", head: true })
-                .eq("company_id", companyId)
-                .gte("check_in", tStart)
-                .lte("check_in", tEnd),
-              supabase
-                .from("visitor_logs")
-                .select("id", { count: "exact", head: true })
-                .eq("company_id", companyId)
-                .eq("status", "checked_in"),
-              supabase
-                .from("visitor_logs")
-                .select("id, visitor_name, check_in, project_name, status")
-                .eq("company_id", companyId)
-                .order("check_in", { ascending: false })
-                .limit(5),
-            ]);
-            if (todayRes.error) throw todayRes.error;
-            if (activeRes.error) throw activeRes.error;
-            if (recentRes.error) throw recentRes.error;
+            const [todayRes, activeRes, recentRes] = await withSilentRetry(async () => {
+              const trio = await Promise.all([
+                supabase
+                  .from("visitor_logs")
+                  .select("id", { count: "exact", head: true })
+                  .eq("company_id", companyId)
+                  .gte("check_in", tStart)
+                  .lte("check_in", tEnd),
+                supabase
+                  .from("visitor_logs")
+                  .select("id", { count: "exact", head: true })
+                  .eq("company_id", companyId)
+                  .eq("status", "checked_in"),
+                supabase
+                  .from("visitor_logs")
+                  .select("id, visitor_name, check_in, project_name, status")
+                  .eq("company_id", companyId)
+                  .order("check_in", { ascending: false })
+                  .limit(5),
+              ]);
+              if (trio[0].error) throw trio[0].error;
+              if (trio[1].error) throw trio[1].error;
+              if (trio[2].error) throw trio[2].error;
+              return trio;
+            });
             const tC = todayRes.count ?? 0;
             const aC = activeRes.count ?? 0;
             const rec = (recentRes.data ?? []) as VisitorWidgetRow[];
@@ -1427,7 +1476,7 @@ function CentralDashboardBody(
             setVisitorsRecent(recent);
           }
         } catch (e) {
-          pushErr(e, L("dashboard_widget_visitors"));
+          reportLoadError(e, L("dashboard_widget_visitors"), false);
         } finally {
           if (!cancelled) setVisitorsLoading(false);
         }
@@ -1449,13 +1498,16 @@ function CentralDashboardBody(
 
           let hazardRowsNext: Hazard[] = [];
           if (canAccessHazards && (canManageEmployees || canManageComplianceAlerts)) {
-            const { data, error } = await supabase
-              .from("hazards")
-              .select("id, company_id, title, status")
-              .eq("company_id", companyId)
-              .in("status", ["open", "in_progress"])
-              .limit(50);
-            if (error) throw error;
+            const { data } = await withSilentRetry(async () => {
+              const r = await supabase
+                .from("hazards")
+                .select("id, company_id, title, status")
+                .eq("company_id", companyId)
+                .in("status", ["open", "in_progress"])
+                .limit(50);
+              if (r.error) throw r.error;
+              return r;
+            });
             hazardRowsNext = (data ?? []) as Hazard[];
             if (!cancelled) setHazardRows(hazardRowsNext);
           } else if (!cancelled) {
@@ -1467,12 +1519,15 @@ function CentralDashboardBody(
             canAccessCorrective &&
             (canManageEmployees || canManageComplianceAlerts)
           ) {
-            const { count, error: cErr } = await supabase
-              .from("corrective_actions")
-              .select("id", { count: "exact", head: true })
-              .eq("company_id", companyId)
-              .in("status", ["open", "in_progress"]);
-            if (cErr) throw cErr;
+            const { count } = await withSilentRetry(async () => {
+              const r = await supabase
+                .from("corrective_actions")
+                .select("id", { count: "exact", head: true })
+                .eq("company_id", companyId)
+                .in("status", ["open", "in_progress"]);
+              if (r.error) throw r.error;
+              return r;
+            });
             corrective = count ?? 0;
             if (!cancelled) setCorrectivePendingCount(corrective);
           } else if (!cancelled) {
@@ -1486,7 +1541,7 @@ function CentralDashboardBody(
             correctivePendingCount: corrective,
           };
         } catch (e) {
-          pushErr(e, L("dashboard_widget_hazards"));
+          reportLoadError(e, L("dashboard_widget_hazards"), false);
         } finally {
           if (!cancelled) setHazardsLoading(false);
         }
@@ -2272,7 +2327,9 @@ function CentralDashboardBody(
           role="alert"
           className="rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 text-sm text-amber-950 dark:text-amber-100 mb-4 space-y-3"
         >
-          <p className="font-semibold">{L("network_error") || L("dashboard_error_load_title")}</p>
+          <p className="font-semibold">
+            {L("dashboard_partial_load") || L("dashboard_error_load_title") || L("network_error")}
+          </p>
           <ul className="list-disc pl-5 font-mono text-xs break-all">
             {loadErrors.map((e, i) => (
               <li key={i}>{s(e)}</li>

@@ -876,6 +876,7 @@ export default {
   project_safety_expiring_cert: "Zertifikat läuft bald ab",
   project_safety_apply_defaults: "Regionalstandard",
   dashboard_error_load_title: "Einige Dashboard-Daten konnten nicht geladen werden",
+  dashboard_partial_load: "Einige Daten konnten nicht geladen werden. Verfügbare Daten werden angezeigt.",
   myClockIn: "Meine Zeiterfassung",
   myTasksToday: "Meine heutigen Aufgaben",
   dailyReportToSign: "Zu unterzeichnender Bericht",

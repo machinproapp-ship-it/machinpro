@@ -938,6 +938,7 @@ export default {
   project_safety_expiring_cert: "Certificado próximo a vencer",
   project_safety_apply_defaults: "Valores por región",
   dashboard_error_load_title: "No se pudieron cargar algunos datos del panel",
+  dashboard_partial_load: "Algunos datos no se cargaron. Mostrando lo disponible.",
   myClockIn: "Mi fichaje",
   myTasksToday: "Mis tareas de hoy",
   dailyReportToSign: "Parte diario por firmar",

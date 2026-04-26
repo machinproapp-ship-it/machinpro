@@ -870,6 +870,8 @@ export default {
   project_safety_expiring_cert: "Certificat bientôt expiré",
   project_safety_apply_defaults: "Valeurs régionales",
   dashboard_error_load_title: "Impossible de charger certaines données du tableau de bord",
+  dashboard_partial_load:
+    "Certaines données n'ont pas pu être chargées. Affichage des données disponibles.",
   myClockIn: "Mon pointage",
   myTasksToday: "Mes tâches aujourd'hui",
   dailyReportToSign: "Rapport à signer",

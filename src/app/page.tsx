@@ -1271,6 +1271,36 @@ function DashboardOfficeSkeletonBlock() {
   );
 }
 
+/** Perceived fast startup: layout similar to Central before sesión / datos (AH-51). */
+function CentralAppShellSkeleton() {
+  return (
+    <div className="flex min-h-screen min-w-0 bg-gray-50 dark:bg-gray-950" aria-busy="true">
+      <aside className="hidden w-56 shrink-0 border-r border-zinc-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 md:block">
+        <div className="h-8 w-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-700" />
+        <div className="mt-6 space-y-2">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-10 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+          ))}
+        </div>
+      </aside>
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 md:p-6">
+        <header className="mb-6 flex min-w-0 items-center gap-3 border-b border-zinc-200 pb-4 dark:border-slate-800">
+          <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-700 md:hidden" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-6 max-w-xs animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-700" />
+            <div className="h-4 max-w-md animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
+          </div>
+        </header>
+        <div className="grid flex-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 // ─── Estado global y layout ────────────────────────────────────────────────────
 
 export default function Home() {
@@ -1713,9 +1743,32 @@ export default function Home() {
     userToEmployeeMap: Record<string, string>;
     lastFetched: number;
   } | null>(null);
+  /** TTL para no repetir cargas pesadas al cambiar de sección (AH-51). */
+  const officeLazyBundleFetchedRef = useRef<{ companyId: string; subsAt: number; prodAt: number; expAt: number }>({
+    companyId: "",
+    subsAt: 0,
+    prodAt: 0,
+    expAt: 0,
+  });
+  const OFFICE_LAZY_BUNDLE_TTL_MS = 120_000;
+
   const invalidateDashboardCache = useCallback(() => {
     dashboardCacheRef.current = null;
+    officeLazyBundleFetchedRef.current = { companyId: "", subsAt: 0, prodAt: 0, expAt: 0 };
   }, []);
+
+  const mergeDashboardCachePartial = useCallback(
+    (patch: Partial<NonNullable<typeof dashboardCacheRef.current>>) => {
+      const cur = dashboardCacheRef.current;
+      if (!cur || cur.companyId !== (companyId ?? "")) return;
+      const next: NonNullable<typeof dashboardCacheRef.current> = { ...cur, companyId: cur.companyId };
+      for (const [k, v] of Object.entries(patch) as [keyof typeof next, unknown][]) {
+        if (v !== undefined) (next as Record<string, unknown>)[k as string] = v;
+      }
+      dashboardCacheRef.current = next;
+    },
+    [companyId]
+  );
 
   const handleAddProjectExpense = useCallback(
     async (row: {
@@ -3121,19 +3174,8 @@ export default function Home() {
         void (async () => {
           await yieldPaint();
 
-          /** FASE 2 (lazy): paralelo — fichajes, agenda, subcontratistas (50), catálogo. */
-          const [
-            timeEntriesResult,
-            legacyClockResult,
-            vacationsResult,
-            scheduleResult,
-            subRowsResult,
-            subDocsResult,
-            projectExpensesResult,
-            productionCatalogResult,
-            projectOverridesResult,
-            productionReportsResult,
-          ] = await Promise.all([
+          /** FASE 2: solo datos críticos para Central / agenda / fichaje. Catálogo, gastos, subcontratas y producción se cargan bajo demanda (AH-51). */
+          const [timeEntriesResult, legacyClockResult, vacationsResult, scheduleResult] = await Promise.all([
             supabase
               .from("time_entries")
               .select("id, user_id, project_id, clock_in_at, clock_out_at, status")
@@ -3150,37 +3192,8 @@ export default function Home() {
               .select("*")
               .eq("company_id", cid)
               .order("created_at", { ascending: false })
-              .limit(100),
+              .limit(50),
             supabase.from("schedule_entries").select("*").eq("company_id", cid).limit(500),
-            supabase.from("subcontractors").select("id, name").eq("company_id", cid).limit(50),
-            supabase.from("subcontractor_documents").select("*").eq("company_id", cid).limit(500),
-            supabase
-              .from("project_expenses")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("expense_date", { ascending: false })
-              .limit(2000),
-            supabase
-              .from("production_catalog")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("created_at", { ascending: false })
-              .limit(5000),
-            supabase
-              .from("project_task_overrides")
-              .select("*")
-              .eq("company_id", cid)
-              .order("created_at", { ascending: false })
-              .limit(5000),
-            supabase
-              .from("production_reports")
-              .select("*")
-              .eq("company_id", cid)
-              .is("deleted_at", null)
-              .order("report_date", { ascending: false })
-              .limit(2000),
           ]);
 
           if (cancelled) return;
@@ -3293,84 +3306,6 @@ export default function Home() {
             setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mappedScheduleVacation]);
           }
 
-          const { data: expData, error: expErr } = projectExpensesResult;
-          if (expErr) {
-            console.error("[page] project_expenses load", expErr);
-            mappedProjectExpenses = [];
-          } else {
-            mappedProjectExpenses = (expData ?? [])
-              .map((row: Record<string, unknown>) => mapDbProjectExpense(row))
-              .filter((x: ProjectExpenseRow | null): x is ProjectExpenseRow => x != null);
-          }
-          if (!cancelled) setProjectExpenses(mappedProjectExpenses);
-
-          const { data: pcData, error: pcErr } = productionCatalogResult;
-          if (pcErr) {
-            console.error("[page] production_catalog load", pcErr);
-            mappedProductionCatalog = [];
-          } else {
-            mappedProductionCatalog = (pcData ?? [])
-              .map((row: Record<string, unknown>) => mapCatalogRow(row))
-              .filter((x: CatalogItem | null): x is CatalogItem => x != null);
-          }
-          if (!cancelled) setProductionCatalogItems(mappedProductionCatalog);
-
-          const { data: ovData, error: ovErr } = projectOverridesResult;
-          if (ovErr) {
-            console.error("[page] project_task_overrides load", ovErr);
-            mappedProjectOverrides = [];
-          } else {
-            mappedProjectOverrides = (ovData ?? [])
-              .map((row: Record<string, unknown>) => mapOverrideRow(row))
-              .filter((x: ProjectTaskOverride | null): x is ProjectTaskOverride => x != null);
-          }
-          if (!cancelled) setProjectTaskOverrides(mappedProjectOverrides);
-
-          const { data: prData, error: prErr } = productionReportsResult;
-          if (prErr) {
-            console.error("[page] production_reports load", prErr);
-            mappedProductionReports = [];
-          } else {
-            mappedProductionReports = (prData ?? [])
-              .map((row: Record<string, unknown>) => mapProductionReportRow(row))
-              .filter((x: ProductionReport | null): x is ProductionReport => x != null);
-          }
-          if (!cancelled) setProductionReports(mappedProductionReports);
-
-          const { data: subRowsRaw, error: subRowsErr } = subRowsResult;
-          const { data: subDocsRaw, error: subDocsErr } = subDocsResult;
-          if (!cancelled && !subRowsErr && !subDocsErr) {
-            const docBuckets = new Map<string, VehicleDocument[]>();
-            for (const raw of subDocsRaw ?? []) {
-              const r = raw as Record<string, unknown>;
-              const sid = r.subcontractor_id != null ? String(r.subcontractor_id) : "";
-              if (!sid) continue;
-              const vd: VehicleDocument = {
-                id: String(r.id ?? ""),
-                name: String(r.name ?? ""),
-                expiryDate:
-                  r.expires_at != null && String(r.expires_at).trim()
-                    ? String(r.expires_at).slice(0, 10)
-                    : undefined,
-                documentUrl: typeof r.file_url === "string" && r.file_url.trim() ? r.file_url : undefined,
-                alertDays: 30,
-              };
-              const arr = docBuckets.get(sid) ?? [];
-              arr.push(vd);
-              docBuckets.set(sid, arr);
-            }
-            const wd: SubcontractorForWatchdog[] = (subRowsRaw ?? []).map((row: { id: string; name: string }) => ({
-              id: String(row.id),
-              name: String(row.name ?? ""),
-              documents: docBuckets.get(String(row.id)) ?? [],
-            }));
-            setSubcontractorsForWatchdog(wd);
-          } else if (!cancelled && (subRowsErr || subDocsErr)) {
-            if (subRowsErr) console.error("[page] subcontractors watchdog load", subRowsErr);
-            if (subDocsErr) console.error("[page] subcontractor_documents watchdog load", subDocsErr);
-            setSubcontractorsForWatchdog([]);
-          }
-
           if (!cancelled) setDashboardOfficeHydrated(true);
 
           const cacheWriteOk =
@@ -3426,62 +3361,213 @@ export default function Home() {
     setDailyReports(rows);
   }, [companyId]);
 
-  const reloadProductionData = useCallback(async () => {
-    if (!supabase || !companyId) {
-      setProductionCatalogItems([]);
-      setProjectTaskOverrides([]);
-      setProductionReports([]);
-      return;
-    }
-    const cid = companyId;
-    const [pcRes, ovRes, repRes] = await Promise.all([
-      supabase
-        .from("production_catalog")
-        .select("*")
-        .eq("company_id", cid)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(5000),
-      supabase
-        .from("project_task_overrides")
-        .select("*")
-        .eq("company_id", cid)
-        .order("created_at", { ascending: false })
-        .limit(5000),
-      supabase
-        .from("production_reports")
-        .select("*")
-        .eq("company_id", cid)
-        .is("deleted_at", null)
-        .order("report_date", { ascending: false })
-        .limit(2000),
-    ]);
-    if (pcRes.error) console.error("[page] production_catalog reload", pcRes.error);
-    else {
-      setProductionCatalogItems(
-        (pcRes.data ?? [])
+  const reloadProductionData = useCallback(
+    async (opts?: { invalidateDashboardCache?: boolean }) => {
+      if (!supabase || !companyId) {
+        setProductionCatalogItems([]);
+        setProjectTaskOverrides([]);
+        setProductionReports([]);
+        return;
+      }
+      const cid = companyId;
+      const [pcRes, ovRes, repRes] = await Promise.all([
+        supabase
+          .from("production_catalog")
+          .select("*")
+          .eq("company_id", cid)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("project_task_overrides")
+          .select("*")
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabase
+          .from("production_reports")
+          .select("*")
+          .eq("company_id", cid)
+          .is("deleted_at", null)
+          .order("report_date", { ascending: false })
+          .limit(100),
+      ]);
+      let nextCatalog: CatalogItem[] = [];
+      let nextOverrides: ProjectTaskOverride[] = [];
+      let nextReports: ProductionReport[] = [];
+      if (pcRes.error) {
+        console.error("[page] production_catalog reload", pcRes.error);
+        setProductionCatalogItems([]);
+      } else {
+        nextCatalog = (pcRes.data ?? [])
           .map((row: Record<string, unknown>) => mapCatalogRow(row))
-          .filter((x: CatalogItem | null): x is CatalogItem => x != null)
-      );
-    }
-    if (ovRes.error) console.error("[page] project_task_overrides reload", ovRes.error);
-    else {
-      setProjectTaskOverrides(
-        (ovRes.data ?? [])
+          .filter((x: CatalogItem | null): x is CatalogItem => x != null);
+        setProductionCatalogItems(nextCatalog);
+      }
+      if (ovRes.error) {
+        console.error("[page] project_task_overrides reload", ovRes.error);
+        setProjectTaskOverrides([]);
+      } else {
+        nextOverrides = (ovRes.data ?? [])
           .map((row: Record<string, unknown>) => mapOverrideRow(row))
-          .filter((x: ProjectTaskOverride | null): x is ProjectTaskOverride => x != null)
-      );
-    }
-    if (repRes.error) console.error("[page] production_reports reload", repRes.error);
-    else {
-      setProductionReports(
-        (repRes.data ?? [])
+          .filter((x: ProjectTaskOverride | null): x is ProjectTaskOverride => x != null);
+        setProjectTaskOverrides(nextOverrides);
+      }
+      if (repRes.error) {
+        console.error("[page] production_reports reload", repRes.error);
+        setProductionReports([]);
+      } else {
+        nextReports = (repRes.data ?? [])
           .map((row: Record<string, unknown>) => mapProductionReportRow(row))
-          .filter((x: ProductionReport | null): x is ProductionReport => x != null)
-      );
-    }
-    invalidateDashboardCache();
-  }, [companyId, invalidateDashboardCache]);
+          .filter((x: ProductionReport | null): x is ProductionReport => x != null);
+        setProductionReports(nextReports);
+      }
+      if (opts?.invalidateDashboardCache !== false) {
+        invalidateDashboardCache();
+      } else {
+        mergeDashboardCachePartial({
+          productionCatalogItems: nextCatalog,
+          projectTaskOverrides: nextOverrides,
+          productionReports: nextReports,
+        });
+      }
+    },
+    [companyId, invalidateDashboardCache, mergeDashboardCachePartial]
+  );
+
+  /** Subcontratas + documentos (watchdog) al entrar en Obra o Subcontratas. */
+  useEffect(() => {
+    if (!supabase || !session || !companyId) return;
+    const need = activeSection === "site" || activeSection === "subcontractors";
+    if (!need) return;
+    const cid = companyId;
+    const ref = officeLazyBundleFetchedRef.current;
+    if (ref.companyId === cid && Date.now() - ref.subsAt < OFFICE_LAZY_BUNDLE_TTL_MS) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [subRowsResult, subDocsResult] = await Promise.all([
+          supabase.from("subcontractors").select("id, name").eq("company_id", cid).limit(50),
+          supabase.from("subcontractor_documents").select("*").eq("company_id", cid).limit(100),
+        ]);
+        if (cancelled) return;
+        const { data: subRowsRaw, error: subRowsErr } = subRowsResult;
+        const { data: subDocsRaw, error: subDocsErr } = subDocsResult;
+        if (subRowsErr || subDocsErr) {
+          if (subRowsErr) console.error("[page] lazy subcontractors", subRowsErr);
+          if (subDocsErr) console.error("[page] lazy subcontractor_documents", subDocsErr);
+          if (!cancelled) setSubcontractorsForWatchdog([]);
+          return;
+        }
+        const docBuckets = new Map<string, VehicleDocument[]>();
+        for (const raw of subDocsRaw ?? []) {
+          const r = raw as Record<string, unknown>;
+          const sid = r.subcontractor_id != null ? String(r.subcontractor_id) : "";
+          if (!sid) continue;
+          const vd: VehicleDocument = {
+            id: String(r.id ?? ""),
+            name: String(r.name ?? ""),
+            expiryDate:
+              r.expires_at != null && String(r.expires_at).trim()
+                ? String(r.expires_at).slice(0, 10)
+                : undefined,
+            documentUrl: typeof r.file_url === "string" && r.file_url.trim() ? r.file_url : undefined,
+            alertDays: 30,
+          };
+          const arr = docBuckets.get(sid) ?? [];
+          arr.push(vd);
+          docBuckets.set(sid, arr);
+        }
+        const wd: SubcontractorForWatchdog[] = (subRowsRaw ?? []).map((row: { id: string; name: string }) => ({
+          id: String(row.id),
+          name: String(row.name ?? ""),
+          documents: docBuckets.get(String(row.id)) ?? [],
+        }));
+        if (!cancelled) {
+          setSubcontractorsForWatchdog(wd);
+          officeLazyBundleFetchedRef.current = {
+            ...officeLazyBundleFetchedRef.current,
+            companyId: cid,
+            subsAt: Date.now(),
+          };
+        }
+      } catch (e) {
+        console.error("[page] lazy subcontractor watchdog bundle", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, session, companyId, activeSection]);
+
+  /** Catálogo / partes / overrides al usar Obra, Horario o Ajustes (catálogo). */
+  useEffect(() => {
+    if (!supabase || !session || !companyId) return;
+    const need =
+      activeSection === "site" || activeSection === "schedule" || activeSection === "settings";
+    if (!need) return;
+    const cid = companyId;
+    const ref = officeLazyBundleFetchedRef.current;
+    if (ref.companyId === cid && Date.now() - ref.prodAt < OFFICE_LAZY_BUNDLE_TTL_MS) return;
+    let cancelled = false;
+    void (async () => {
+      await reloadProductionData({ invalidateDashboardCache: false });
+      if (!cancelled) {
+        officeLazyBundleFetchedRef.current = {
+          ...officeLazyBundleFetchedRef.current,
+          companyId: cid,
+          prodAt: Date.now(),
+        };
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, session, companyId, activeSection, reloadProductionData]);
+
+  /** Gastos de proyecto al entrar en Obra (presupuesto / módulo proyecto). */
+  useEffect(() => {
+    if (!supabase || !session || !companyId) return;
+    if (activeSection !== "site") return;
+    const cid = companyId;
+    const ref = officeLazyBundleFetchedRef.current;
+    if (ref.companyId === cid && Date.now() - ref.expAt < OFFICE_LAZY_BUNDLE_TTL_MS) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data: expData, error: expErr } = await supabase
+          .from("project_expenses")
+          .select("*")
+          .eq("company_id", cid)
+          .is("deleted_at", null)
+          .order("expense_date", { ascending: false })
+          .limit(200);
+        if (cancelled) return;
+        if (expErr) {
+          console.error("[page] lazy project_expenses", expErr);
+          if (!cancelled) setProjectExpenses([]);
+          return;
+        }
+        const mapped = (expData ?? [])
+          .map((row: Record<string, unknown>) => mapDbProjectExpense(row))
+          .filter((x: ProjectExpenseRow | null): x is ProjectExpenseRow => x != null);
+        if (!cancelled) {
+          setProjectExpenses(mapped);
+          mergeDashboardCachePartial({ projectExpenses: mapped });
+          officeLazyBundleFetchedRef.current = {
+            ...officeLazyBundleFetchedRef.current,
+            companyId: cid,
+            expAt: Date.now(),
+          };
+        }
+      } catch (e) {
+        console.error("[page] lazy project_expenses bundle", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, session, companyId, activeSection, mergeDashboardCachePartial]);
 
   useEffect(() => {
     void reloadDailyReports();
@@ -6308,11 +6394,7 @@ export default function Home() {
   const editSupplierDraft = supplierDraft;
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-slate-950">
-        <div className="w-8 h-8 rounded-full border-4 border-amber-500 border-t-transparent animate-spin" />
-      </div>
-    );
+    return <CentralAppShellSkeleton />;
   }
 
   if (!session && supabase) {
