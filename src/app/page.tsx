@@ -4295,6 +4295,18 @@ export default function Home() {
           )
         : (projects ?? []);
 
+  /** Proyectos que ve el supervisor en Central (asignación real; no usar ids de demo). */
+  const centralModuleSupervisorProjects = useMemo(() => {
+    if (effectiveRole !== "supervisor") return undefined;
+    const supervisorProfileId = profile?.id ?? "";
+    const supervisorLegacyId = effectiveEmployeeId ?? "";
+    return (projects ?? []).filter((p) => {
+      if (p.archived) return false;
+      const assigned = p.assignedEmployeeIds ?? [];
+      return assigned.some((aid) => aid === supervisorProfileId || aid === supervisorLegacyId);
+    });
+  }, [effectiveRole, projects, profile?.id, effectiveEmployeeId]);
+
   useEffect(() => {
     if (!supabase || !session || !companyId) return;
     let cancelled = false;
@@ -6804,9 +6816,9 @@ export default function Home() {
               <CentralModule
                 labels={labels}
                 employees={(() => {
-                  const activeProjects = effectiveRole === "supervisor"
-                    ? (projects ?? []).filter((p) => p.id === "p1")
-                    : (projects ?? []).filter((p) => !p.archived);
+                  const activeProjects =
+                    centralModuleSupervisorProjects ??
+                    (projects ?? []).filter((p) => !p.archived);
                   const visible =
                     effectiveRole === "supervisor"
                       ? (employees ?? []).filter((e) => {
@@ -6837,8 +6849,8 @@ export default function Home() {
                     useRolePermissions: e.useRolePermissions,
                   }));
                 })()}
-                projects={projects}
-                displayProjects={projects}
+                projects={centralModuleSupervisorProjects ?? projects}
+                displayProjects={centralModuleSupervisorProjects ?? projects}
                 subcontractors={subcontractors}
                 canEdit={
                   !!(
