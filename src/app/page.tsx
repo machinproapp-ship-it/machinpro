@@ -1047,7 +1047,7 @@ function permissionsToModule(p: RolePermissions): ModulePermissions {
   return {
     office: p.canViewCentral,
     warehouse: p.canViewLogistics,
-    site: p.canViewProjects || p.canViewSubcontractors,
+    site: p.canViewProjects || p.canViewOnlyAssignedProjects || p.canViewSubcontractors,
     worker: false,
     forms:
       p.canViewForms ||
