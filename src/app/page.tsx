@@ -4290,9 +4290,15 @@ export default function Home() {
     effectiveRole === "admin" || effectiveRole === "projectManager"
       ? (projects ?? [])
       : rolePerms.canViewOnlyAssignedProjects
-        ? (projects ?? []).filter((p) =>
-            (p.assignedEmployeeIds ?? []).includes(effectiveEmployeeId ?? "")
-          )
+        ? (projects ?? []).filter((p) => {
+            const assigned = p.assignedEmployeeIds ?? [];
+            const profileId = profile?.id ?? "";
+            const legacyId = effectiveEmployeeId ?? "";
+            return (
+              (profileId !== "" && assigned.includes(profileId)) ||
+              (legacyId !== "" && assigned.includes(legacyId))
+            );
+          })
         : (projects ?? []);
 
   /** Proyectos que ve el supervisor en Central (asignación real; no usar ids de demo). */
@@ -8751,7 +8757,7 @@ export default function Home() {
             className="hidden"
             onChange={handleFabFileChange}
           />
-          <div className="fixed bottom-20 right-4 z-40 xl:hidden">
+          <div className="fixed bottom-44 right-4 z-40 xl:hidden">
           <button
             type="button"
             onClick={() => setFabOpen(!fabOpen)}
