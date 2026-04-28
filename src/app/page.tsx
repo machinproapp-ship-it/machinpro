@@ -185,6 +185,13 @@ import type { FormTemplate, FormInstance } from "@/types/forms";
 import type { Subcontractor } from "@/types/subcontractor";
 import { INITIAL_FORM_TEMPLATES } from "@/lib/formTemplates";
 import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
+import {
+  loadFormInstancesFromSupabase,
+  loadFormTemplatesFromSupabase,
+  saveFormInstanceToSupabase,
+  saveFormTemplateToSupabase,
+  isUuid,
+} from "@/lib/formInstancesDb";
 import { resolveFormLabel } from "@/lib/formTemplateDisplay";
 import { getCountryConfig } from "@/lib/countryConfig";
 import { fetchDailyReportsForCompany } from "@/lib/dailyReportsDb";
@@ -2023,7 +2030,9 @@ export default function Home() {
       try {
         if (item.type === "form_instance") {
           const instance = item.data as FormInstance;
-          await supabase.from("form_instances").upsert(instance);
+          if (companyId) {
+            await saveFormInstanceToSupabase(supabase, instance, companyId);
+          }
           synced.push(item.id);
           formInstanceIds.add(instance.id);
         }
@@ -2058,7 +2067,23 @@ export default function Home() {
         showToast("success", `${n} ${piece}`);
       }
     }
-  }, [isOnline, supabase, t, showToast]);
+  }, [isOnline, supabase, companyId, t, showToast]);
+
+  const persistFormInstanceRemote = useCallback(
+    async (instance: FormInstance) => {
+      if (!isOnline || !companyId || !supabase) return;
+      await saveFormInstanceToSupabase(supabase, instance, companyId);
+    },
+    [isOnline, companyId, supabase]
+  );
+
+  const persistFormTemplateRemote = useCallback(
+    async (tpl: FormTemplate) => {
+      if (!isOnline || !companyId || !supabase || tpl.isBase) return;
+      await saveFormTemplateToSupabase(supabase, tpl, companyId);
+    },
+    [isOnline, companyId, supabase]
+  );
 
   useEffect(() => {
     if (isOnline && pendingSync.length > 0) {
@@ -2078,6 +2103,92 @@ export default function Home() {
       localStorage.setItem("machinpro_formTemplates", JSON.stringify(customOnly));
     } catch {}
   }, [formTemplates]);
+
+  useEffect(() => {
+    if (!companyId || !session || !supabase) return;
+    let cancelled = false;
+    const FLAG_INST = "machinpro_form_instances_migrated_v1";
+    const FLAG_TPL = "machinpro_form_templates_migrated_v1";
+
+    void (async () => {
+      try {
+        if (typeof window !== "undefined" && localStorage.getItem(FLAG_INST) !== "true") {
+          let parsed: FormInstance[] = [];
+          try {
+            const raw = localStorage.getItem("machinpro_form_instances");
+            const p = raw ? (JSON.parse(raw) as FormInstance[]) : [];
+            parsed = Array.isArray(p) ? p : [];
+          } catch {
+            parsed = [];
+          }
+          if (parsed.length > 0) {
+            const normalized = parsed.map((inst) =>
+              isUuid(inst.id) ? inst : { ...inst, id: crypto.randomUUID() }
+            );
+            for (const inst of normalized) {
+              await saveFormInstanceToSupabase(supabase, inst, companyId);
+            }
+            if (!cancelled) setFormInstances(normalized);
+            try {
+              localStorage.setItem("machinpro_form_instances", JSON.stringify(normalized));
+            } catch {
+              /* ignore */
+            }
+          }
+          try {
+            localStorage.setItem(FLAG_INST, "true");
+          } catch {
+            /* ignore */
+          }
+        }
+
+        if (typeof window !== "undefined" && localStorage.getItem(FLAG_TPL) !== "true") {
+          let parsed: FormTemplate[] = [];
+          try {
+            const raw = localStorage.getItem("machinpro_formTemplates");
+            const p = raw ? (JSON.parse(raw) as FormTemplate[]) : [];
+            parsed = Array.isArray(p) ? p : [];
+          } catch {
+            parsed = [];
+          }
+          const customs = parsed.filter((x) => !x.isBase);
+          for (const tpl of customs) {
+            await saveFormTemplateToSupabase(supabase, tpl, companyId);
+          }
+          try {
+            localStorage.setItem(FLAG_TPL, "true");
+          } catch {
+            /* ignore */
+          }
+        }
+
+        const [remoteInst, remoteTpl] = await Promise.all([
+          loadFormInstancesFromSupabase(supabase, companyId),
+          loadFormTemplatesFromSupabase(supabase, companyId),
+        ]);
+        if (cancelled) return;
+
+        if (remoteInst != null && remoteInst.length > 0) {
+          setFormInstances(remoteInst);
+        }
+        if (remoteTpl != null && remoteTpl.length > 0) {
+          setFormTemplates((prev) => {
+            const merged = [...prev];
+            for (const x of remoteTpl) {
+              if (!merged.some((m) => m.id === x.id)) merged.push(x);
+            }
+            return merged;
+          });
+        }
+      } catch {
+        /* keep localStorage */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, session, supabase]);
 
   useEffect(() => {
     try {
@@ -8403,6 +8514,7 @@ export default function Home() {
                 canViewForms={!!rolePerms.canViewForms}
                 onCreateInstance={(instance) => {
                   setFormInstances((prev) => [...prev, instance]);
+                  void persistFormInstanceRemote(instance);
                   if (!isOnline) {
                     addToPendingSync("form_instance", instance);
                     pushOfflineFormLocal(instance);
@@ -8410,14 +8522,20 @@ export default function Home() {
                 }}
                 onUpdateInstance={(instance) => {
                   setFormInstances((prev) => prev.map((i) => (i.id === instance.id ? instance : i)));
+                  void persistFormInstanceRemote(instance);
                   if (!isOnline) {
                     addToPendingSync("form_instance", instance);
                     pushOfflineFormLocal(instance);
                   }
                 }}
-                onAddTemplate={(tpl) => setFormTemplates((prev) => [...prev, tpl])}
-                onUpdateTemplate={(tpl) =>
-                  setFormTemplates((prev) => prev.map((t) => (t.id === tpl.id ? tpl : t)))}
+                onAddTemplate={(tpl) => {
+                  setFormTemplates((prev) => [...prev, tpl]);
+                  void persistFormTemplateRemote(tpl);
+                }}
+                onUpdateTemplate={(tpl) => {
+                  setFormTemplates((prev) => prev.map((t) => (t.id === tpl.id ? tpl : t)));
+                  void persistFormTemplateRemote(tpl);
+                }}
                 onDeleteTemplate={(id) =>
                   setFormTemplates((prev) => prev.filter((t) => t.id !== id || t.isBase))}
                 labels={t as Record<string, string>}
@@ -8435,6 +8553,12 @@ export default function Home() {
                 onConsumeOpenFillNavigation={consumeFormsOpenFillNavigation}
                 projectNameById={projectNameByIdForForms}
                 offlinePendingInstanceIds={Array.from(offlinePendingFormInstanceIds)}
+                companyPdfName={companyName || "MachinPro"}
+                companyPdfLogoUrl={logoUrl?.trim() || undefined}
+                companyPdfAddress={companyAddress}
+                companyPdfPhone={companyPhone}
+                companyPdfEmail={companyEmail}
+                authAccessToken={session?.access_token ?? null}
               />
               <ModuleHelpFab
                 moduleKey="forms"

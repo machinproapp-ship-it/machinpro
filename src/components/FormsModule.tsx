@@ -112,6 +112,14 @@ export interface FormsModuleProps {
   projectNameById?: Record<string, string>;
   /** Instancias en cola offline / pendientes de sincronizar con Supabase. */
   offlinePendingInstanceIds?: string[];
+  /** Datos de empresa para PDF y enlaces públicos. */
+  companyPdfName?: string;
+  companyPdfLogoUrl?: string;
+  companyPdfAddress?: string;
+  companyPdfPhone?: string;
+  companyPdfEmail?: string;
+  /** Bearer token para enviar invitación por email (API send-email). */
+  authAccessToken?: string | null;
 }
 
 function formContextBadgeClass(ctx: FormContextType | undefined): string {
@@ -460,6 +468,12 @@ export function FormsModule({
   onConsumeOpenFillNavigation,
   projectNameById = {},
   offlinePendingInstanceIds = [],
+  companyPdfName = "",
+  companyPdfLogoUrl,
+  companyPdfAddress = "",
+  companyPdfPhone = "",
+  companyPdfEmail = "",
+  authAccessToken = null,
 }: FormsModuleProps) {
   void useMachinProDisplayPrefs();
   const timeZone = timeZoneProp ?? resolveUserTimezone(null);
@@ -488,8 +502,11 @@ export function FormsModule({
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [emailInput, setEmailInput] = useState("");
+  const [externalRecipientName, setExternalRecipientName] = useState("");
   const [emailMode, setEmailMode] = useState<"employee" | "external">("employee");
   const [selectedEmployeeEmail, setSelectedEmployeeEmail] = useState("");
+  const [externalEmailSending, setExternalEmailSending] = useState(false);
+  const [externalEmailSent, setExternalEmailSent] = useState(false);
   const [fillDraftValues, setFillDraftValues] = useState<Record<string, unknown>>({});
   const [fillDraftAttendees, setFillDraftAttendees] = useState<AttendeeRecord[]>([]);
   const [directSignAttendee, setDirectSignAttendee] = useState<AttendeeRecord | null>(null);
@@ -775,7 +792,7 @@ export function FormsModule({
   const handleDuplicateTemplate = (template: FormTemplate) => {
     const copy: FormTemplate = {
       ...JSON.parse(JSON.stringify(template)),
-      id: `tpl-${Date.now()}`,
+      id: crypto.randomUUID(),
       isBase: false,
       createdBy: currentUserEmployeeId,
       createdAt: new Date().toISOString(),
@@ -783,8 +800,16 @@ export function FormsModule({
     onAddTemplate(copy);
   };
 
+  const publicSignBaseUrl = () => {
+    const env =
+      typeof process !== "undefined" ? process.env.NEXT_PUBLIC_APP_URL?.trim() : "";
+    if (env) return env.replace(/\/$/, "");
+    if (typeof window !== "undefined") return window.location.origin.replace(/\/$/, "");
+    return "https://machin.pro";
+  };
+
   const handleGenerateQR = async (instance: FormInstance, template: FormTemplate) => {
-    const token = instance.signToken || crypto.randomUUID();
+    const token = instance.signToken?.trim() ? instance.signToken : crypto.randomUUID();
     const expires = new Date(
       Date.now() + template.expiresInHours * 60 * 60 * 1000
     ).toISOString();
@@ -801,10 +826,11 @@ export function FormsModule({
   const openQrModal = (instance: FormInstance, template: FormTemplate) => {
     setCopied(false);
     setEmailInput("");
+    setExternalRecipientName("");
+    setExternalEmailSent(false);
     setSelectedEmployeeEmail("");
     setEmailMode("employee");
-    const base = typeof window !== "undefined" ? window.location.origin : "";
-    const link = `${base}/sign/${instance.signToken}`;
+    const link = `${publicSignBaseUrl()}/sign/${instance.signToken}`;
     setQrModal({
       signToken: instance.signToken,
       link,
@@ -1456,6 +1482,16 @@ export function FormsModule({
                       {l("forms_approve")}
                     </button>
                   )}
+                {(instance.status === "completed" || instance.status === "in_progress") && (
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerateQR(instance, template)}
+                    className="flex items-center gap-2 rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                  >
+                    <PenLine className="h-4 w-4" />
+                    {l("forms_share_external")}
+                  </button>
+                )}
                 {canExportForms && (
                 <button
                   type="button"
@@ -1464,9 +1500,14 @@ export function FormsModule({
                       instance,
                       template,
                       detailContextLine,
-                      "Machinpro",
-                      undefined,
-                      t.signedOnSupervisorDevice
+                      companyPdfName || "MachinPro",
+                      companyPdfLogoUrl,
+                      companyPdfAddress,
+                      companyPdfPhone,
+                      companyPdfEmail,
+                      instance.docNumber,
+                      t.signedOnSupervisorDevice,
+                      (key) => l(key)
                     );
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
@@ -1602,7 +1643,7 @@ export function FormsModule({
                 className={`rounded-lg px-3 py-2 text-sm font-medium min-h-[44px] flex items-center gap-1 text-white ${copied ? "bg-emerald-600" : "bg-amber-600"}`}
               >
                 <Copy className="h-4 w-4" />
-                {copied ? l("forms_qr_copied") : t.copyLink}
+                {copied ? l("forms_external_link_copied") : t.copyLink}
               </button>
             </div>
             <div className="mt-3 space-y-2">
@@ -1644,20 +1685,64 @@ export function FormsModule({
                     ))}
                 </select>
               ) : (
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                />
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder={l("forms_external_recipient_name")}
+                    value={externalRecipientName}
+                    onChange={(e) => setExternalRecipientName(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                  />
+                  <input
+                    type="email"
+                    placeholder={l("forms_external_email_placeholder")}
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                  />
+                </div>
               )}
             </div>
             <button
               type="button"
-              className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium"
+              disabled={
+                externalEmailSending ||
+                !authAccessToken ||
+                emailMode === "employee"
+              }
+              onClick={async () => {
+                if (!authAccessToken || !qrModal) return;
+                if (emailMode === "external") {
+                  const em = emailInput.trim();
+                  const rn = externalRecipientName.trim();
+                  if (!em || !rn) return;
+                  setExternalEmailSending(true);
+                  setExternalEmailSent(false);
+                  try {
+                    const res = await fetch("/api/forms/external/send-email", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${authAccessToken}`,
+                      },
+                      body: JSON.stringify({
+                        instanceId: qrModal.instance.id,
+                        email: em,
+                        recipientName: rn,
+                      }),
+                    });
+                    if (res.ok) setExternalEmailSent(true);
+                  } finally {
+                    setExternalEmailSending(false);
+                  }
+                  return;
+                }
+              }}
+              className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium min-h-[44px] disabled:opacity-50"
             >
-              {l("forms_send_email")}
+              {emailMode === "external" && externalEmailSent
+                ? l("forms_external_email_sent")
+                : l("forms_external_send_email")}
             </button>
           </div>
         </>

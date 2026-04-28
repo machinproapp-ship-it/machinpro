@@ -8,6 +8,10 @@ export async function generateFormPDF(
   projectName: string,
   companyName: string,
   companyLogoUrl?: string,
+  companyAddress?: string,
+  companyPhone?: string,
+  companyEmail?: string,
+  docNumber?: string,
   supervisorDeviceNote?: string,
   resolveLabel?: (key: string) => string
 ): Promise<Blob> {
@@ -19,24 +23,80 @@ export async function generateFormPDF(
     format: "a4",
   });
 
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  let y = margin;
+
+  const brandSuffix = ` · MachinPro`;
+  const headerCompany = `${companyName}${brandSuffix}`;
+
   if (companyLogoUrl) {
-    doc.addImage(companyLogoUrl, "PNG", 15, 10, 30, 15);
+    try {
+      doc.addImage(companyLogoUrl, "PNG", margin, y, 32, 14);
+    } catch {
+      /* ignore bad image */
+    }
   }
-  doc.setFontSize(16);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60);
+  let rightY = y + 4;
+  doc.text(headerCompany, pageW - margin, rightY, { align: "right" });
+  rightY += 4;
+  if (companyAddress?.trim()) {
+    const lines = doc.splitTextToSize(companyAddress.trim(), 75);
+    doc.text(lines, pageW - margin, rightY, { align: "right" });
+    rightY += lines.length * 4;
+  }
+  if (companyPhone?.trim()) {
+    doc.text(companyPhone.trim(), pageW - margin, rightY, { align: "right" });
+    rightY += 4;
+  }
+  if (companyEmail?.trim()) {
+    doc.text(companyEmail.trim(), pageW - margin, rightY, { align: "right" });
+    rightY += 4;
+  }
+  doc.setTextColor(0);
+
+  y = Math.max(y + 18, rightY + 4);
+
+  doc.setDrawColor(200);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(margin, y, pageW - 2 * margin, 22, 2, 2, "S");
+
+  doc.setFontSize(15);
   doc.setFont("helvetica", "bold");
-  doc.text(R(template.name), 105, 18, { align: "center" });
+  doc.text(R(template.name), margin + 3, y + 8);
+
+  if (docNumber?.trim()) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${R("forms_pdf_doc_number")}${docNumber.trim()}`, pageW - margin - 3, y + 7, {
+      align: "right",
+    });
+  }
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(70);
+  doc.text(`${R("forms_pdf_project")}: ${projectName}`, margin + 3, y + 14);
+  doc.text(`${R("forms_pdf_sent_by")}: ${instance.createdBy || "—"}`, margin + 3, y + 19);
+  doc.text(`${R("forms_pdf_sent_at")}: ${instance.createdAt ?? ""}`, margin + 55, y + 19);
+  doc.setTextColor(0);
+
+  y += 28;
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`${R("forms_pdf_project")}: ${projectName}`, 15, 30);
-  doc.text(`${R("forms_pdf_date")}: ${instance.date}`, 15, 36);
-  doc.text(`${R("forms_pdf_status")}: ${instance.status}`, 15, 42);
-
-  let y = 52;
+  doc.text(`${R("forms_pdf_date")}: ${instance.date}`, margin, y);
+  doc.text(`${R("forms_pdf_status")}: ${instance.status}`, margin + 75, y);
+  y += 8;
 
   template.sections.forEach((section) => {
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text(R(section.title), 15, y);
+    doc.text(R(section.title), margin, y);
     y += 6;
 
     section.fields.forEach((field) => {
@@ -45,11 +105,11 @@ export async function generateFormPDF(
       if (value == null || value === "") return;
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text(`${R(field.label)}:`, 15, y);
+      doc.text(`${R(field.label)}:`, margin, y);
       doc.setFont("helvetica", "normal");
       const text = formatFormFieldValue(field, value, R);
-      const lines = doc.splitTextToSize(text, 160);
-      doc.text(lines, 15, y + 4);
+      const lines = doc.splitTextToSize(text, pageW - 2 * margin - 5);
+      doc.text(lines, margin + 5, y + 4);
       y += 4 + lines.length * 4 + 3;
       if (y > 270) {
         doc.addPage();
@@ -57,12 +117,16 @@ export async function generateFormPDF(
       }
     });
     y += 4;
+    if (y > 265) {
+      doc.addPage();
+      y = 20;
+    }
   });
 
   if (instance.attendees.length > 0) {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(R("forms_pdf_attendance"), 15, y);
+    doc.text(R("forms_pdf_attendance"), margin, y);
     y += 7;
 
     instance.attendees.forEach((att) => {
@@ -73,29 +137,40 @@ export async function generateFormPDF(
         : R("pendingSignature");
       doc.text(
         `${att.name}${att.company ? ` (${att.company})` : ""} — ${status}`,
-        15,
+        margin,
         y
       );
       if (att.signature) {
-        doc.addImage(att.signature, "PNG", 140, y - 4, 50, 12);
+        try {
+          doc.addImage(att.signature, "PNG", pageW - margin - 52, y - 4, 50, 14);
+        } catch {
+          /* ignore */
+        }
       }
       if (att.signedOnSupervisorDevice && supervisorDeviceNote) {
         doc.setFontSize(7);
         doc.setTextColor(100);
-        doc.text(supervisorDeviceNote, 140, y + 10);
+        doc.text(supervisorDeviceNote, pageW - margin - 3, y + 12, { align: "right" });
         doc.setTextColor(0);
       }
-      y += 14;
-      if (y > 270) {
+      y += 16;
+      if (y > 265) {
         doc.addPage();
         y = 20;
       }
     });
   }
 
-  doc.setFontSize(8);
-  doc.setTextColor(150);
-  doc.text(R("forms_pdf_footer"), 105, 290, { align: "center" });
+  const totalPages = doc.getNumberOfPages();
+  const footerCenter = R("forms_pdf_powered_by");
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(140);
+    doc.text(footerCenter, pageW / 2, 287, { align: "center" });
+    doc.text(`${i} / ${totalPages}`, pageW - margin, 287, { align: "right" });
+    doc.setTextColor(0);
+  }
 
   return doc.output("blob");
 }

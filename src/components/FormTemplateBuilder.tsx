@@ -276,7 +276,7 @@ export function FormTemplateBuilder({
   const handleSave = () => {
     if (!name.trim() || sections.length === 0) return;
     const tpl: FormTemplate = {
-      id: `tpl-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: name.trim(),
       description: description.trim() || undefined,
       region: ["GLOBAL"],

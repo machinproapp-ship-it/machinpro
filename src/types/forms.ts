@@ -96,4 +96,6 @@ export interface FormInstance {
   signToken: string;
   tokenExpiresAt: string;
   pdfUrl?: string;
+  /** DOC# from Supabase (trigger / form_doc_number_seq). */
+  docNumber?: string;
 }

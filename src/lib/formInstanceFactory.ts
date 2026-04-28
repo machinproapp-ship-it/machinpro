@@ -32,7 +32,7 @@ export function buildFormInstanceFromTemplate(
         })
       : [];
   return {
-    id: `fi-${Date.now()}`,
+    id: crypto.randomUUID(),
     templateId: template.id,
     projectId,
     contextType: context.type,
