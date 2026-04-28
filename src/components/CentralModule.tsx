@@ -1781,7 +1781,9 @@ export function CentralModule({
                       : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
                   }`}
                 >
-                  {(labels as Record<string, string>).projects_active ?? "Active"}
+                  {(labels as Record<string, string>).central_projects_tab_active ??
+                    (labels as Record<string, string>).projects_active ??
+                    "Active"}
                 </button>
                 <button
                   type="button"
@@ -1792,7 +1794,9 @@ export function CentralModule({
                       : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
                   }`}
                 >
-                  {(labels as Record<string, string>).projects_archived ?? "Archived"}
+                  {(labels as Record<string, string>).central_projects_tab_archived ??
+                    (labels as Record<string, string>).projects_archived ??
+                    "Archived"}
                 </button>
               </div>
             </HorizontalScrollFade>
@@ -1899,7 +1903,7 @@ export function CentralModule({
                             className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:border-zinc-600 dark:bg-slate-800 dark:text-amber-300 dark:hover:bg-amber-950/40"
                           >
                             {p.archived
-                              ? tl.projects_unarchive ?? "Unarchive"
+                              ? tl.central_unarchive_project ?? tl.projects_unarchive ?? "Unarchive"
                               : tl.projects_archive ?? "Archive"}
                           </button>
                         ) : null}

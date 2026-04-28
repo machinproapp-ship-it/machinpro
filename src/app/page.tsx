@@ -46,7 +46,6 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
-import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { ModuleHelpFab } from "@/components/ModuleHelpFab";
 import { BetaWelcomeModal } from "@/components/BetaWelcomeModal";
 import { FeedbackWidget } from "@/components/FeedbackWidget";
@@ -1657,7 +1656,6 @@ export default function Home() {
     setGettingStartedRefreshTk((n) => n + 1);
   }, [session?.access_token, companyId, setActiveSection]);
 
-  const [operationsMainTab, setOperationsMainTab] = useState<"projects" | "subcontractors">("projects");
   const [correctivePrefill, setCorrectivePrefill] = useState<CorrectiveActionsPrefill | null>(null);
   const [focusHazardId, setFocusHazardId] = useState<string | null>(null);
   const [dashHazardCreateSig, setDashHazardCreateSig] = useState(0);
@@ -4508,22 +4506,10 @@ export default function Home() {
     rolePerms.canViewProjects || rolePerms.canViewOnlyAssignedProjects;
 
   useEffect(() => {
-    if (activeSection !== "site") return;
-    if (!canViewProjectsTab && perms.canAccessSubcontractors) {
-      setOperationsMainTab("subcontractors");
-    }
-  }, [activeSection, canViewProjectsTab, perms.canAccessSubcontractors]);
-
-  useEffect(() => {
     if (mainSectionIsAllowed(activeSection, perms)) return;
     const next = pickFirstAllowedMainSection(rolePerms, perms);
     if (next != null && next !== activeSection) setActiveSection(next);
   }, [activeSection, rolePerms, perms]);
-
-  const openOperationsSubcontractors = useCallback(() => {
-    setActiveSection("site");
-    setOperationsMainTab("subcontractors");
-  }, []);
 
   const navigateToSiteVisitorsTab = useCallback(
     (opts?: { openQr?: boolean }) => {
@@ -4554,7 +4540,6 @@ export default function Home() {
 
   const handleGlobalSearchSelectProject = useCallback((id: string) => {
     setActiveSection("site");
-    setOperationsMainTab("projects");
     setSiteSelectedProjectId(id);
   }, []);
 
@@ -5394,7 +5379,6 @@ export default function Home() {
     const ty = (n.type || "").toLowerCase();
     if (ty.includes("daily_report") && projectId && reportId) {
       setActiveSection("site");
-      setOperationsMainTab("projects");
       setSiteSelectedProjectId(projectId);
       setDailyReportNotificationFocus({ projectId, reportId, sig: Date.now() });
       return;
@@ -5405,19 +5389,16 @@ export default function Home() {
     }
     if ((ty === "photo_approved" || ty === "photo_rejected") && projectId) {
       setActiveSection("site");
-      setOperationsMainTab("projects");
       setSiteSelectedProjectId(projectId);
       return;
     }
     if (ty === "project_assigned" && projectId) {
       setActiveSection("site");
-      setOperationsMainTab("projects");
       setSiteSelectedProjectId(projectId);
       return;
     }
     if ((ty === "shift_created" || ty === "shift_updated") && projectId) {
       setActiveSection("site");
-      setOperationsMainTab("projects");
       setSiteSelectedProjectId(projectId);
     }
   }, []);
@@ -7620,64 +7601,7 @@ export default function Home() {
 
             {activeSection === "site" && perms.site && (
               <>
-                {canViewProjectsTab && perms.canAccessSubcontractors ? (
-                  <HorizontalScrollFade className="mb-4 max-md:-mx-1" variant="inherit">
-                    <div
-                      className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0"
-                      role="tablist"
-                      aria-label={(t as Record<string, string>).nav_operations ?? ""}
-                    >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={operationsMainTab === "projects"}
-                      onClick={() => setOperationsMainTab("projects")}
-                      className={`inline-flex min-h-[44px] items-center rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
-                        operationsMainTab === "projects"
-                          ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
-                          : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      {t.projects ?? "Proyectos"}
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={operationsMainTab === "subcontractors"}
-                      onClick={() => setOperationsMainTab("subcontractors")}
-                      className={`inline-flex min-h-[44px] items-center rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
-                        operationsMainTab === "subcontractors"
-                          ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100"
-                          : "border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      {t.subcontractors ?? "Subcontratistas"}
-                    </button>
-                    </div>
-                  </HorizontalScrollFade>
-                ) : null}
-                {!canViewProjectsTab && perms.canAccessSubcontractors ? (
-                  <SubcontractorsModule
-                   companyId={companyId}
-                    onBackToOffice={() => setActiveSection("office")}
-                    labels={t as Record<string, string>}
-                    projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
-                    canManage={rolePerms.canManageSubcontractors}
-                    canDeleteSubcontractor={!!rolePerms.canManageSubcontractors}
-                    customRoles={customRoles}
-                  />
-                ) : operationsMainTab === "subcontractors" && perms.canAccessSubcontractors ? (
-                  <SubcontractorsModule
-                    companyId={companyId}
-                    onBackToOffice={() => setOperationsMainTab("projects")}
-                    labels={t as Record<string, string>}
-                    projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, archived: p.archived }))}
-                    canManage={rolePerms.canManageSubcontractors}
-                    canDeleteSubcontractor={!!rolePerms.canManageSubcontractors}
-                    customRoles={customRoles}
-                  />
-                ) : (
-                  <ProjectsModule
+                <ProjectsModule
                 labels={t}
                 projects={siteProjects}
                 selectedProjectId={siteSelectedProjectId}
@@ -8083,8 +8007,8 @@ export default function Home() {
                 rentals={rentals}
                 canCreateProjects={!!rolePerms.canCreateProjects}
                 onOpenNewProject={() => openProjectForm()}
+                onNavigateToCentral={() => setActiveSection("office")}
               />
-                )}
               <ModuleHelpFab
                 moduleKey="site"
                 labels={t as Record<string, string>}

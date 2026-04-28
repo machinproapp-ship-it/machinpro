@@ -450,6 +450,7 @@ export interface ProjectsModuleProps {
   /** Operaciones: abrir formulario nuevo proyecto (Central usa el mismo flujo). */
   canCreateProjects?: boolean;
   onOpenNewProject?: () => void;
+  onNavigateToCentral?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -751,6 +752,7 @@ export function ProjectsModule({
   rentals = [],
   canCreateProjects = false,
   onOpenNewProject,
+  onNavigateToCentral,
 }: ProjectsModuleProps) {
   const tl = t as Record<string, string>;
   const ppp = usePPPPricing();
@@ -1146,8 +1148,13 @@ export function ProjectsModule({
     [dateLoc, userTz, displayPrefsRev]
   );
 
+  const activeProjects = useMemo(
+    () => (projects ?? []).filter((p) => !p.archived),
+    [projects]
+  );
+
   const selectedProject = selectedProjectId
-    ? (projects ?? []).find((p) => p.id === selectedProjectId)
+    ? activeProjects.find((p) => p.id === selectedProjectId)
     : null;
 
   const operationsTabLabelForBreadcrumb = useMemo(() => {
@@ -1201,7 +1208,7 @@ export function ProjectsModule({
 
   const projectsForMap = useMemo(
     () =>
-      (projects ?? []).map((proj) => ({
+      activeProjects.map((proj) => ({
         id: proj.id,
         name: proj.name,
         locationLat: proj.locationLat,
@@ -1212,7 +1219,7 @@ export function ProjectsModule({
         lifecycleStatus: proj.lifecycleStatus,
         teamCount: (proj.assignedEmployeeIds ?? []).length,
       })),
-    [projects]
+    [activeProjects]
   );
 
   const projectsWithCoordsCount = useMemo(
@@ -1810,16 +1817,18 @@ export function ProjectsModule({
                 {t.projects_select_detail_hint ?? PM_EN.projects_select_detail_hint}
               </p>
             </div>
-            {canCreateProjects && onOpenNewProject ? (
+            <div className="w-full sm:w-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/50 dark:bg-slate-900/40 p-4 text-center">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {t.operations_create_project_hint ?? "Para crear un nuevo proyecto, ve a Central → Proyectos."}
+              </p>
               <button
                 type="button"
-                onClick={onOpenNewProject}
-                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 sm:w-auto"
+                onClick={() => onNavigateToCentral?.()}
+                className="mt-2 inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-medium text-white min-h-[44px]"
               >
-                <Plus className="h-5 w-5 shrink-0" aria-hidden />
-                {(t as Record<string, string>).projects_new_project ?? PM_EN.projects_new_project}
+                {t.operations_go_to_central ?? "Ir a Central"}
               </button>
-            ) : null}
+            </div>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 dark:border-slate-700/80" role="group" aria-label={tl.projects_view_toggle_group ?? "View"}>
@@ -1865,7 +1874,7 @@ export function ProjectsModule({
           </div>
         ) : (
         <div className="grid w-full min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 md:gap-6 lg:grid-cols-3 lg:p-8">
-          {(projects ?? []).map((proj) => {
+          {activeProjects.map((proj) => {
             const typeLabel =
               proj.type === "residential"
                 ? (tl.projectTypeResidential ?? PM_EN.projectTypeResidential)
@@ -1948,9 +1957,18 @@ export function ProjectsModule({
             );
           })}
 
-          {(projects ?? []).length === 0 && (
-            <div className="col-span-full py-12 text-center text-sm text-zinc-400 dark:text-zinc-500 sm:col-span-2 lg:col-span-3">
-              {t.noProjectsAssigned ?? PM_EN.noProjectsAssigned}
+          {activeProjects.length === 0 && (
+            <div className="col-span-full sm:col-span-2 lg:col-span-3">
+              <ModuleEmptyState
+                illustration={<EmptyIllustrationFolder />}
+                title={t.operations_no_active_projects ?? "Sin proyectos activos"}
+                message={
+                  t.operations_no_active_projects_desc ??
+                  "Crea un proyecto desde Central para empezar."
+                }
+                actionLabel={t.operations_go_to_central ?? "Ir a Central"}
+                onAction={() => onNavigateToCentral?.()}
+              />
             </div>
           )}
         </div>
