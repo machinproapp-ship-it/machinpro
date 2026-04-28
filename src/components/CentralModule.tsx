@@ -20,6 +20,7 @@ import { watchdogSubjectLabel, type ComplianceAlert } from '@/lib/complianceWatc
 import type { UserRole } from '@/types/shared';
 import type { MainSection } from '@/types/shared';
 import { CentralDashboardLive } from '@/components/CentralDashboardLive';
+import { SubcontractorsModule } from '@/components/SubcontractorsModule';
 import { HorizontalScrollFade } from '@/components/HorizontalScrollFade';
 import { getAuditActionLabel, getAuditEntityTypeLabel } from '@/lib/auditDisplay';
 import { resolvePermissionTip } from "@/lib/permissionTip";
@@ -285,6 +286,8 @@ interface CentralModuleProps {
   canAccessCorrective?: boolean;
   canAccessEmployees?: boolean;
   canAccessSubcontractors?: boolean;
+  /** Role permission: manage subcontractors (embedded module in Projects card). */
+  subcontractorsCanManage?: boolean;
   currentUserId?: string | null;
   canViewAttendance?: boolean;
   /** Permisos efectivos para CentralDashboardLive (widgets / Zona 1). */
@@ -481,6 +484,7 @@ export function CentralModule({
   canAccessCorrective = false,
   canAccessEmployees = false,
   canAccessSubcontractors = false,
+  subcontractorsCanManage = false,
   currentUserId = null,
   canViewAttendance = false,
   dashboardCanManageEmployees = false,
@@ -569,7 +573,7 @@ export function CentralModule({
   const [complianceRecordDraft, setComplianceRecordDraft] = useState<{ value?: string; expiryDate?: string; documentUrl?: string }>({});
   const [roleDetailDrawerId, setRoleDetailDrawerId] = useState<string | null>(null);
   const [employeeDocUploadOpen, setEmployeeDocUploadOpen] = useState(false);
-  const [projectsMgmtTab, setProjectsMgmtTab] = useState<"active" | "archived">("active");
+  const [projectsMgmtTab, setProjectsMgmtTab] = useState<"active" | "archived" | "subcontractors">("active");
   const [edDocTitle, setEdDocTitle] = useState("");
   const [edDocType, setEdDocType] = useState<EmployeeDocument["type"]>("other");
   const [edDocExpiry, setEdDocExpiry] = useState("");
@@ -706,11 +710,18 @@ export function CentralModule({
   };
 
   const projectsManagementList = useMemo(() => {
+    if (projectsMgmtTab === "subcontractors") return [];
     const todayYmd = new Date().toISOString().split("T")[0];
     return safeDisplayProjects.filter((p) =>
       projectsMgmtTab === "active" ? isProjectOperationallyActive(p, todayYmd) : !!p.archived
     );
   }, [safeDisplayProjects, projectsMgmtTab]);
+
+  useEffect(() => {
+    if (projectsMgmtTab === "subcontractors" && !canAccessSubcontractors) {
+      setProjectsMgmtTab("active");
+    }
+  }, [projectsMgmtTab, canAccessSubcontractors]);
 
   useEffect(() => {
     if (centralView !== "projects" || dashboardCanViewProjectsManagement) return;
@@ -1798,11 +1809,41 @@ export function CentralModule({
                     (labels as Record<string, string>).projects_archived ??
                     "Archived"}
                 </button>
+                {canAccessSubcontractors ? (
+                  <button
+                    type="button"
+                    onClick={() => setProjectsMgmtTab("subcontractors")}
+                    className={`shrink-0 snap-start rounded-t-lg px-4 py-3 text-sm font-medium min-h-[44px] border-b-2 transition-colors ${
+                      projectsMgmtTab === "subcontractors"
+                        ? "border-[#f97316] text-zinc-900 dark:text-white"
+                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    {(labels as Record<string, string>).central_projects_tab_subcontractors ??
+                      (labels as Record<string, string>).subcontractors ??
+                      "Subcontractors"}
+                  </button>
+                ) : null}
               </div>
             </HorizontalScrollFade>
           </div>
           <div className="divide-y divide-zinc-200 dark:divide-white/10">
-            {projectsManagementList.length === 0 ? (
+            {projectsMgmtTab === "subcontractors" && canAccessSubcontractors ? (
+              <div className="p-4 sm:p-6">
+                <SubcontractorsModule
+                  companyId={companyId}
+                  labels={labels}
+                  projects={safeDisplayProjects.map((p) => ({
+                    id: p.id,
+                    name: p.name ?? p.id,
+                    archived: p.archived,
+                  }))}
+                  canManage={subcontractorsCanManage}
+                  canDeleteSubcontractor={subcontractorsCanManage}
+                  customRoles={customRoles}
+                />
+              </div>
+            ) : projectsManagementList.length === 0 ? (
               <div className="p-4 sm:p-6">
                 <ModuleEmptyState
                   illustration={<EmptyIllustrationFolder />}

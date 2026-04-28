@@ -188,6 +188,7 @@ export default {
   operations_no_active_projects_desc: "Créez un projet depuis Central pour commencer.",
   central_projects_tab_active: "Actifs",
   central_projects_tab_archived: "Archivés",
+  central_projects_tab_subcontractors: "Sous-traitants",
   central_unarchive_project: "Désarchiver",
   projects_no_active: "Aucun projet actif",
   projects_no_archived: "Aucun projet archivé",

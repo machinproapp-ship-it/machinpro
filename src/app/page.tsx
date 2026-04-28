@@ -7190,6 +7190,7 @@ export default function Home() {
                 visitorCheckInUrl={companyId ? buildVisitorCheckInUrl(companyId) : null}
                 canAccessEmployees={!!perms.canAccessEmployees}
                 canAccessSubcontractors={!!perms.canAccessSubcontractors}
+                subcontractorsCanManage={!!rolePerms.canManageSubcontractors}
                 canAccessVisitors={!!rolePerms.canViewProjectVisitors}
                 canAccessHazards={
                   !!(rolePerms.canViewHazards || rolePerms.canManageHazards)

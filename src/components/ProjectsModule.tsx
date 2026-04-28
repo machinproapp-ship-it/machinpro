@@ -31,7 +31,6 @@ import {
   FileText,
   Truck,
   ClipboardList,
-  UserPlus,
   Plus,
   Trash2,
   FileDown,
@@ -830,7 +829,6 @@ export function ProjectsModule({
   const [rfiSummary, setRfiSummary] = useState<{ total: number; open: number; closed: number } | null>(null);
   const [generalPhotosSkeleton, setGeneralPhotosSkeleton] = useState(false);
   const [rfiSummaryLoading, setRfiSummaryLoading] = useState(false);
-  const [rfiQuickCreateSig, setRfiQuickCreateSig] = useState(0);
   const [projectsBrowseView, setProjectsBrowseView] = useState<"list" | "map">("list");
   const [projectsMapDark, setProjectsMapDark] = useState(false);
 
@@ -1676,7 +1674,6 @@ export function ProjectsModule({
       )
     : [];
 
-  const canCreateRfiQuick = currentUserRole === "admin" || currentUserRole === "supervisor";
   const budgetBarToneClass =
     progress < 70 ? "bg-emerald-500" : progress <= 90 ? "bg-amber-500" : "bg-red-500";
 
@@ -1817,18 +1814,6 @@ export function ProjectsModule({
                 {t.projects_select_detail_hint ?? PM_EN.projects_select_detail_hint}
               </p>
             </div>
-            <div className="w-full sm:w-auto rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/50 dark:bg-slate-900/40 p-4 text-center">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {t.operations_create_project_hint ?? "Para crear un nuevo proyecto, ve a Central → Proyectos."}
-              </p>
-              <button
-                type="button"
-                onClick={() => onNavigateToCentral?.()}
-                className="mt-2 inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-medium text-white min-h-[44px]"
-              >
-                {t.operations_go_to_central ?? "Ir a Central"}
-              </button>
-            </div>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 dark:border-slate-700/80" role="group" aria-label={tl.projects_view_toggle_group ?? "View"}>
@@ -1963,8 +1948,13 @@ export function ProjectsModule({
                 illustration={<EmptyIllustrationFolder />}
                 title={t.operations_no_active_projects ?? "Sin proyectos activos"}
                 message={
-                  t.operations_no_active_projects_desc ??
-                  "Crea un proyecto desde Central para empezar."
+                  [
+                    t.operations_create_project_hint,
+                    t.operations_no_active_projects_desc,
+                  ]
+                    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+                    .join(" ") ||
+                  (t.operations_no_active_projects_desc ?? "Crea un proyecto desde Central para empezar.")
                 }
                 actionLabel={t.operations_go_to_central ?? "Ir a Central"}
                 onAction={() => onNavigateToCentral?.()}
@@ -2079,81 +2069,6 @@ export function ProjectsModule({
               </button>
             </div>
           </div>
-
-          {(canUploadPhotos ||
-            showProjectFormsTab ||
-            (showProjectRfiTab && canCreateRfiQuick) ||
-            showProjectVisitorsTab) && (
-            <div className="min-w-0 border-t border-zinc-200 pt-3 dark:border-slate-700">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                {tl.project_quick_actions ?? PM_EN.project_quick_actions}
-              </p>
-              <div className="-mx-4 flex min-w-0 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:thin] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-                {canUploadPhotos ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhotoCategoryModal({ projectId: selectedProject.id });
-                      setPhotoCategoryToSubmit("progress");
-                    }}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <Camera className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="whitespace-nowrap">
-                      {(tl as Record<string, string>).project_quick_action_photo ?? tl.progressPhotos ?? PM_EN.progressPhotos}
-                    </span>
-                  </button>
-                ) : null}
-                {showProjectFormsTab ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("formularios");
-                      setDailyReportViewVariant(currentUserRole === "worker" ? "employee" : "full");
-                      setOpenDailyReportKey("new");
-                    }}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="whitespace-nowrap">
-                      {(tl as Record<string, string>).project_quick_action_daily ??
-                        (t as Record<string, string>).daily_report_summary ??
-                        PM_EN.daily_report_summary ??
-                        "Daily report"}
-                    </span>
-                  </button>
-                ) : null}
-                {showProjectRfiTab && canCreateRfiQuick ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("rfi");
-                      setRfiQuickCreateSig((n) => n + 1);
-                    }}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <FileQuestion className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="whitespace-nowrap">{tl.rfi_new ?? PM_EN.rfi_new ?? "RFI"}</span>
-                  </button>
-                ) : null}
-                {showProjectVisitorsTab ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("visitantes")}
-                    className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100 dark:hover:bg-slate-800"
-                  >
-                    <UserPlus className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="whitespace-nowrap">
-                      {(tl as Record<string, string>).project_quick_action_visitor ??
-                        (t as Record<string, string>).siteTabVisitors ??
-                        (t as Record<string, string>).visitors_menu ??
-                        "Visitors"}
-                    </span>
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          )}
 
           {/* KPIs rápidos — 1 col en móvil estrecho, 2–3 columnas en tablet+ */}
           <div className="grid w-full auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 md:gap-4 lg:gap-5">
@@ -4576,7 +4491,6 @@ export function ProjectsModule({
               userProfileId={currentUserProfileId}
               projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))}
               projectIdFilter={selectedProject.id}
-              openCreateSignal={rfiQuickCreateSig}
             />
           </div>
         )}
