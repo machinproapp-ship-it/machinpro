@@ -187,7 +187,9 @@ import { INITIAL_FORM_TEMPLATES } from "@/lib/formTemplates";
 import { buildFormInstanceFromTemplate } from "@/lib/formInstanceFactory";
 import {
   loadFormInstancesFromSupabase,
+  loadFormInstanceById,
   loadFormTemplatesFromSupabase,
+  deleteFormInstanceFromSupabase,
   saveFormInstanceToSupabase,
   saveFormTemplateToSupabase,
   isUuid,
@@ -2085,6 +2087,51 @@ export default function Home() {
     [isOnline, companyId, supabase]
   );
 
+  const fetchFormInstanceByIdRemote = useCallback(
+    async (id: string): Promise<FormInstance | null> => {
+      if (!companyId || !supabase || !id) return null;
+      return loadFormInstanceById(supabase, id, companyId);
+    },
+    [companyId, supabase]
+  );
+
+  const hardDeleteFormInstance = useCallback(
+    async (instance: FormInstance): Promise<boolean> => {
+      if (!instance?.id) return false;
+      let remoteDeleted = true;
+      if (companyId && supabase) {
+        remoteDeleted = await deleteFormInstanceFromSupabase(supabase, instance.id);
+      }
+      if (!remoteDeleted) return false;
+      setFormInstances((prev) => prev.filter((x) => x.id !== instance.id));
+      try {
+        const raw = localStorage.getItem("machinpro_offline_forms");
+        const arr = raw ? (JSON.parse(raw) as FormInstance[]) : [];
+        const next = arr.filter((x) => x.id !== instance.id);
+        localStorage.setItem("machinpro_offline_forms", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      if (companyId && user?.id) {
+        await supabase
+          .from("audit_logs")
+          .insert({
+            company_id: companyId,
+            user_id: user.id,
+            user_name: profile?.fullName ?? profile?.email ?? "Admin",
+            action: "form_hard_delete",
+            entity_type: "form",
+            entity_id: instance.id,
+            entity_name: instance.templateId,
+            new_value: { target_type: "form_instance" },
+            target_type: "form_instance",
+          } as Record<string, unknown>);
+      }
+      return true;
+    },
+    [companyId, supabase, user?.id, profile?.fullName, profile?.email]
+  );
+
   useEffect(() => {
     if (isOnline && pendingSync.length > 0) {
       syncPendingData();
@@ -2104,8 +2151,11 @@ export default function Home() {
     } catch {}
   }, [formTemplates]);
 
+  const formsMigrationInFlightRef = useRef(false);
   useEffect(() => {
     if (!companyId || !session || !supabase) return;
+    if (formsMigrationInFlightRef.current) return;
+    formsMigrationInFlightRef.current = true;
     let cancelled = false;
     const FLAG_INST = "machinpro_form_instances_migrated_v1";
     const FLAG_TPL = "machinpro_form_templates_migrated_v1";
@@ -2187,6 +2237,7 @@ export default function Home() {
 
     return () => {
       cancelled = true;
+      formsMigrationInFlightRef.current = false;
     };
   }, [companyId, session, supabase]);
 
@@ -8006,6 +8057,7 @@ export default function Home() {
                   }
                   );
                   setFormInstances((prev) => [...prev, instance]);
+                  void persistFormInstanceRemote(instance);
                   setFormsOpenFillInstanceId(instance.id);
                   setFormsListProjectFilterOnOpen(projectId);
                   setActiveSection("forms");
@@ -8504,6 +8556,7 @@ export default function Home() {
                 }))}
                 employees={activeEmployees.map((e) => ({ id: e.id, name: e.name, email: e.email }))}
                 currentUserEmployeeId={effectiveEmployeeId ?? ""}
+                currentUserProfileId={profile?.id ?? ""}
                 currentUserName={employees.find((e) => e.id === effectiveEmployeeId)?.name ?? "Admin"}
                 canManage={!!rolePerms.canManageProjectForms}
                 canCreateForms={!!rolePerms.canCreateForms}
@@ -8538,6 +8591,8 @@ export default function Home() {
                 }}
                 onDeleteTemplate={(id) =>
                   setFormTemplates((prev) => prev.filter((t) => t.id !== id || t.isBase))}
+                onHardDeleteInstance={hardDeleteFormInstance}
+                loadFormInstanceById={fetchFormInstanceByIdRemote}
                 labels={t as Record<string, string>}
                 dateLocale={dateLocaleBcp47}
                 timeZone={userTimeZone}
@@ -9589,6 +9644,7 @@ export default function Home() {
                   }
                   );
                   setFormInstances((prev) => [...prev, instance]);
+                  void persistFormInstanceRemote(instance);
                   setFormsOpenFillInstanceId(instance.id);
                   setFormsListProjectFilterOnOpen(pid);
                   setActiveSection("forms");

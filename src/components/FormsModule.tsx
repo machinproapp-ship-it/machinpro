@@ -78,6 +78,7 @@ export interface FormsModuleProps {
   projects: ProjectBasic[];
   employees: EmployeeBasic[];
   currentUserEmployeeId: string;
+  currentUserProfileId?: string;
   currentUserName: string;
   canManage: boolean;
   /** Si no se pasan, se derivan de `canManage` / true para relleno (compat). */
@@ -93,6 +94,8 @@ export interface FormsModuleProps {
   onAddTemplate: (tpl: FormTemplate) => void;
   onUpdateTemplate: (tpl: FormTemplate) => void;
   onDeleteTemplate: (id: string) => void;
+  onHardDeleteInstance?: (instance: FormInstance) => Promise<boolean>;
+  loadFormInstanceById?: (id: string) => Promise<FormInstance | null>;
   labels?: Record<string, string>;
   dateLocale?: string;
   timeZone?: string;
@@ -442,6 +445,7 @@ export function FormsModule({
   projects,
   employees,
   currentUserEmployeeId,
+  currentUserProfileId,
   currentUserName,
   canManage,
   canCreateForms: canCreateFormsProp,
@@ -455,6 +459,8 @@ export function FormsModule({
   onAddTemplate,
   onUpdateTemplate,
   onDeleteTemplate,
+  onHardDeleteInstance,
+  loadFormInstanceById,
   labels: labelsProp,
   dateLocale = typeof navigator !== "undefined" ? navigator.language : "en-US",
   timeZone: timeZoneProp,
@@ -503,10 +509,15 @@ export function FormsModule({
   const [copied, setCopied] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [externalRecipientName, setExternalRecipientName] = useState("");
-  const [emailMode, setEmailMode] = useState<"employee" | "external">("employee");
-  const [selectedEmployeeEmail, setSelectedEmployeeEmail] = useState("");
+  const [emailMode, setEmailMode] = useState<"employee" | "external">("external");
+  const [selectedInternalEmployeeId, setSelectedInternalEmployeeId] = useState("");
+  const [internalNotifyEmail, setInternalNotifyEmail] = useState(false);
+  const [internalNotifyPush, setInternalNotifyPush] = useState(false);
+  const [internalRequestDone, setInternalRequestDone] = useState(false);
+  const [hardDeletingInstanceId, setHardDeletingInstanceId] = useState<string | null>(null);
   const [externalEmailSending, setExternalEmailSending] = useState(false);
   const [externalEmailSent, setExternalEmailSent] = useState(false);
+  const [pollingNoticeAt, setPollingNoticeAt] = useState(0);
   const [fillDraftValues, setFillDraftValues] = useState<Record<string, unknown>>({});
   const [fillDraftAttendees, setFillDraftAttendees] = useState<AttendeeRecord[]>([]);
   const [directSignAttendee, setDirectSignAttendee] = useState<AttendeeRecord | null>(null);
@@ -542,6 +553,24 @@ export function FormsModule({
     setListContextFilter(listContextFilterOnOpen);
     onConsumeListContextFilter?.();
   }, [listContextFilterOnOpen, onConsumeListContextFilter]);
+
+  useEffect(() => {
+    if (!detailInstanceId || !loadFormInstanceById) return;
+    const instance = instances.find((i) => i.id === detailInstanceId);
+    if (!instance) return;
+    if (instance.status === "completed" || instance.status === "approved") return;
+    const hasPending = instance.attendees.some((a) => !a.signedAt);
+    if (!hasPending) return;
+    const interval = setInterval(async () => {
+      const fresh = await loadFormInstanceById(instance.id);
+      if (!fresh) return;
+      if (JSON.stringify(fresh.attendees) !== JSON.stringify(instance.attendees)) {
+        onUpdateInstance(fresh);
+        setPollingNoticeAt(Date.now());
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [detailInstanceId, instances, loadFormInstanceById, onUpdateInstance]);
 
   const libraryTemplates = useMemo(() => {
     if (!templateCategoryFilter) return templates;
@@ -828,8 +857,11 @@ export function FormsModule({
     setEmailInput("");
     setExternalRecipientName("");
     setExternalEmailSent(false);
-    setSelectedEmployeeEmail("");
-    setEmailMode("employee");
+    setSelectedInternalEmployeeId("");
+    setInternalNotifyEmail(false);
+    setInternalNotifyPush(false);
+    setInternalRequestDone(false);
+    setEmailMode("external");
     const link = `${publicSignBaseUrl()}/sign/${instance.signToken}`;
     setQrModal({
       signToken: instance.signToken,
@@ -840,6 +872,45 @@ export function FormsModule({
     });
     QRCode.toDataURL(link, { width: 200, margin: 1 }).then(setQrDataUrl).catch(() => setQrDataUrl(""));
   };
+
+  const requestInternalSignature = useCallback(() => {
+    if (!qrModal || !selectedInternalEmployeeId.trim()) return;
+    const emp = employees.find((e) => e.id === selectedInternalEmployeeId.trim());
+    if (!emp) return;
+    const already = (qrModal.instance.attendees ?? []).some(
+      (a) => a.employeeId === emp.id
+    );
+    if (already) {
+      setInternalRequestDone(true);
+      return;
+    }
+    const updated: FormInstance = {
+      ...qrModal.instance,
+      attendees: [
+        ...(qrModal.instance.attendees ?? []),
+        {
+          id: crypto.randomUUID(),
+          name: emp.name,
+          employeeId: emp.id,
+          company: undefined,
+          isExternal: false,
+        },
+      ],
+    };
+    onUpdateInstance(updated);
+    setQrModal((prev) => (prev ? { ...prev, instance: updated } : prev));
+    // NOTE: email/push delivery is intentionally pending backend wiring.
+    void internalNotifyEmail;
+    void internalNotifyPush;
+    setInternalRequestDone(true);
+  }, [
+    qrModal,
+    selectedInternalEmployeeId,
+    employees,
+    onUpdateInstance,
+    internalNotifyEmail,
+    internalNotifyPush,
+  ]);
 
 
   return (
@@ -1435,6 +1506,11 @@ export function FormsModule({
             </div>
           );
         }
+        const canHardDelete =
+          !!onHardDeleteInstance &&
+          (canManage ||
+            (!!currentUserProfileId && instance.createdBy === currentUserProfileId) ||
+            (!!currentUserEmployeeId && instance.createdBy === currentUserEmployeeId));
         return (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1467,6 +1543,11 @@ export function FormsModule({
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                {pollingNoticeAt > 0 && (
+                  <span className="inline-flex items-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-3 py-2 text-xs min-h-[44px]">
+                    {l("forms_polling_signed")}
+                  </span>
+                )}
                 {canApproveForms &&
                   instance.status !== "approved" &&
                   (instance.status === "completed" || instance.status === "in_progress") && (
@@ -1490,6 +1571,32 @@ export function FormsModule({
                   >
                     <PenLine className="h-4 w-4" />
                     {l("forms_share_external")}
+                  </button>
+                )}
+                {canHardDelete && instance.status === "completed" && (
+                  <button
+                    type="button"
+                    disabled={hardDeletingInstanceId === instance.id}
+                    onClick={async () => {
+                      const ok = window.confirm(
+                        l("forms_delete_confirm")
+                      );
+                      if (!ok || !onHardDeleteInstance) return;
+                      setHardDeletingInstanceId(instance.id);
+                      try {
+                        const deleted = await onHardDeleteInstance(instance);
+                        if (deleted) {
+                          setView("list");
+                          setDetailInstanceId(null);
+                        }
+                      } finally {
+                        setHardDeletingInstanceId(null);
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-xl border border-red-500 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-200 px-4 py-2.5 text-sm font-medium min-h-[44px] disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {l("forms_delete_button")}
                   </button>
                 )}
                 {canExportForms && (
@@ -1653,37 +1760,51 @@ export function FormsModule({
                   onClick={() => setEmailMode("employee")}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${emailMode === "employee" ? "border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300" : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 text-zinc-600 dark:text-zinc-400"}`}
                 >
-                  {l("forms_email_employee_tab")}
+                  {l("forms_share_tab_internal")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEmailMode("external")}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${emailMode === "external" ? "border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300" : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 text-zinc-600 dark:text-zinc-400"}`}
                 >
-                  {l("forms_email_external_tab")}
+                  {l("forms_share_tab_external")}
                 </button>
               </div>
               {emailMode === "employee" ? (
-                <select
-                  value={selectedEmployeeEmail}
-                  onChange={(e) => setSelectedEmployeeEmail(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
-                >
-                  <option value="">{l("forms_email_select_employee")}</option>
-                  {employees
-                    .filter(
-                      (emp) =>
-                        (qrModal.instance.attendees ?? []).some(
-                          (a) => a.employeeId === emp.id && !a.signedAt
-                        )
-                    )
-                    .map((emp) => (
-                      <option key={emp.id} value={emp.email ?? ""}>
-                        {emp.name}{" "}
-                        {!emp.email ? l("forms_email_no_email_suffix") : ""}
+                <div className="space-y-2">
+                  <select
+                    value={selectedInternalEmployeeId}
+                    onChange={(e) => setSelectedInternalEmployeeId(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                  >
+                    <option value="">{l("forms_share_employee_select")}</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
                       </option>
                     ))}
-                </select>
+                  </select>
+                  <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 min-h-[44px]">
+                    <input
+                      type="checkbox"
+                      checked={internalNotifyEmail}
+                      onChange={(e) => setInternalNotifyEmail(e.target.checked)}
+                    />
+                    <span>
+                      {`${l("forms_external_send_email")} (${l("disabled") ?? "disabled"})`}
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 min-h-[44px]">
+                    <input
+                      type="checkbox"
+                      checked={internalNotifyPush}
+                      onChange={(e) => setInternalNotifyPush(e.target.checked)}
+                    />
+                    <span>
+                      {`${l("forms_share_push_notification") ?? "Push notification"} (${l("disabled") ?? "disabled"})`}
+                    </span>
+                  </label>
+                </div>
               ) : (
                 <div className="space-y-2">
                   <input
@@ -1707,11 +1828,16 @@ export function FormsModule({
               type="button"
               disabled={
                 externalEmailSending ||
-                !authAccessToken ||
-                emailMode === "employee"
+                (emailMode === "external" && !authAccessToken) ||
+                (emailMode === "employee" && !selectedInternalEmployeeId)
               }
               onClick={async () => {
-                if (!authAccessToken || !qrModal) return;
+                if (!qrModal) return;
+                if (emailMode === "employee") {
+                  requestInternalSignature();
+                  return;
+                }
+                if (!authAccessToken) return;
                 if (emailMode === "external") {
                   const em = emailInput.trim();
                   const rn = externalRecipientName.trim();
@@ -1740,9 +1866,13 @@ export function FormsModule({
               }}
               className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm font-medium min-h-[44px] disabled:opacity-50"
             >
-              {emailMode === "external" && externalEmailSent
-                ? l("forms_external_email_sent")
-                : l("forms_external_send_email")}
+              {emailMode === "employee"
+                ? internalRequestDone
+                  ? l("forms_share_signature_requested")
+                  : l("forms_share_request_signature")
+                : emailMode === "external" && externalEmailSent
+                  ? l("forms_external_email_sent")
+                  : l("forms_external_send_email")}
             </button>
           </div>
         </>

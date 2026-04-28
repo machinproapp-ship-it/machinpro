@@ -251,3 +251,19 @@ export async function deleteFormInstanceFromSupabase(
     return false;
   }
 }
+
+export async function loadFormInstanceById(
+  client: SupabaseClient,
+  id: string,
+  companyId?: string
+): Promise<FormInstance | null> {
+  try {
+    let q = client.from("form_instances").select("*").eq("id", id);
+    if (companyId) q = q.eq("company_id", companyId);
+    const { data, error } = await q.maybeSingle();
+    if (error || !data) return null;
+    return mapDbRowToFormInstance(data as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
