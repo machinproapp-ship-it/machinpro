@@ -38,7 +38,7 @@ const GROUPS_EN: Record<string, string> = {
 const GROUPS_FR: Record<string, string> = {
   permGroup_central: "Central",
   permGroup_operations: "Opérations",
-  permGroup_schedule: "Planning",
+  permGroup_schedule: "Horaire",
   permGroup_logistics: "Logistique",
   permGroup_security: "Sécurité",
   permGroup_settings: "Paramètres",

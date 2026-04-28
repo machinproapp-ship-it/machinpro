@@ -26,6 +26,11 @@ import {
   PERMISSION_LABELS_IT,
   PERMISSION_LABELS_PT,
 } from "@/locales/permAw5";
+import { AH61_GAP_DE } from "@/locales/gapFill/ah61-de";
+import { AH61_GAP_ES } from "@/locales/gapFill/ah61-es";
+import { AH61_GAP_FR } from "@/locales/gapFill/ah61-fr";
+import { AH61_GAP_IT } from "@/locales/gapFill/ah61-it";
+import { AH61_GAP_PT } from "@/locales/gapFill/ah61-pt";
 
 export const LANGUAGES: { code: Language; flag: string; label: string }[] = [
   { code: "es", flag: "🇪🇸", label: "Español" },
@@ -79,12 +84,22 @@ export async function loadLocale(lang: string): Promise<Record<string, string>> 
 }
 
 export const ALL_TRANSLATIONS: Record<string, Record<string, string>> = {
-  es: mergeWithEn({ ...(es as object), ...PERMISSION_LABELS_ES } as LocaleModule),
-  en: EN,
-  fr: mergeWithEn({ ...(fr as object), ...PERMISSION_LABELS_FR } as LocaleModule),
-  de: mergeWithEn({ ...(de as object), ...PERMISSION_LABELS_DE } as LocaleModule),
-  it: mergeWithEn({ ...(it as object), ...PERMISSION_LABELS_IT } as LocaleModule),
-  pt: mergeWithEn({ ...(pt as object), ...PERMISSION_LABELS_PT } as LocaleModule),
+  es: mergeWithEn(
+    { ...(es as object), ...PERMISSION_LABELS_ES, ...AH61_GAP_ES } as LocaleModule
+  ),
+  en: mergeWithEn({ ...(en as object), ...PERMISSION_LABELS_EN } as LocaleModule),
+  fr: mergeWithEn(
+    { ...(fr as object), ...PERMISSION_LABELS_FR, ...AH61_GAP_FR } as LocaleModule
+  ),
+  de: mergeWithEn(
+    { ...(de as object), ...PERMISSION_LABELS_DE, ...AH61_GAP_DE } as LocaleModule
+  ),
+  it: mergeWithEn(
+    { ...(it as object), ...PERMISSION_LABELS_IT, ...AH61_GAP_IT } as LocaleModule
+  ),
+  pt: mergeWithEn(
+    { ...(pt as object), ...PERMISSION_LABELS_PT, ...AH61_GAP_PT } as LocaleModule
+  ),
 };
 
 export type LanguageWithTranslations =

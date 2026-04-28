@@ -335,6 +335,9 @@ export default {
   tabGeneral: "General",
   settings_general_title: "General",
   settings_regional_title: "Regional",
+  settings_regional_advanced: "Advanced regional settings",
+  settings_regional_advanced_hint:
+    "Time zone, date formats, and other company regional preferences are managed by users with this permission.",
   settings_theme_label: "Theme",
   settings_measurement: "Measurement system",
   settings_metric: "Metric",
@@ -1318,6 +1321,7 @@ export default {
   employees_status_active: "Active",
   employees_status_inactive: "Inactive",
   employees_status_invited: "Pending invite",
+  employees_status_deleted: "Deleted (GDPR)",
   employees_empty: "No employees found.",
   module_empty_employees: "No employees yet. Invite your first team member.",
   module_empty_employees_cta: "Invite team member",

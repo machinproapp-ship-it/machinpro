@@ -46,5 +46,8 @@ public/workbox-*.js
 
 .vercel
 
+# AH-61 locale gap exports (regenerate with tsx scripts/ah61-export-gaps.ts)
+scripts/.ah61-tmp/
+
 # Run manually in Supabase SQL editor (do not commit)
 src/lib/performance-indexes.sql
