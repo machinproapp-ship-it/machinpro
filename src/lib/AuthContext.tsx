@@ -319,7 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setSessionIdleWarning(idle >= SESSION_TIMEOUT_MS - SESSION_WARN_BEFORE_MS);
     };
-    const id = window.setInterval(tick, 10_000);
+    const id = window.setInterval(tick, 30_000);
     tick();
     return () => clearInterval(id);
   }, [session?.access_token, signOut]);

@@ -75,7 +75,7 @@ export function GettingStartedWidget({
 
   useEffect(() => {
     void fetchStatus();
-    const id = window.setInterval(() => void fetchStatus(), 45000);
+    const id = window.setInterval(() => void fetchStatus(), 60_000);
     return () => window.clearInterval(id);
   }, [fetchStatus]);
 

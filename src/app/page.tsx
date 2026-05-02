@@ -9,31 +9,28 @@ import type { CentralEmployee, MainSection, UserRole } from "@/types/shared";
 import { CentralModule } from "@/components/CentralModule";
 import type { InventoryLedgerRow } from "@/types/inventoryLedger";
 import { generateInventoryQrDataUrl } from "@/lib/inventoryQr";
-import {
-  LogisticsModule,
-  type InventoryItem,
-  type Vehicle,
-  type Rental,
-  type RentalEquipmentType,
-  type Supplier,
-  type SupplierContact,
-  type Employee as LogisticsEmployee,
-  type WarehouseSubTabId,
-  type AssetUsageLog,
-  type ToolStatus,
-  type VehicleStatus,
+import type {
+  InventoryItem,
+  Vehicle,
+  Rental,
+  RentalEquipmentType,
+  Supplier,
+  SupplierContact,
+  Employee as LogisticsEmployee,
+  WarehouseSubTabId,
+  AssetUsageLog,
+  ToolStatus,
+  VehicleStatus,
 } from "@/components/LogisticsModule";
-import {
-  ProjectsModule,
-  type Project as SiteProject,
-  type ProjectEmployee,
-  type ProjectInventoryItem,
-  type ProjectForm,
+import type {
+  Project as SiteProject,
+  ProjectEmployee,
+  ProjectInventoryItem,
+  ProjectForm,
 } from "@/components/ProjectsModule";
 import type { SafetyChecklist } from "@/types/safetyChecklist";
 import type { DailyFieldReport } from "@/types/dailyFieldReport";
 import type { ProjectTask } from "@/types/projectTask";
-import ScheduleModule from "@/components/ScheduleModule";
 import { EmployeeShiftDayView } from "@/components/EmployeeShiftDayView";
 import { QuickHazardModal } from "@/components/QuickHazardModal";
 import { usePPPPricing } from "@/hooks/usePPPPricing";
@@ -89,6 +86,18 @@ const EmployeesModule = dynamic(
   () => import("@/components/EmployeesModule").then((m) => ({ default: m.EmployeesModule })),
   { ssr: false, loading: heavyModuleFallback }
 );
+const LogisticsModule = dynamic(
+  () => import("@/components/LogisticsModule").then((m) => ({ default: m.LogisticsModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const ProjectsModule = dynamic(
+  () => import("@/components/ProjectsModule").then((m) => ({ default: m.ProjectsModule })),
+  { ssr: false, loading: heavyModuleFallback }
+);
+const ScheduleModule = dynamic(() => import("@/components/ScheduleModule"), {
+  ssr: false,
+  loading: heavyModuleFallback,
+});
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { countOperationallyActiveProjects } from "@/lib/projectFilters";
 import { useAuth } from "@/lib/AuthContext";
@@ -3096,25 +3105,13 @@ export default function Home() {
           }
         });
 
-      /** FASE 0: companies + perfiles mínimos (suscripciones: `useSubscription`). */
-      const [companyPhase0, phase0ProfilesLiteRes] = await Promise.all([
-        supabase
-          .from("companies")
-          .select("name, logo_url, address, phone, email, website, country_code, settings")
-          .eq("id", cid)
-          .maybeSingle(),
-        supabase
-          .from("user_profiles")
-          .select("id, full_name, email, role, profile_status, employee_id, locale")
-          .eq("company_id", cid)
-          .order("created_at", { ascending: false }),
-      ]);
+      /** FASE 0: companies solamente (perfiles en FASE 1 — evita 2.ª query duplicada a `user_profiles`). */
+      const { data: coDataPhase0, error: coErrPhase0 } = await supabase
+        .from("companies")
+        .select("name, logo_url, address, phone, email, website, country_code, settings")
+        .eq("id", cid)
+        .maybeSingle();
       if (cancelled) return;
-      if (phase0ProfilesLiteRes.error) {
-        console.error("[page] user_profiles (fase 0)", phase0ProfilesLiteRes.error);
-      }
-
-      const { data: coDataPhase0, error: coErrPhase0 } = companyPhase0;
       if (!coErrPhase0 && coDataPhase0) {
         const row = coDataPhase0 as Record<string, unknown>;
         if (typeof row.name === "string") {
@@ -3148,25 +3145,30 @@ export default function Home() {
       await yieldPaint();
 
       /** FASE 1: datos críticos UX (empleados completos, proyectos acotados, roles, auditoría). */
-      const [profilesResult, activeProjectsResult, archivedProjectsResult, rolesResult, auditResult] =
-        await Promise.all([
-          supabase
-            .from("user_profiles")
-            .select(
-              "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, vacation_days_per_year, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status, deleted_at"
-            )
-            .eq("company_id", cid)
-            .order("created_at", { ascending: false }),
-          supabase.from("projects").select("*").eq("company_id", cid).eq("archived", false).limit(50),
-          supabase.from("projects").select("*").eq("company_id", cid).eq("archived", true).limit(50),
-          supabase.from("roles").select("*").eq("company_id", cid).order("created_at", { ascending: true }),
-          supabase
-            .from("audit_logs")
-            .select("*")
-            .eq("company_id", cid)
-            .order("created_at", { ascending: false })
-            .limit(20),
-        ]);
+      const [profilesResult, projectsMergedResult, rolesResult, auditResult] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select(
+            "id, employee_id, full_name, display_name, email, role, phone, pay_type, pay_amount, pay_period, hourly_rate, vacation_days_per_year, custom_role_id, custom_permissions, use_role_permissions, created_at, certificates, profile_status, deleted_at"
+          )
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("projects")
+          .select("*")
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase.from("roles").select("*").eq("company_id", cid).order("created_at", { ascending: true }),
+        supabase
+          .from("audit_logs")
+          .select(
+            "id, company_id, user_id, user_name, action, entity_type, entity_id, entity_name, created_at"
+          )
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
 
       if (cancelled) return;
 
@@ -3209,11 +3211,11 @@ export default function Home() {
         }
       }
 
-      const projErr = activeProjectsResult.error ?? archivedProjectsResult.error;
+      const projErr = projectsMergedResult.error;
       if (projErr) {
         console.error("[page] projects", projErr);
       }
-      const projData = [...(activeProjectsResult.data ?? []), ...(archivedProjectsResult.data ?? [])];
+      const projData = projectsMergedResult.data ?? [];
       if (!projErr && !cancelled) {
         if (!projData?.length) {
           mappedProjects = [];
@@ -3353,7 +3355,13 @@ export default function Home() {
               .eq("company_id", cid)
               .order("created_at", { ascending: false })
               .limit(50),
-            supabase.from("schedule_entries").select("*").eq("company_id", cid).limit(500),
+            supabase
+              .from("schedule_entries")
+              .select(
+                "id, type, employee_ids, project_id, project_code, date, start_time, end_time, notes, created_by, event_label"
+              )
+              .eq("company_id", cid)
+              .limit(500),
           ]);
 
           if (cancelled) return;
@@ -4472,6 +4480,48 @@ export default function Home() {
       return assigned.some((aid) => aid === supervisorProfileId || aid === supervisorLegacyId);
     });
   }, [effectiveRole, projects, profile?.id, effectiveEmployeeId]);
+
+  /** Evita recrear el array de empleados en cada render (CentralModule / widgets). */
+  const centralModuleEmployeeRows = useMemo(() => {
+    const activeProjects =
+      centralModuleSupervisorProjects ?? (projects ?? []).filter((p) => !p.archived);
+    const visible =
+      effectiveRole === "supervisor"
+        ? (employees ?? []).filter((e) => {
+            const leg = userToEmployeeMap[e.id] ?? e.id;
+            return activeProjects.some((p) =>
+              (p.assignedEmployeeIds ?? []).some((aid) => aid === e.id || aid === leg)
+            );
+          })
+        : [...(employees ?? []), ...removedEmployeesForCentral];
+    return visible.map((e) => ({
+      id: e.id,
+      name: e.name,
+      full_name: e.full_name ?? undefined,
+      created_at: e.created_at ?? undefined,
+      role: e.role,
+      profileStatus: e.profileStatus,
+      deleted_at: e.deleted_at ?? null,
+      hours: e.hours,
+      phone: e.phone,
+      email: e.email,
+      certificates: e.certificates ?? [],
+      payType: e.payType,
+      hourlyRate: e.hourlyRate,
+      laborHourlyRate: e.laborHourlyRate,
+      monthlySalary: e.monthlySalary,
+      customRoleId: e.customRoleId,
+      customPermissions: e.customPermissions,
+      useRolePermissions: e.useRolePermissions,
+    }));
+  }, [
+    effectiveRole,
+    centralModuleSupervisorProjects,
+    projects,
+    employees,
+    removedEmployeesForCentral,
+    userToEmployeeMap,
+  ]);
 
   useEffect(() => {
     if (!supabase || !session || !companyId) return;
@@ -6964,40 +7014,7 @@ export default function Home() {
               <div className={!dashboardOfficeHydrated ? "hidden" : "contents"}>
               <CentralModule
                 labels={labels}
-                employees={(() => {
-                  const activeProjects =
-                    centralModuleSupervisorProjects ??
-                    (projects ?? []).filter((p) => !p.archived);
-                  const visible =
-                    effectiveRole === "supervisor"
-                      ? (employees ?? []).filter((e) => {
-                          const leg = userToEmployeeMap[e.id] ?? e.id;
-                          return activeProjects.some((p) =>
-                            (p.assignedEmployeeIds ?? []).some((aid) => aid === e.id || aid === leg)
-                          );
-                        })
-                      : [...(employees ?? []), ...removedEmployeesForCentral];
-                  return visible.map((e) => ({
-                    id: e.id,
-                    name: e.name,
-                    full_name: e.full_name ?? undefined,
-                    created_at: e.created_at ?? undefined,
-                    role: e.role,
-                    profileStatus: e.profileStatus,
-                    deleted_at: e.deleted_at ?? null,
-                    hours: e.hours,
-                    phone: e.phone,
-                    email: e.email,
-                    certificates: e.certificates ?? [],
-                    payType: e.payType,
-                    hourlyRate: e.hourlyRate,
-                    laborHourlyRate: e.laborHourlyRate,
-                    monthlySalary: e.monthlySalary,
-                    customRoleId: e.customRoleId,
-                    customPermissions: e.customPermissions,
-                    useRolePermissions: e.useRolePermissions,
-                  }));
-                })()}
+                employees={centralModuleEmployeeRows}
                 projects={centralModuleSupervisorProjects ?? projects}
                 displayProjects={centralModuleSupervisorProjects ?? projects}
                 subcontractors={subcontractors}
