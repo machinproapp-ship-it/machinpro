@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, ClipboardList, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { translateHazardSeverity, translateHazardStatus } from "@/lib/hazardDisplayLabels";
 import type { Hazard } from "@/types/hazard";
 
 type Props = {
@@ -108,13 +109,17 @@ export function SecurityOverviewPanel({
             <div
               className={`rounded-xl border p-4 ${activeHazards > 0 ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30" : "border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-900"}`}
             >
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{L("security_metric_active_hazards", "Active hazards")}</p>
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                {L("security_kpi_active_hazards", "Active hazards")}
+              </p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-white">{activeHazards}</p>
             </div>
             <div
               className={`rounded-xl border p-4 ${pendingCa > 0 ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30" : "border-zinc-200 bg-white dark:border-slate-700 dark:bg-slate-900"}`}
             >
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{L("security_metric_pending_ca", "Pending corrective actions")}</p>
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                {L("security_kpi_pending_corrective", "Pending corrective actions")}
+              </p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-white">{pendingCa}</p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -122,7 +127,9 @@ export function SecurityOverviewPanel({
               <p className="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-white">{swpPendingApprox}</p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{L("security_metric_certs_soon", "Certificates expiring (30d)")}</p>
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                {L("security_kpi_certs_expiring_30d", "Certificates expiring (30d)")}
+              </p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-white">{certsSoon}</p>
             </div>
           </div>
@@ -143,7 +150,9 @@ export function SecurityOverviewPanel({
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                 <span className="text-lg font-bold text-zinc-900 dark:text-white">{safetyIndex}%</span>
-                <span className="text-[10px] leading-tight text-zinc-500">{L("security_index_label", "Safety index")}</span>
+                <span className="text-[10px] leading-tight text-zinc-500">
+                  {L("security_section_safety_index", "Safety index")}
+                </span>
               </div>
             </div>
             <div className="min-w-0 flex-1 space-y-3">
@@ -158,7 +167,11 @@ export function SecurityOverviewPanel({
                   recentHazards.map((h) => (
                     <li key={h.id} className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
                       <span className="font-medium">{h.title}</span>
-                      <span className="text-xs text-zinc-500"> · {h.severity} · {h.status}</span>
+                      <span className="text-xs text-zinc-500">
+                        {" "}
+                        · {translateHazardSeverity(String(h.severity), labels)} ·{" "}
+                        {translateHazardStatus(String(h.status), labels)}
+                      </span>
                     </li>
                   ))
                 )}
@@ -169,9 +182,14 @@ export function SecurityOverviewPanel({
           <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/40">
             <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
               <ClipboardList className="h-4 w-4" aria-hidden />
-              {L("security_swp_pending_section", "SWP signature gaps")}
+              {L("security_section_swp_signature_gaps", "SWP signature gaps")}
             </h3>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">{L("security_swp_pending_hint", "Approximation based on procedures without recorded signatures.")}</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              {L(
+                "security_swp_approx_description",
+                "Approximation based on procedures without recorded signatures"
+              )}
+            </p>
           </div>
         </>
       )}
