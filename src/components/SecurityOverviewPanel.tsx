@@ -123,7 +123,9 @@ export function SecurityOverviewPanel({
               <p className="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-white">{pendingCa}</p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{L("security_metric_swp_pending", "SWPs missing signatures (approx.)")}</p>
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                {L("security_kpi_swp_missing_signatures", "SWPs missing signatures (approx.)")}
+              </p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-white">{swpPendingApprox}</p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -158,7 +160,7 @@ export function SecurityOverviewPanel({
             <div className="min-w-0 flex-1 space-y-3">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
                 <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />
-                {L("security_recent_hazards", "Recent hazards")}
+                {L("security_section_recent_hazards", "Recent hazards")}
               </h3>
               <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
                 {recentHazards.length === 0 ? (
