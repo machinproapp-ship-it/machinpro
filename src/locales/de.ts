@@ -26,6 +26,10 @@ export default {
   security_section_swp_signature_gaps: "Fehlende Unterschriften SWP",
   security_swp_approx_description:
     "Schätzung basierend auf Verfahren ohne erfasste Unterschriften",
+  security: {
+    swpsMissingSignatures: "SWPs ohne Unterschriften (ca.)",
+    recentHazards: "Aktuelle Gefahren",
+  },
   hazard_severity_low: "niedrig",
   hazard_severity_medium: "mittel",
   hazard_severity_high: "hoch",

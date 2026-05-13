@@ -276,8 +276,10 @@ export function SecurityModule({
   }, [initialTab, allowed, onInitialTabConsumed]);
 
   const L = (k: string, fb: string) =>
-    (t[k] as string | undefined) ||
-    (ALL_TRANSLATIONS.en as Record<string, string>)[k] ||
+    (typeof t[k] === "string" ? t[k] : undefined) ||
+    (typeof (ALL_TRANSLATIONS.en as Record<string, unknown>)[k] === "string"
+      ? ((ALL_TRANSLATIONS.en as Record<string, unknown>)[k] as string)
+      : undefined) ||
     fb;
   const exportAuditCsv = useCallback(() => {
     const whenH = L("auditWhen", L("date", "Date"));
@@ -318,10 +320,12 @@ export function SecurityModule({
   }, [auditLogs, companyId, companyName, dateLocale, timeZone, t, showToast]);
 
   const exportSafetyPdf = useCallback(async () => {
-    const labels = t as Record<string, string>;
+    const labels = t;
     const TL = (k: string, fb: string) =>
-      (t[k] as string | undefined) ||
-      (ALL_TRANSLATIONS.en as Record<string, string>)[k] ||
+      (typeof t[k] === "string" ? t[k] : undefined) ||
+      (typeof (ALL_TRANSLATIONS.en as Record<string, unknown>)[k] === "string"
+        ? ((ALL_TRANSLATIONS.en as Record<string, unknown>)[k] as string)
+        : undefined) ||
       fb;
     if (!supabase || !companyId) {
       showToast("error", TL("export_error", "Export error"));
@@ -482,7 +486,7 @@ export function SecurityModule({
             </div>
             <SecurityOverviewPanel
               companyId={companyId}
-              labels={t as Record<string, string>}
+              t={t}
               dateLocale={dateLocale}
               timeZone={timeZone}
             />

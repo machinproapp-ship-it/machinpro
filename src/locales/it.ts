@@ -26,6 +26,10 @@ export default {
   security_section_swp_signature_gaps: "Mancanza firme SWP",
   security_swp_approx_description:
     "Approssimazione basata su procedure senza firme registrate",
+  security: {
+    swpsMissingSignatures: "SWP senza firme (circa)",
+    recentHazards: "Pericoli recenti",
+  },
   hazard_severity_low: "basso",
   hazard_severity_medium: "medio",
   hazard_severity_high: "alto",

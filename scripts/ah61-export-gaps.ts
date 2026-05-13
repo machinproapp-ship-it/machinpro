@@ -12,7 +12,10 @@ const out: Record<string, Record<string, string>> = {};
 for (const [code, loc] of Object.entries(packs)) {
   const missing: Record<string, string> = {};
   for (const k of Object.keys(en)) {
-    if (!(k in loc)) missing[k] = (en as Record<string, string>)[k];
+    if (!(k in loc)) {
+      const v = (en as Record<string, unknown>)[k];
+      if (typeof v === "string") missing[k] = v;
+    }
   }
   out[code] = missing;
 }

@@ -31,6 +31,7 @@ import { AH61_GAP_ES } from "@/locales/gapFill/ah61-es";
 import { AH61_GAP_FR } from "@/locales/gapFill/ah61-fr";
 import { AH61_GAP_IT } from "@/locales/gapFill/ah61-it";
 import { AH61_GAP_PT } from "@/locales/gapFill/ah61-pt";
+import type { SecurityMessages } from "@/locales/types";
 
 export const LANGUAGES: { code: Language; flag: string; label: string }[] = [
   { code: "es", flag: "🇪🇸", label: "Español" },
@@ -58,11 +59,30 @@ export const LANGUAGES: { code: Language; flag: string; label: string }[] = [
 
 type LocaleModule = Record<string, string>;
 
-const EN: LocaleModule = { ...(en as object) } as LocaleModule;
+const EN = { ...(en as object) } as Record<string, unknown>;
+
+function isSecurityMessages(v: unknown): v is SecurityMessages {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/** Fusiona el namespace `security` sin perder claves del inglés cuando el locale solo redefine parte. */
+function mergeSecurityLayer(
+  base: SecurityMessages | undefined,
+  override: SecurityMessages | undefined
+): SecurityMessages | undefined {
+  if (!base && !override) return undefined;
+  return { ...base, ...override } as SecurityMessages;
+}
 
 /** Une un locale parcial con la plantilla en inglés (claves faltantes = EN). */
-function mergeWithEn(locale: LocaleModule): LocaleModule {
-  return { ...EN, ...locale };
+function mergeWithEn(locale: Record<string, unknown>): LocaleModule {
+  const out: Record<string, unknown> = { ...EN, ...locale };
+  const sec = mergeSecurityLayer(
+    isSecurityMessages(EN.security) ? (EN.security as SecurityMessages) : undefined,
+    isSecurityMessages(locale.security) ? (locale.security as SecurityMessages) : undefined
+  );
+  if (sec) out.security = sec;
+  return out as LocaleModule;
 }
 
 /** Idiomas incluidos en el bundle inicial (ALL_TRANSLATIONS). */
@@ -76,30 +96,20 @@ export function isLazyLocale(lang: string): boolean {
 export async function loadLocale(lang: string): Promise<Record<string, string>> {
   try {
     const mod = await import(`@/locales/${lang}`);
-    return mergeWithEn((mod.default ?? {}) as LocaleModule);
+    return mergeWithEn((mod.default ?? {}) as Record<string, unknown>);
   } catch {
     const enMod = await import("@/locales/en");
-    return mergeWithEn((enMod.default ?? {}) as LocaleModule);
+    return mergeWithEn((enMod.default ?? {}) as Record<string, unknown>);
   }
 }
 
 export const ALL_TRANSLATIONS: Record<string, Record<string, string>> = {
-  es: mergeWithEn(
-    { ...(es as object), ...PERMISSION_LABELS_ES, ...AH61_GAP_ES } as LocaleModule
-  ),
-  en: mergeWithEn({ ...(en as object), ...PERMISSION_LABELS_EN } as LocaleModule),
-  fr: mergeWithEn(
-    { ...(fr as object), ...PERMISSION_LABELS_FR, ...AH61_GAP_FR } as LocaleModule
-  ),
-  de: mergeWithEn(
-    { ...(de as object), ...PERMISSION_LABELS_DE, ...AH61_GAP_DE } as LocaleModule
-  ),
-  it: mergeWithEn(
-    { ...(it as object), ...PERMISSION_LABELS_IT, ...AH61_GAP_IT } as LocaleModule
-  ),
-  pt: mergeWithEn(
-    { ...(pt as object), ...PERMISSION_LABELS_PT, ...AH61_GAP_PT } as LocaleModule
-  ),
+  es: mergeWithEn({ ...(es as object), ...PERMISSION_LABELS_ES, ...AH61_GAP_ES } as Record<string, unknown>),
+  en: mergeWithEn({ ...(en as object), ...PERMISSION_LABELS_EN } as Record<string, unknown>),
+  fr: mergeWithEn({ ...(fr as object), ...PERMISSION_LABELS_FR, ...AH61_GAP_FR } as Record<string, unknown>),
+  de: mergeWithEn({ ...(de as object), ...PERMISSION_LABELS_DE, ...AH61_GAP_DE } as Record<string, unknown>),
+  it: mergeWithEn({ ...(it as object), ...PERMISSION_LABELS_IT, ...AH61_GAP_IT } as Record<string, unknown>),
+  pt: mergeWithEn({ ...(pt as object), ...PERMISSION_LABELS_PT, ...AH61_GAP_PT } as Record<string, unknown>),
 };
 
 export type LanguageWithTranslations =

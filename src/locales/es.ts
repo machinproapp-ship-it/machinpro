@@ -45,6 +45,10 @@ export default {
   security_section_swp_signature_gaps: "Huecos de firma en PTS",
   security_swp_approx_description:
     "Aproximación basada en procedimientos sin firmas registradas",
+  security: {
+    swpsMissingSignatures: "SWPs sin firmas (aprox.)",
+    recentHazards: "Riesgos recientes",
+  },
   hazard_severity_low: "bajo",
   hazard_severity_medium: "medio",
   hazard_severity_high: "alto",

@@ -50,6 +50,10 @@ export default {
   security_section_swp_signature_gaps: "SWP signature gaps",
   security_swp_approx_description:
     "Approximation based on procedures without recorded signatures",
+  security: {
+    swpsMissingSignatures: "SWPs missing signatures (approx.)",
+    recentHazards: "Recent hazards",
+  },
   hazard_severity_low: "low",
   hazard_severity_medium: "medium",
   hazard_severity_high: "high",
