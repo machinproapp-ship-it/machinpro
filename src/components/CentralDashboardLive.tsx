@@ -518,6 +518,10 @@ export interface CentralDashboardLiveProps {
   laborCostingRateByUserId?: Record<string, number>;
   laborCostingEmployeeLabels?: Record<string, string>;
   gettingStartedRefreshTk?: number;
+  /** Office bootstrap: últimas filas de auditoría ya cargadas (evita segunda lectura para el widget de actividad). */
+  prefetchedAuditLogsForWidget?: AuditLogEntry[] | null;
+  /** Office bootstrap: conteo activo alineado con `user_profiles.profile_status === active` sin `deleted_at`. */
+  prefetchedActiveEmployeeCount?: number | null;
   /** AH-21: certificados / documentos con vencimiento expirado (empleados + vehículos). */
   complianceExpiredCertCount?: number;
   /** Solo usuarios con permiso de seguridad ven el widget opcional. */
@@ -724,6 +728,8 @@ function CentralDashboardBody(
     laborCostingRateByUserId = {},
     laborCostingEmployeeLabels = {},
     gettingStartedRefreshTk = 0,
+    prefetchedAuditLogsForWidget = null,
+    prefetchedActiveEmployeeCount = null,
     complianceExpiredCertCount = 0,
     canViewSecurityDashboard = false,
     onOpenOperationsSecurity,
@@ -1047,6 +1053,12 @@ function CentralDashboardBody(
     [companyId, canManageEmployees, showToast, labels, loadDashboardConfig, onPersistCompanySettingsWidgetOrder]
   );
 
+  const prefetchedAuditHydrateKey = useMemo(() => {
+    const a = prefetchedAuditLogsForWidget;
+    if (!a?.length) return "";
+    return `${a.length}:${a[0]?.id ?? ""}:${a[0]?.created_at ?? ""}`;
+  }, [prefetchedAuditLogsForWidget]);
+
   useEffect(() => {
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -1205,6 +1217,18 @@ function CentralDashboardBody(
             if (!cancelled) setEmpActiveCount(null);
             return null;
           }
+          const prefN = prefetchedActiveEmployeeCount;
+          if (typeof prefN === "number" && prefN >= 0) {
+            const nowEmp = Date.now();
+            const cachedEmp = c.empCount;
+            if (cachedEmp && nowEmp - cachedEmp.at < 300_000) {
+              if (!cancelled) setEmpActiveCount(cachedEmp.value);
+              return cachedEmp.value;
+            }
+            c.empCount = { at: Date.now(), value: prefN };
+            if (!cancelled) setEmpActiveCount(prefN);
+            return prefN;
+          }
           const now = Date.now();
           const cached = c.empCount;
           if (cached && now - cached.at < 300_000) {
@@ -1350,6 +1374,24 @@ function CentralDashboardBody(
             }
             activityRowsSnap = visible;
             auditProfilesSnap = cached.profiles;
+            return;
+          }
+          const prefetchedRows = prefetchedAuditLogsForWidget;
+          if (prefetchedRows && prefetchedRows.length > 0) {
+            const rows = prefetchedRows as AuditLogEntry[];
+            const filteredRows = filterBusinessAuditRows(rows, 10);
+            const ids = [...new Set(filteredRows.map((r) => r.user_id).filter(Boolean))] as string[];
+            const profileMap =
+              ids.length > 0
+                ? await fetchCentralUserProfilesMerged(companyId, ids)
+                : ({} as Record<string, AuditProfileSnippet>);
+            c.audit = { at: Date.now(), rows: filteredRows, profiles: profileMap };
+            activityRowsSnap = filteredRows;
+            auditProfilesSnap = profileMap;
+            if (!cancelled) {
+              setActivityRows(filteredRows);
+              setAuditProfileByUserId(profileMap);
+            }
             return;
           }
           const { data } = await withSilentRetry(async () => {
@@ -1611,6 +1653,8 @@ function CentralDashboardBody(
     canManageComplianceAlerts,
     loadDashboardConfig,
     dashboardRefreshTk,
+    prefetchedAuditHydrateKey,
+    prefetchedActiveEmployeeCount,
   ]);
 
   useDismissOnEscape(customizeOpen, () => setCustomizeOpen(false));

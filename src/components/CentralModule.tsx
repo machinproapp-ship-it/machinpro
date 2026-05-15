@@ -551,6 +551,21 @@ export function CentralModule({
     () => dateLocaleForUser(language, countryForDates),
     [language, countryForDates]
   );
+
+  /** Mirror SQL en Central (`profile_status === active`, sin `deleted_at`) para omitir COUNT duplicado. */
+  const prefetchedActiveEmployeeCountForCentral = useMemo(() => {
+    if (!employees.length) return null;
+    let n = 0;
+    for (const e of employees) {
+      const st = String(e.profileStatus ?? "active").toLowerCase().trim();
+      if (st !== "active") continue;
+      const del = e.deleted_at;
+      if (del != null && String(del).trim() !== "") continue;
+      n++;
+    }
+    return n;
+  }, [employees]);
+
   void useMachinProDisplayPrefs();
   const [employeePanelId, setEmployeePanelId] = useState<string | null>(null);
   const [centralView, setCentralView] = useState<
@@ -1048,6 +1063,8 @@ export function CentralModule({
                 laborCostingRateByUserId={laborCostingRateByUserId}
                 laborCostingEmployeeLabels={laborCostingEmployeeLabels}
                 gettingStartedRefreshTk={gettingStartedRefreshTk}
+                prefetchedAuditLogsForWidget={auditLogs}
+                prefetchedActiveEmployeeCount={prefetchedActiveEmployeeCountForCentral}
                 canAccessVisitors={canAccessVisitors}
                 canAccessHazards={canAccessHazards}
                 canAccessCorrective={canAccessCorrective}

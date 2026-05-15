@@ -33,6 +33,9 @@ export interface SubscriptionRow {
   geo_tier: number | null;
 }
 
+const subscriptionRowCache = new Map<string, { at: number; row: SubscriptionRow | null }>();
+const SUBSCRIPTION_CACHE_TTL_MS = 45_000;
+
 export interface SubscriptionAlert {
   type: "trial_ending" | "past_due";
   message: string;
@@ -43,13 +46,23 @@ export function useSubscription(companyId: string | null | undefined) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
+  const refresh = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     if (!supabase || !companyId) {
       setRow(null);
       setLoading(false);
       return;
     }
     const silent = Boolean(opts?.silent);
+    const force = opts?.force === true;
+    if (!force) {
+      const hit = subscriptionRowCache.get(companyId);
+      if (hit && Date.now() - hit.at < SUBSCRIPTION_CACHE_TTL_MS) {
+        setRow(hit.row);
+        setError(null);
+        if (!silent) setLoading(false);
+        return;
+      }
+    }
     if (!silent) setLoading(true);
     setError(null);
     const { data, error: qErr } = await supabase
@@ -61,7 +74,9 @@ export function useSubscription(companyId: string | null | undefined) {
       setError(qErr.message);
       setRow(null);
     } else {
-      setRow(data as SubscriptionRow | null);
+      const next = data as SubscriptionRow | null;
+      setRow(next);
+      subscriptionRowCache.set(companyId, { at: Date.now(), row: next });
     }
     if (!silent) setLoading(false);
   }, [companyId]);
@@ -69,7 +84,7 @@ export function useSubscription(companyId: string | null | undefined) {
   useEffect(() => {
     void refresh();
     const t = setInterval(() => {
-      void refresh({ silent: true });
+      void refresh({ silent: true, force: true });
     }, 10 * 60 * 1000);
     return () => clearInterval(t);
   }, [refresh]);

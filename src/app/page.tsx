@@ -1575,33 +1575,6 @@ export default function Home() {
       return false;
     }
   });
-  useEffect(() => {
-    if (!supabase || !companyId || !session) return;
-    void (async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("onboarding_complete")
-        .eq("id", companyId)
-        .maybeSingle();
-      if (error || !data) return;
-      const row = data as { onboarding_complete?: boolean | null };
-      if (row.onboarding_complete === true) {
-        try {
-          localStorage.setItem(ONBOARDING_LS_KEY, "true");
-        } catch {
-          /* ignore */
-        }
-        setOnboardingComplete(true);
-      } else {
-        try {
-          localStorage.removeItem(ONBOARDING_LS_KEY);
-        } catch {
-          /* ignore */
-        }
-        setOnboardingComplete(false);
-      }
-    })();
-  }, [supabase, companyId, session]);
 
   const handleLogoUpload = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -3109,7 +3082,9 @@ export default function Home() {
       /** FASE 0: companies solamente (perfiles en FASE 1 — evita 2.ª query duplicada a `user_profiles`). */
       const { data: coDataPhase0, error: coErrPhase0 } = await supabase
         .from("companies")
-        .select("name, logo_url, address, phone, email, website, country_code, settings")
+        .select(
+          "name, logo_url, address, phone, email, website, country_code, settings, onboarding_complete"
+        )
         .eq("id", cid)
         .maybeSingle();
       if (cancelled) return;
@@ -3141,6 +3116,22 @@ export default function Home() {
           setCompanyCountry(up);
           setSubcontractorCountryCode(up);
         }
+        const onboardingDb = row.onboarding_complete;
+        if (onboardingDb === true) {
+          try {
+            localStorage.setItem(ONBOARDING_LS_KEY, "true");
+          } catch {
+            /* ignore */
+          }
+          setOnboardingComplete(true);
+        } else if (onboardingDb === false) {
+          try {
+            localStorage.removeItem(ONBOARDING_LS_KEY);
+          } catch {
+            /* ignore */
+          }
+          setOnboardingComplete(false);
+        }
       }
 
       await yieldPaint();
@@ -3164,11 +3155,11 @@ export default function Home() {
         supabase
           .from("audit_logs")
           .select(
-            "id, company_id, user_id, user_name, action, entity_type, entity_id, entity_name, created_at"
+            "id, company_id, user_id, user_name, action, entity_type, entity_id, entity_name, new_value, created_at"
           )
           .eq("company_id", cid)
           .order("created_at", { ascending: false })
-          .limit(20),
+          .limit(36),
       ]);
 
       if (cancelled) return;
