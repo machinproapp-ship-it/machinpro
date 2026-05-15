@@ -84,6 +84,16 @@ function gtmSnippet(id: string): string {
   return `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${safe}');`;
 }
 
+function originForSupabasePreconnect(): string {
+  try {
+    const raw = typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string" ? process.env.NEXT_PUBLIC_SUPABASE_URL.trim() : "";
+    if (raw.length > 0) return new URL(raw).origin;
+  } catch {
+    /* noop */
+  }
+  return "https://qtoqfzfccvkqcuavxqpg.supabase.co";
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -95,11 +105,14 @@ export default function RootLayout({
       : "";
   const enableGtm = process.env.NODE_ENV === "production" && gtmId.length > 0;
   const gtmJs = enableGtm ? gtmSnippet(gtmId) : "";
+  const supabaseOrigin = originForSupabasePreconnect();
 
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <link rel="preconnect" href={supabaseOrigin} crossOrigin="" />
+        <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="" />
         <meta name="theme-color" content="#f97316" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -108,18 +121,20 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <script dangerouslySetInnerHTML={{ __html: MACHINPRO_THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: MACHINPRO_SW_REGISTER }} />
-        {process.env.NODE_ENV === "production" ? (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `(function(){window.dataLayer=window.dataLayer||[];})();`,
-            }}
-          />
-        ) : null}
-        {enableGtm && gtmJs ? (
-          <script dangerouslySetInnerHTML={{ __html: gtmJs }} />
-        ) : null}
       </head>
       <body>
+        {enableGtm && gtmJs ? (
+          <>
+            <Script
+              id="machinpro-datalayer"
+              strategy="lazyOnload"
+              dangerouslySetInnerHTML={{
+                __html: `(function(){window.dataLayer=window.dataLayer||[];})();`,
+              }}
+            />
+            <Script id="machinpro-gtm" strategy="lazyOnload" dangerouslySetInnerHTML={{ __html: gtmJs }} />
+          </>
+        ) : null}
         {enableGtm && gtmId ? (
           <noscript>
             <iframe

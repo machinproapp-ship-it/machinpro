@@ -59,5 +59,6 @@
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "browserslist": ["last 2 versions", "not dead", "> 0.5%"]
 }

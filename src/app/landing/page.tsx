@@ -38,8 +38,12 @@ import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale"
 import { resolveRegionTier, type GeoDetect } from "@/lib/geoTier";
 import type { BillingPeriod } from "@/lib/stripe";
 import { usePPPPricing } from "@/hooks/usePPPPricing";
-import { PricingPlansPublicSection } from "@/components/PricingPlansPublic";
-import { PppLandingFooterBar } from "@/components/PppLandingFooter";
+import {
+  LandingPricingSkeleton,
+  LandingTestimonialsSkeleton,
+  LandingFeaturesGridSkeleton,
+  LandingFooterSkeleton,
+} from "./LandingDeferSkeletons";
 
 type TxFn = (key: string, fallback: string) => string;
 
@@ -171,6 +175,23 @@ const MODULE_ICONS: Record<"central" | "operations" | "schedule" | "logistics" |
     forms: FileText,
   };
 
+const PricingPlansPublicSectionLazy = dynamic(
+  () => import("@/components/PricingPlansPublic").then((m) => ({ default: m.PricingPlansPublicSection })),
+  { loading: () => <LandingPricingSkeleton /> }
+);
+const LandingTestimonialsLazy = dynamic(
+  () => import("./LandingTestimonialsContent").then((m) => ({ default: m.LandingTestimonialsContent })),
+  { loading: () => <LandingTestimonialsSkeleton /> }
+);
+const LandingFeaturesModuleGridLazy = dynamic(
+  () => import("./LandingFeaturesModuleGrid").then((m) => ({ default: m.LandingFeaturesModuleGrid })),
+  { loading: () => <LandingFeaturesGridSkeleton /> }
+);
+const LandingPageFooterLazy = dynamic(
+  () => import("./LandingPageFooter").then((m) => ({ default: m.LandingPageFooter })),
+  { loading: () => <LandingFooterSkeleton /> }
+);
+
 const PERSONALIZE_TITLE_FB: Record<string, string> = {
   feature_payroll_production: "Payroll & production pay",
   feature_work_orders: "Work orders",
@@ -234,6 +255,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
+    const assetOrigin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : ((process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro").replace(/\/$/, "") as string);
     const region = geoDetect?.region ?? "other";
     const extra = tx(`landing_seo_extra_${region}`, "");
     const title = tx("landing_meta_title", "");
@@ -256,11 +281,11 @@ export default function LandingPage() {
     upsertMeta("property", "og:description", desc);
     upsertMeta("property", "og:type", "website");
     upsertMeta("property", "og:url", "https://machin.pro/landing");
-    upsertMeta("property", "og:image", `${origin}/logo-source.png`);
+    upsertMeta("property", "og:image", `${assetOrigin}/logo-source.png`);
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", title);
     upsertMeta("name", "twitter:description", desc);
-    upsertMeta("name", "twitter:image", `${origin}/logo-source.png`);
+    upsertMeta("name", "twitter:image", `${assetOrigin}/logo-source.png`);
   }, [language, geoDetect, tx]);
 
   useEffect(() => {
@@ -645,7 +670,7 @@ export default function LandingPage() {
       <section id="pricing" className="scroll-mt-24 bg-slate-100 dark:bg-slate-900/80 px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <FadeSection>
-            <PricingPlansPublicSection
+            <PricingPlansPublicSectionLazy
               tx={tx}
               period={period}
               onPeriodChange={setPeriod}
@@ -657,47 +682,24 @@ export default function LandingPage() {
       </section>
 
       <section
+        id="landing-testimonials"
+        className="scroll-mt-24 border-y border-slate-200 bg-slate-50 px-4 py-16 dark:border-slate-800 dark:bg-slate-900/45 sm:py-20"
+        aria-labelledby="landing-testimonials-title"
+      >
+        <div className="mx-auto max-w-6xl">
+          <FadeSection>
+            <LandingTestimonialsLazy tx={tx} />
+          </FadeSection>
+        </div>
+      </section>
+
+      <section
         id="landing-features-all"
         className="scroll-mt-24 bg-slate-100 dark:bg-slate-900/70 px-4 py-16 sm:py-24"
       >
         <div className="mx-auto max-w-7xl">
           <FadeSection>
-            <h2 className="text-center text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-              {tx("landing_features_heading", "")}
-            </h2>
-            <div className="mt-10 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-              {(["central", "operations", "schedule", "logistics", "security", "forms"] as const).map((id) => {
-                const ModIcon = MODULE_ICONS[id];
-                return (
-                <div
-                  key={id}
-                  className="flex min-h-[200px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
-                >
-                  <div className="mb-3 flex items-start gap-3">
-                    <span className={LANDING_ICON_BADGE} aria-hidden>
-                      <ModIcon className="h-7 w-7" strokeWidth={2} />
-                    </span>
-                    <h3 className="text-base font-semibold leading-snug text-[#1a4f5e] dark:text-teal-300">
-                    {tx(`landing_features_module_${id}`, "")}
-                  </h3>
-                  </div>
-                  <ul className="mt-3 flex-1 space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                    {(tx(`landing_features_lines_${id}`, "") || "")
-                      .split("\n")
-                      .filter(Boolean)
-                      .map((line, i) => (
-                        <li key={`${id}-${i}`} className="flex gap-2 leading-snug">
-                          <span className="shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden>
-                            ·
-                          </span>
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              );
-              })}
-            </div>
+            <LandingFeaturesModuleGridLazy tx={tx} moduleIcons={MODULE_ICONS} />
           </FadeSection>
         </div>
       </section>
@@ -786,110 +788,7 @@ export default function LandingPage() {
           </a>
         </div>
       </section>
-
-      <footer className="border-t border-slate-200 bg-white px-4 py-12 dark:border-slate-800 dark:bg-slate-950">
-        <div className="mx-auto max-w-6xl">
-          <PppLandingFooterBar tx={tx} ppp={ppp} />
-          <div className="flex flex-col gap-10 md:flex-row md:justify-between">
-            <div className="max-w-sm">
-              <div className="flex items-center gap-2">
-                <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-9 w-9" sizes="36px" />
-                <BrandWordmark tone="onLight" className="text-lg font-bold tracking-tight" />
-              </div>
-              <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-                {tx("landing_footer_desc", "Construction SaaS")}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-10 text-sm">
-              <div className="space-y-2">
-                <p className="font-semibold text-slate-900 dark:text-white">{tx("landing_footer_nav", "Navigate")}</p>
-                <button
-                  type="button"
-                  onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_home", "Home")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollToId("caracteristicas")}
-                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_features", "Features")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollToId("pricing")}
-                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_pricing", "Pricing")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollToId("contact")}
-                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_contact_link", "Contact")}
-                </button>
-                <Link
-                  href="/help"
-                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_help", "Help center")}
-                </Link>
-                <Link
-                  href="/about"
-                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_about", "About MachinPro")}
-                </Link>
-              </div>
-              <div className="space-y-2">
-                <p className="font-semibold text-slate-900 dark:text-white">{tx("landing_footer_legal", "Legal")}</p>
-                <Link
-                  href="/legal/terms"
-                  className="block min-h-[44px] py-2 text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_terms", "Terms")}
-                </Link>
-                <Link
-                  href="/legal/privacy"
-                  className="block min-h-[44px] py-2 text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
-                >
-                  {tx("landing_footer_privacy", "Privacy")}
-                </Link>
-              </div>
-            </div>
-          </div>
-          <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-8 dark:border-slate-800 sm:flex-row">
-            <p className="text-center text-xs text-slate-500 dark:text-slate-500">
-              <TextWithBrandMarks
-                text={tx("landing_footer_copyright", "© 2026 MachinPro · machin.pro")}
-                tone="inherit"
-                className="inline"
-              />
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
-              >
-                {tx("landing_social_x", "X")}
-              </a>
-              <a
-                href="https://linkedin.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
-              >
-                {tx("landing_social_li", "in")}
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <LandingPageFooterLazy tx={tx} ppp={ppp} scrollToId={scrollToId} />
 
       <LandingPwaInstallBar tx={tx} dark={dark} />
     </div>

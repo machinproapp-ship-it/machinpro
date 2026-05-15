@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Inter } from "next/font/google";
 import { LandingJsonLd } from "./LandingJsonLd";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+});
 
 const siteRaw = process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro";
 const site = siteRaw.replace(/\/$/, "");
@@ -67,7 +74,7 @@ export default function LandingLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <LandingJsonLd />
-      {children}
+      <div className={`${inter.className} min-w-0`}>{children}</div>
     </>
   );
 }

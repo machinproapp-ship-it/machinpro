@@ -51,6 +51,8 @@ export function BrandLogoImage({
         className={`object-contain object-center ${imageClassName ?? ""}`.trim()}
         style={{ padding: 0, transform: `scale(${scale})` }}
         priority={priority}
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
         unoptimized={unoptimized}
         onError={onError}
       />
