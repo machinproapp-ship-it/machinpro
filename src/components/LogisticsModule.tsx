@@ -31,7 +31,7 @@ import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import type { InventoryLedgerRow, InventoryMovementKind } from "@/types/inventoryLedger";
 import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
 import { InventoryQrPostScanModal } from "@/components/InventoryQrPostScanModal";
-import { parseInventoryQrPayload } from "@/lib/inventoryQr";
+import { resolveInventoryItemIdFromQrScan } from "@/lib/inventoryQrResolve";
 import { generateInventoryQrLabelPdf } from "@/lib/generateInventoryQrLabelPdf";
 import Papa from "papaparse";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
@@ -77,6 +77,7 @@ export interface InventoryItem {
   imageUrl?: string;
   serialNumber?: string;
   internalId?: string;
+  qrCodeText?: string;
   qrCode?: string;
   incidentPhotoUrl?: string;
   incidentEntryId?: string;
@@ -313,6 +314,8 @@ export interface LogisticsModuleProps {
   onOpenInventoryDetailConsumed?: () => void;
   /** Tras escanear QR: modal de acciones (entrada/salida/transferencia/estado). */
   onInventoryQrPostScan?: (itemId: string, action: InventoryQrPostScanAction) => void;
+  /** QR escaneado sin coincidencia: prefilar alta de ítem (solo gestión). */
+  onInventoryQrCreateFromScan?: (code: string) => void;
 }
 
 function daysUntilExpiry(expiryDate: string): number {
@@ -544,6 +547,7 @@ export function LogisticsModule({
   openInventoryDetailId,
   onOpenInventoryDetailConsumed,
   onInventoryQrPostScan,
+  onInventoryQrCreateFromScan,
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
   const canFulfillOrders = canManageInventory || canCreatePurchaseOrders;
@@ -588,6 +592,14 @@ export function LogisticsModule({
   const [incidentMarkingId, setIncidentMarkingId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [assetDrawerTab, setAssetDrawerTab] = useState<"info" | "history" | "gallery">("info");
+  useEffect(() => {
+    if (!lightboxUrl) return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setLightboxUrl(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxUrl]);
   useEffect(() => { setAssetDrawerTab("info"); }, [selectedAsset]);
 
   useEffect(() => {
@@ -599,24 +611,46 @@ export function LogisticsModule({
 
   const onInventoryQrDecoded = useCallback(
     (text: string) => {
-      const p = parseInventoryQrPayload(text);
-      if (!p || (companyId && p.companyId !== companyId)) {
-        showToast("error", (t as Record<string, string>).inventory_qr_scan ?? "Scan error");
+      const tx = t as Record<string, string>;
+      const trimmed = text.trim();
+      if (!trimmed) {
+        showToast("error", tx.inventory_qr_scan ?? "Scan error");
         return;
       }
-      const it = (inventoryItems ?? []).find((i) => i.id === p.itemId);
+
+      const matchId = resolveInventoryItemIdFromQrScan(trimmed, inventoryItems ?? [], companyId ?? null);
+      if (!matchId) {
+        if (canManageInventory && onInventoryQrCreateFromScan) {
+          setInventoryQrUnknownCode(trimmed);
+        } else {
+          showToast("warning", tx.inventory_qrNotFound ?? tx.inventory_qr_scan ?? "QR not recognized");
+        }
+        return;
+      }
+
+      const it = (inventoryItems ?? []).find((i) => i.id === matchId);
       if (!it || it.deletedAt) {
-        showToast("error", (t as Record<string, string>).wh_inventory_empty ?? "Not found");
+        showToast("error", tx.wh_inventory_empty ?? "Not found");
         return;
       }
-      if (onInventoryQrPostScan) {
+
+      setSelectedAsset({ type: "inventory", id: it.id });
+
+      if (canManageInventory && onInventoryQrPostScan) {
         setQrPostScanItem(it);
-      } else {
-        setSelectedAsset({ type: "inventory", id: it.id });
       }
+
       showToast("success", it.name);
     },
-    [companyId, inventoryItems, onInventoryQrPostScan, showToast, t]
+    [
+      companyId,
+      inventoryItems,
+      onInventoryQrPostScan,
+      onInventoryQrCreateFromScan,
+      showToast,
+      t,
+      canManageInventory,
+    ]
   );
   const [logisticsInvFiltersOpen, setLogisticsInvFiltersOpen] = useState(false);
   const [inventoryScope, setInventoryScope] = useState<"all" | "warehouse" | "onsite">("all");
@@ -629,6 +663,7 @@ export function LogisticsModule({
   const [importPreviewRows, setImportPreviewRows] = useState<InventoryItem[]>([]);
   const [invScanOpen, setInvScanOpen] = useState(false);
   const [qrPostScanItem, setQrPostScanItem] = useState<InventoryItem | null>(null);
+  const [inventoryQrUnknownCode, setInventoryQrUnknownCode] = useState<string | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const [logisticsFleetFiltersOpen, setLogisticsFleetFiltersOpen] = useState(false);
   const [fleetViewMode, setFleetViewMode] = useState<"list" | "tracking">("list");
@@ -890,7 +925,7 @@ export function LogisticsModule({
   ];
 
   const invTableColSpan =
-    inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all" ? 9 : 8;
+    inventoryFilter === "tool" || inventoryFilter === "equipment" || inventoryFilter === "all" ? 10 : 9;
 
   const logsForAsset = (assetId: string, assetType: "inventory" | "vehicle") =>
     (assetUsageLogs ?? []).filter((l) =>
@@ -1206,6 +1241,31 @@ export function LogisticsModule({
                   key={item.id}
                   className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
                 >
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      disabled={!item.imageUrl}
+                      className="relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 dark:border-slate-600 dark:bg-slate-800 disabled:pointer-events-none disabled:opacity-60"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (item.imageUrl) setLightboxUrl(item.imageUrl);
+                      }}
+                      aria-label={(t as Record<string, string>).inventory_photoColumn ?? "Photo"}
+                    >
+                      {item.imageUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={cloudinaryThumb(item.imageUrl)}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Camera className="h-4 w-4 text-zinc-400 dark:text-zinc-500" aria-hidden />
+                      )}
+                    </button>
+                    <div className="min-w-0 flex-1 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {(item.type === "tool" || item.type === "equipment") ? <Wrench className="h-4 w-4 text-zinc-400 shrink-0" /> : <Package className="h-4 w-4 text-zinc-400 shrink-0" />}
@@ -1245,6 +1305,8 @@ export function LogisticsModule({
                         ⚠ {(tlLabels.incidentReported ?? "Incident")}
                       </span>
                     )}
+                  </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 gap-2 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
                     <span className="break-words font-medium text-zinc-700 dark:text-zinc-200">
@@ -1336,6 +1398,9 @@ export function LogisticsModule({
               <table className="w-full text-sm text-left">
               <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400">
                 <tr>
+                  <th className="w-12 px-2 py-3 font-medium md:w-14">
+                    {(t as Record<string, string>).inventory_photoColumn ?? "Photo"}
+                  </th>
                   <th className="px-4 py-3 font-medium">{t.category ?? "Category"}</th>
                   <th className="px-4 py-3 font-medium">{t.quantity ?? "Quantity"}</th>
                   <th className="px-4 py-3 font-medium">{t.unit ?? "Unit"}</th>
@@ -1385,6 +1450,31 @@ export function LogisticsModule({
                       <tbody className="divide-y divide-zinc-200 dark:divide-slate-700">
                         {secItems.map((item) => (
                   <tr key={item.id} className="bg-white dark:bg-slate-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <td className="w-12 px-2 py-3 align-middle md:w-14">
+                      <button
+                        type="button"
+                        disabled={!item.imageUrl}
+                        className="relative mx-auto flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 dark:border-slate-600 dark:bg-slate-800 md:h-10 md:w-10 disabled:pointer-events-none disabled:opacity-60"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (item.imageUrl) setLightboxUrl(item.imageUrl);
+                        }}
+                        aria-label={(t as Record<string, string>).inventory_photoColumn ?? "Photo"}
+                      >
+                        {item.imageUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={cloudinaryThumb(item.imageUrl)}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Camera className="h-4 w-4 text-zinc-400 dark:text-zinc-500" aria-hidden />
+                        )}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 max-w-[min(100vw,20rem)] min-[768px]:max-w-none">
                       <div className="flex min-w-0 items-center gap-2">
                         {(item.type === "tool" || item.type === "equipment") ? <Wrench className="h-4 w-4 text-zinc-400 shrink-0" /> : <Package className="h-4 w-4 text-zinc-400 shrink-0" />}
@@ -1596,6 +1686,39 @@ export function LogisticsModule({
             onClose={() => setInvScanOpen(false)}
             onDecoded={onInventoryQrDecoded}
           />
+          {inventoryQrUnknownCode !== null && onInventoryQrCreateFromScan ? (
+            <>
+              <div
+                className="fixed inset-0 z-[10078] bg-black/60"
+                aria-hidden
+                onClick={() => setInventoryQrUnknownCode(null)}
+              />
+              <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[10079] mx-auto max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(100%,24rem)] sm:-translate-x-1/2 sm:-translate-y-1/2">
+                <p className="text-sm leading-snug text-zinc-800 dark:text-zinc-100">
+                  {(t as Record<string, string>).inventory_qrNotFound ?? "QR not recognized"}
+                </p>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                    onClick={() => setInventoryQrUnknownCode(null)}
+                  >
+                    {(t as Record<string, string>).cancel ?? "Cancel"}
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500"
+                    onClick={() => {
+                      onInventoryQrCreateFromScan(inventoryQrUnknownCode);
+                      setInventoryQrUnknownCode(null);
+                    }}
+                  >
+                    {(t as Record<string, string>).inventory_qrCreateNew ?? "Create"}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : null}
           {qrPostScanItem && onInventoryQrPostScan ? (
             <InventoryQrPostScanModal
               item={qrPostScanItem}

@@ -102,6 +102,7 @@ import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { countOperationallyActiveProjects } from "@/lib/projectFilters";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/Toast";
+import { InventoryItemPhotoPicker } from "@/components/InventoryItemPhotoPicker";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
@@ -4211,6 +4212,8 @@ export default function Home() {
   const [newItemPurchasePrice, setNewItemPurchasePrice] = useState("");
   const [newItemAssignedProjectId, setNewItemAssignedProjectId] = useState("");
   const [newItemAssignedEmployeeId, setNewItemAssignedEmployeeId] = useState("");
+  const [newItemImageUrl, setNewItemImageUrl] = useState("");
+  const [newItemQrCodeText, setNewItemQrCodeText] = useState("");
   const [editingInventoryId, setEditingInventoryId] = useState<string | null>(null);
   const [editInventoryDraft, setEditInventoryDraft] = useState<Partial<InventoryItem> | null>(null);
 
@@ -6090,6 +6093,8 @@ export default function Home() {
     setNewItemPurchasePrice("");
     setNewItemAssignedProjectId("");
     setNewItemAssignedEmployeeId("");
+    setNewItemImageUrl("");
+    setNewItemQrCodeText("");
     setEditingInventoryId(null);
     setEditInventoryDraft(null);
   }
@@ -6121,6 +6126,8 @@ export default function Home() {
       toolStatus: isTracked ? "available" : undefined,
       serialNumber: newItemSerialNumber || undefined,
       internalId: newItemInternalId || undefined,
+      imageUrl: newItemImageUrl.trim() || undefined,
+      qrCodeText: newItemQrCodeText.trim() || undefined,
       qrCode,
       location: hasProject ? "onsite" : "warehouse",
     };
@@ -7373,9 +7380,23 @@ export default function Home() {
                 complianceRecords={complianceRecords}
                 onComplianceRecordsChange={setComplianceRecords}
                 onAddInventory={() => { setNewItemFormOpen(true); }}
+                onInventoryQrCreateFromScan={(code) => {
+                  setNewItemQrCodeText(code);
+                  setNewItemFormOpen(true);
+                }}
                 onEditInventory={(item) => {
                   setEditingInventoryId(item.id);
-                  setEditInventoryDraft({ name: item.name, type: item.type, quantity: item.quantity, unit: item.unit, purchasePriceCAD: item.purchasePriceCAD, assignedToProjectId: item.assignedToProjectId, assignedToEmployeeId: item.assignedToEmployeeId });
+                  setEditInventoryDraft({
+                    name: item.name,
+                    type: item.type,
+                    quantity: item.quantity,
+                    unit: item.unit,
+                    purchasePriceCAD: item.purchasePriceCAD,
+                    assignedToProjectId: item.assignedToProjectId,
+                    assignedToEmployeeId: item.assignedToEmployeeId,
+                    imageUrl: item.imageUrl,
+                    qrCodeText: item.qrCodeText,
+                  });
                 }}
                 onDeleteInventory={(id) => {
                   const now = new Date().toISOString();
@@ -9207,6 +9228,49 @@ export default function Home() {
                   </div>
                 </>
               )}
+              <div className="border-t border-zinc-200 pt-3 dark:border-slate-700">
+                <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {(t as Record<string, string>).inventory_photoColumn ?? "Photo"}
+                </p>
+                <InventoryItemPhotoPicker
+                  labels={t as Record<string, string>}
+                  imageUrl={
+                    editingInventoryId ? editInventoryDraft?.imageUrl : newItemImageUrl || undefined
+                  }
+                  onChange={(url) =>
+                    editingInventoryId
+                      ? setEditInventoryDraft((d) => (d ? { ...d, imageUrl: url } : d))
+                      : setNewItemImageUrl(url ?? "")
+                  }
+                  onUploadFailed={() =>
+                    showToast(
+                      "error",
+                      (t as Record<string, string>).inventory_photoUploadError ??
+                        "Failed to upload photo."
+                    )
+                  }
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {(t as Record<string, string>).inventory_qr_code_field ?? "QR code"}
+                </label>
+                <input
+                  type="text"
+                  value={
+                    editingInventoryId ? (editInventoryDraft?.qrCodeText ?? "") : newItemQrCodeText
+                  }
+                  onChange={(e) =>
+                    editingInventoryId
+                      ? setEditInventoryDraft((d) =>
+                          d ? { ...d, qrCodeText: e.target.value || undefined } : d
+                        )
+                      : setNewItemQrCodeText(e.target.value)
+                  }
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                  autoComplete="off"
+                />
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={closeInventoryForm} className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 min-h-[44px]">{t.cancel ?? "Cancelar"}</button>
