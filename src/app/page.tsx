@@ -47,56 +47,56 @@ import { ModuleHelpFab } from "@/components/ModuleHelpFab";
 import { BetaWelcomeModal } from "@/components/BetaWelcomeModal";
 import { FeedbackWidget } from "@/components/FeedbackWidget";
 
+import { ModuleRouteSkeleton } from "@/components/ModuleRouteSkeleton";
+
 const ProductTour = dynamic(
   () => import("@/components/ProductTour").then((mod) => ({ default: mod.ProductTour })),
   { ssr: false }
 );
-const heavyModuleFallback = () => (
-  <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-);
+const moduleRouteFallback = () => <ModuleRouteSkeleton />;
 const SettingsModule = dynamic(
   () => import("@/components/SettingsModule").then((m) => ({ default: m.SettingsModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const SecurityModule = dynamic(
   () => import("@/components/SecurityModule").then((m) => ({ default: m.SecurityModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const FormsModule = dynamic(
   () => import("@/components/FormsModule").then((m) => ({ default: m.FormsModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const BindersModule = dynamic(
   () => import("@/components/BindersModule").then((m) => ({ default: m.BindersModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const TrainingHubModule = dynamic(
   () => import("@/components/TrainingHubModule").then((m) => ({ default: m.TrainingHubModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const SubcontractorsModule = dynamic(
   () => import("@/components/SubcontractorsModule").then((m) => ({ default: m.SubcontractorsModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const WorkerHub = dynamic(
   () => import("@/components/WorkerHub").then((m) => ({ default: m.WorkerHub })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const EmployeesModule = dynamic(
   () => import("@/components/EmployeesModule").then((m) => ({ default: m.EmployeesModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const LogisticsModule = dynamic(
   () => import("@/components/LogisticsModule").then((m) => ({ default: m.LogisticsModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const ProjectsModule = dynamic(
   () => import("@/components/ProjectsModule").then((m) => ({ default: m.ProjectsModule })),
-  { ssr: false, loading: heavyModuleFallback }
+  { ssr: false, loading: moduleRouteFallback }
 );
 const ScheduleModule = dynamic(() => import("@/components/ScheduleModule"), {
   ssr: false,
-  loading: heavyModuleFallback,
+  loading: moduleRouteFallback,
 });
 import { displayNameFromProfile } from "@/lib/profileDisplayName";
 import { countOperationallyActiveProjects } from "@/lib/projectFilters";
