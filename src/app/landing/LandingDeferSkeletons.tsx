@@ -39,42 +39,6 @@ export function LandingPricingSkeleton() {
   );
 }
 
-export function LandingTestimonialsSkeleton() {
-  const { tx } = useLandingLocale();
-  const label = tx("landing_loading_testimonials", "Loading testimonials…");
-
-  return (
-    <div
-      className="mx-auto w-full max-w-6xl animate-pulse space-y-6 py-14 sm:py-16"
-      role="status"
-      aria-busy="true"
-      aria-label={label}
-    >
-      <p className="sr-only">{label}</p>
-      <div className="mx-auto h-10 w-[min(520px,100%)] rounded-xl bg-slate-200 dark:bg-slate-700" />
-      <div className="mx-auto h-6 w-[min(400px,100%)] rounded-lg bg-slate-200 dark:bg-slate-700" />
-      <div className="mt-10 grid min-h-[200px] gap-6 sm:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="min-h-[220px] rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-950/85">
-            <div className="flex gap-3">
-              <div className="h-11 w-11 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700" />
-              <div className="flex-1 space-y-2 pt-2">
-                <div className="h-5 w-[45%] rounded bg-slate-200 dark:bg-slate-700" />
-                <div className="h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-700" />
-              </div>
-            </div>
-            <div className="mt-4 space-y-2">
-              {[0, 1, 2, 3].map((line) => (
-                <div key={line} className="h-3 rounded bg-slate-200 dark:bg-slate-700" />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function LandingFeaturesGridSkeleton() {
   const { tx } = useLandingLocale();
   const label = tx("landing_loading_features_grid", "Loading features…");

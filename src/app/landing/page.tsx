@@ -40,7 +40,6 @@ import type { BillingPeriod } from "@/lib/stripe";
 import { usePPPPricing } from "@/hooks/usePPPPricing";
 import {
   LandingPricingSkeleton,
-  LandingTestimonialsSkeleton,
   LandingFeaturesGridSkeleton,
   LandingFooterSkeleton,
 } from "./LandingDeferSkeletons";
@@ -178,10 +177,6 @@ const MODULE_ICONS: Record<"central" | "operations" | "schedule" | "logistics" |
 const PricingPlansPublicSectionLazy = dynamic(
   () => import("@/components/PricingPlansPublic").then((m) => ({ default: m.PricingPlansPublicSection })),
   { loading: () => <LandingPricingSkeleton /> }
-);
-const LandingTestimonialsLazy = dynamic(
-  () => import("./LandingTestimonialsContent").then((m) => ({ default: m.LandingTestimonialsContent })),
-  { loading: () => <LandingTestimonialsSkeleton /> }
 );
 const LandingFeaturesModuleGridLazy = dynamic(
   () => import("./LandingFeaturesModuleGrid").then((m) => ({ default: m.LandingFeaturesModuleGrid })),
@@ -677,18 +672,6 @@ export default function LandingPage() {
               ppp={ppp}
               variant="landing"
             />
-          </FadeSection>
-        </div>
-      </section>
-
-      <section
-        id="landing-testimonials"
-        className="scroll-mt-24 border-y border-slate-200 bg-slate-50 px-4 py-16 dark:border-slate-800 dark:bg-slate-900/45 sm:py-20"
-        aria-labelledby="landing-testimonials-title"
-      >
-        <div className="mx-auto max-w-6xl">
-          <FadeSection>
-            <LandingTestimonialsLazy tx={tx} />
           </FadeSection>
         </div>
       </section>
