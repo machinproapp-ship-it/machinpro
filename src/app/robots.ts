@@ -1,11 +1,24 @@
 import type { MetadataRoute } from "next";
 
-const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro").replace(/\/$/, "");
-
-/** Minimal valid robots rules (PageSpeed / crawlers compatibility). */
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: "*", allow: "/" }],
-    sitemap: `${base}/sitemap.xml`,
+    rules: [
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: [
+          "/dashboard",
+          "/dashboard/",
+          "/admin",
+          "/admin/",
+          "/api/",
+          "/auth/",
+          "/login",
+          "/register",
+          "/_next/",
+        ],
+      },
+    ],
+    sitemap: "https://machin.pro/sitemap.xml",
   };
 }
