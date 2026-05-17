@@ -73,6 +73,7 @@ export const metadata: Metadata = {
 export default function LandingLayout({ children }: { children: ReactNode }) {
   return (
     <>
+      <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
       <LandingJsonLd />
       <div className={`${inter.className} min-w-0`}>{children}</div>
     </>

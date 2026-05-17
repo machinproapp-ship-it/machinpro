@@ -40,7 +40,7 @@ import { LandingPageFooter } from "./LandingPageFooter";
 type TxFn = (key: string, fallback: string) => string;
 
 function useFadeIn() {
-  const ref = useRef<HTMLElement | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
   const [on, setOn] = useState(false);
   useEffect(() => {
     const el = ref.current;
@@ -66,14 +66,14 @@ function FadeSection({
 }) {
   const { ref, on } = useFadeIn();
   return (
-    <section
+    <div
       ref={ref}
       className={`transition-all duration-700 ease-out ${
         on ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
       } ${className}`}
     >
       {children}
-    </section>
+    </div>
   );
 }
 
@@ -112,8 +112,10 @@ function HeroDashboardMockup({ tx }: { tx: TxFn }) {
               key={k.labelKey}
               className="rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              <span className="sr-only">{tx(k.labelKey, "")}</span>
-              <p className="flex items-baseline gap-1 text-lg font-bold text-[#1a4f5e] dark:text-teal-400">
+              <p
+                className="flex items-baseline gap-1 text-lg font-bold text-[#1a4f5e] dark:text-teal-400"
+                aria-label={tx(k.labelKey, "")}
+              >
                 <span>{k.n}</span>
                 <span className="text-base" aria-hidden>
                   {k.emoji}
