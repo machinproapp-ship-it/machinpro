@@ -1,14 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
-
-const LandingPwaInstallBar = dynamic(
-  () => import("@/components/LandingPwaInstallBar").then((m) => m.LandingPwaInstallBar),
-  { ssr: false }
-);
+import { LandingPwaInstallBar } from "@/components/LandingPwaInstallBar";
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { LandingLanguageSelect } from "@/components/LandingLanguageSelect";
 import {
@@ -38,11 +33,9 @@ import { useLandingLocale, htmlLangForLanguage } from "@/hooks/useLandingLocale"
 import { resolveRegionTier, type GeoDetect } from "@/lib/geoTier";
 import type { BillingPeriod } from "@/lib/stripe";
 import { usePPPPricing } from "@/hooks/usePPPPricing";
-import {
-  LandingPricingSkeleton,
-  LandingFeaturesGridSkeleton,
-  LandingFooterSkeleton,
-} from "./LandingDeferSkeletons";
+import { PricingPlansPublicSection } from "@/components/PricingPlansPublic";
+import { LandingFeaturesModuleGrid } from "./LandingFeaturesModuleGrid";
+import { LandingPageFooter } from "./LandingPageFooter";
 
 type TxFn = (key: string, fallback: string) => string;
 
@@ -173,19 +166,6 @@ const MODULE_ICONS: Record<"central" | "operations" | "schedule" | "logistics" |
     security: ShieldAlert,
     forms: FileText,
   };
-
-const PricingPlansPublicSectionLazy = dynamic(
-  () => import("@/components/PricingPlansPublic").then((m) => ({ default: m.PricingPlansPublicSection })),
-  { loading: () => <LandingPricingSkeleton /> }
-);
-const LandingFeaturesModuleGridLazy = dynamic(
-  () => import("./LandingFeaturesModuleGrid").then((m) => ({ default: m.LandingFeaturesModuleGrid })),
-  { loading: () => <LandingFeaturesGridSkeleton /> }
-);
-const LandingPageFooterLazy = dynamic(
-  () => import("./LandingPageFooter").then((m) => ({ default: m.LandingPageFooter })),
-  { loading: () => <LandingFooterSkeleton /> }
-);
 
 const PERSONALIZE_TITLE_FB: Record<string, string> = {
   feature_payroll_production: "Payroll & production pay",
@@ -665,7 +645,7 @@ export default function LandingPage() {
       <section id="pricing" className="scroll-mt-24 bg-slate-100 dark:bg-slate-900/80 px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <FadeSection>
-            <PricingPlansPublicSectionLazy
+            <PricingPlansPublicSection
               tx={tx}
               period={period}
               onPeriodChange={setPeriod}
@@ -682,7 +662,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto max-w-7xl">
           <FadeSection>
-            <LandingFeaturesModuleGridLazy tx={tx} moduleIcons={MODULE_ICONS} />
+            <LandingFeaturesModuleGrid tx={tx} moduleIcons={MODULE_ICONS} />
           </FadeSection>
         </div>
       </section>
@@ -771,7 +751,7 @@ export default function LandingPage() {
           </a>
         </div>
       </section>
-      <LandingPageFooterLazy tx={tx} ppp={ppp} scrollToId={scrollToId} />
+      <LandingPageFooter tx={tx} ppp={ppp} scrollToId={scrollToId} />
 
       <LandingPwaInstallBar tx={tx} dark={dark} />
     </div>
