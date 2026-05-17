@@ -8,7 +8,9 @@ import { BrandWordmark } from "@/components/BrandWordmark";
 import type { CentralEmployee, MainSection, UserRole } from "@/types/shared";
 import { CentralModule } from "@/components/CentralModule";
 import type { InventoryLedgerRow } from "@/types/inventoryLedger";
-import { generateInventoryQrDataUrl } from "@/lib/inventoryQr";
+import { generateInventoryQrDataUrl, generateQrDataUrlFromText } from "@/lib/inventoryQr";
+import { consumeBlankLabel } from "@/lib/inventoryBlankLabels";
+import { formatLocaleTemplate } from "@/lib/formatLocaleTemplate";
 import type {
   InventoryItem,
   Vehicle,
@@ -4205,6 +4207,8 @@ export default function Home() {
   const [newItemAssignedEmployeeId, setNewItemAssignedEmployeeId] = useState("");
   const [newItemImageUrl, setNewItemImageUrl] = useState("");
   const [newItemQrCodeText, setNewItemQrCodeText] = useState("");
+  const [newItemBlankLabelId, setNewItemBlankLabelId] = useState<string | null>(null);
+  const [newItemBlankLabelSequence, setNewItemBlankLabelSequence] = useState<number | null>(null);
   const [editingInventoryId, setEditingInventoryId] = useState<string | null>(null);
   const [editInventoryDraft, setEditInventoryDraft] = useState<Partial<InventoryItem> | null>(null);
 
@@ -6086,6 +6090,8 @@ export default function Home() {
     setNewItemAssignedEmployeeId("");
     setNewItemImageUrl("");
     setNewItemQrCodeText("");
+    setNewItemBlankLabelId(null);
+    setNewItemBlankLabelSequence(null);
     setEditingInventoryId(null);
     setEditInventoryDraft(null);
   }
@@ -6093,14 +6099,19 @@ export default function Home() {
   async function saveNewItem() {
     const id = "inv" + Date.now();
     const isTracked = newItemCategory === "tool" || newItemCategory === "equipment";
+    const qrText = newItemQrCodeText.trim();
     let qrCode = qrUrlForAsset(id);
     try {
-      qrCode = await generateInventoryQrDataUrl({
-        companyId: companyId ?? "local",
-        itemId: id,
-        itemName: newItemName || "Nuevo ítem",
-        type: newItemCategory,
-      });
+      if (qrText) {
+        qrCode = await generateQrDataUrlFromText(qrText);
+      } else {
+        qrCode = await generateInventoryQrDataUrl({
+          companyId: companyId ?? "local",
+          itemId: id,
+          itemName: newItemName || "Nuevo ítem",
+          type: newItemCategory,
+        });
+      }
     } catch {
       /* keep fallback */
     }
@@ -6118,7 +6129,7 @@ export default function Home() {
       serialNumber: newItemSerialNumber || undefined,
       internalId: newItemInternalId || undefined,
       imageUrl: newItemImageUrl.trim() || undefined,
-      qrCodeText: newItemQrCodeText.trim() || undefined,
+      qrCodeText: qrText || undefined,
       qrCode,
       location: hasProject ? "onsite" : "warehouse",
     };
@@ -6127,6 +6138,41 @@ export default function Home() {
       try { localStorage.setItem("machinpro_inventory", JSON.stringify(next)); } catch {}
       return next;
     });
+    const blankId = newItemBlankLabelId;
+    const blankSeq = newItemBlankLabelSequence;
+    if (blankId && companyId) {
+      try {
+        await consumeBlankLabel(companyId, blankId, id);
+      } catch {
+        /* local item saved; DB consume may fail until migration runs */
+      }
+      if (user?.id) {
+        void logAuditEvent({
+          company_id: companyId,
+          user_id: user.id,
+          user_name: profile?.fullName ?? profile?.email ?? "admin",
+          action: "inventory_item_created_from_blank_label",
+          entity_type: "inventory",
+          entity_id: id,
+          entity_name: item.name,
+          new_value: {
+            item_id: id,
+            blank_label_id: blankId,
+            sequence_number: blankSeq ?? undefined,
+          },
+        });
+      }
+      const tx = t as Record<string, string>;
+      if (blankSeq != null) {
+        showToast(
+          "success",
+          formatLocaleTemplate(
+            tx.inventory_itemCreatedFromBlankLabel ?? "Tool registered with label #{sequence}",
+            { sequence: String(blankSeq).padStart(3, "0") }
+          )
+        );
+      }
+    }
     closeInventoryForm();
   }
   async function saveEditedItem() {
@@ -7373,6 +7419,14 @@ export default function Home() {
                 onAddInventory={() => { setNewItemFormOpen(true); }}
                 onInventoryQrCreateFromScan={(code) => {
                   setNewItemQrCodeText(code);
+                  setNewItemBlankLabelId(null);
+                  setNewItemBlankLabelSequence(null);
+                  setNewItemFormOpen(true);
+                }}
+                onInventoryQrCreateFromBlankScan={({ qrCode, blankLabelId, sequenceNumber }) => {
+                  setNewItemQrCodeText(qrCode);
+                  setNewItemBlankLabelId(blankLabelId);
+                  setNewItemBlankLabelSequence(sequenceNumber);
                   setNewItemFormOpen(true);
                 }}
                 onEditInventory={(item) => {
@@ -9140,7 +9194,21 @@ export default function Home() {
         <>
           <div className="fixed inset-0 z-50 bg-black/50 touch-none" aria-hidden onClick={closeInventoryForm} />
           <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{editingInventoryId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")} ítem</h3>
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+              {!editingInventoryId && newItemBlankLabelId && newItemBlankLabelSequence != null
+                ? formatLocaleTemplate(
+                    (t as Record<string, string>).inventory_qrBlankLabelRegisterTitle ??
+                      "Register tool with label #{sequence}",
+                    { sequence: String(newItemBlankLabelSequence).padStart(3, "0") }
+                  )
+                : `${editingInventoryId ? (t.edit ?? "Editar") : (t.addNew ?? "Añadir")} ítem`}
+            </h3>
+            {!editingInventoryId && newItemBlankLabelId ? (
+              <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+                {(t as Record<string, string>).inventory_qrBlankLabelRegisterHelp ??
+                  "Fill in the tool details. The QR code is already assigned."}
+              </p>
+            ) : null}
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.name ?? "Nombre"}</label>
@@ -9253,6 +9321,7 @@ export default function Home() {
                   value={
                     editingInventoryId ? (editInventoryDraft?.qrCodeText ?? "") : newItemQrCodeText
                   }
+                  readOnly={!editingInventoryId && !!newItemBlankLabelId}
                   onChange={(e) =>
                     editingInventoryId
                       ? setEditInventoryDraft((d) =>
@@ -9260,7 +9329,7 @@ export default function Home() {
                         )
                       : setNewItemQrCodeText(e.target.value)
                   }
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px]"
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 min-h-[44px] read-only:opacity-70"
                   autoComplete="off"
                 />
               </div>

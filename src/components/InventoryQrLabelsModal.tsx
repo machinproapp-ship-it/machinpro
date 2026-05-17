@@ -4,12 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import type { AveryLabelFormat } from "@/lib/inventoryQrLabelFormats";
 import { downloadInventoryQrLabelsPdf } from "@/lib/downloadInventoryQrLabelsPdf";
+import { downloadBlankInventoryQrLabelsPdf } from "@/lib/downloadBlankInventoryQrLabelsPdf";
+import {
+  buildBlankLabelsBatch,
+  getMaxBlankLabelSequence,
+  insertBlankLabelsBatch,
+} from "@/lib/inventoryBlankLabels";
 
 export type InventoryQrLabelRow = {
   id: string;
   name: string;
   model?: string;
 };
+
+export type QrLabelsMode = "existing" | "blank";
 
 const FORMAT_OPTIONS: { value: AveryLabelFormat; labelKey: string; fallback: string }[] = [
   { value: "avery-L7160", labelKey: "inventory_qrLabelsFormatA4_21", fallback: "A4 - 21 labels (Avery L7160)" },
@@ -18,28 +26,43 @@ const FORMAT_OPTIONS: { value: AveryLabelFormat; labelKey: string; fallback: str
   { value: "avery-5161", labelKey: "inventory_qrLabelsFormatLetter_20", fallback: "US Letter - 20 labels (Avery 5161)" },
 ];
 
+const BLANK_MIN = 1;
+const BLANK_MAX = 500;
+const BLANK_DEFAULT = 50;
+
 export function InventoryQrLabelsModal({
   open,
   items,
   labels,
   companyId,
   companyName,
+  auditUserId,
   onClose,
   onGenerated,
+  onBlankGenerated,
 }: {
   open: boolean;
   items: InventoryQrLabelRow[];
   labels: Record<string, string>;
   companyId: string;
   companyName: string;
+  auditUserId?: string;
   onClose: () => void;
   onGenerated?: (payload: { count: number; format: AveryLabelFormat }) => void;
+  onBlankGenerated?: (payload: {
+    count: number;
+    format: AveryLabelFormat;
+    firstSequence: number;
+    lastSequence: number;
+  }) => void;
 }) {
   const L = (k: string, fb: string) => labels[k] ?? fb;
 
+  const [mode, setMode] = useState<QrLabelsMode>("existing");
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [format, setFormat] = useState<AveryLabelFormat>("avery-L7160");
   const [unprintedOnly, setUnprintedOnly] = useState(false);
+  const [blankCount, setBlankCount] = useState(String(BLANK_DEFAULT));
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,9 +74,11 @@ export function InventoryQrLabelsModal({
 
   useEffect(() => {
     if (!open) return;
+    setMode("existing");
     setSelected(new Set(items.map((i) => i.id)));
     setFormat("avery-L7160");
     setUnprintedOnly(false);
+    setBlankCount(String(BLANK_DEFAULT));
     setError(null);
     setGenerating(false);
   }, [open, items]);
@@ -69,7 +94,7 @@ export function InventoryQrLabelsModal({
     });
   };
 
-  const handleGenerate = async () => {
+  const handleGenerateExisting = async () => {
     const picked = visibleItems.filter((i) => selected.has(i.id));
     if (picked.length === 0) {
       setError(L("inventory_qrLabelsNoItemsSelected", "Select at least one item"));
@@ -97,10 +122,58 @@ export function InventoryQrLabelsModal({
     }
   };
 
+  const handleGenerateBlank = async () => {
+    const n = parseInt(blankCount, 10);
+    if (!Number.isFinite(n) || n < BLANK_MIN || n > BLANK_MAX) {
+      setError(L("common_error", "Invalid count"));
+      return;
+    }
+    if (!companyId) {
+      setError(L("common_error", "Error"));
+      return;
+    }
+    setError(null);
+    setGenerating(true);
+    try {
+      const maxSeq = await getMaxBlankLabelSequence(companyId);
+      const rows = buildBlankLabelsBatch(companyId, n, maxSeq, auditUserId ?? null);
+      await insertBlankLabelsBatch(rows);
+      await downloadBlankInventoryQrLabelsPdf({
+        rows,
+        format,
+        companyName: companyName || "MachinPro",
+      });
+      const firstSequence = rows[0]?.sequence_number ?? 1;
+      const lastSequence = rows[rows.length - 1]?.sequence_number ?? firstSequence;
+      onBlankGenerated?.({ count: n, format, firstSequence, lastSequence });
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleGenerate = () => {
+    if (mode === "existing") void handleGenerateExisting();
+    else void handleGenerateBlank();
+  };
+
+  const generateLabel =
+    mode === "blank"
+      ? L("inventory_qrLabelsBlankGenerate", "Generate blank labels")
+      : L("inventory_qrLabelsGenerateButton", "Generate PDF");
+
   return (
     <>
-      <ModalBackdrop onClose={onClose} generating={generating} />
-      <div className="fixed z-[10061] flex w-full flex-col border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[92vh] max-md:rounded-t-2xl max-md:pb-[max(1rem,env(safe-area-inset-bottom))] md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:h-auto md:max-h-[90vh] md:w-full md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl lg:max-w-2xl">
+      <div
+        className="fixed inset-0 z-[10060] bg-black/50"
+        aria-hidden
+        onClick={() => {
+          if (!generating) onClose();
+        }}
+      />
+      <ModalPanel>
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 p-4 dark:border-slate-700">
           <h3 className="pr-2 text-lg font-semibold text-zinc-900 dark:text-white">
             {L("inventory_qrLabelsModalTitle", "Generate QR labels for printing")}
@@ -117,20 +190,140 @@ export function InventoryQrLabelsModal({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4 sm:p-5">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {L("inventory_qrLabelsDescription", "Select items and Avery sheet format.")}
-          </p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-500">
-            {L("inventory_qrLabelsHelp", "Print on pre-formatted Avery sheets. Available at any office supply store.")}
-          </p>
+          <fieldset className="space-y-3 rounded-xl border border-zinc-200 p-3 dark:border-slate-700">
+            <legend className="px-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              {L("inventory_qrLabelsMode", "Mode")}
+            </legend>
+            <label className="flex min-h-[44px] cursor-pointer items-start gap-3">
+              <input
+                type="radio"
+                name="qr-label-mode"
+                checked={mode === "existing"}
+                onChange={() => setMode("existing")}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {L("inventory_qrLabelsModeA", "Label my existing inventory")}
+                </span>
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                  {L(
+                    "inventory_qrLabelsModeAHelp",
+                    "Select existing tools and generate their QR labels."
+                  )}
+                </span>
+              </span>
+            </label>
+            <label className="flex min-h-[44px] cursor-pointer items-start gap-3">
+              <input
+                type="radio"
+                name="qr-label-mode"
+                checked={mode === "blank"}
+                onChange={() => setMode("blank")}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {L("inventory_qrLabelsModeB", "Blank labels")}
+                </span>
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                  {L(
+                    "inventory_qrLabelsModeBHelp",
+                    "Generate N unassigned QR labels. Print, stick and scan each one to register the tool at that moment."
+                  )}
+                </span>
+              </span>
+            </label>
+          </fieldset>
 
-          <ModalToolbar
-            L={L}
-            onSelectAll={() => setSelected(new Set(visibleItems.map((i) => i.id)))}
-            onDeselectAll={() => setSelected(new Set())}
-            unprintedOnly={unprintedOnly}
-            onUnprintedOnlyChange={setUnprintedOnly}
-          />
+          {mode === "existing" ? (
+            <>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {L("inventory_qrLabelsDescription", "Select items and Avery sheet format.")}
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                {L(
+                  "inventory_qrLabelsHelp",
+                  "Print on pre-formatted Avery sheets. Available at any office supply store."
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set(visibleItems.map((i) => i.id)))}
+                  className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  {L("inventory_qrLabelsSelectAll", "Select all")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  {L("inventory_qrLabelsDeselectAll", "Deselect all")}
+                </button>
+                <label className="ml-auto flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  <input
+                    type="checkbox"
+                    checked={unprintedOnly}
+                    onChange={(e) => setUnprintedOnly(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-600"
+                  />
+                  {L("inventory_qrLabelsUnprintedOnly", "Unprinted labels only")}
+                </label>
+              </div>
+              <ul className="min-h-[120px] flex-1 overflow-y-auto rounded-xl border border-zinc-200 divide-y divide-zinc-100 dark:border-slate-700 dark:divide-slate-700">
+                {visibleItems.length === 0 ? (
+                  <li className="p-4 text-sm text-zinc-500 dark:text-zinc-400">
+                    {L("wh_inventory_empty", "No inventory items.")}
+                  </li>
+                ) : (
+                  visibleItems.map((item) => (
+                    <li key={item.id}>
+                      <label className="flex min-h-[44px] cursor-pointer items-start gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-slate-800/50">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(item.id)}
+                          onChange={() => toggle(item.id)}
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-zinc-300 dark:border-zinc-600"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {item.name}
+                          </span>
+                          {item.model ? (
+                            <span className="block break-words text-xs text-zinc-500 dark:text-zinc-400">
+                              {item.model}
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                {L("inventory_qrLabelsBlankCount", "Number of labels")}
+                <input
+                  type="number"
+                  min={BLANK_MIN}
+                  max={BLANK_MAX}
+                  value={blankCount}
+                  onChange={(e) => setBlankCount(e.target.value)}
+                  className="mt-1 w-full min-h-[44px] rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100"
+                />
+              </label>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {L(
+                  "inventory_qrLabelsModeBHelp",
+                  "Generate N unassigned QR labels. Print, stick and scan each one to register the tool at that moment."
+                )}
+              </p>
+            </div>
+          )}
 
           <label className="block shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">
             {L("inventory_qrLabelsFormat", "Sheet format")}
@@ -147,41 +340,10 @@ export function InventoryQrLabelsModal({
             </select>
           </label>
 
-          <ul className="min-h-[120px] flex-1 overflow-y-auto rounded-xl border border-zinc-200 divide-y divide-zinc-100 dark:border-slate-700 dark:divide-slate-700">
-            {visibleItems.length === 0 ? (
-              <li className="p-4 text-sm text-zinc-500 dark:text-zinc-400">
-                {L("wh_inventory_empty", "No inventory items.")}
-              </li>
-            ) : (
-              visibleItems.map((item) => (
-                <li key={item.id}>
-                  <label className="flex min-h-[44px] cursor-pointer items-start gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-slate-800/50">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(item.id)}
-                      onChange={() => toggle(item.id)}
-                      className="mt-1 h-4 w-4 shrink-0 rounded border-zinc-300 dark:border-zinc-600"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block break-words text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {item.name}
-                      </span>
-                      {item.model ? (
-                        <span className="block break-words text-xs text-zinc-500 dark:text-zinc-400">
-                          {item.model}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                </li>
-              ))
-            )}
-          </ul>
-
           {error ? <p className="shrink-0 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
         </div>
 
-        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 p-4 dark:border-slate-700 sm:flex-row sm:justify-end">
+        <ModalFooter>
           <button
             type="button"
             onClick={onClose}
@@ -192,77 +354,34 @@ export function InventoryQrLabelsModal({
           </button>
           <button
             type="button"
-            onClick={() => void handleGenerate()}
+            onClick={handleGenerate}
             disabled={generating}
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
           >
             {generating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             {generating
               ? L("inventory_qrLabelsGenerating", "Generating PDF...")
-              : L("inventory_qrLabelsGenerateButton", "Generate PDF")}
+              : generateLabel}
           </button>
-        </div>
-      </div>
+        </ModalFooter>
+      </ModalPanel>
     </>
   );
 }
 
-function ModalBackdrop({
-  onClose,
-  generating,
-}: {
-  onClose: () => void;
-  generating: boolean;
-}) {
+function ModalPanel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="fixed inset-0 z-[10060] bg-black/50"
-      aria-hidden
-      onClick={() => {
-        if (!generating) onClose();
-      }}
-    />
-  );
-}
-
-function ModalToolbar({
-  L,
-  onSelectAll,
-  onDeselectAll,
-  unprintedOnly,
-  onUnprintedOnlyChange,
-}: {
-  L: (k: string, fb: string) => string;
-  onSelectAll: () => void;
-  onDeselectAll: () => void;
-  unprintedOnly: boolean;
-  onUnprintedOnlyChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={onSelectAll}
-        className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-      >
-        {L("inventory_qrLabelsSelectAll", "Select all")}
-      </button>
-      <button
-        type="button"
-        onClick={onDeselectAll}
-        className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-      >
-        {L("inventory_qrLabelsDeselectAll", "Deselect all")}
-      </button>
-      <label className="ml-auto flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-        <input
-          type="checkbox"
-          checked={unprintedOnly}
-          onChange={(e) => onUnprintedOnlyChange(e.target.checked)}
-          className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-600"
-        />
-        {L("inventory_qrLabelsUnprintedOnly", "Unprinted labels only")}
-      </label>
+    <div className="fixed z-[10061] flex w-full max-h-[92vh] flex-col border border-zinc-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 max-md:inset-x-0 max-md:bottom-0 max-md:rounded-t-2xl max-md:pb-[max(1rem,env(safe-area-inset-bottom))] md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:h-auto md:max-h-[90vh] md:w-full md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl lg:max-w-2xl">
+      {children}
     </div>
   );
 }
+
+function ModalFooter({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 p-4 dark:border-slate-700 sm:flex-row sm:justify-end">
+      {children}
+    </div>
+  );
+}
+

@@ -41,6 +41,19 @@ export type InventoryQrPhotoMessages = {
   inventory_qrLabelsCancel: string;
   inventory_qrLabelsHelp: string;
   inventory_qrLabelsUnprintedOnly: string;
+  inventory_qrLabelsMode: string;
+  inventory_qrLabelsModeA: string;
+  inventory_qrLabelsModeAHelp: string;
+  inventory_qrLabelsModeB: string;
+  inventory_qrLabelsModeBHelp: string;
+  inventory_qrLabelsBlankCount: string;
+  inventory_qrLabelsBlankGenerate: string;
+  inventory_qrLabelsBlankGenerated: string;
+  inventory_qrBlankLabelConsumed: string;
+  inventory_qrBlankLabelViewItem: string;
+  inventory_qrBlankLabelRegisterTitle: string;
+  inventory_qrBlankLabelRegisterHelp: string;
+  inventory_itemCreatedFromBlankLabel: string;
 };
 
 /**

@@ -55,7 +55,9 @@ export type AuditAction =
   | "rental_created"
   | "rental_updated"
   | "rental_deleted"
-  | "qr_labels_generated";
+  | "qr_labels_generated"
+  | "qr_blank_labels_generated"
+  | "inventory_item_created_from_blank_label";
 
 export type AuditEntityType =
   | "photo"
@@ -74,7 +76,8 @@ export type AuditEntityType =
   | "rfi"
   | "clock_entry"
   | "rental"
-  | "inventory";
+  | "inventory"
+  | "inventory_blank_labels";
 
 export interface AuditEntry {
   company_id: string;

@@ -7,9 +7,18 @@ export type InventoryQrPayload = {
   type: string;
 };
 
-/** MachinPro v1 QR payload (tenant-safe, used on printed Avery labels). */
+export type ParsedMachinProQr =
+  | { kind: "item"; companyId: string; itemId: string; itemName: string; type: string }
+  | { kind: "blank"; companyId: string; blankId: string };
+
+/** MachinPro v1 QR payload for existing inventory items. */
 export function buildInventoryQrV1Payload(companyId: string, itemId: string): string {
   return JSON.stringify({ v: 1, companyId, itemId });
+}
+
+/** MachinPro v1 QR payload for blank (virgin) labels. */
+export function buildInventoryQrBlankV1Payload(companyId: string, blankId: string): string {
+  return JSON.stringify({ v: 1, companyId, blankId });
 }
 
 export async function generateInventoryQrDataUrl(payload: InventoryQrPayload): Promise<string> {
@@ -29,23 +38,33 @@ export async function generateInventoryQrV1DataUrl(
   });
 }
 
-/** Intenta parsear JSON del QR; si falla, devuelve null. */
-export function parseInventoryQrPayload(scanText: string): InventoryQrPayload | null {
+export async function generateQrDataUrlFromText(data: string, width = 200): Promise<string> {
+  return QRCode.toDataURL(data, {
+    margin: 0,
+    width,
+    errorCorrectionLevel: "M",
+  });
+}
+
+/** Parse MachinPro JSON QR (item or blank). */
+export function parseMachinProQr(scanText: string): ParsedMachinProQr | null {
   const t = scanText.trim();
   if (!t) return null;
   try {
     const o = JSON.parse(t) as Record<string, unknown>;
-    if (
-      o.v === 1 &&
-      typeof o.companyId === "string" &&
-      typeof o.itemId === "string"
-    ) {
-      return {
-        companyId: o.companyId,
-        itemId: o.itemId,
-        itemName: typeof o.itemName === "string" ? o.itemName : "",
-        type: typeof o.type === "string" ? o.type : "",
-      };
+    if (o.v === 1 && typeof o.companyId === "string") {
+      if (typeof o.blankId === "string") {
+        return { kind: "blank", companyId: o.companyId, blankId: o.blankId };
+      }
+      if (typeof o.itemId === "string") {
+        return {
+          kind: "item",
+          companyId: o.companyId,
+          itemId: o.itemId,
+          itemName: typeof o.itemName === "string" ? o.itemName : "",
+          type: typeof o.type === "string" ? o.type : "",
+        };
+      }
     }
     if (
       typeof o.companyId === "string" &&
@@ -54,6 +73,7 @@ export function parseInventoryQrPayload(scanText: string): InventoryQrPayload | 
       typeof o.type === "string"
     ) {
       return {
+        kind: "item",
         companyId: o.companyId,
         itemId: o.itemId,
         itemName: o.itemName,
@@ -64,4 +84,16 @@ export function parseInventoryQrPayload(scanText: string): InventoryQrPayload | 
     /* ignore */
   }
   return null;
+}
+
+/** @deprecated Prefer `parseMachinProQr`. Returns item payloads only. */
+export function parseInventoryQrPayload(scanText: string): InventoryQrPayload | null {
+  const parsed = parseMachinProQr(scanText);
+  if (!parsed || parsed.kind !== "item") return null;
+  return {
+    companyId: parsed.companyId,
+    itemId: parsed.itemId,
+    itemName: parsed.itemName,
+    type: parsed.type,
+  };
 }

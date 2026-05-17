@@ -31,7 +31,9 @@ import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import type { InventoryLedgerRow, InventoryMovementKind } from "@/types/inventoryLedger";
 import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
 import { InventoryQrPostScanModal } from "@/components/InventoryQrPostScanModal";
-import { resolveInventoryItemIdFromQrScan } from "@/lib/inventoryQrResolve";
+import { resolveInventoryQrScan } from "@/lib/inventoryQrResolve";
+import { formatBlankLabelSequence } from "@/lib/inventoryBlankLabels";
+import { formatLocaleTemplate } from "@/lib/formatLocaleTemplate";
 import { generateInventoryQrLabelPdf } from "@/lib/generateInventoryQrLabelPdf";
 import { InventoryQrLabelsModal } from "@/components/InventoryQrLabelsModal";
 import { logAuditEvent } from "@/lib/useAuditLog";
@@ -318,6 +320,11 @@ export interface LogisticsModuleProps {
   onInventoryQrPostScan?: (itemId: string, action: InventoryQrPostScanAction) => void;
   /** QR escaneado sin coincidencia: prefilar alta de ítem (solo gestión). */
   onInventoryQrCreateFromScan?: (code: string) => void;
+  onInventoryQrCreateFromBlankScan?: (payload: {
+    qrCode: string;
+    blankLabelId: string;
+    sequenceNumber: number;
+  }) => void;
   auditUserId?: string;
   auditUserName?: string;
 }
@@ -552,6 +559,7 @@ export function LogisticsModule({
   onOpenInventoryDetailConsumed,
   onInventoryQrPostScan,
   onInventoryQrCreateFromScan,
+  onInventoryQrCreateFromBlankScan,
   auditUserId = "",
   auditUserName = "",
 }: LogisticsModuleProps) {
@@ -617,42 +625,97 @@ export function LogisticsModule({
 
   const onInventoryQrDecoded = useCallback(
     (text: string) => {
-      const tx = t as Record<string, string>;
-      const trimmed = text.trim();
-      if (!trimmed) {
-        showToast("error", tx.inventory_qr_scan ?? "Scan error");
-        return;
-      }
-
-      const matchId = resolveInventoryItemIdFromQrScan(trimmed, inventoryItems ?? [], companyId ?? null);
-      if (!matchId) {
-        if (canManageInventory && onInventoryQrCreateFromScan) {
-          setInventoryQrUnknownCode(trimmed);
-        } else {
-          showToast("warning", tx.inventory_qrNotFound ?? tx.inventory_qr_scan ?? "QR not recognized");
+      void (async () => {
+        const tx = t as Record<string, string>;
+        const trimmed = text.trim();
+        if (!trimmed) {
+          showToast("error", tx.inventory_qr_scan ?? "Scan error");
+          return;
         }
-        return;
-      }
 
-      const it = (inventoryItems ?? []).find((i) => i.id === matchId);
-      if (!it || it.deletedAt) {
-        showToast("error", tx.wh_inventory_empty ?? "Not found");
-        return;
-      }
+        try {
+          const result = await resolveInventoryQrScan(
+            trimmed,
+            inventoryItems ?? [],
+            companyId ?? null
+          );
 
-      setSelectedAsset({ type: "inventory", id: it.id });
+          if (result.kind === "item") {
+            const it = (inventoryItems ?? []).find((i) => i.id === result.itemId);
+            if (!it || it.deletedAt) {
+              showToast("error", tx.wh_inventory_empty ?? "Not found");
+              return;
+            }
+            setInvScanOpen(false);
+            setSelectedAsset({ type: "inventory", id: it.id });
+            if (canManageInventory && onInventoryQrPostScan) {
+              setQrPostScanItem(it);
+            }
+            showToast("success", it.name);
+            return;
+          }
 
-      if (canManageInventory && onInventoryQrPostScan) {
-        setQrPostScanItem(it);
-      }
+          if (result.kind === "blank_available") {
+            if (canManageInventory && onInventoryQrCreateFromBlankScan) {
+              setInvScanOpen(false);
+              onInventoryQrCreateFromBlankScan({
+                qrCode: result.qrCode,
+                blankLabelId: result.blankId,
+                sequenceNumber: result.sequenceNumber,
+              });
+            } else {
+              showToast("warning", tx.inventory_qrNotFound ?? "QR not recognized");
+            }
+            return;
+          }
 
-      showToast("success", it.name);
+          if (result.kind === "blank_consumed") {
+            setInvScanOpen(false);
+            setInventoryQrConsumedBlank({
+              itemId: result.itemId,
+              itemName: result.itemName,
+              sequenceNumber: result.sequenceNumber,
+            });
+            return;
+          }
+
+          if (result.kind === "legacy_plain") {
+            if (result.itemId) {
+              const it = (inventoryItems ?? []).find((i) => i.id === result.itemId);
+              if (it && !it.deletedAt) {
+                setInvScanOpen(false);
+                setSelectedAsset({ type: "inventory", id: it.id });
+                if (canManageInventory && onInventoryQrPostScan) {
+                  setQrPostScanItem(it);
+                }
+                showToast("success", it.name);
+                return;
+              }
+            }
+            if (canManageInventory && onInventoryQrCreateFromScan) {
+              setInventoryQrUnknownCode(result.qrCode);
+            } else {
+              showToast("warning", tx.inventory_qrNotFound ?? "QR not recognized");
+            }
+            return;
+          }
+
+          if (canManageInventory && onInventoryQrCreateFromScan) {
+            setInventoryQrUnknownCode(trimmed);
+          } else {
+            showToast("warning", tx.inventory_qrNotFound ?? tx.inventory_qr_scan ?? "QR not recognized");
+          }
+        } catch {
+          showToast("error", tx.common_error ?? "Error");
+        }
+      })();
     },
     [
       companyId,
       inventoryItems,
       onInventoryQrPostScan,
       onInventoryQrCreateFromScan,
+      onInventoryQrCreateFromBlankScan,
       showToast,
       t,
       canManageInventory,
@@ -671,6 +734,11 @@ export function LogisticsModule({
   const [qrLabelsModalOpen, setQrLabelsModalOpen] = useState(false);
   const [qrPostScanItem, setQrPostScanItem] = useState<InventoryItem | null>(null);
   const [inventoryQrUnknownCode, setInventoryQrUnknownCode] = useState<string | null>(null);
+  const [inventoryQrConsumedBlank, setInventoryQrConsumedBlank] = useState<{
+    itemId: string;
+    itemName?: string;
+    sequenceNumber: number;
+  } | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const [logisticsFleetFiltersOpen, setLogisticsFleetFiltersOpen] = useState(false);
   const [fleetViewMode, setFleetViewMode] = useState<"list" | "tracking">("list");
@@ -1185,6 +1253,7 @@ export function LogisticsModule({
                   {(t as Record<string, string>).inventory_qr_scan ?? "Scan QR"}
                 </button>
               ) : null}
+              {/* TODO AH-74+: vista gestión etiquetas vírgenes (count + modal listado) */}
               {canPrintInventoryQR && canManageInventory ? (
                 <button
                   type="button"
@@ -1716,6 +1785,7 @@ export function LogisticsModule({
               labels={t}
               companyId={companyId}
               companyName={companyName}
+              auditUserId={auditUserId}
               onClose={() => setQrLabelsModalOpen(false)}
               onGenerated={({ count, format }) => {
                 if (!companyId || !auditUserId) return;
@@ -1734,7 +1804,66 @@ export function LogisticsModule({
                   (t as Record<string, string>).inventory_qrLabelsGenerateButton ?? "Generate PDF"
                 );
               }}
+              onBlankGenerated={({ count, format, firstSequence, lastSequence }) => {
+                if (!companyId || !auditUserId) return;
+                void logAuditEvent({
+                  company_id: companyId,
+                  user_id: auditUserId,
+                  user_name: auditUserName || undefined,
+                  action: "qr_blank_labels_generated",
+                  entity_type: "inventory_blank_labels",
+                  entity_id: companyId,
+                  entity_name: companyName || undefined,
+                  new_value: { count, format, first_sequence: firstSequence, last_sequence: lastSequence },
+                });
+                const tx = t as Record<string, string>;
+                showToast(
+                  "success",
+                  formatLocaleTemplate(
+                    tx.inventory_qrLabelsBlankGenerated ?? "{count} blank labels successfully generated",
+                    { count }
+                  )
+                );
+              }}
             />
+          ) : null}
+          {inventoryQrConsumedBlank !== null ? (
+            <>
+              <div
+                className="fixed inset-0 z-[10078] bg-black/60"
+                aria-hidden
+                onClick={() => setInventoryQrConsumedBlank(null)}
+              />
+              <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[10079] mx-auto max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(100%,24rem)] sm:-translate-x-1/2 sm:-translate-y-1/2">
+                <p className="text-sm leading-snug text-zinc-800 dark:text-zinc-100">
+                  {(t as Record<string, string>).inventory_qrBlankLabelConsumed ??
+                    "This label was already used to register:"}{" "}
+                  <span className="font-medium">
+                    {inventoryQrConsumedBlank.itemName ??
+                      formatBlankLabelSequence(inventoryQrConsumedBlank.sequenceNumber, 999)}
+                  </span>
+                </p>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                    onClick={() => setInventoryQrConsumedBlank(null)}
+                  >
+                    {(t as Record<string, string>).cancel ?? "Cancel"}
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500"
+                    onClick={() => {
+                      setSelectedAsset({ type: "inventory", id: inventoryQrConsumedBlank.itemId });
+                      setInventoryQrConsumedBlank(null);
+                    }}
+                  >
+                    {(t as Record<string, string>).inventory_qrBlankLabelViewItem ?? "View tool"}
+                  </button>
+                </div>
+              </div>
+            </>
           ) : null}
           {inventoryQrUnknownCode !== null && onInventoryQrCreateFromScan ? (
             <>

@@ -18,6 +18,8 @@ export type QrLabelsPdfProps = {
   items: QrLabelPdfItem[];
   format: AveryLabelFormat;
   companyName: string;
+  /** Blank labels: no company footer, sequence-only text. */
+  variant?: "inventory" | "blank";
 };
 
 function truncateText(text: string, maxChars: number): string {
@@ -39,11 +41,13 @@ function LabelCell({
   spec,
   indexOnPage,
   companyName,
+  variant,
 }: {
   item: QrLabelPdfItem;
   spec: AveryLabelSpec;
   indexOnPage: number;
   companyName: string;
+  variant: "inventory" | "blank";
 }) {
   const { left, top } = labelPosition(spec, indexOnPage);
   const pad = 1.5;
@@ -96,13 +100,13 @@ function LabelCell({
         <Text style={{ fontSize: nameSize, fontFamily: "Helvetica-Bold" }}>
           {truncateText(item.name, nameMax)}
         </Text>
-        {item.model ? (
+        {variant === "inventory" && item.model ? (
           <Text style={{ fontSize: modelSize, fontFamily: "Helvetica", marginTop: 1 }}>
             {truncateText(item.model, modelMax)}
           </Text>
         ) : null}
       </View>
-      {companyName ? (
+      {variant === "inventory" && companyName ? (
         <Text
           style={{
             position: "absolute",
@@ -121,7 +125,12 @@ function LabelCell({
   );
 }
 
-export function QrLabelsPdf({ items, format, companyName }: QrLabelsPdfProps) {
+export function QrLabelsPdf({
+  items,
+  format,
+  companyName,
+  variant = "inventory",
+}: QrLabelsPdfProps) {
   const spec = AVERY_LABEL_SPECS[format];
   const perPage = labelsPerPage(format);
   const pages = chunkItems(items, perPage);
@@ -137,6 +146,7 @@ export function QrLabelsPdf({ items, format, companyName }: QrLabelsPdfProps) {
               spec={spec}
               indexOnPage={idx}
               companyName={companyName}
+              variant={variant}
             />
           ))}
         </Page>
