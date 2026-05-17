@@ -7,7 +7,7 @@ export type SecurityMessages = {
 };
 
 /**
- * Inventario: escáner QR y fotos (AH-71). Claves planas `inventory_*` en locale files.
+ * Inventario: escáner QR, fotos (AH-71) y etiquetas Avery (AH-73). Claves planas `inventory_*`.
  */
 export type InventoryQrPhotoMessages = {
   inventory_scanQrTitle: string;
@@ -25,6 +25,22 @@ export type InventoryQrPhotoMessages = {
   inventory_photoEmpty: string;
   inventory_photoColumn: string;
   inventory_qr_code_field: string;
+  inventory_generateQrLabels: string;
+  inventory_qrLabelsModalTitle: string;
+  inventory_qrLabelsDescription: string;
+  inventory_qrLabelsSelectAll: string;
+  inventory_qrLabelsDeselectAll: string;
+  inventory_qrLabelsFormat: string;
+  inventory_qrLabelsFormatA4_21: string;
+  inventory_qrLabelsFormatA4_24: string;
+  inventory_qrLabelsFormatLetter_30: string;
+  inventory_qrLabelsFormatLetter_20: string;
+  inventory_qrLabelsGenerateButton: string;
+  inventory_qrLabelsGenerating: string;
+  inventory_qrLabelsNoItemsSelected: string;
+  inventory_qrLabelsCancel: string;
+  inventory_qrLabelsHelp: string;
+  inventory_qrLabelsUnprintedOnly: string;
 };
 
 /**

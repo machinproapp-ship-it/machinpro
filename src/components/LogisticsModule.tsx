@@ -33,6 +33,8 @@ import type { InventoryQrPostScanAction } from "@/types/inventoryQrAction";
 import { InventoryQrPostScanModal } from "@/components/InventoryQrPostScanModal";
 import { resolveInventoryItemIdFromQrScan } from "@/lib/inventoryQrResolve";
 import { generateInventoryQrLabelPdf } from "@/lib/generateInventoryQrLabelPdf";
+import { InventoryQrLabelsModal } from "@/components/InventoryQrLabelsModal";
+import { logAuditEvent } from "@/lib/useAuditLog";
 import Papa from "papaparse";
 import { HorizontalScrollFade } from "@/components/HorizontalScrollFade";
 import { EmptyIllustrationBox, ModuleEmptyState } from "@/components/ModuleEmptyState";
@@ -316,6 +318,8 @@ export interface LogisticsModuleProps {
   onInventoryQrPostScan?: (itemId: string, action: InventoryQrPostScanAction) => void;
   /** QR escaneado sin coincidencia: prefilar alta de ítem (solo gestión). */
   onInventoryQrCreateFromScan?: (code: string) => void;
+  auditUserId?: string;
+  auditUserName?: string;
 }
 
 function daysUntilExpiry(expiryDate: string): number {
@@ -548,6 +552,8 @@ export function LogisticsModule({
   onOpenInventoryDetailConsumed,
   onInventoryQrPostScan,
   onInventoryQrCreateFromScan,
+  auditUserId = "",
+  auditUserName = "",
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
   const canFulfillOrders = canManageInventory || canCreatePurchaseOrders;
@@ -662,6 +668,7 @@ export function LogisticsModule({
   const [importOpen, setImportOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState<InventoryItem[]>([]);
   const [invScanOpen, setInvScanOpen] = useState(false);
+  const [qrLabelsModalOpen, setQrLabelsModalOpen] = useState(false);
   const [qrPostScanItem, setQrPostScanItem] = useState<InventoryItem | null>(null);
   const [inventoryQrUnknownCode, setInventoryQrUnknownCode] = useState<string | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -1178,6 +1185,16 @@ export function LogisticsModule({
                   {(t as Record<string, string>).inventory_qr_scan ?? "Scan QR"}
                 </button>
               ) : null}
+              {canPrintInventoryQR && canManageInventory ? (
+                <button
+                  type="button"
+                  onClick={() => setQrLabelsModalOpen(true)}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-600 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
+                  {(t as Record<string, string>).inventory_generateQrLabels ?? "Generate QR labels"}
+                </button>
+              ) : null}
               {canManageInventory && (
                 <button
                   type="button"
@@ -1686,6 +1703,39 @@ export function LogisticsModule({
             onClose={() => setInvScanOpen(false)}
             onDecoded={onInventoryQrDecoded}
           />
+          {canPrintInventoryQR ? (
+            <InventoryQrLabelsModal
+              open={qrLabelsModalOpen}
+              items={(inventoryItems ?? [])
+                .filter((i) => !i.deletedAt)
+                .map((i) => ({
+                  id: i.id,
+                  name: i.name,
+                  model: i.model ?? i.serialNumber ?? i.internalId,
+                }))}
+              labels={t}
+              companyId={companyId}
+              companyName={companyName}
+              onClose={() => setQrLabelsModalOpen(false)}
+              onGenerated={({ count, format }) => {
+                if (!companyId || !auditUserId) return;
+                void logAuditEvent({
+                  company_id: companyId,
+                  user_id: auditUserId,
+                  user_name: auditUserName || undefined,
+                  action: "qr_labels_generated",
+                  entity_type: "inventory",
+                  entity_id: companyId,
+                  entity_name: companyName || undefined,
+                  new_value: { count, format },
+                });
+                showToast(
+                  "success",
+                  (t as Record<string, string>).inventory_qrLabelsGenerateButton ?? "Generate PDF"
+                );
+              }}
+            />
+          ) : null}
           {inventoryQrUnknownCode !== null && onInventoryQrCreateFromScan ? (
             <>
               <div

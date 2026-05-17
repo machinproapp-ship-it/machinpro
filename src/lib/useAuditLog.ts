@@ -54,7 +54,8 @@ export type AuditAction =
   | "hazard_reported_quick_action"
   | "rental_created"
   | "rental_updated"
-  | "rental_deleted";
+  | "rental_deleted"
+  | "qr_labels_generated";
 
 export type AuditEntityType =
   | "photo"
@@ -72,7 +73,8 @@ export type AuditEntityType =
   | "blueprint"
   | "rfi"
   | "clock_entry"
-  | "rental";
+  | "rental"
+  | "inventory";
 
 export interface AuditEntry {
   company_id: string;

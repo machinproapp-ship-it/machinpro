@@ -7564,6 +7564,8 @@ export default function Home() {
                 displayCurrency={currency}
                 activeProfileId={profile?.id}
                 activeProfileName={profile?.fullName ?? profile?.email ?? ""}
+                auditUserId={user?.id ?? ""}
+                auditUserName={profile?.fullName ?? profile?.email ?? "admin"}
                 onAppendInventoryLedger={appendInventoryLedger}
                 onInventoryQrPostScan={handleInventoryQrPostScan}
                 onInventoryTransfer={handleInventoryTransfer}
