@@ -3,18 +3,16 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/lib/AuthContext";
 import { useAppLocale } from "@/hooks/useAppLocale";
-import { buildInventoryBlankQrUrl, buildInventoryItemQrUrl } from "@/lib/inventoryQrUrl";
-import { fetchBlankLabelById } from "@/lib/inventoryBlankLabels";
 import { formatBlankLabelSequence } from "@/lib/inventoryBlankLabels";
-import { readLocalInventoryItems } from "@/lib/localInventoryStorage";
 import { QrQuickBackLink, QrQuickResolveLayout } from "@/components/inventory/QrQuickResolveLayout";
+import { supabase } from "@/lib/supabase";
+
+const MP_QR_SCAN_KEY = "mp_qr_scan";
 
 export default function QrBlankQuickPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, profile, loading: authLoading } = useAuth();
   const { t } = useAppLocale();
   const L = (k: string, fb: string) => (t as Record<string, string>)[k] ?? fb;
 
@@ -22,47 +20,77 @@ export default function QrBlankQuickPage() {
     typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : "";
 
   const [phase, setPhase] = useState<"loading" | "error" | "consumed" | "redirect">("loading");
-  const [consumedItemId, setConsumedItemId] = useState<string | null>(null);
+  const [consumedItemQr, setConsumedItemQr] = useState<string | null>(null);
   const [consumedItemName, setConsumedItemName] = useState<string | undefined>();
   const [sequenceNumber, setSequenceNumber] = useState<number | null>(null);
 
   useEffect(() => {
-    if (authLoading || !blankId) return;
-
-    if (!user) {
-      const redirect = `/q/b/${encodeURIComponent(blankId)}`;
-      router.replace(`/login?redirect=${encodeURIComponent(redirect)}`);
-      return;
-    }
+    if (!blankId) return;
 
     void (async () => {
-      if (!profile?.companyId) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        const redirect = `/q/b/${encodeURIComponent(blankId)}`;
+        router.replace(`/login?redirect=${encodeURIComponent(redirect)}`);
+        return;
+      }
+
+      const { data: label, error } = await supabase
+        .from("inventory_blank_labels")
+        .select("id, qr_code, sequence_number, consumed_at, consumed_into_item_id")
+        .eq("id", blankId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("QR blank lookup:", error);
         setPhase("error");
         return;
       }
 
-      const row = await fetchBlankLabelById(profile.companyId, blankId);
-      if (!row) {
+      if (!label?.id) {
         setPhase("error");
         return;
       }
 
-      setSequenceNumber(row.sequence_number);
+      setSequenceNumber(label.sequence_number);
 
-      if (row.consumed_at && row.consumed_into_item_id) {
-        const local = readLocalInventoryItems();
-        const item = local.find((i) => i.id === row.consumed_into_item_id && !i.deletedAt);
-        setConsumedItemId(row.consumed_into_item_id);
-        setConsumedItemName(item?.name);
+      if (label.consumed_at) {
+        if (label.consumed_into_item_id) {
+          const { data: item } = await supabase
+            .from("inventory_items")
+            .select("id, name, qr_code")
+            .eq("id", label.consumed_into_item_id)
+            .maybeSingle();
+
+          const qr = item?.qr_code?.trim();
+          if (qr) setConsumedItemQr(qr);
+          setConsumedItemName(item?.name ?? undefined);
+        }
         setPhase("consumed");
         return;
       }
 
+      const qrCode = label.qr_code?.trim();
+      if (!qrCode) {
+        setPhase("error");
+        return;
+      }
+
+      try {
+        sessionStorage.setItem(MP_QR_SCAN_KEY, qrCode);
+      } catch {
+        /* ignore */
+      }
+
       setPhase("redirect");
-      const scanUrl = buildInventoryBlankQrUrl(blankId);
-      router.replace(`/?mp_qr_scan=${encodeURIComponent(scanUrl)}`);
+      router.replace(
+        `/?mp_qr_scan=${encodeURIComponent(qrCode)}&mp_qr_blank_id=${encodeURIComponent(label.id)}`
+      );
     })();
-  }, [authLoading, user, blankId, profile?.companyId, router]);
+  }, [blankId, router]);
 
   return (
     <QrQuickResolveLayout loading={phase === "loading" || phase === "redirect"} labels={t as Record<string, string>}>
@@ -78,7 +106,7 @@ export default function QrBlankQuickPage() {
         </>
       ) : null}
 
-      {phase === "consumed" && consumedItemId ? (
+      {phase === "consumed" ? (
         <>
           <p className="text-sm text-zinc-700 dark:text-zinc-300">
             {L("inventory_qrBlankLabelConsumed", "This label was already used to register:")}{" "}
@@ -86,15 +114,17 @@ export default function QrBlankQuickPage() {
               {consumedItemName ??
                 (sequenceNumber != null
                   ? formatBlankLabelSequence(sequenceNumber, 999)
-                  : consumedItemId)}
+                  : "—")}
             </span>
           </p>
-          <Link
-            href={`/?mp_qr_scan=${encodeURIComponent(buildInventoryItemQrUrl(consumedItemId))}`}
-            className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-500"
-          >
-            {L("inventory_qrBlankLabelViewItem", "View tool")}
-          </Link>
+          {consumedItemQr ? (
+            <Link
+              href={`/?mp_qr_scan=${encodeURIComponent(consumedItemQr)}`}
+              className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-500"
+            >
+              {L("inventory_qrBlankLabelViewItem", "View tool")}
+            </Link>
+          ) : null}
           <QrQuickBackLink labels={t as Record<string, string>} />
         </>
       ) : null}

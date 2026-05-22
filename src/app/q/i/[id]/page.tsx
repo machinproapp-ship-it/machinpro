@@ -2,17 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/AuthContext";
 import { useAppLocale } from "@/hooks/useAppLocale";
-import { buildInventoryItemQrUrl } from "@/lib/inventoryQrUrl";
-import { readLocalInventoryItems } from "@/lib/localInventoryStorage";
-import { supabase } from "@/lib/supabase";
 import { QrQuickBackLink, QrQuickResolveLayout } from "@/components/inventory/QrQuickResolveLayout";
+import { supabase } from "@/lib/supabase";
+
+const MP_QR_SCAN_KEY = "mp_qr_scan";
 
 export default function QrItemQuickPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, profile, loading: authLoading } = useAuth();
   const { t } = useAppLocale();
   const L = (k: string, fb: string) => (t as Record<string, string>)[k] ?? fb;
 
@@ -22,39 +20,52 @@ export default function QrItemQuickPage() {
   const [phase, setPhase] = useState<"loading" | "error" | "redirect">("loading");
 
   useEffect(() => {
-    if (authLoading || !itemId) return;
-
-    if (!user) {
-      const redirect = `/q/i/${encodeURIComponent(itemId)}`;
-      router.replace(`/login?redirect=${encodeURIComponent(redirect)}`);
-      return;
-    }
+    if (!itemId) return;
 
     void (async () => {
-      const local = readLocalInventoryItems();
-      const inLocal = local.some((i) => i.id === itemId && !i.deletedAt);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      let inRemote = false;
-      if (!inLocal && supabase && profile?.companyId) {
-        const { data } = await supabase
-          .from("inventory_items")
-          .select("id")
-          .eq("id", itemId)
-          .eq("company_id", profile.companyId)
-          .maybeSingle();
-        inRemote = !!data?.id;
+      if (!session) {
+        const redirect = `/q/i/${encodeURIComponent(itemId)}`;
+        router.replace(`/login?redirect=${encodeURIComponent(redirect)}`);
+        return;
       }
 
-      if (!inLocal && !inRemote) {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("id, name, qr_code, company_id")
+        .eq("id", itemId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("QR item lookup:", error);
         setPhase("error");
         return;
       }
 
+      if (!data?.id) {
+        setPhase("error");
+        return;
+      }
+
+      const qrCode = data.qr_code?.trim();
+      if (!qrCode) {
+        setPhase("error");
+        return;
+      }
+
+      try {
+        sessionStorage.setItem(MP_QR_SCAN_KEY, qrCode);
+      } catch {
+        /* ignore */
+      }
+
       setPhase("redirect");
-      const scanUrl = buildInventoryItemQrUrl(itemId);
-      router.replace(`/?mp_qr_scan=${encodeURIComponent(scanUrl)}`);
+      router.replace(`/?mp_qr_scan=${encodeURIComponent(qrCode)}`);
     })();
-  }, [authLoading, user, itemId, profile?.companyId, router]);
+  }, [itemId, router]);
 
   return (
     <QrQuickResolveLayout loading={phase !== "error"} labels={t as Record<string, string>}>
