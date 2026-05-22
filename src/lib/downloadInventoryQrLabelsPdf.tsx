@@ -30,7 +30,7 @@ export async function downloadInventoryQrLabelsPdf(opts: {
       id: item.id,
       name: item.name,
       model: item.model,
-      qrDataUrl: await generateInventoryQrV1DataUrl(opts.companyId, item.id, qrWidth),
+      qrDataUrl: await generateInventoryQrV1DataUrl(item.id, opts.companyId, qrWidth),
     }))
   );
 

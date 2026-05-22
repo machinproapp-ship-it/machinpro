@@ -316,6 +316,9 @@ export interface LogisticsModuleProps {
   onBulkInventoryImport?: (items: InventoryItem[]) => void | Promise<void>;
   openInventoryDetailId?: string | null;
   onOpenInventoryDetailConsumed?: () => void;
+  /** Deep link from /q/* or native camera → run same flow as internal scanner once. */
+  pendingQrScanText?: string | null;
+  onPendingQrScanConsumed?: () => void;
   /** Tras escanear QR: modal de acciones (entrada/salida/transferencia/estado). */
   onInventoryQrPostScan?: (itemId: string, action: InventoryQrPostScanAction) => void;
   /** QR escaneado sin coincidencia: prefilar alta de ítem (solo gestión). */
@@ -557,6 +560,8 @@ export function LogisticsModule({
   onBulkInventoryImport,
   openInventoryDetailId,
   onOpenInventoryDetailConsumed,
+  pendingQrScanText,
+  onPendingQrScanConsumed,
   onInventoryQrPostScan,
   onInventoryQrCreateFromScan,
   onInventoryQrCreateFromBlankScan,
@@ -721,6 +726,26 @@ export function LogisticsModule({
       canManageInventory,
     ]
   );
+
+  const pendingQrConsumedRef = useRef(false);
+  useEffect(() => {
+    pendingQrConsumedRef.current = false;
+  }, [pendingQrScanText]);
+
+  useEffect(() => {
+    if (!pendingQrScanText?.trim() || pendingQrConsumedRef.current) return;
+    if (warehouseSubTab !== "inventory") return;
+    pendingQrConsumedRef.current = true;
+    onInventoryQrDecoded(pendingQrScanText);
+    onPendingQrScanConsumed?.();
+  }, [
+    pendingQrScanText,
+    warehouseSubTab,
+    onInventoryQrDecoded,
+    onPendingQrScanConsumed,
+    inventoryItems,
+  ]);
+
   const [logisticsInvFiltersOpen, setLogisticsInvFiltersOpen] = useState(false);
   const [inventoryScope, setInventoryScope] = useState<"all" | "warehouse" | "onsite">("all");
   const [transferItem, setTransferItem] = useState<InventoryItem | null>(null);

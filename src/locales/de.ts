@@ -3738,6 +3738,19 @@ export default {
   inventory_qrBlankLabelRegisterTitle: "Werkzeug mit Etikett #{sequence} registrieren",
   inventory_qrBlankLabelRegisterHelp: "Fülle die Werkzeugdetails aus. Der QR-Code ist bereits zugewiesen.",
   inventory_itemCreatedFromBlankLabel: "Werkzeug mit Etikett #{sequence} registriert",
+  inventory_qrScannerStarting: "Kamera wird gestartet...",
+  inventory_qrScannerPermissionDeniedTitle: "Kamera-Berechtigung verweigert",
+  inventory_qrScannerPermissionDeniedHelp:
+    "Aktiviere die Kamera-Berechtigung für diese Website in den Browser-Einstellungen und versuche es erneut.",
+  inventory_qrScannerNoCameraTitle: "Keine Kamera erkannt",
+  inventory_qrScannerNoCameraHelp:
+    "Dieses Gerät hat keine verfügbare Kamera oder sie wird von einer anderen App verwendet.",
+  inventory_qrScannerUnknownErrorTitle: "Kamera konnte nicht gestartet werden",
+  inventory_qrScannerUnknownErrorHelp:
+    "Schließe dieses Fenster und öffne es erneut. Wenn das Problem weiterhin besteht, lade die Seite neu.",
+  inventory_qrItemNotFound: "Dieser QR gehört nicht zu deinem Unternehmen oder das Element existiert nicht mehr",
+  inventory_qrBlankNotFound: "Etikett nicht gefunden oder gehört nicht zu deinem Unternehmen",
+  inventory_qrBackToInventory: "Zurück zum Inventar",
   permCanImportInventory: "Inventar importieren",
   permCanTransferInventory: "Inventar übertragen",
   permCanPrintInventoryQR: "QR-Etiketten drucken",

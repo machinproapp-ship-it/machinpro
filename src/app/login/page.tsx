@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { useAppLocale } from "@/hooks/useAppLocale";
@@ -9,6 +9,8 @@ import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectAfterLogin = searchParams.get("redirect");
   const { t, tx } = useAppLocale();
   const [dark, setDark] = useState(false);
 
@@ -44,7 +46,13 @@ export default function LoginPage() {
     let cancelled = false;
     void supabase.auth.getSession().then((result: AuthGetSessionResult) => {
       if (cancelled) return;
-      if (result.data.session) router.replace("/");
+      if (result.data.session) {
+        const target =
+          redirectAfterLogin && redirectAfterLogin.startsWith("/")
+            ? redirectAfterLogin
+            : "/";
+        router.replace(target);
+      }
     });
     return () => {
       cancelled = true;
@@ -55,7 +63,11 @@ export default function LoginPage() {
     <>
       <LoginScreen
         onLogin={() => {
-          router.replace("/");
+          const target =
+            redirectAfterLogin && redirectAfterLogin.startsWith("/")
+              ? redirectAfterLogin
+              : "/";
+          router.replace(target);
         }}
         labels={t as Record<string, string>}
         demoAccounts={loginDemoAccounts}

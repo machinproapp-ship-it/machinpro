@@ -4069,6 +4069,19 @@ export default {
   inventory_qrBlankLabelRegisterTitle: "Register tool with label #{sequence}",
   inventory_qrBlankLabelRegisterHelp: "Fill in the tool details. The QR code is already assigned.",
   inventory_itemCreatedFromBlankLabel: "Tool registered with label #{sequence}",
+  inventory_qrScannerStarting: "Starting camera...",
+  inventory_qrScannerPermissionDeniedTitle: "Camera permission denied",
+  inventory_qrScannerPermissionDeniedHelp:
+    "Enable camera permission for this site in your browser settings and try again.",
+  inventory_qrScannerNoCameraTitle: "No camera detected",
+  inventory_qrScannerNoCameraHelp:
+    "This device has no available camera or it is being used by another app.",
+  inventory_qrScannerUnknownErrorTitle: "Camera could not start",
+  inventory_qrScannerUnknownErrorHelp:
+    "Close this window and reopen it. If the problem persists, refresh the page.",
+  inventory_qrItemNotFound: "This QR does not belong to your company or the item no longer exists",
+  inventory_qrBlankNotFound: "Label not found or does not belong to your company",
+  inventory_qrBackToInventory: "Back to inventory",
   permCanImportInventory: "Import inventory",
   permCanTransferInventory: "Transfer inventory",
   permCanPrintInventoryQR: "Print QR labels",

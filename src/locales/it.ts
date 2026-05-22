@@ -3760,6 +3760,19 @@ export default {
   inventory_qrBlankLabelRegisterTitle: "Registra strumento con etichetta #{sequence}",
   inventory_qrBlankLabelRegisterHelp: "Compila i dettagli dello strumento. Il codice QR è già assegnato.",
   inventory_itemCreatedFromBlankLabel: "Strumento registrato con etichetta #{sequence}",
+  inventory_qrScannerStarting: "Avvio della fotocamera...",
+  inventory_qrScannerPermissionDeniedTitle: "Permesso fotocamera negato",
+  inventory_qrScannerPermissionDeniedHelp:
+    "Attiva il permesso fotocamera per questo sito nelle impostazioni del browser e riprova.",
+  inventory_qrScannerNoCameraTitle: "Nessuna fotocamera rilevata",
+  inventory_qrScannerNoCameraHelp:
+    "Questo dispositivo non ha una fotocamera disponibile o è in uso da un'altra app.",
+  inventory_qrScannerUnknownErrorTitle: "Impossibile avviare la fotocamera",
+  inventory_qrScannerUnknownErrorHelp:
+    "Chiudi questa finestra e riaprila. Se il problema persiste, ricarica la pagina.",
+  inventory_qrItemNotFound: "Questo QR non appartiene alla tua azienda o l'elemento non esiste più",
+  inventory_qrBlankNotFound: "Etichetta non trovata o non appartiene alla tua azienda",
+  inventory_qrBackToInventory: "Torna all'inventario",
   permCanImportInventory: "Importa inventario",
   permCanTransferInventory: "Trasferisci inventario",
   permCanPrintInventoryQR: "Stampa etichette QR",

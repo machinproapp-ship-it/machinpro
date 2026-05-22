@@ -54,6 +54,16 @@ export type InventoryQrPhotoMessages = {
   inventory_qrBlankLabelRegisterTitle: string;
   inventory_qrBlankLabelRegisterHelp: string;
   inventory_itemCreatedFromBlankLabel: string;
+  inventory_qrScannerStarting: string;
+  inventory_qrScannerPermissionDeniedTitle: string;
+  inventory_qrScannerPermissionDeniedHelp: string;
+  inventory_qrScannerNoCameraTitle: string;
+  inventory_qrScannerNoCameraHelp: string;
+  inventory_qrScannerUnknownErrorTitle: string;
+  inventory_qrScannerUnknownErrorHelp: string;
+  inventory_qrItemNotFound: string;
+  inventory_qrBlankNotFound: string;
+  inventory_qrBackToInventory: string;
 };
 
 /**

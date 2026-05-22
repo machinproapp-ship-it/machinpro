@@ -2,17 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { FolderOpen, Loader2, X } from "lucide-react";
+import { FolderOpen, X } from "lucide-react";
 
-const VIEWPORT_ID = "machinpro-inventory-qr-viewport";
+const CONTAINER_ID = "qr-scanner-container";
 
-type Phase =
-  | "checking"
-  | "need_permission"
-  | "denied"
-  | "starting"
-  | "scanning"
-  | "camera_fail";
+type ScannerError = "permission_denied" | "no_camera" | "unknown" | "container_missing" | null;
+
+function ErrorBlock({
+  title,
+  help,
+}: {
+  title: string;
+  help: string;
+}) {
+  return (
+    <div className="rounded-xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-center">
+      <p className="text-sm font-medium text-red-100">{title}</p>
+      <p className="mt-1 text-xs text-red-200/90">{help}</p>
+    </div>
+  );
+}
 
 export function InventoryQrScannerModal({
   open,
@@ -27,7 +36,6 @@ export function InventoryQrScannerModal({
 }) {
   const labelsRef = useRef(labels);
   labelsRef.current = labels;
-
   const L = (k: string, fb: string) => labelsRef.current[k] ?? fb;
 
   const onDecodedRef = useRef(onDecoded);
@@ -37,178 +45,130 @@ export function InventoryQrScannerModal({
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const decodedOnceRef = useRef(false);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [phase, setPhase] = useState<Phase>("checking");
-  const [showCameraFallback, setShowCameraFallback] = useState(false);
-  const [cameraDevices, setCameraDevices] = useState<{ id: string; label: string }[]>([]);
-
-  const cleanupScanner = async () => {
-    const s = scannerRef.current;
-    scannerRef.current = null;
-    if (!s) return;
-    try {
-      if (s.isScanning) await s.stop();
-    } catch {
-      /* ignore */
-    }
-    try {
-      s.clear();
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const isNotReadableError = (e: unknown) => {
-    const err = e as { name?: string; message?: string };
-    const msg = String(err?.message ?? e ?? "");
-    return err?.name === "NotReadableError" || msg.includes("Could not start video source");
-  };
-
-  const startScannerWithCamera = async (cameraIdOrConstraints: string | MediaTrackConstraints) => {
-    await cleanupScanner();
-    setPhase("starting");
-    decodedOnceRef.current = false;
-
-    const scanner = new Html5Qrcode(VIEWPORT_ID, { verbose: false });
-    scannerRef.current = scanner;
-
-    await scanner.start(
-      cameraIdOrConstraints,
-      {
-        fps: 10,
-        qrbox: { width: 260, height: 260 },
-        aspectRatio: 1,
-      },
-      (decodedText) => {
-        if (decodedOnceRef.current) return;
-        decodedOnceRef.current = true;
-        void cleanupScanner().then(() => {
-          onDecodedRef.current(decodedText);
-          onCloseRef.current();
-        });
-      },
-      () => {}
-    );
-
-    setPhase("scanning");
-  };
-
-  const attemptCameraSequence = async () => {
-    try {
-      await startScannerWithCamera({ facingMode: { ideal: "environment" } });
-      return;
-    } catch (e) {
-      const err = e as { name?: string };
-      if (err?.name === "NotAllowedError") {
-        setPhase("denied");
-        return;
-      }
-      if (!isNotReadableError(e)) {
-        /* fall through to fallback cameras */
-      }
-    }
-
-    try {
-      const list = await Html5Qrcode.getCameras();
-      const preferBack = list.find((c) => /back|rear|environment|trasera|wide/i.test(c.label));
-      const id = preferBack?.id ?? list[0]?.id;
-      if (id) {
-        await startScannerWithCamera(id);
-        return;
-      }
-      await startScannerWithCamera({});
-    } catch {
-      setPhase("camera_fail");
-    }
-  };
-
-  const primeCameraPermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-      });
-      stream.getTracks().forEach((t) => t.stop());
-    } catch {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach((t) => t.stop());
-      } catch {
-        /* scanner attempt may still prompt */
-      }
-    }
-  };
+  const [starting, setStarting] = useState(true);
+  const [error, setError] = useState<ScannerError>(null);
 
   useEffect(() => {
     if (!open) {
-      void cleanupScanner();
-      setPhase("checking");
-      setShowCameraFallback(false);
-      setCameraDevices([]);
-      decodedOnceRef.current = false;
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
+      const s = scannerRef.current;
+      scannerRef.current = null;
+      if (s) {
+        void s
+          .stop()
+          .then(() => s.clear())
+          .catch(() => {});
       }
+      setStarting(true);
+      setError(null);
+      decodedOnceRef.current = false;
       return;
     }
 
     let cancelled = false;
 
-    const bootstrap = async () => {
-      setPhase("checking");
-      try {
-        const perm = await navigator.permissions.query({ name: "camera" as PermissionName });
-        if (cancelled) return;
-        if (perm.state === "granted") {
-          await attemptCameraSequence();
-          return;
-        }
-        if (perm.state === "denied") {
-          setPhase("denied");
-          return;
-        }
-        setPhase("need_permission");
+    const start = async () => {
+      setStarting(true);
+      setError(null);
+      decodedOnceRef.current = false;
 
-        perm.onchange = async () => {
-          if (cancelled) return;
-          if (perm.state === "granted") {
-            await attemptCameraSequence();
-          } else if (perm.state === "denied") {
-            await cleanupScanner();
-            setPhase("denied");
+      try {
+        const container = document.getElementById(CONTAINER_ID);
+        if (!container) {
+          if (!cancelled) {
+            setError("container_missing");
+            setStarting(false);
           }
-        };
-      } catch {
-        if (!cancelled) setPhase("need_permission");
+          return;
+        }
+
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+        if (cancelled) return;
+
+        const scanner = new Html5Qrcode(CONTAINER_ID, { verbose: false });
+        scannerRef.current = scanner;
+
+        await scanner.start(
+          { facingMode: { ideal: "environment" } },
+          {
+            fps: 10,
+            qrbox: (vw, vh) => {
+              const size = Math.floor(Math.min(vw, vh) * 0.75);
+              return { width: size, height: size };
+            },
+            aspectRatio: 1.0,
+          },
+          (decodedText) => {
+            if (decodedOnceRef.current) return;
+            decodedOnceRef.current = true;
+            const s = scannerRef.current;
+            if (s) {
+              void s
+                .stop()
+                .then(() => s.clear())
+                .catch(() => {});
+              scannerRef.current = null;
+            }
+            onDecodedRef.current(decodedText);
+            onCloseRef.current();
+          },
+          () => {
+            /* ignore per-frame decode misses */
+          }
+        );
+
+        if (cancelled) {
+          try {
+            await scanner.stop();
+          } catch {
+            /* ignore */
+          }
+          try {
+            await scanner.clear();
+          } catch {
+            /* ignore */
+          }
+        } else {
+          setStarting(false);
+        }
+      } catch (err: unknown) {
+        console.error("QR scanner error:", err);
+        if (!cancelled) {
+          const msg = String((err as { message?: string })?.message ?? err ?? "").toLowerCase();
+          const name = String((err as { name?: string })?.name ?? "").toLowerCase();
+          if (
+            msg.includes("permission") ||
+            msg.includes("notallowed") ||
+            name.includes("notallowed")
+          ) {
+            setError("permission_denied");
+          } else if (msg.includes("notfound") || msg.includes("no camera")) {
+            setError("no_camera");
+          } else {
+            setError("unknown");
+          }
+          setStarting(false);
+        }
       }
     };
 
-    void bootstrap();
+    void start();
 
     return () => {
       cancelled = true;
-      void cleanupScanner();
+      const s = scannerRef.current;
+      scannerRef.current = null;
+      if (s) {
+        void s
+          .stop()
+          .then(() => s.clear())
+          .catch(() => {});
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  useEffect(() => {
-    if (!open || !showCameraFallback) return;
-    let cancelled = false;
-    Html5Qrcode.getCameras()
-      .then((list) => {
-        if (!cancelled)
-          setCameraDevices(list.map((c) => ({ id: c.id, label: c.label || c.id })));
-      })
-      .catch(() => {
-        if (!cancelled) setCameraDevices([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, showCameraFallback]);
 
   useEffect(() => {
     if (!open) return;
@@ -219,56 +179,22 @@ export function InventoryQrScannerModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const handleAllowCamera = async () => {
-    await primeCameraPermission();
-    await attemptCameraSequence().catch(() => setPhase("camera_fail"));
-  };
-
-  const handlePickCameraFromList = async (deviceId: string) => {
-    try {
-      await startScannerWithCamera(deviceId);
-    } catch {
-      setPhase("camera_fail");
-    }
-  };
-
   const handleUploadQrImage = async (file: File | undefined) => {
     if (!file) return;
-    const scanner = new Html5Qrcode(VIEWPORT_ID, { verbose: false });
+    const scanner = new Html5Qrcode(CONTAINER_ID, { verbose: false });
     try {
       const text = await scanner.scanFile(file, false);
-      scanner.clear();
+      await scanner.clear();
       if (text) {
         onDecodedRef.current(text);
         onCloseRef.current();
       }
     } catch {
-      scanner.clear();
-    }
-  };
-
-  const beginLongPress = () => {
-    if (phase !== "scanning") return;
-    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-    longPressTimerRef.current = setTimeout(() => {
-      longPressTimerRef.current = null;
-      setShowCameraFallback(true);
-      void Html5Qrcode.getCameras().then((list) =>
-        setCameraDevices(list.map((c) => ({ id: c.id, label: c.label || c.id })))
-      );
-    }, 2000);
-  };
-
-  const endLongPress = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+      await scanner.clear();
     }
   };
 
   if (!open) return null;
-
-  const overlayBlocking = phase === "checking" || phase === "need_permission" || phase === "denied" || phase === "camera_fail";
 
   return (
     <div className="fixed inset-0 z-[10070] flex flex-col bg-black">
@@ -295,91 +221,57 @@ export function InventoryQrScannerModal({
         </button>
       </div>
 
-      <div className="relative mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="relative mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div
-          className="relative flex min-h-[min(60vh,420px)] flex-1 overflow-hidden rounded-xl bg-zinc-900 touch-none"
-          onTouchStart={beginLongPress}
-          onTouchEnd={endLongPress}
-          onTouchCancel={endLongPress}
-          onMouseDown={beginLongPress}
-          onMouseUp={endLongPress}
-          onMouseLeave={endLongPress}
-        >
-          <div
-            id={VIEWPORT_ID}
-            className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+          id={CONTAINER_ID}
+          className="relative w-full overflow-hidden rounded-lg bg-black"
+          style={{ minHeight: "320px", aspectRatio: "1 / 1" }}
+        />
+
+        {starting && !error ? (
+          <p className="text-center text-sm py-2 text-slate-300">
+            {L("inventory_qrScannerStarting", "Starting camera...")}
+          </p>
+        ) : null}
+
+        {error === "permission_denied" ? (
+          <ErrorBlock
+            title={L("inventory_qrScannerPermissionDeniedTitle", "Camera permission denied")}
+            help={L(
+              "inventory_qrScannerPermissionDeniedHelp",
+              "Enable camera permission for this site in your browser settings and try again."
+            )}
           />
-
-          {overlayBlocking ? (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/85 px-4 text-center">
-              {phase === "checking" ? (
-                <Loader2 className="h-9 w-9 animate-spin text-amber-400" aria-hidden />
-              ) : null}
-
-              {phase === "need_permission" ? (
-                <>
-                  <p className="max-w-sm text-sm text-zinc-100">{L("inventory_scanQrTitle", "Scan QR code")}</p>
-                  <button
-                    type="button"
-                    onClick={() => void handleAllowCamera()}
-                    className="min-h-[48px] rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-600"
-                  >
-                    {L("inventory_requestCameraPermission", "Allow camera")}
-                  </button>
-                </>
-              ) : null}
-
-              {phase === "denied" ? (
-                <p className="max-w-sm text-sm text-red-200">
-                  {L("inventory_cameraPermissionDenied", "Camera permission denied.")}
-                </p>
-              ) : null}
-
-              {phase === "camera_fail" ? (
-                <p className="max-w-sm text-sm text-zinc-100">
-                  {L(
-                    "inventory_cameraNotReadable",
-                    "Could not open camera. Make sure no other app is using it."
-                  )}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {phase === "starting" ? (
-            <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/50">
-              <Loader2 className="h-10 w-10 animate-spin text-amber-400" aria-hidden />
-            </div>
-          ) : null}
-        </div>
-
-        {phase !== "checking" ? (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="mx-auto mt-3 inline-flex min-h-[44px] max-w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-4 py-2.5 text-sm text-zinc-100 hover:bg-white/10"
-          >
-            <FolderOpen className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
-            <span className="truncate">{L("inventory_scanUploadFallback", "Upload QR image")}</span>
-          </button>
         ) : null}
 
-        {showCameraFallback && cameraDevices.length > 0 ? (
-          <div className="mt-4 rounded-xl border border-white/15 bg-zinc-900/90 p-3">
-            <p className="mb-2 text-center text-xs text-zinc-400">Camera</p>
-            <select
-              defaultValue={cameraDevices[0]?.id ?? ""}
-              onChange={(e) => void handlePickCameraFromList(e.target.value)}
-              className="min-h-[44px] w-full rounded-lg border border-zinc-600 bg-zinc-800 px-2 py-2 text-sm text-white"
-            >
-              {cameraDevices.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        {error === "no_camera" ? (
+          <ErrorBlock
+            title={L("inventory_qrScannerNoCameraTitle", "No camera detected")}
+            help={L(
+              "inventory_qrScannerNoCameraHelp",
+              "This device has no available camera or it is being used by another app."
+            )}
+          />
         ) : null}
+
+        {(error === "unknown" || error === "container_missing") && (
+          <ErrorBlock
+            title={L("inventory_qrScannerUnknownErrorTitle", "Camera could not start")}
+            help={L(
+              "inventory_qrScannerUnknownErrorHelp",
+              "Close this window and reopen it. If the problem persists, refresh the page."
+            )}
+          />
+        )}
+
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="mx-auto inline-flex min-h-[44px] max-w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-4 py-2.5 text-sm text-zinc-100 hover:bg-white/10"
+        >
+          <FolderOpen className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+          <span className="truncate">{L("inventory_scanUploadFallback", "Upload QR image")}</span>
+        </button>
       </div>
     </div>
   );

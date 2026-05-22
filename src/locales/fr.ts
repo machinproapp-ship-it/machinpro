@@ -3748,6 +3748,19 @@ export default {
   inventory_qrBlankLabelRegisterTitle: "Enregistrer outil avec étiquette #{sequence}",
   inventory_qrBlankLabelRegisterHelp: "Remplis les détails de l'outil. Le code QR est déjà assigné.",
   inventory_itemCreatedFromBlankLabel: "Outil enregistré avec étiquette #{sequence}",
+  inventory_qrScannerStarting: "Démarrage de la caméra...",
+  inventory_qrScannerPermissionDeniedTitle: "Permission caméra refusée",
+  inventory_qrScannerPermissionDeniedHelp:
+    "Active la permission caméra pour ce site dans les paramètres du navigateur et réessaie.",
+  inventory_qrScannerNoCameraTitle: "Aucune caméra détectée",
+  inventory_qrScannerNoCameraHelp:
+    "Cet appareil n'a pas de caméra disponible ou elle est utilisée par une autre app.",
+  inventory_qrScannerUnknownErrorTitle: "La caméra n'a pas pu démarrer",
+  inventory_qrScannerUnknownErrorHelp:
+    "Ferme cette fenêtre et rouvre-la. Si le problème persiste, recharge la page.",
+  inventory_qrItemNotFound: "Ce QR n'appartient pas à ton entreprise ou l'élément n'existe plus",
+  inventory_qrBlankNotFound: "Étiquette introuvable ou n'appartient pas à ton entreprise",
+  inventory_qrBackToInventory: "Retour à l'inventaire",
   permCanImportInventory: "Importer l'inventaire",
   permCanTransferInventory: "Transférer l'inventaire",
   permCanPrintInventoryQR: "Imprimer les étiquettes QR",

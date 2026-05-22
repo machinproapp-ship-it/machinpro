@@ -1348,6 +1348,19 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (authLoading || !session || typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const scan = sp.get("mp_qr_scan");
+    if (!scan) return;
+    setActiveSection("warehouse");
+    setWarehouseSubTab("inventory");
+    setPendingInventoryQrScan(scan);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("mp_qr_scan");
+    window.history.replaceState({}, "", url.pathname + (url.search || ""));
+  }, [authLoading, session]);
+
   const handleLogout = async () => {
     try {
       localStorage.removeItem(LOCALE_STORAGE_KEY);
@@ -2232,6 +2245,7 @@ export default function Home() {
 
   const [warehouseSubTab, setWarehouseSubTab] = useState<WarehouseSubTabId>("inventory");
   const [warehouseOpenInventoryId, setWarehouseOpenInventoryId] = useState<string | null>(null);
+  const [pendingInventoryQrScan, setPendingInventoryQrScan] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => {
     if (typeof window === "undefined") return INITIAL_INVENTORY;
     try {
@@ -7626,6 +7640,8 @@ export default function Home() {
                 onBulkInventoryImport={handleBulkInventoryImport}
                 openInventoryDetailId={warehouseOpenInventoryId}
                 onOpenInventoryDetailConsumed={() => setWarehouseOpenInventoryId(null)}
+                pendingQrScanText={pendingInventoryQrScan}
+                onPendingQrScanConsumed={() => setPendingInventoryQrScan(null)}
               />
               <ModuleHelpFab
                 moduleKey="warehouse"

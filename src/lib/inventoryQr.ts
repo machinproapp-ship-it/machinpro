@@ -1,4 +1,12 @@
 import QRCode from "qrcode";
+import {
+  buildInventoryBlankQrUrl,
+  buildInventoryItemQrUrl,
+  parseInventoryQrUrl,
+  type ParsedInventoryQrUrl,
+} from "@/lib/inventoryQrUrl";
+
+export type { ParsedInventoryQrUrl };
 
 export type InventoryQrPayload = {
   companyId: string;
@@ -11,31 +19,34 @@ export type ParsedMachinProQr =
   | { kind: "item"; companyId: string; itemId: string; itemName: string; type: string }
   | { kind: "blank"; companyId: string; blankId: string };
 
-/** MachinPro v1 QR payload for existing inventory items. */
+/** @deprecated Use `buildInventoryItemQrUrl`. Legacy JSON v1 for old printed labels. */
 export function buildInventoryQrV1Payload(companyId: string, itemId: string): string {
   return JSON.stringify({ v: 1, companyId, itemId });
 }
 
-/** MachinPro v1 QR payload for blank (virgin) labels. */
+/** @deprecated Use `buildInventoryBlankQrUrl`. Legacy JSON v1 for old printed labels. */
 export function buildInventoryQrBlankV1Payload(companyId: string, blankId: string): string {
   return JSON.stringify({ v: 1, companyId, blankId });
 }
 
+export function buildInventoryItemQrPayload(itemId: string): string {
+  return buildInventoryItemQrUrl(itemId);
+}
+
+export function buildInventoryBlankQrPayload(blankId: string): string {
+  return buildInventoryBlankQrUrl(blankId);
+}
+
 export async function generateInventoryQrDataUrl(payload: InventoryQrPayload): Promise<string> {
-  const data = JSON.stringify(payload);
-  return QRCode.toDataURL(data, { margin: 1, width: 280, errorCorrectionLevel: "M" });
+  return generateQrDataUrlFromText(buildInventoryItemQrUrl(payload.itemId), 280);
 }
 
 export async function generateInventoryQrV1DataUrl(
-  companyId: string,
   itemId: string,
+  _companyId?: string,
   width = 200
 ): Promise<string> {
-  return QRCode.toDataURL(buildInventoryQrV1Payload(companyId, itemId), {
-    margin: 0,
-    width,
-    errorCorrectionLevel: "M",
-  });
+  return generateQrDataUrlFromText(buildInventoryItemQrUrl(itemId), width);
 }
 
 export async function generateQrDataUrlFromText(data: string, width = 200): Promise<string> {
@@ -46,7 +57,7 @@ export async function generateQrDataUrlFromText(data: string, width = 200): Prom
   });
 }
 
-/** Parse MachinPro JSON QR (item or blank). */
+/** Parse legacy JSON MachinPro QR (item or blank). URL payloads use `parseInventoryQrUrl`. */
 export function parseMachinProQr(scanText: string): ParsedMachinProQr | null {
   const t = scanText.trim();
   if (!t) return null;
@@ -86,14 +97,11 @@ export function parseMachinProQr(scanText: string): ParsedMachinProQr | null {
   return null;
 }
 
-/** @deprecated Prefer `parseMachinProQr`. Returns item payloads only. */
-export function parseInventoryQrPayload(scanText: string): InventoryQrPayload | null {
-  const parsed = parseMachinProQr(scanText);
-  if (!parsed || parsed.kind !== "item") return null;
-  return {
-    companyId: parsed.companyId,
-    itemId: parsed.itemId,
-    itemName: parsed.itemName,
-    type: parsed.type,
-  };
+/** Unified parse: URL first, then legacy JSON. */
+export function parseInventoryQrPayload(
+  scanText: string
+): ParsedMachinProQr | ParsedInventoryQrUrl | null {
+  const urlParsed = parseInventoryQrUrl(scanText);
+  if (urlParsed) return urlParsed;
+  return parseMachinProQr(scanText);
 }

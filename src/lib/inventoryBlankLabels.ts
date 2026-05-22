@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { buildInventoryQrBlankV1Payload } from "@/lib/inventoryQr";
+import { buildInventoryBlankQrPayload } from "@/lib/inventoryQr";
 
 export type InventoryBlankLabelRow = {
   id: string;
@@ -59,7 +59,7 @@ export function buildBlankLabelsBatch(
     rows.push({
       id,
       company_id: companyId,
-      qr_code: buildInventoryQrBlankV1Payload(companyId, id),
+      qr_code: buildInventoryBlankQrPayload(id),
       sequence_number,
       generated_by: generatedBy,
     });
