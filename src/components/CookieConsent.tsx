@@ -103,6 +103,7 @@ export function CookieConsent() {
     } catch {
       /* ignore */
     }
+    window.dispatchEvent(new Event("mp:cookie-consent-changed"));
     setShowBanner(false);
   };
 

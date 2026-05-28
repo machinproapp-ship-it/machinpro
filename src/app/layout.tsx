@@ -4,6 +4,7 @@ import "./globals.css";
 import "@/styles/dark-mode.css";
 import "@/styles/dark-safelist";
 import { ClientRoot } from "./ClientRoot";
+import { GoogleAnalyticsWithConsent } from "@/components/analytics/GoogleAnalyticsWithConsent";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro"),
@@ -148,6 +149,7 @@ export default function RootLayout({
         ) : null}
         <Script src="https://upload-widget.cloudinary.com/global/all.js" strategy="lazyOnload" />
         <ClientRoot>{children}</ClientRoot>
+        <GoogleAnalyticsWithConsent />
       </body>
     </html>
   );
