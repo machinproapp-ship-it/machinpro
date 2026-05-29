@@ -79,12 +79,6 @@ const MACHINPRO_SW_REGISTER = `
 })();
 `.trim();
 
-function gtmSnippet(id: string): string {
-  const safe = /^GTM-[A-Z0-9]+$/.test(id) ? id : "";
-  if (!safe) return "";
-  return `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${safe}');`;
-}
-
 function originForSupabasePreconnect(): string {
   try {
     const raw = typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string" ? process.env.NEXT_PUBLIC_SUPABASE_URL.trim() : "";
@@ -100,12 +94,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const gtmId =
-    typeof process.env.NEXT_PUBLIC_GTM_ID === "string"
-      ? process.env.NEXT_PUBLIC_GTM_ID.trim()
-      : "";
-  const enableGtm = process.env.NODE_ENV === "production" && gtmId.length > 0;
-  const gtmJs = enableGtm ? gtmSnippet(gtmId) : "";
   const supabaseOrigin = originForSupabasePreconnect();
 
   return (
@@ -124,29 +112,6 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: MACHINPRO_SW_REGISTER }} />
       </head>
       <body>
-        {enableGtm && gtmJs ? (
-          <>
-            <Script
-              id="machinpro-datalayer"
-              strategy="lazyOnload"
-              dangerouslySetInnerHTML={{
-                __html: `(function(){window.dataLayer=window.dataLayer||[];})();`,
-              }}
-            />
-            <Script id="machinpro-gtm" strategy="lazyOnload" dangerouslySetInnerHTML={{ __html: gtmJs }} />
-          </>
-        ) : null}
-        {enableGtm && gtmId ? (
-          <noscript>
-            <iframe
-              title="Google Tag Manager"
-              src={`https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(gtmId)}`}
-              height={0}
-              width={0}
-              style={{ display: "none", visibility: "hidden" }}
-            />
-          </noscript>
-        ) : null}
         <Script src="https://upload-widget.cloudinary.com/global/all.js" strategy="lazyOnload" />
         <ClientRoot>{children}</ClientRoot>
         <GoogleAnalyticsWithConsent />
