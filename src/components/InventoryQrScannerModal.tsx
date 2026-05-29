@@ -6,7 +6,53 @@ import { FolderOpen, X } from "lucide-react";
 
 const CONTAINER_ID = "qr-scanner-container";
 
+const CAMERA_CONSTRAINTS: MediaTrackConstraints[] = [
+  { facingMode: "environment" },
+  { facingMode: "user" },
+  {},
+];
+
 type ScannerError = "permission_denied" | "no_camera" | "unknown" | "container_missing" | null;
+
+function stopMediaTracksInContainer() {
+  const container = document.getElementById(CONTAINER_ID);
+  if (!container) return;
+  container.querySelectorAll("video").forEach((video) => {
+    const stream = video.srcObject;
+    if (stream instanceof MediaStream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    video.srcObject = null;
+  });
+}
+
+async function releaseScanner(scanner: Html5Qrcode | null) {
+  stopMediaTracksInContainer();
+  if (!scanner) return;
+  try {
+    await scanner.stop();
+  } catch {
+    /* ignore */
+  }
+  try {
+    scanner.clear();
+  } catch {
+    /* ignore */
+  }
+}
+
+function classifyScannerError(err: unknown): ScannerError {
+  const e = err as { name?: string; message?: string };
+  const name = String(e?.name ?? "");
+  const msg = String(e?.message ?? err ?? "").toLowerCase();
+  if (name === "NotAllowedError" || msg.includes("permission") || msg.includes("notallowed")) {
+    return "permission_denied";
+  }
+  if (name === "NotFoundError" || msg.includes("notfound") || msg.includes("no camera")) {
+    return "no_camera";
+  }
+  return "unknown";
+}
 
 function ErrorBlock({
   title,
@@ -49,17 +95,12 @@ export function InventoryQrScannerModal({
 
   const [starting, setStarting] = useState(true);
   const [error, setError] = useState<ScannerError>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (!open) {
-      const s = scannerRef.current;
+      void releaseScanner(scannerRef.current);
       scannerRef.current = null;
-      if (s) {
-        void s
-          .stop()
-          .then(() => s.clear())
-          .catch(() => {});
-      }
       setStarting(true);
       setError(null);
       decodedOnceRef.current = false;
@@ -88,68 +129,61 @@ export function InventoryQrScannerModal({
 
         if (cancelled) return;
 
-        const scanner = new Html5Qrcode(CONTAINER_ID, { verbose: false });
-        scannerRef.current = scanner;
-
-        await scanner.start(
-          { facingMode: { ideal: "environment" } },
-          {
-            fps: 10,
-            qrbox: (vw, vh) => {
-              const size = Math.floor(Math.min(vw, vh) * 0.75);
-              return { width: size, height: size };
-            },
-            aspectRatio: 1.0,
+        const scanConfig = {
+          fps: 10,
+          qrbox: (vw: number, vh: number) => {
+            const size = Math.floor(Math.min(vw, vh) * 0.75);
+            return { width: size, height: size };
           },
-          (decodedText) => {
-            if (decodedOnceRef.current) return;
-            decodedOnceRef.current = true;
-            const s = scannerRef.current;
-            if (s) {
-              void s
-                .stop()
-                .then(() => s.clear())
-                .catch(() => {});
-              scannerRef.current = null;
+        };
+
+        let lastErr: unknown;
+        for (const constraint of CAMERA_CONSTRAINTS) {
+          if (cancelled) return;
+
+          const scanner = new Html5Qrcode(CONTAINER_ID, { verbose: false });
+          try {
+            await scanner.start(
+              constraint,
+              scanConfig,
+              (decodedText) => {
+                if (decodedOnceRef.current) return;
+                decodedOnceRef.current = true;
+                const s = scannerRef.current;
+                scannerRef.current = null;
+                void releaseScanner(s);
+                onDecodedRef.current(decodedText);
+                onCloseRef.current();
+              },
+              () => {
+                /* ignore per-frame decode misses */
+              }
+            );
+
+            if (cancelled) {
+              await releaseScanner(scanner);
+              return;
             }
-            onDecodedRef.current(decodedText);
-            onCloseRef.current();
-          },
-          () => {
-            /* ignore per-frame decode misses */
-          }
-        );
 
-        if (cancelled) {
-          try {
-            await scanner.stop();
-          } catch {
-            /* ignore */
+            scannerRef.current = scanner;
+            setStarting(false);
+            return;
+          } catch (err: unknown) {
+            lastErr = err;
+            await releaseScanner(scanner);
+
+            const kind = classifyScannerError(err);
+            if (kind === "permission_denied") {
+              throw err;
+            }
           }
-          try {
-            await scanner.clear();
-          } catch {
-            /* ignore */
-          }
-        } else {
-          setStarting(false);
         }
+
+        throw lastErr ?? new Error("Camera could not start");
       } catch (err: unknown) {
         console.error("QR scanner error:", err);
         if (!cancelled) {
-          const msg = String((err as { message?: string })?.message ?? err ?? "").toLowerCase();
-          const name = String((err as { name?: string })?.name ?? "").toLowerCase();
-          if (
-            msg.includes("permission") ||
-            msg.includes("notallowed") ||
-            name.includes("notallowed")
-          ) {
-            setError("permission_denied");
-          } else if (msg.includes("notfound") || msg.includes("no camera")) {
-            setError("no_camera");
-          } else {
-            setError("unknown");
-          }
+          setError(classifyScannerError(err));
           setStarting(false);
         }
       }
@@ -159,16 +193,10 @@ export function InventoryQrScannerModal({
 
     return () => {
       cancelled = true;
-      const s = scannerRef.current;
+      void releaseScanner(scannerRef.current);
       scannerRef.current = null;
-      if (s) {
-        void s
-          .stop()
-          .then(() => s.clear())
-          .catch(() => {});
-      }
     };
-  }, [open]);
+  }, [open, retryNonce]);
 
   useEffect(() => {
     if (!open) return;
@@ -178,6 +206,14 @@ export function InventoryQrScannerModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  const handleRetry = () => {
+    void releaseScanner(scannerRef.current);
+    scannerRef.current = null;
+    setError(null);
+    setStarting(true);
+    setRetryNonce((n) => n + 1);
+  };
 
   const handleUploadQrImage = async (file: File | undefined) => {
     if (!file) return;
@@ -239,7 +275,7 @@ export function InventoryQrScannerModal({
             title={L("inventory_qrScannerPermissionDeniedTitle", "Camera permission denied")}
             help={L(
               "inventory_qrScannerPermissionDeniedHelp",
-              "Enable camera permission for this site in your browser settings and try again."
+              "Permite el acceso a la cámara en tu navegador"
             )}
           />
         ) : null}
@@ -249,7 +285,7 @@ export function InventoryQrScannerModal({
             title={L("inventory_qrScannerNoCameraTitle", "No camera detected")}
             help={L(
               "inventory_qrScannerNoCameraHelp",
-              "This device has no available camera or it is being used by another app."
+              "No se encontró cámara en este dispositivo"
             )}
           />
         ) : null}
@@ -259,10 +295,20 @@ export function InventoryQrScannerModal({
             title={L("inventory_qrScannerUnknownErrorTitle", "Camera could not start")}
             help={L(
               "inventory_qrScannerUnknownErrorHelp",
-              "Close this window and reopen it. If the problem persists, refresh the page."
+              "No se pudo iniciar la cámara. Intenta de nuevo"
             )}
           />
         )}
+
+        {error ? (
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="mx-auto inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white/15 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/25"
+          >
+            {L("inventory_qrScannerRetry", "Reintentar")}
+          </button>
+        ) : null}
 
         <button
           type="button"

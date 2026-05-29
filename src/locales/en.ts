@@ -4078,7 +4078,8 @@ export default {
     "This device has no available camera or it is being used by another app.",
   inventory_qrScannerUnknownErrorTitle: "Camera could not start",
   inventory_qrScannerUnknownErrorHelp:
-    "Close this window and reopen it. If the problem persists, refresh the page.",
+    "The camera could not start. Try again.",
+  inventory_qrScannerRetry: "Retry",
   inventory_qrItemNotFound: "This QR does not belong to your company or the item no longer exists",
   inventory_qrBlankNotFound: "Label not found or does not belong to your company",
   inventory_qrBackToInventory: "Back to inventory",

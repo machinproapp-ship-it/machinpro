@@ -61,6 +61,7 @@ export type InventoryQrPhotoMessages = {
   inventory_qrScannerNoCameraHelp: string;
   inventory_qrScannerUnknownErrorTitle: string;
   inventory_qrScannerUnknownErrorHelp: string;
+  inventory_qrScannerRetry: string;
   inventory_qrItemNotFound: string;
   inventory_qrBlankNotFound: string;
   inventory_qrBackToInventory: string;
