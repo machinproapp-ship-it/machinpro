@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GoogleAnalytics } from "@next/third-parties/google";
+import Script from "next/script";
 
 const CONSENT_STORAGE_KEY = "machinpro_cookie_consent";
+const GOOGLE_ADS_ID = "AW-18195523780";
 
 export function GoogleAnalyticsWithConsent() {
   const [consented, setConsented] = useState(false);
@@ -28,5 +29,27 @@ export function GoogleAnalyticsWithConsent() {
   }, []);
 
   if (!gaId || !consented) return null;
-  return <GoogleAnalytics gaId={gaId} />;
+
+  return (
+    <>
+      <Script
+        id="machinpro-gtag-init"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${gaId}');
+            gtag('config', '${GOOGLE_ADS_ID}');
+          `,
+        }}
+      />
+      <Script
+        id="machinpro-gtag-js"
+        strategy="afterInteractive"
+        src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+      />
+    </>
+  );
 }
