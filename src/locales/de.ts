@@ -1354,6 +1354,7 @@ export default {
   error_network: "Keine Verbindung. Bitte versuchen Sie es erneut.",
   error_server: "Serverfehler. Bitte versuchen Sie es später.",
   error_validation: "Bitte überprüfen Sie die markierten Felder.",
+  error_password_weak: "Das Passwort ist zu einfach. Bitte wähle ein sichereres.",
   saved_successfully: "Erfolgreich gespeichert",
   onboarding_beta_founder_note:
     "Sie sind Teil des Beta-Founder-Programms — Ihr Feedback prägt MachinPro.",

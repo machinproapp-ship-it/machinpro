@@ -102,12 +102,7 @@ export default function RegisterPublicPage() {
     setSubmitting(false);
 
     if (error) {
-      console.error("[register signUp]", error);
-      setFormError(
-        userFacingErrorMessage(t, error) +
-          " | Debug: " +
-          (error instanceof Error ? error.message : JSON.stringify(error))
-      );
+      setFormError(userFacingErrorMessage(t, error));
       return;
     }
 

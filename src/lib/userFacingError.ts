@@ -33,5 +33,8 @@ export function userFacingErrorMessage(
   if (lower.includes("validation") || lower.includes("invalid input") || lower.includes("violates")) {
     return L("error_validation", "Please check the highlighted fields.");
   }
+  if (lower.includes("weak") || lower.includes("easy to guess")) {
+    return L("error_password_weak", "Password is too common. Please choose a stronger one.");
+  }
   return L("error_generic", "Something went wrong. Please try again.");
 }

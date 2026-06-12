@@ -1453,6 +1453,7 @@ export default {
   error_network: "Error de red. Comprueba tu conexión.",
   error_server: "Error del servidor. Inténtalo más tarde.",
   error_validation: "Revisa los campos marcados.",
+  error_password_weak: "La contraseña es demasiado común. Elige una más segura.",
   saved_successfully: "Guardado correctamente",
   onboarding_beta_founder_note:
     "Eres parte del programa Beta Founder: tu feedback ayuda a moldear MachinPro.",

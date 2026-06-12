@@ -1354,6 +1354,7 @@ export default {
   error_network: "Nessuna connessione. Riprova.",
   error_server: "Errore del server. Riprova più tardi.",
   error_validation: "Controlla i campi evidenziati.",
+  error_password_weak: "La password è troppo comune. Scegline una più sicura.",
   saved_successfully: "Salvato con successo",
   onboarding_beta_founder_note:
     "Fai parte del programma Beta Founder: il tuo feedback plasma MachinPro.",

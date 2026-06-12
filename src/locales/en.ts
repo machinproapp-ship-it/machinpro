@@ -1590,6 +1590,7 @@ export default {
   error_network: "Network error. Check your connection.",
   error_server: "Server error. Please try again later.",
   error_validation: "Please check the highlighted fields.",
+  error_password_weak: "Password is too common. Please choose a stronger one.",
   saved_successfully: "Saved successfully",
   onboarding_beta_founder_note:
     "You are in the Beta Founder program — your feedback shapes MachinPro.",
