@@ -52,6 +52,15 @@ const withPWA = require("next-pwa")({
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  async redirects() {
+    return [
+      {
+        source: "/landing",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withPWA(nextConfig);

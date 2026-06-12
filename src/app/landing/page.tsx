@@ -257,7 +257,7 @@ export default function LandingPage() {
     upsertMeta("property", "og:title", title);
     upsertMeta("property", "og:description", desc);
     upsertMeta("property", "og:type", "website");
-    upsertMeta("property", "og:url", "https://machin.pro/landing");
+    upsertMeta("property", "og:url", "https://machin.pro/");
     upsertMeta("property", "og:image", `${assetOrigin}/logo-source.png`);
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", title);
@@ -369,7 +369,7 @@ export default function LandingPage() {
         } backdrop-blur-md`}
       >
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link href="/landing" className="flex items-center gap-2 min-h-[44px]">
+          <Link href="/" className="flex items-center gap-2 min-h-[44px]">
             <BrandLogoImage src="/logo-source.png" alt="" boxClassName="h-10 w-10" sizes="40px" />
             <BrandWordmark tone={navSolid ? "onLight" : "onDark"} className="text-lg font-bold tracking-tight" />
           </Link>

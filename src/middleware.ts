@@ -108,7 +108,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (path === "/" && !user) {
-    return finalizeResponse(NextResponse.redirect(new URL("/landing", request.url)), path);
+    return finalizeResponse(NextResponse.rewrite(new URL("/landing", request.url)), path);
   }
 
   return finalizeResponse(supabaseResponse, path);

@@ -44,7 +44,7 @@ function hasConsentChoice(): boolean {
 
 export function CookieConsent() {
   const pathname = usePathname();
-  const onLanding = pathname === "/landing" || pathname.startsWith("/landing/");
+  const onLanding = pathname === "/" || pathname === "/landing" || pathname.startsWith("/landing/");
   const [paintReady, setPaintReady] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [geo, setGeo] = useState<GeoDetect | null>(null);
