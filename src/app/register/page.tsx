@@ -106,6 +106,12 @@ export default function RegisterPublicPage() {
       return;
     }
 
+    if (typeof window !== "undefined" && typeof window.gtag === "function") {
+      window.gtag("event", "conversion", {
+        send_to: "AW-18195523780/register_complete",
+      });
+    }
+
     if (data.session) {
       router.replace("/");
       return;
