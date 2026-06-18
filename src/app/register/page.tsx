@@ -108,7 +108,7 @@ export default function RegisterPublicPage() {
 
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
       window.gtag("event", "conversion", {
-        send_to: "AW-18195523780/register_complete",
+        send_to: "AW-18195523780/YEF4CNTUuMEcEMTRpuRD",
       });
     }
 
