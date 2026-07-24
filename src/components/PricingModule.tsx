@@ -44,9 +44,9 @@ function normalizeCurrentPlan(raw: string | null | undefined): PaidPlanKey | nul
 }
 
 const PLAN_USERS_DESCRIPTION_FALLBACK: Record<string, string> = {
-  pricing_essential_users: "Unlimited users",
-  pricing_operations_users: "Unlimited users",
-  pricing_logistics_users: "Unlimited users",
+  pricing_essential_users: "Up to 15 users",
+  pricing_operations_users: "Up to 30 users",
+  pricing_logistics_users: "Up to 30 users",
   pricing_all_inclusive_users: "Unlimited users",
 };
 const PLAN_STORAGE_DESCRIPTION_FALLBACK: Record<string, string> = {

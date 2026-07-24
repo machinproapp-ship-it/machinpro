@@ -145,7 +145,7 @@ export default function DemoPage() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
             <Link
-              href="/beta"
+              href="/register"
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-[#f97316] px-8 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-600"
             >
               {tx("demo_cta_trial", "Start free 14-day trial")}
@@ -256,7 +256,7 @@ export default function DemoPage() {
             {tx("demo_final_title", "Ready to build without chaos?")}
           </h2>
           <Link
-            href="/beta"
+            href="/register"
             className="mt-8 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-[#f97316] px-8 py-3 text-base font-semibold text-white hover:bg-orange-600"
           >
             {tx("demo_cta_trial", "Start free 14-day trial")}

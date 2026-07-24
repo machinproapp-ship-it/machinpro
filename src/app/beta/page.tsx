@@ -176,7 +176,7 @@ export default function BetaFounderRequestPage() {
               {tx("beta_subtitle", "Only 20 spots available · Full free access during beta")}
             </p>
             <Link
-              href="/landing#beta-founders"
+              href="/landing"
               className="mt-4 text-sm font-medium text-amber-200/95 underline decoration-amber-200/50 underline-offset-2 hover:text-amber-100"
             >
               {tx("beta_back", "Back to MachinPro")}

@@ -308,12 +308,6 @@ export default function RegisterPublicPage() {
             {tx("register_free_invite_hint", "Were you invited? Open the link in your invitation email.")}
           </p>
           <Link
-            href="/beta"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-amber-500/50 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-          >
-            {tx("register_free_beta_cta", "Apply for Beta Founder benefits")}
-          </Link>
-          <Link
             href="/login"
             className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
           >

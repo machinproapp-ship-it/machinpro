@@ -124,7 +124,7 @@ export default function AboutPage() {
               {tx("about_cta_plans", "View plans")}
             </Link>
             <Link
-              href="/beta"
+              href="/register"
               className="inline-flex min-h-[44px] items-center rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 text-sm font-semibold text-slate-950 hover:opacity-95"
             >
               {tx("about_cta_beta", "Start free")}
@@ -149,7 +149,7 @@ export default function AboutPage() {
               {tx("about_cta_plans", "View plans")}
             </Link>
             <Link
-              href="/beta"
+              href="/register"
               className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-semibold text-slate-950 hover:opacity-95"
             >
               {tx("about_cta_beta", "Start free")}
@@ -218,10 +218,10 @@ export default function AboutPage() {
         <section className="mt-16 rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-50 to-slate-100 p-8 text-center dark:border-amber-500/30 dark:from-amber-950/40 dark:to-slate-900">
           <h2 className="text-xl font-bold text-slate-900 sm:text-2xl dark:text-white">{tx("about_final_title", "")}</h2>
           <Link
-            href="/beta"
+            href="/register"
             className="mt-6 inline-flex min-h-[44px] min-w-[200px] items-center justify-center rounded-xl bg-amber-500 px-6 text-sm font-bold text-slate-950 hover:bg-amber-400"
           >
-            {tx("about_final_cta", "Request access")}
+            {tx("about_final_cta", "Create account")}
           </Link>
         </section>
       </main>

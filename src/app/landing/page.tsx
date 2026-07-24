@@ -208,14 +208,6 @@ export default function LandingPage() {
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [dark, setDark] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
-  const betaHeadline = useMemo(
-    () =>
-      `${tx("landing_beta_open", "Beta privada abierta")} — ${tx(
-        "landing_beta_spots",
-        "Plazas limitadas disponibles"
-      )}`,
-    [tx]
-  );
 
   const geoDetect = useMemo((): GeoDetect | null => {
     if (!ppp.pricingReady) return null;
@@ -396,17 +388,6 @@ export default function LandingPage() {
             >
               {tx("landing_nav_pricing", "Pricing")}
             </button>
-            <button
-              type="button"
-              onClick={() => scrollToId("beta-founders")}
-              className={`min-h-[44px] px-3 text-sm font-medium rounded-lg transition-colors ${
-                navSolid
-                  ? "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  : "text-white/90 hover:bg-white/10"
-              }`}
-            >
-              {tx("beta_founders_nav", "Beta Founders")}
-            </button>
           </nav>
           <div className="flex flex-wrap items-center gap-2">
             <LandingLanguageSelect
@@ -494,41 +475,6 @@ export default function LandingPage() {
           <FadeSection className="mt-12">
             <div className="relative mx-auto max-w-4xl rounded-2xl border border-white/10 bg-slate-900/40 p-2 shadow-2xl backdrop-blur">
               <HeroDashboardMockup tx={tx} />
-            </div>
-          </FadeSection>
-        </div>
-      </section>
-
-      <section
-        id="beta-founders"
-        className="scroll-mt-24 border-t border-white/10 bg-gradient-to-b from-[#0f3a45] to-[#134e5e] px-4 py-16 dark:from-[#051a1f] dark:to-[#0c2f38] sm:py-20"
-      >
-        <div className="mx-auto max-w-6xl">
-          <FadeSection>
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-xl space-y-4 text-center lg:text-left">
-                <h2 className="text-2xl font-bold text-white sm:text-3xl">
-                  {tx("beta_founders_title", "Beta Founders Program")}
-                </h2>
-                <p className="text-lg font-semibold text-amber-200/95">{betaHeadline}</p>
-                <p className="text-base font-semibold text-white/95">{tx("landing_beta_social_proof", "")}</p>
-                <p className="text-sm text-teal-100/85">{tx("landing_beta_regions", tx("landing_beta_countries", ""))}</p>
-                <p className="text-sm leading-relaxed text-teal-100/90 sm:text-base">
-                  {tx("beta_founders_benefit", "")}
-                </p>
-                <Link
-                  href="/beta"
-                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#f97316] px-6 py-3 text-base font-semibold text-white shadow-lg shadow-orange-900/25 hover:bg-orange-600 transition-colors sm:w-auto"
-                >
-                  {tx("beta_founders_cta", "Request beta access")}
-                </Link>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-6 text-left text-teal-50 shadow-xl backdrop-blur-sm lg:max-w-md">
-                <p className="text-sm font-medium">{betaHeadline}</p>
-                <p className="mt-2 text-xs leading-relaxed text-teal-100/85">
-                  {tx("beta_founders_card_details", "")}
-                </p>
-              </div>
             </div>
           </FadeSection>
         </div>
