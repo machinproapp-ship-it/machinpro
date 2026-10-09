@@ -240,6 +240,7 @@ export default {
   notif_project_assigned_title: "Neues Projekt zugewiesen",
   notif_shift_created_title: "Neue Schicht",
   notif_shift_updated_title: "Schicht geändert",
+  schedule_save_error: "Die Schicht konnte nicht gespeichert werden. Prüfen Sie Verbindung oder Berechtigungen.",
   notif_daily_report_title: "Tagesbericht ausstehend",
   notif_daily_report_submitted_title: "Tagesbericht gesendet",
   notif_daily_report_submitted_body: "{project} · {date}",

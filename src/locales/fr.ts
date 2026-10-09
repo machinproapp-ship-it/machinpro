@@ -240,6 +240,7 @@ export default {
   notif_project_assigned_title: "Nouveau projet assigné",
   notif_shift_created_title: "Nouveau quart de travail",
   notif_shift_updated_title: "Quart modifié",
+  schedule_save_error: "Le quart n'a pas pu être enregistré. Vérifiez votre connexion ou vos autorisations.",
   notif_daily_report_title: "Rapport journalier en attente",
   notif_daily_report_submitted_title: "Rapport journalier envoyé",
   notif_daily_report_submitted_body: "{project} · {date}",

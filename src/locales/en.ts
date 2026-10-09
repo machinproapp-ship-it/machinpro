@@ -335,6 +335,7 @@ export default {
   notif_project_assigned_title: "New project assigned",
   notif_shift_created_title: "New shift",
   notif_shift_updated_title: "Shift updated",
+  schedule_save_error: "The shift could not be saved. Check your connection or permissions.",
   notif_daily_report_title: "Daily report pending",
   notif_daily_report_submitted_title: "Daily report submitted",
   notif_daily_report_submitted_body: "{project} · {date}",

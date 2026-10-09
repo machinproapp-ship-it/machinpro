@@ -240,6 +240,7 @@ export default {
   notif_project_assigned_title: "Nuovo progetto assegnato",
   notif_shift_created_title: "Nuovo turno",
   notif_shift_updated_title: "Turno modificato",
+  schedule_save_error: "Impossibile salvare il turno. Controlla la connessione o i permessi.",
   notif_daily_report_title: "Rapporto giornaliero in attesa",
   notif_daily_report_submitted_title: "Rapporto giornaliero inviato",
   notif_daily_report_submitted_body: "{project} · {date}",
