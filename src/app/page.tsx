@@ -1680,7 +1680,7 @@ export default function Home() {
 
   const [currentUserRole] = useState<UserRole>("admin");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   /** Soft-removed profiles for Central (GDPR hard delete); disjoint from `employees`. */
   const [removedEmployeesForCentral, setRemovedEmployeesForCentral] = useState<Employee[]>([]);
   const activeEmployees = useMemo(
@@ -1713,7 +1713,7 @@ export default function Home() {
     },
     [companyId, supabase, user?.id, t, activeEmployees, customRoles]
   );
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [subcontractorsForWatchdog, setSubcontractorsForWatchdog] = useState<SubcontractorForWatchdog[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
@@ -2247,14 +2247,14 @@ export default function Home() {
   const [warehouseOpenInventoryId, setWarehouseOpenInventoryId] = useState<string | null>(null);
   const [pendingInventoryQrScan, setPendingInventoryQrScan] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => {
-    if (typeof window === "undefined") return INITIAL_INVENTORY;
+    if (typeof window === "undefined") return [];
     try {
       const raw = localStorage.getItem("machinpro_inventory");
-      if (!raw) return INITIAL_INVENTORY;
+      if (!raw) return [];
       const parsed = JSON.parse(raw) as InventoryItem[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_INVENTORY;
+      if (!Array.isArray(parsed) || parsed.length === 0) return [];
       return parsed;
-    } catch { return INITIAL_INVENTORY; }
+    } catch { return []; }
   });
   const [inventoryMovements, setInventoryMovements] = useState<InventoryLedgerRow[]>(() => {
     if (typeof window === "undefined") return [];
@@ -2279,28 +2279,28 @@ export default function Home() {
         ...v,
         documents: ensureVehicleDocuments(v, undefined, undefined),
       }));
-    if (typeof window === "undefined") return normalize(INITIAL_VEHICLES);
+    if (typeof window === "undefined") return [];
     try {
       const raw = localStorage.getItem("machinpro_vehicles");
-      if (!raw) return normalize(INITIAL_VEHICLES);
+      if (!raw) return [];
       const parsed = JSON.parse(raw) as Vehicle[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return normalize(INITIAL_VEHICLES);
+      if (!Array.isArray(parsed) || parsed.length === 0) return [];
       return normalize(parsed);
     } catch {
-      return normalize(INITIAL_VEHICLES);
+      return [];
     }
   });
   const [rentals, setRentals] = useState<Rental[]>(() => {
-    if (typeof window === "undefined") return INITIAL_RENTALS;
+    if (typeof window === "undefined") return [];
     try {
       const raw = localStorage.getItem("machinpro_rentals");
-      if (!raw) return INITIAL_RENTALS;
+      if (!raw) return [];
       const parsed = JSON.parse(raw) as unknown[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_RENTALS;
+      if (!Array.isArray(parsed) || parsed.length === 0) return [];
       const mapped = parsed.map(normalizeStoredRentalEntry).filter((x): x is Rental => x != null);
-      return mapped.length ? mapped : INITIAL_RENTALS;
+      return mapped.length ? mapped : [];
     } catch {
-      return INITIAL_RENTALS;
+      return [];
     }
   });
 
@@ -2363,14 +2363,14 @@ export default function Home() {
   }, [formInstances, userTimeZone]);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    if (typeof window === "undefined") return INITIAL_SUPPLIERS;
+    if (typeof window === "undefined") return [];
     try {
       const raw = localStorage.getItem("machinpro_suppliers");
-      if (!raw) return INITIAL_SUPPLIERS;
+      if (!raw) return [];
       const parsed = JSON.parse(raw) as Supplier[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_SUPPLIERS;
+      if (!Array.isArray(parsed) || parsed.length === 0) return [];
       return parsed;
-    } catch { return INITIAL_SUPPLIERS; }
+    } catch { return []; }
   });
   const [requestModalProjectId, setRequestModalProjectId] = useState<string | null>(null);
   const [requestNeededBy, setRequestNeededBy] = useState<string>("");
