@@ -26,6 +26,7 @@ import {
   Search,
   Download,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import type { InventoryLedgerRow, InventoryMovementKind } from "@/types/inventoryLedger";
@@ -58,7 +59,7 @@ const InventoryQrScannerModal = dynamic(
   { ssr: false }
 );
 
-export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
+export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders" | "inspections";
 
 type LogisticsDeleteKind = "inventory" | "fleet" | "rental" | "supplier";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
@@ -235,6 +236,11 @@ export interface ResourceRequest {
 }
 
 export interface LogisticsModuleProps {
+  /** Panel de inspecciones previas al uso (lo monta page.tsx con permisos y empresa). */
+  inspectionsPanel?: React.ReactNode;
+  inspectionsBadge?: number;
+  /** Abre la inspección de un equipo desde su tarjeta. */
+  onInspectItem?: (ref: { kind: "inventory" | "fleet"; id: string; label: string; serial?: string | null; projectId?: string | null; templateId?: string | null }) => void;
   warehouseSubTab: WarehouseSubTabId;
   setWarehouseSubTab: (tab: WarehouseSubTabId) => void;
   warehouseSectionsEnabled: { inventory: boolean; fleet: boolean; rentals: boolean; suppliers: boolean };
@@ -488,6 +494,9 @@ function projectAssignmentChipClass(assigned: boolean): string {
 }
 
 export function LogisticsModule({
+  inspectionsPanel,
+  inspectionsBadge,
+  onInspectItem,
   warehouseSubTab,
   setWarehouseSubTab,
   warehouseSectionsEnabled,
@@ -1064,6 +1073,20 @@ export function LogisticsModule({
       badge: pendingOrders,
     });
   if (warehouseSectionsEnabled.inventory) tabs.push({ id: "incidents", label: tlLabels.incidents ?? "Incidents", icon: <AlertTriangle className="h-4 w-4" />, badge: unreviewedIncidents });
+  if (inspectionsPanel)
+    tabs.push({ id: "inspections", label: tlLabels.inspections ?? "Inspecciones", icon: <ShieldCheck className="h-4 w-4" />, badge: inspectionsBadge });
+
+  const inspectBtn = (ref: { kind: "inventory" | "fleet"; id: string; label: string; serial?: string | null; projectId?: string | null; templateId?: string | null }) =>
+    onInspectItem ? (
+      <button
+        type="button"
+        onClick={() => onInspectItem(ref)}
+        className="flex min-h-[44px] items-center gap-1 rounded-lg border border-orange-400 px-2 py-1 text-xs font-medium text-orange-700 hover:bg-orange-50 dark:border-orange-600 dark:text-orange-300 dark:hover:bg-orange-950/30"
+      >
+        <ShieldCheck className="h-4 w-4" />
+        {tlLabels.inspect ?? "Inspeccionar"}
+      </button>
+    ) : null;
 
   return (
     <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-8 md:p-8 lg:p-10">
@@ -1470,6 +1493,9 @@ export function LogisticsModule({
                       </button>
                     )}
                     </div>
+                    {item.requiresInspection
+                      ? inspectBtn({ kind: "inventory", id: item.id, label: item.name, serial: item.serialNumber ?? item.internalId, projectId: item.assignedToProjectId, templateId: item.inspectionTemplateId })
+                      : null}
                     {canManageInventory && (
                       <div className="ml-auto flex shrink-0 items-center gap-0.5">
                         {canTransferInventory && onInventoryTransfer ? (
@@ -1691,6 +1717,9 @@ export function LogisticsModule({
                             {tlLabels.markAvailable ?? "Mark available"}
                           </button>
                         )}
+                        {item.requiresInspection
+                          ? inspectBtn({ kind: "inventory", id: item.id, label: item.name, serial: item.serialNumber ?? item.internalId, projectId: item.assignedToProjectId, templateId: item.inspectionTemplateId })
+                          : null}
                         {canManageInventory && (
                           <>
                             {canTransferInventory && onInventoryTransfer ? (
@@ -2758,6 +2787,9 @@ export function LogisticsModule({
                         {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                       </select>
                     )}
+                    {v.requiresInspection
+                      ? inspectBtn({ kind: "fleet", id: v.id, label: v.label ?? v.plate, serial: v.serialNumber ?? v.plate, projectId: v.currentProjectId, templateId: v.inspectionTemplateId })
+                      : null}
                     {canManageFleet && (
                       <>
                         <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
@@ -2881,6 +2913,9 @@ export function LogisticsModule({
                               {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                             </select>
                           )}
+                          {v.requiresInspection
+                            ? inspectBtn({ kind: "fleet", id: v.id, label: v.label ?? v.plate, serial: v.serialNumber ?? v.plate, projectId: v.currentProjectId, templateId: v.inspectionTemplateId })
+                            : null}
                           {canManageFleet && (
                             <>
                               <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
@@ -3123,6 +3158,7 @@ export function LogisticsModule({
         </div>
       )}
 
+      {warehouseSubTab === "inspections" && inspectionsPanel}
       {warehouseSubTab === "incidents" && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
