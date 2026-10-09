@@ -94,10 +94,16 @@ export interface InventoryItem {
   lastMovementAt?: string;
   category?: string;
   model?: string;
+  /** La empresa decide si el equipo requiere inspección antes de usarlo. */
+  requiresInspection?: boolean;
+  inspectionFrequency?: "before_each_use" | "daily" | "weekly" | "monthly" | "yearly";
+  inspectionTemplateId?: string;
 }
 
 export interface Vehicle {
   id: string;
+  /** Nombre descriptivo (p. ej. "Ford F-150 2022"); si falta se usa la matrícula. */
+  label?: string;
   plate: string;
   usualDriverId: string;
   currentProjectId: string | null;
@@ -119,6 +125,9 @@ export interface Vehicle {
   insuranceDocUrl?: string;
   inspectionDocUrl?: string;
   registrationDocUrl?: string;
+  requiresInspection?: boolean;
+  inspectionFrequency?: "before_each_use" | "daily" | "weekly" | "monthly" | "yearly";
+  inspectionTemplateId?: string;
 }
 
 export interface AssetUsageLog {
