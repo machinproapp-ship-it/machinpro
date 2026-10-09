@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
       { id: 3, done: step3, section: "employees" },
       { id: 4, done: step4, section: "office" },
       { id: 5, done: step5, section: "schedule" },
-      { id: 6, done: step6, section: "settings" },
+      { id: 6, done: step6, section: "employees" },
     ];
 
     const items: GettingStartedItem[] = [...base];

@@ -71,13 +71,13 @@ export function TrialExpiryBanner({ companyId, labels }: TrialExpiryBannerProps)
     <div
       role="region"
       aria-live="polite"
-      className="mb-4 flex flex-wrap items-start gap-3 rounded-xl border border-orange-400/80 bg-orange-50 px-4 py-3 shadow-sm dark:border-orange-700/70 dark:bg-orange-950/40 sm:items-center sm:justify-between sm:gap-4"
+      className="mb-4 flex flex-col gap-3 rounded-xl border border-orange-400/80 bg-orange-50 px-4 py-3 shadow-sm dark:border-orange-700/70 dark:bg-orange-950/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
     >
-      <p className="min-w-0 flex-1 text-sm font-semibold text-orange-950 dark:text-orange-50">{bannerText}</p>
-      <div className="flex shrink-0 items-center gap-2">
+      <p className="min-w-0 text-sm font-semibold text-orange-950 dark:text-orange-50 sm:flex-1">{bannerText}</p>
+      <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
         <Link
           href={upgradeHref}
-          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+          className="inline-flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center rounded-lg bg-orange-500 sm:flex-none px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
         >
           {L("trial_expiry_upgrade", "Upgrade now")}
         </Link>

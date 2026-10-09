@@ -1867,7 +1867,9 @@ export function ProjectsModule({
                   ? (tl.projectTypeCommercial ?? PM_EN.projectTypeCommercial)
                   : proj.type === "industrial"
                     ? (tl.projectTypeIndustrial ?? PM_EN.projectTypeIndustrial)
-                    : proj.type;
+                    : proj.type
+                      ? (tl[`projectType_${proj.type}`] ?? proj.type)
+                      : "";
             const assigned = (allEmployees ?? []).filter((e) => (proj.assignedEmployeeIds ?? []).includes(e.id));
             const pendingCount = (diaryEntries ?? []).filter(
               (e) => e.projectId === proj.id && e.status === "pending" && (e.photoType === "obra" || !e.photoType)
@@ -2625,7 +2627,7 @@ export function ProjectsModule({
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-zinc-900 dark:text-zinc-100 truncate">{emp.name}</p>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{emp.role}</p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{(emp.role && (tl as Record<string, string>)[emp.role]) || emp.role}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -4063,7 +4065,7 @@ export function ProjectsModule({
                       {assignedEmployees.map((emp) => (
                         <option key={emp.id} value={emp.id}>
                           {emp.name}
-                          {emp.role ? ` · ${emp.role}` : ""}
+                          {emp.role ? ` · ${(tl as Record<string, string>)[emp.role] ?? emp.role}` : ""}
                         </option>
                       ))}
                     </select>
@@ -4552,8 +4554,8 @@ export function ProjectsModule({
               const catLabel = (c: ProjectExpenseCategory) => {
                 const tx = t as Record<string, string>;
                 if (c === "personnel") return tx.project_costs_personnel ?? PM_EN.project_costs_personnel;
-                if (c === "material" || c === "tool")
-                  return tx.project_costs_materials ?? PM_EN.project_costs_materials;
+                if (c === "material") return tx.project_costs_material_only ?? "Materiales";
+                if (c === "tool") return tx.project_costs_tool_only ?? "Herramientas";
                 if (c === "rental") return tx.project_costs_rentals ?? PM_EN.project_costs_rentals;
                 return tx.project_costs_other ?? PM_EN.project_costs_other;
               };
@@ -4814,7 +4816,7 @@ export function ProjectsModule({
                         </label>
                       </div>
                       <label className="block text-xs text-zinc-500 dark:text-zinc-400">
-                        {tl.photoNotesPlaceholder ?? PM_EN.photoNotesPlaceholder}
+                        {tl.project_costs_notes ?? "Notas (opcional)"}
                         <textarea
                           value={costFormNotes}
                           onChange={(e) => setCostFormNotes(e.target.value)}

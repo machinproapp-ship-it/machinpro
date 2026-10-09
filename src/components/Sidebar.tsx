@@ -212,8 +212,10 @@ export function Sidebar({
                 onClick={() => navigate(item.id)}
                 className={buttonClass(item.id, isActive, itemColorClass(item.id))}
                 title={collapsed ? item.label : undefined}
+                aria-label={item.label}
+                aria-current={isActive ? "page" : undefined}
               >
-                <span className="h-5 w-5 shrink-0 flex items-center justify-center">
+                <span className="h-5 w-5 shrink-0 flex items-center justify-center" aria-hidden>
                   <item.icon className="h-5 w-5" />
                 </span>
                 {!collapsed && <span className="truncate">{item.label}</span>}

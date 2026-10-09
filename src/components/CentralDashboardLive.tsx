@@ -1219,12 +1219,8 @@ function CentralDashboardBody(
           }
           const prefN = prefetchedActiveEmployeeCount;
           if (typeof prefN === "number" && prefN >= 0) {
-            const nowEmp = Date.now();
-            const cachedEmp = c.empCount;
-            if (cachedEmp && nowEmp - cachedEmp.at < 300_000) {
-              if (!cancelled) setEmpActiveCount(cachedEmp.value);
-              return cachedEmp.value;
-            }
+            // El recuento viene del estado ya cargado: siempre es el más reciente. No usar la caché,
+            // que podía quedarse con el número de los empleados de ejemplo (5) durante 5 minutos.
             c.empCount = { at: Date.now(), value: prefN };
             if (!cancelled) setEmpActiveCount(prefN);
             return prefN;

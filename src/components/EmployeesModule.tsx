@@ -1560,7 +1560,7 @@ export function EmployeesModule({
           ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
             <label className="block text-sm">
-              <span className="text-zinc-500">{t.personnel ?? ""}</span>
+              <span className="text-zinc-500">{tl.employee_full_name ?? "Nombre completo"}</span>
               <input
                 value={draft.full_name ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}

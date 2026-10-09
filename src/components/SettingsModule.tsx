@@ -36,7 +36,7 @@ import {
   resolveUserTimezone,
 } from "@/lib/dateUtils";
 import { REGIONAL_TIMEZONE_GROUPS, allGroupedTimezones, cityLabelFromIana } from "@/lib/regionalTimezones";
-import { REGIONAL_COUNTRY_DEFAULTS as COUNTRY_DEFAULTS, REGIONAL_COUNTRIES as COUNTRIES } from "@/lib/regionalCountries";
+import { REGIONAL_COUNTRY_DEFAULTS as COUNTRY_DEFAULTS, REGIONAL_COUNTRIES as COUNTRIES, localizedCountryName } from "@/lib/regionalCountries";
 import { vacationLegalMinimumDays } from "@/lib/vacationLegalReference";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
@@ -690,7 +690,7 @@ export function SettingsModule({
   const vacationLegalHintLine = useMemo(() => {
     const tx = t as Record<string, string>;
     const code = (companyCountry || "CA").trim().toUpperCase();
-    const countryLabel = COUNTRIES.find((c) => c.code === code)?.name ?? code;
+    const countryLabel = localizedCountryName(code, language, COUNTRIES.find((c) => c.code === code)?.name);
     const min = vacationLegalMinimumDays(code);
     if (min === null) {
       const tpl = tx.vacation_legal_reference_us ?? tx.vacation_legal_reference ?? "";
@@ -699,7 +699,7 @@ export function SettingsModule({
     return (tx.vacation_legal_reference ?? "")
       .replace(/\{country\}/g, countryLabel)
       .replace(/\{days\}/g, String(min));
-  }, [companyCountry, t]);
+  }, [companyCountry, t, language]);
 
   return (
     <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-8 md:p-8 lg:p-10">
@@ -1503,7 +1503,7 @@ export function SettingsModule({
                     >
                       {COUNTRIES.map((c) => (
                         <option key={c.code} value={c.code}>
-                          {c.flag} {c.name}
+                          {c.flag} {localizedCountryName(c.code, language, c.name)}
                         </option>
                       ))}
                     </select>

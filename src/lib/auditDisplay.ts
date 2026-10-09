@@ -34,5 +34,7 @@ export function getAuditEntityTypeLabel(entityType: string | null | undefined, t
     const v = t[key];
     if (v) return v;
   }
+  const generic = t[`audit_entity_${ty}`];
+  if (generic) return generic;
   return entityType ?? ty;
 }

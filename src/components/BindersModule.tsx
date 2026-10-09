@@ -162,7 +162,7 @@ export function BindersModule({
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-sm text-zinc-900 dark:text-white truncate">
-                        {binder.name}
+                        {binder.isDefault ? defaultBinderTitle(binder, labels as Record<string, string>) : binder.name}
                       </h3>
                       <p className="text-xs text-zinc-500 truncate">
                         {(labels as Record<string, string>)[binder.category === "health_safety" ? "healthSafetyDesc" : binder.category === "safety_data" ? "safetyDataDesc" : `${binder.category}Desc`] ?? binder.description ?? ""}
@@ -214,7 +214,7 @@ export function BindersModule({
               <ArrowLeft className="h-5 w-5" />
             </button>
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex-1 truncate">
-              {defaultBinderTitle(selectedBinder, labels as Record<string, string>)}
+              {selectedBinder.isDefault ? defaultBinderTitle(selectedBinder, labels as Record<string, string>) : selectedBinder.name}
             </h2>
             {canManage && (
               <button
