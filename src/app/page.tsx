@@ -125,6 +125,11 @@ import {
   Search,
 } from "lucide-react";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
+import { useLogisticsSync } from "@/lib/useLogisticsSync";
+import { InspectionSettingsFields, type InspectionSettingsValue } from "@/components/InspectionSettingsFields";
+import { InspectionsPanel } from "@/components/InspectionsPanel";
+import type { InspectableItemRef } from "@/components/EquipmentInspectionFlow";
+import { fetchInspectionStatus, type EquipmentInspection } from "@/lib/inspections";
 import { postAppNotification } from "@/lib/clientNotifications";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NotificationsFullPanel } from "@/components/NotificationsFullPanel";
@@ -138,6 +143,8 @@ import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
 import {
   mergeComplianceAlerts,
   runComplianceWatchdog,
+  runEquipmentInspectionWatchdog,
+  type EquipmentInspectionStatusForWatchdog,
   runVehicleDocumentsWatchdog,
   runSubcontractorWatchdog,
   runProjectEmployeeComplianceCheck,
@@ -803,6 +810,11 @@ const INITIAL_INVENTORY: InventoryItem[] = [
 const INITIAL_VEHICLES: Vehicle[] = [
   { id: "v1", plate: "ABC-1234", usualDriverId: "e2", currentProjectId: "p1", insuranceExpiry: "2026-08-15", inspectionExpiry: "2026-07-01" },
 ];
+const DEMO_INVENTORY_IDS: ReadonlySet<string> = new Set(INITIAL_INVENTORY.map((i) => i.id));
+const DEMO_VEHICLE_IDS: ReadonlySet<string> = new Set(INITIAL_VEHICLES.map((v) => v.id));
+function normalizeLoadedVehicles(list: Vehicle[]): Vehicle[] {
+  return list.map((v) => ({ ...v, documents: ensureVehicleDocuments(v, undefined, undefined) }));
+}
 
 const INITIAL_RENTALS: Rental[] = [
   {
@@ -981,6 +993,8 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewProjectCosts: true,
       canManageProjectCosts: true,
       canExportProjectCosts: true,
+      canPerformInspections: true,
+      canViewInspections: true,
     }),
   },
   {
@@ -998,10 +1012,12 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewProjectTeam: true,
       canViewProjectInventory: true,
       canViewProjectGallery: true,
-      canUploadPhotos: true,
+      /** Subir fotos: el admin se lo da a quien quiera; por defecto solo el supervisor. */
+      canUploadPhotos: false,
       canViewProjectForms: true,
       canViewForms: true,
       canFillForms: true,
+      canPerformInspections: true,
       canViewSettings: true,
       canViewBinders: true,
       canViewTimeclock: true,
@@ -1029,6 +1045,9 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewInventoryHistory: true,
       canManageInventoryAlerts: true,
       canViewInventoryReports: true,
+      canPerformInspections: true,
+      canViewInspections: true,
+      canManageInspectionTemplates: true,
       canViewSchedule: true,
       canViewTimesheets: true,
       canViewLaborCosting: true,
@@ -1067,7 +1086,7 @@ interface ModulePermissions {
 function permissionsToModule(p: RolePermissions): ModulePermissions {
   return {
     office: p.canViewCentral,
-    warehouse: p.canViewLogistics,
+    warehouse: p.canViewLogistics || p.canPerformInspections || p.canViewInspections,
     site: p.canViewProjects || p.canViewOnlyAssignedProjects || p.canViewSubcontractors,
     worker: false,
     forms:
@@ -1406,6 +1425,8 @@ export default function Home() {
   const { subscription: subscriptionRow } = useSubscription(companyId);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
+  /** Estado de inspecciones previas al uso (vista v_equipment_inspection_status) para el Watchdog. */
+  const [equipmentInspectionStatus, setEquipmentInspectionStatus] = useState<EquipmentInspectionStatusForWatchdog[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
@@ -2291,6 +2312,36 @@ export default function Home() {
       return [];
     }
   });
+  /** Inventario y flota viven en Supabase; localStorage queda solo como caché offline. */
+  const logisticsSync = useLogisticsSync({
+    companyId,
+    enabled: !!session && !!companyId,
+    inventoryItems,
+    setInventoryItems,
+    vehicles,
+    setVehicles,
+    demoInventoryIds: DEMO_INVENTORY_IDS,
+    demoVehicleIds: DEMO_VEHICLE_IDS,
+    normalizeVehicles: normalizeLoadedVehicles,
+  });
+  useEffect(() => {
+    if (!session || !companyId) return;
+    let alive = true;
+    const loadStatus = () =>
+      fetchInspectionStatus(companyId)
+        .then((rows) => {
+          if (alive) setEquipmentInspectionStatus(rows);
+        })
+        .catch(() => {
+          /* tabla aún sin migrar o sin conexión: el Watchdog sigue con lo demás */
+        });
+    void loadStatus();
+    const timer = setInterval(loadStatus, 5 * 60_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [session, companyId, logisticsSync.status]);
   const [rentals, setRentals] = useState<Rental[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -3322,6 +3373,8 @@ export default function Home() {
                 color: r.color,
                 permissions: r.permissions,
                 is_system: true,
+                base_role: r.id.replace(/^role-/, ""),
+                is_default_for_new: r.id === "role-worker",
               }));
           const { data: inserted, error: insErr } = await supabase.from("roles").insert(seedRows).select("*");
           if (cancelled) return;
@@ -4065,7 +4118,11 @@ export default function Home() {
       })),
       (employees ?? []) as CentralEmployee[]
     );
-    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts, subAlerts, projectEmpAlerts);
+    const equipmentAlerts = runEquipmentInspectionWatchdog(
+      equipmentInspectionStatus,
+      Object.fromEntries((projects ?? []).map((p) => [p.id, p.name] as const))
+    );
+    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts, subAlerts, projectEmpAlerts, equipmentAlerts);
     setComplianceAlerts(merged);
     if (shouldRunWatchdog()) {
       setLastWatchdogRun();
@@ -4073,7 +4130,7 @@ export default function Home() {
         console.log(`[ComplianceWatchdog] ${merged.length} alertas encontradas`);
       }
     }
-  }, [employees, vehicles, subcontractorsForWatchdog, projects]);
+  }, [employees, vehicles, subcontractorsForWatchdog, projects, equipmentInspectionStatus]);
 
   useEffect(() => {
     if (!complianceNotifOpen) return;
@@ -4129,6 +4186,12 @@ export default function Home() {
             notifySupervisorsPhotoPending(
               (projects ?? []).find((p) => p.id === projectId)?.name ?? "",
               projectId
+            );
+          } else {
+            showToast(
+              "error",
+              (t as Record<string, string>).photoUploadNotAllowed ??
+                "No se pudo guardar la foto. Puede que no tengas permiso para subir fotos en este proyecto."
             );
           }
           if (fabCategory === "incident" && newId) {
@@ -4211,6 +4274,7 @@ export default function Home() {
   const [newItemName, setNewItemName] = useState("");
   const [newItemCategory, setNewItemCategory] = useState<"consumable" | "tool" | "equipment" | "material">("consumable");
   const [newItemSerialNumber, setNewItemSerialNumber] = useState("");
+  const [newItemInspection, setNewItemInspection] = useState<InspectionSettingsValue>({});
   const [newItemInternalId, setNewItemInternalId] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("");
@@ -4308,6 +4372,47 @@ export default function Home() {
       rolePerms.canManageRentals,
       rolePerms.canViewSuppliers,
     ]
+  );
+
+  const effectiveWarehouseSubTab: WarehouseSubTabId =
+    !rolePerms.canViewLogistics && (rolePerms.canPerformInspections || rolePerms.canViewInspections)
+      ? "inspections"
+      : warehouseSubTab;
+  const [pendingInspectItem, setPendingInspectItem] = useState<InspectableItemRef | null>(null);
+  const clearPendingInspectItem = useCallback(() => setPendingInspectItem(null), []);
+  const projectNameById = useMemo(
+    () => Object.fromEntries((projects ?? []).map((p) => [p.id, p.name] as const)),
+    [projects]
+  );
+  const myProjectIdsForInspections = useMemo(() => {
+    const ids = new Set([profile?.id ?? "", effectiveEmployeeId ?? ""].filter(Boolean));
+    return (projects ?? []).filter((p) => (p.assignedEmployeeIds ?? []).some((x) => ids.has(x))).map((p) => p.id);
+  }, [projects, profile?.id, effectiveEmployeeId]);
+  const notifyFailedInspection = useCallback(
+    (insp: EquipmentInspection) => {
+      if (!companyId) return;
+      const title = (t as Record<string, string>).inspectionFailedNotifTitle ?? "Equipo NO APTO en inspección";
+      const body = `${insp.itemLabel ?? ""}${insp.defects ? ` — ${insp.defects}` : ""}`;
+      const responsible =
+        insp.itemKind === "inventory" ? inventoryItems.find((i) => i.id === insp.itemId)?.responsibleUserId : undefined;
+      const targets = new Set<string>(
+        (employees ?? []).filter((e) => e.role === "admin" || e.role === "logistic").map((e) => e.id)
+      );
+      if (responsible) targets.add(responsible);
+      if (profile?.id) targets.delete(profile.id);
+      for (const target of targets) {
+        void postAppNotification(supabase, {
+          companyId,
+          targetEmployeeKey: target,
+          type: "equipment_inspection_failed",
+          title,
+          body,
+          data: { inspection_id: insp.id, item_kind: insp.itemKind, item_id: insp.itemId },
+        });
+      }
+      showToast("error", `${title}: ${insp.itemLabel ?? ""}`);
+    },
+    [companyId, t, inventoryItems, employees, profile?.id, showToast]
   );
 
   const criticalInventoryCount = useMemo(() => {
@@ -6156,6 +6261,7 @@ export default function Home() {
     setNewItemCategory("consumable");
     setNewItemSerialNumber("");
     setNewItemInternalId("");
+    setNewItemInspection({});
     setNewItemQuantity("");
     setNewItemUnit("");
     setNewItemPurchasePrice("");
@@ -6170,7 +6276,7 @@ export default function Home() {
   }
   const qrUrlForAsset = (id: string) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(id)}`;
   async function saveNewItem() {
-    const id = "inv" + Date.now();
+    const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "inv" + Date.now();
     const isTracked = newItemCategory === "tool" || newItemCategory === "equipment";
     const qrText = newItemQrCodeText.trim();
     let qrCode = qrUrlForAsset(id);
@@ -6205,6 +6311,7 @@ export default function Home() {
       qrCodeText: qrText || undefined,
       qrCode,
       location: hasProject ? "onsite" : "warehouse",
+      ...(isTracked ? newItemInspection : {}),
     };
     setInventoryItems((prev) => {
       const next = [...prev, item];
@@ -6298,7 +6405,7 @@ export default function Home() {
         return next;
       });
     } else {
-      const id = "v" + Date.now();
+      const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "v" + Date.now();
       const newVehicle: Vehicle = {
         id,
         plate: vehicleDraft.plate ?? "",
@@ -6312,6 +6419,9 @@ export default function Home() {
         notes: vehicleDraft.notes,
         serialNumber: vehicleDraft.serialNumber,
         internalId: vehicleDraft.internalId,
+        requiresInspection: vehicleDraft.requiresInspection,
+        inspectionFrequency: vehicleDraft.inspectionFrequency,
+        inspectionTemplateId: vehicleDraft.inspectionTemplateId,
         qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(id)}`,
       };
       setVehicles((prev) => {
@@ -7208,6 +7318,8 @@ export default function Home() {
                       color: role.color,
                       permissions: role.permissions,
                       is_system: false,
+                      base_role: role.baseRole ?? "worker",
+                      is_default_for_new: role.isDefaultForNew === true,
                     })
                     .select("*")
                     .single();
@@ -7215,7 +7327,14 @@ export default function Home() {
                     console.error("[page] roles insert", error);
                     return;
                   }
-                  setCustomRoles((prev) => [...prev, customRoleFromSupabaseRow(data as RolesTableRow)]);
+                  const created = customRoleFromSupabaseRow(data as RolesTableRow);
+                  if (created.isDefaultForNew) {
+                    await supabase.from("roles").update({ is_default_for_new: false }).eq("company_id", companyId).neq("id", created.id);
+                  }
+                  setCustomRoles((prev) => [
+                    ...prev.map((r) => (created.isDefaultForNew ? { ...r, isDefaultForNew: false } : r)),
+                    created,
+                  ]);
                 }}
                 onUpdateRole={async (role) => {
                   if (!supabase || !companyId) {
@@ -7228,6 +7347,8 @@ export default function Home() {
                       name: role.name,
                       color: role.color,
                       permissions: role.permissions,
+                      base_role: role.baseRole ?? null,
+                      is_default_for_new: role.isDefaultForNew === true,
                     })
                     .eq("id", role.id)
                     .eq("company_id", companyId);
@@ -7235,7 +7356,12 @@ export default function Home() {
                     console.error("[page] roles update", error);
                     return;
                   }
-                  setCustomRoles((prev) => prev.map((r) => (r.id === role.id ? role : r)));
+                  if (role.isDefaultForNew) {
+                    await supabase.from("roles").update({ is_default_for_new: false }).eq("company_id", companyId).neq("id", role.id);
+                  }
+                  setCustomRoles((prev) =>
+                    prev.map((r) => (r.id === role.id ? role : role.isDefaultForNew ? { ...r, isDefaultForNew: false } : r))
+                  );
                 }}
                 onDeleteRole={async (id) => {
                   const row = customRoles.find((r) => r.id === id);
@@ -7468,7 +7594,39 @@ export default function Home() {
             {activeSection === "warehouse" && perms.warehouse && (
               <>
               <LogisticsModule
-                warehouseSubTab={warehouseSubTab}
+                warehouseSubTab={effectiveWarehouseSubTab}
+                syncError={logisticsSync.status === "error" ? logisticsSync.lastError : null}
+                inspectionsPanel={
+                  companyId && (rolePerms.canPerformInspections || rolePerms.canViewInspections || rolePerms.canManageInspectionTemplates) ? (
+                    <InspectionsPanel
+                      companyId={companyId}
+                      companyName={companyName}
+                      companyLogoUrl={logoUrl?.trim() || null}
+                      countryCode={companyCountry}
+                      locale={dateLocaleBcp47}
+                      labels={t as Record<string, string>}
+                      inventoryItems={inventoryItems}
+                      vehicles={vehicles}
+                      projectNameById={projectNameById}
+                      currentEmployeeId={profile?.id ?? effectiveEmployeeId}
+                      myProjectIds={myProjectIdsForInspections}
+                      canPerform={!!rolePerms.canPerformInspections}
+                      canView={!!rolePerms.canViewInspections}
+                      canManageTemplates={!!rolePerms.canManageInspectionTemplates}
+                      onFailedInspection={notifyFailedInspection}
+                      initialItem={pendingInspectItem}
+                      onInitialItemConsumed={clearPendingInspectItem}
+                    />
+                  ) : undefined
+                }
+                onInspectItem={
+                  rolePerms.canPerformInspections
+                    ? (ref) => {
+                        setPendingInspectItem(ref);
+                        setWarehouseSubTab("inspections");
+                      }
+                    : undefined
+                }
                 setWarehouseSubTab={setWarehouseSubTab}
                 warehouseSectionsEnabled={warehouseSectionsEnabled}
                 projects={projects}
@@ -7788,6 +7946,12 @@ export default function Home() {
                       (projects ?? []).find((p) => p.id === projectId)?.name ?? "",
                       projectId
                     );
+                  } else {
+                    showToast(
+                      "error",
+                      (t as Record<string, string>).photoUploadNotAllowed ??
+                        "No se pudo guardar la foto. Puede que no tengas permiso para subir fotos en este proyecto."
+                    );
                   }
                 }}
                 onPhotoInventario={() => {}}
@@ -8097,7 +8261,13 @@ export default function Home() {
                     },
                   });
                 }}
-                canUploadPhotos={!!rolePerms.canUploadPhotos}
+                canUploadPhotos={
+                  effectiveRole === "admin" ||
+                  !!rolePerms.canManageProjectGallery ||
+                  (!!rolePerms.canUploadPhotos &&
+                    (!rolePerms.canViewOnlyAssignedProjects ||
+                      myProjectIdsForInspections.includes(siteSelectedProjectId ?? "")))
+                }
                 onGalleryPhotoDownloaded={(payload) => {
                   void logAuditEvent({
                     company_id: companyId ?? "",
@@ -9327,6 +9497,21 @@ export default function Home() {
                     <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.internalId ?? "ID interno"}</label>
                     <input type="text" value={editingInventoryId ? (editInventoryDraft?.internalId ?? "") : newItemInternalId} onChange={(e) => editingInventoryId ? setEditInventoryDraft((d) => d ? { ...d, internalId: e.target.value } : d) : setNewItemInternalId(e.target.value)} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="ej. TOOL-001" />
                   </div>
+                  <InspectionSettingsFields
+                    labels={t as Record<string, string>}
+                    value={
+                      editingInventoryId
+                        ? {
+                            requiresInspection: editInventoryDraft?.requiresInspection,
+                            inspectionFrequency: editInventoryDraft?.inspectionFrequency,
+                            inspectionTemplateId: editInventoryDraft?.inspectionTemplateId,
+                          }
+                        : newItemInspection
+                    }
+                    onChange={(v) =>
+                      editingInventoryId ? setEditInventoryDraft((d) => (d ? { ...d, ...v } : d)) : setNewItemInspection(v)
+                    }
+                  />
                 </>
               )}
               <div className="grid grid-cols-2 gap-3">
@@ -9465,6 +9650,16 @@ export default function Home() {
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Conductor habitual</label><select value={vehicleDraft.usualDriverId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, usualDriverId: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(employees ?? []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Proyecto asignado</label><select value={vehicleDraft.currentProjectId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, currentProjectId: e.target.value || null }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{tl.status ?? "Estado"}</label><select value={vehicleDraft.vehicleStatus ?? "available"} onChange={(e) => setVehicleDraft((d) => ({ ...d, vehicleStatus: e.target.value as VehicleStatus }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="available">{tl.available ?? "Disponible"}</option><option value="in_use">{tl.inUse ?? "En uso"}</option><option value="maintenance">{tl.maintenance ?? "Mantenimiento"}</option><option value="out_of_service">{tl.outOfService ?? "Fuera de servicio"}</option></select></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t.vehicleSerialNumber ?? "N.º de bastidor / serie"}</label><input type="text" value={vehicleDraft.serialNumber ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, serialNumber: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
+              <InspectionSettingsFields
+                labels={t as Record<string, string>}
+                value={{
+                  requiresInspection: vehicleDraft.requiresInspection,
+                  inspectionFrequency: vehicleDraft.inspectionFrequency,
+                  inspectionTemplateId: vehicleDraft.inspectionTemplateId,
+                }}
+                onChange={(v) => setVehicleDraft((d) => ({ ...d, ...v }))}
+              />
               <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-slate-700">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{tl.vehicle_documents ?? "Documentación del vehículo"}</p>

@@ -603,10 +603,18 @@ export function CentralModule({
   const [employeesCsvExportBusy, setEmployeesCsvExportBusy] = useState(false);
   const edDocFileRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
-  const [roleDraft, setRoleDraft] = useState<{ name: string; color: string; permissions: RolePermissions }>({
+  const [roleDraft, setRoleDraft] = useState<{
+    name: string;
+    color: string;
+    permissions: RolePermissions;
+    baseRole: NonNullable<CustomRole["baseRole"]>;
+    isDefaultForNew: boolean;
+  }>({
     name: "",
     color: "#b45309",
     permissions: emptyRolePermissionsInline(),
+    baseRole: "worker",
+    isDefaultForNew: false,
   });
 
   const permLabel = (key: keyof RolePermissions): string => {
@@ -625,13 +633,21 @@ export function CentralModule({
       name: "",
       color: "#b45309",
       permissions: emptyRolePermissionsInline(),
+      baseRole: "worker",
+      isDefaultForNew: false,
     });
     setRoleModalOpen(true);
   };
 
   const openEditRole = (role: CustomRole) => {
     setEditingRoleId(role.id);
-    setRoleDraft({ name: role.name, color: role.color, permissions: { ...role.permissions } });
+    setRoleDraft({
+      name: role.name,
+      color: role.color,
+      permissions: { ...role.permissions },
+      baseRole: role.baseRole ?? "worker",
+      isDefaultForNew: role.isDefaultForNew === true,
+    });
     setRoleModalOpen(true);
   };
 
@@ -655,6 +671,8 @@ export function CentralModule({
               name: roleDraft.name.trim(),
               color: roleDraft.color,
               permissions: roleDraft.permissions,
+              baseRole: roleDraft.baseRole,
+              isDefaultForNew: roleDraft.isDefaultForNew,
             })
           );
         }
@@ -666,6 +684,8 @@ export function CentralModule({
             color: roleDraft.color,
             permissions: roleDraft.permissions,
             createdAt: new Date().toISOString(),
+            baseRole: roleDraft.baseRole,
+            isDefaultForNew: roleDraft.isDefaultForNew,
           })
         );
       }
@@ -1368,7 +1388,7 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                if (a.source === "vehicle") {
+                                if ((a.source === "vehicle" || a.source === "equipment")) {
                                   onNavigateAppSection?.("warehouse");
                                 } else if (a.source === "subcontractor") {
                                   onNavigateAppSection?.("subcontractors");
@@ -1379,7 +1399,7 @@ export function CentralModule({
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-red-300/80 bg-white px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/40"
                             >
-                              {a.source === "vehicle"
+                              {(a.source === "vehicle" || a.source === "equipment")
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
                                 : a.source === "subcontractor"
                                   ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
@@ -1429,7 +1449,7 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                if (a.source === "vehicle") {
+                                if ((a.source === "vehicle" || a.source === "equipment")) {
                                   onNavigateAppSection?.("warehouse");
                                 } else if (a.source === "subcontractor") {
                                   onNavigateAppSection?.("subcontractors");
@@ -1440,7 +1460,7 @@ export function CentralModule({
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-amber-300/80 bg-white px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-50 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-100 dark:hover:bg-amber-950/40"
                             >
-                              {a.source === "vehicle"
+                              {(a.source === "vehicle" || a.source === "equipment")
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
                                 : a.source === "subcontractor"
                                   ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
@@ -1490,7 +1510,7 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                if (a.source === "vehicle") {
+                                if ((a.source === "vehicle" || a.source === "equipment")) {
                                   onNavigateAppSection?.("warehouse");
                                 } else if (a.source === "subcontractor") {
                                   onNavigateAppSection?.("subcontractors");
@@ -1501,7 +1521,7 @@ export function CentralModule({
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-yellow-300/80 bg-white px-4 py-2 text-sm font-medium text-yellow-900 hover:bg-yellow-50 dark:border-yellow-800 dark:bg-zinc-900 dark:text-yellow-100 dark:hover:bg-yellow-950/30"
                             >
-                              {a.source === "vehicle"
+                              {(a.source === "vehicle" || a.source === "equipment")
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
                                 : a.source === "subcontractor"
                                   ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
@@ -2713,6 +2733,39 @@ export function CentralModule({
                   />
                   <span className="text-sm text-zinc-500 font-mono">{roleDraft.color}</span>
                 </div>
+              </div>
+              <div className="space-y-3 rounded-xl border border-zinc-200 p-3 dark:border-slate-700">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300" htmlFor="role-base-type">
+                    {(labels as Record<string, string>).roleBaseType ?? "Tipo de usuario base"}
+                  </label>
+                  <select
+                    id="role-base-type"
+                    value={roleDraft.baseRole}
+                    onChange={(e) =>
+                      setRoleDraft((p) => ({ ...p, baseRole: e.target.value as NonNullable<CustomRole["baseRole"]> }))
+                    }
+                    className="min-h-[44px] w-full rounded-xl border border-zinc-300 bg-white px-4 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100"
+                  >
+                    <option value="worker">{(labels as Record<string, string>).roleBase_worker ?? "Trabajador"}</option>
+                    <option value="supervisor">{(labels as Record<string, string>).roleBase_supervisor ?? "Supervisor / encargado"}</option>
+                    <option value="logistic">{(labels as Record<string, string>).roleBase_logistic ?? "Logística / almacén"}</option>
+                    <option value="admin">{(labels as Record<string, string>).roleBase_admin ?? "Administrador (acceso total)"}</option>
+                  </select>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {(labels as Record<string, string>).roleBaseTypeHelp ??
+                      "El nombre del rol es libre (capataz, jefe de obra…). Lo que cuenta son los permisos que marques abajo; el tipo base solo se usa para compatibilidad."}
+                  </p>
+                </div>
+                <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-zinc-800 dark:text-zinc-100">
+                  <input
+                    type="checkbox"
+                    checked={roleDraft.isDefaultForNew}
+                    onChange={(e) => setRoleDraft((p) => ({ ...p, isDefaultForNew: e.target.checked }))}
+                    className="h-5 w-5 accent-orange-600"
+                  />
+                  {(labels as Record<string, string>).roleDefaultForNew ?? "Rol por defecto para usuarios nuevos"}
+                </label>
               </div>
               <div className="space-y-6">
                 {ROLE_PERMISSION_GROUPS.map((group) => {

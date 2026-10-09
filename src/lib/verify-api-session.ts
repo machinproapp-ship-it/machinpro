@@ -190,3 +190,42 @@ export async function verifySuperadminAccess(
   if (row?.is_superadmin === true) return { userId: user.id };
   return null;
 }
+
+/**
+ * JWT + empresa + permiso concreto, evaluado en la base de datos con `public.has_permission`
+ * (los mismos permisos que configura el admin; nunca por el nombre del rol).
+ */
+export async function verifyCallerPermission(
+  req: NextRequest,
+  companyId: string,
+  permissionKey: keyof RolePermissions
+): Promise<{ userId: string; isAdmin: boolean } | null> {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!token || !companyId) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  const asUser = createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const {
+    data: { user },
+    error,
+  } = await asUser.auth.getUser(token);
+  if (error || !user) return null;
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin
+    .from("user_profiles")
+    .select("company_id, role, is_superadmin")
+    .eq("id", user.id)
+    .maybeSingle();
+  const row = data as { company_id?: string | null; role?: string | null; is_superadmin?: boolean | null } | null;
+  if (!row || row.company_id !== companyId) return null;
+  const isAdmin = row.role === "admin" || row.is_superadmin === true;
+  if (isAdmin) return { userId: user.id, isAdmin };
+  const { data: allowed, error: rpcErr } = await asUser.rpc("has_permission", { p_key: permissionKey });
+  if (rpcErr || allowed !== true) return null;
+  return { userId: user.id, isAdmin: false };
+}

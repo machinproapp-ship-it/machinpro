@@ -6,7 +6,7 @@ import {
   type ProjectSafetyRequirementRow,
 } from "@/lib/projectSafetyUtils";
 
-export type ComplianceAlertSource = "employee" | "vehicle" | "subcontractor";
+export type ComplianceAlertSource = "employee" | "vehicle" | "subcontractor" | "equipment";
 
 export type ComplianceAlert = {
   source: ComplianceAlertSource;
@@ -16,6 +16,10 @@ export type ComplianceAlert = {
   vehiclePlate?: string;
   subcontractorId?: string;
   subcontractorName?: string;
+  /** Equipo que requiere inspección previa al uso. */
+  equipmentKind?: "inventory" | "fleet" | "rental";
+  equipmentId?: string;
+  equipmentLabel?: string;
   certName: string;
   /** When set with vehicle docs, UI can resolve `t[certNameKey] ?? certName`. */
   certNameKey?: string;
@@ -31,6 +35,7 @@ export function watchdogSubjectLabel(a: ComplianceAlert): string {
   let base: string;
   if (a.source === "vehicle") base = a.vehiclePlate?.trim() || a.vehicleId || "—";
   else if (a.source === "subcontractor") base = (a.subcontractorName ?? "").trim() || a.subcontractorId || "—";
+  else if (a.source === "equipment") base = (a.equipmentLabel ?? "").trim() || a.equipmentId || "—";
   else base = (a.employeeName ?? "").trim() || a.employeeId || "—";
   const pn = (a.projectName ?? "").trim();
   return pn ? `${base} · ${pn}` : base;
@@ -265,13 +270,55 @@ export function runSubcontractorWatchdog(subcontractors: SubcontractorForWatchdo
   return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
+export type EquipmentInspectionStatusForWatchdog = {
+  itemKind: "inventory" | "fleet" | "rental";
+  itemId: string;
+  itemLabel: string;
+  projectId: string | null;
+  lastInspectionAt: string | null;
+  lastResult: "pass" | "pass_with_notes" | "fail" | null;
+  needsInspection: boolean;
+};
+
+/**
+ * Inspecciones previas al uso. Nunca bloquea: solo avisa.
+ * - NO APTO en la última inspección → expired (rojo)
+ * - Inspección pendiente y el equipo está en un proyecto → critical
+ * - Inspección pendiente sin proyecto → warning
+ */
+export function runEquipmentInspectionWatchdog(
+  rows: EquipmentInspectionStatusForWatchdog[],
+  projectNameById: Record<string, string> = {}
+): ComplianceAlert[] {
+  const alerts: ComplianceAlert[] = [];
+  for (const r of rows) {
+    if (r.lastResult !== "fail" && !r.needsInspection) continue;
+    const failed = r.lastResult === "fail";
+    alerts.push({
+      source: "equipment",
+      equipmentKind: r.itemKind,
+      equipmentId: r.itemId,
+      equipmentLabel: r.itemLabel,
+      certName: failed ? "inspectionLastFailed" : "inspectionPending",
+      certNameKey: failed ? "inspectionLastFailed" : "inspectionPending",
+      expiryDate: r.lastInspectionAt ? r.lastInspectionAt.slice(0, 10) : "",
+      daysLeft: failed ? -999 : -1,
+      severity: failed ? "expired" : r.projectId ? "critical" : "warning",
+      projectId: r.projectId ?? undefined,
+      projectName: r.projectId ? projectNameById[r.projectId] : undefined,
+    });
+  }
+  return alerts;
+}
+
 export function mergeComplianceAlerts(
   employeeAlerts: ComplianceAlert[],
   vehicleAlerts: ComplianceAlert[],
   subcontractorAlerts: ComplianceAlert[] = [],
-  projectEmployeeAlerts: ComplianceAlert[] = []
+  projectEmployeeAlerts: ComplianceAlert[] = [],
+  equipmentAlerts: ComplianceAlert[] = []
 ): ComplianceAlert[] {
-  return [...employeeAlerts, ...vehicleAlerts, ...subcontractorAlerts, ...projectEmployeeAlerts].sort(
+  return [...employeeAlerts, ...vehicleAlerts, ...subcontractorAlerts, ...projectEmployeeAlerts, ...equipmentAlerts].sort(
     (a, b) => a.daysLeft - b.daysLeft
   );
 }

@@ -26,6 +26,7 @@ import {
   Search,
   Download,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import type { ComplianceField, ComplianceRecord } from "@/types/homePage";
 import type { InventoryLedgerRow, InventoryMovementKind } from "@/types/inventoryLedger";
@@ -58,7 +59,7 @@ const InventoryQrScannerModal = dynamic(
   { ssr: false }
 );
 
-export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders";
+export type WarehouseSubTabId = "inventory" | "fleet" | "rentals" | "suppliers" | "byProject" | "incidents" | "orders" | "inspections";
 
 type LogisticsDeleteKind = "inventory" | "fleet" | "rental" | "supplier";
 export type InventoryItemType = "consumable" | "tool" | "equipment" | "material";
@@ -94,10 +95,16 @@ export interface InventoryItem {
   lastMovementAt?: string;
   category?: string;
   model?: string;
+  /** La empresa decide si el equipo requiere inspección antes de usarlo. */
+  requiresInspection?: boolean;
+  inspectionFrequency?: "before_each_use" | "daily" | "weekly" | "monthly" | "yearly";
+  inspectionTemplateId?: string;
 }
 
 export interface Vehicle {
   id: string;
+  /** Nombre descriptivo (p. ej. "Ford F-150 2022"); si falta se usa la matrícula. */
+  label?: string;
   plate: string;
   usualDriverId: string;
   currentProjectId: string | null;
@@ -119,6 +126,9 @@ export interface Vehicle {
   insuranceDocUrl?: string;
   inspectionDocUrl?: string;
   registrationDocUrl?: string;
+  requiresInspection?: boolean;
+  inspectionFrequency?: "before_each_use" | "daily" | "weekly" | "monthly" | "yearly";
+  inspectionTemplateId?: string;
 }
 
 export interface AssetUsageLog {
@@ -226,6 +236,13 @@ export interface ResourceRequest {
 }
 
 export interface LogisticsModuleProps {
+  /** Panel de inspecciones previas al uso (lo monta page.tsx con permisos y empresa). */
+  inspectionsPanel?: React.ReactNode;
+  /** Aviso cuando inventario/flota no se han podido guardar en Supabase. */
+  syncError?: string | null;
+  inspectionsBadge?: number;
+  /** Abre la inspección de un equipo desde su tarjeta. */
+  onInspectItem?: (ref: { kind: "inventory" | "fleet"; id: string; label: string; serial?: string | null; projectId?: string | null; templateId?: string | null }) => void;
   warehouseSubTab: WarehouseSubTabId;
   setWarehouseSubTab: (tab: WarehouseSubTabId) => void;
   warehouseSectionsEnabled: { inventory: boolean; fleet: boolean; rentals: boolean; suppliers: boolean };
@@ -479,6 +496,10 @@ function projectAssignmentChipClass(assigned: boolean): string {
 }
 
 export function LogisticsModule({
+  inspectionsPanel,
+  syncError,
+  inspectionsBadge,
+  onInspectItem,
   warehouseSubTab,
   setWarehouseSubTab,
   warehouseSectionsEnabled,
@@ -1055,10 +1076,29 @@ export function LogisticsModule({
       badge: pendingOrders,
     });
   if (warehouseSectionsEnabled.inventory) tabs.push({ id: "incidents", label: tlLabels.incidents ?? "Incidents", icon: <AlertTriangle className="h-4 w-4" />, badge: unreviewedIncidents });
+  if (inspectionsPanel)
+    tabs.push({ id: "inspections", label: tlLabels.inspections ?? "Inspecciones", icon: <ShieldCheck className="h-4 w-4" />, badge: inspectionsBadge });
+
+  const inspectBtn = (ref: { kind: "inventory" | "fleet"; id: string; label: string; serial?: string | null; projectId?: string | null; templateId?: string | null }) =>
+    onInspectItem ? (
+      <button
+        type="button"
+        onClick={() => onInspectItem(ref)}
+        className="flex min-h-[44px] items-center gap-1 rounded-lg border border-orange-400 px-2 py-1 text-xs font-medium text-orange-700 hover:bg-orange-50 dark:border-orange-600 dark:text-orange-300 dark:hover:bg-orange-950/30"
+      >
+        <ShieldCheck className="h-4 w-4" />
+        {tlLabels.inspect ?? "Inspeccionar"}
+      </button>
+    ) : null;
 
   return (
     <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-8 md:p-8 lg:p-10">
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{t.warehouse}</h2>
+      {syncError ? (
+        <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          {tlLabels.logisticsSyncError ?? "No se pudieron guardar los cambios en el servidor. Se reintentará automáticamente."}
+        </p>
+      ) : null}
 
       <div className="border-b border-zinc-200 dark:border-zinc-700 pb-0 -mx-1 min-w-0 px-1 sm:mx-0 sm:px-0">
         <HorizontalScrollFade variant="card">
@@ -1461,6 +1501,9 @@ export function LogisticsModule({
                       </button>
                     )}
                     </div>
+                    {item.requiresInspection
+                      ? inspectBtn({ kind: "inventory", id: item.id, label: item.name, serial: item.serialNumber ?? item.internalId, projectId: item.assignedToProjectId, templateId: item.inspectionTemplateId })
+                      : null}
                     {canManageInventory && (
                       <div className="ml-auto flex shrink-0 items-center gap-0.5">
                         {canTransferInventory && onInventoryTransfer ? (
@@ -1682,6 +1725,9 @@ export function LogisticsModule({
                             {tlLabels.markAvailable ?? "Mark available"}
                           </button>
                         )}
+                        {item.requiresInspection
+                          ? inspectBtn({ kind: "inventory", id: item.id, label: item.name, serial: item.serialNumber ?? item.internalId, projectId: item.assignedToProjectId, templateId: item.inspectionTemplateId })
+                          : null}
                         {canManageInventory && (
                           <>
                             {canTransferInventory && onInventoryTransfer ? (
@@ -2749,6 +2795,9 @@ export function LogisticsModule({
                         {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                       </select>
                     )}
+                    {v.requiresInspection
+                      ? inspectBtn({ kind: "fleet", id: v.id, label: v.label ?? v.plate, serial: v.serialNumber ?? v.plate, projectId: v.currentProjectId, templateId: v.inspectionTemplateId })
+                      : null}
                     {canManageFleet && (
                       <>
                         <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
@@ -2872,6 +2921,9 @@ export function LogisticsModule({
                               {VEHICLE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{getStatusLabel(o.labelKey)}</option>)}
                             </select>
                           )}
+                          {v.requiresInspection
+                            ? inspectBtn({ kind: "fleet", id: v.id, label: v.label ?? v.plate, serial: v.serialNumber ?? v.plate, projectId: v.currentProjectId, templateId: v.inspectionTemplateId })
+                            : null}
                           {canManageFleet && (
                             <>
                               <button type="button" onClick={() => onEditFleet(v)} className="p-2.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
@@ -3114,6 +3166,7 @@ export function LogisticsModule({
         </div>
       )}
 
+      {warehouseSubTab === "inspections" && inspectionsPanel}
       {warehouseSubTab === "incidents" && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">

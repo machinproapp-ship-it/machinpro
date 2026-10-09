@@ -117,12 +117,8 @@ export function mergeRolePermissions(raw: unknown): RolePermissions {
     if (typeof o[k as string] === "boolean") acc[k] = o[k as string] as boolean;
   }
   applyLegacyPermissionFields(acc, o);
-  if (
-    !Object.prototype.hasOwnProperty.call(o, "canUploadPhotos") &&
-    acc.canViewProjectGallery
-  ) {
-    acc.canUploadPhotos = true;
-  }
+  // canUploadPhotos ya no se concede implícitamente: la base de datos solo deja subir fotos
+  // a quien tiene el permiso marcado, y la app debe mostrar lo mismo.
   if (!Object.prototype.hasOwnProperty.call(o, "canViewLaborCosting")) {
     acc.canViewLaborCosting = acc.canViewTimesheets === true;
   }
@@ -169,6 +165,8 @@ export type RolesTableRow = {
   is_system: boolean | null;
   created_at: string;
   updated_at?: string | null;
+  base_role?: string | null;
+  is_default_for_new?: boolean | null;
 };
 
 export function customRoleFromSupabaseRow(row: RolesTableRow): CustomRole {
@@ -179,6 +177,11 @@ export function customRoleFromSupabaseRow(row: RolesTableRow): CustomRole {
     permissions: mergeRolePermissions(row.permissions),
     createdAt: row.created_at,
     isSystem: row.is_system === true,
+    baseRole:
+      row.base_role === "admin" || row.base_role === "supervisor" || row.base_role === "worker" || row.base_role === "logistic"
+        ? row.base_role
+        : null,
+    isDefaultForNew: row.is_default_for_new === true,
   };
 }
 

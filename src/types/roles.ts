@@ -82,6 +82,12 @@ export interface RolePermissions {
   canViewInventoryHistory: boolean;
   canManageInventoryAlerts: boolean;
   canViewInventoryReports: boolean;
+  /** Registrar inspecciones previas al uso (con foto y declaración). */
+  canPerformInspections: boolean;
+  /** Ver inspecciones de toda la empresa (sin este permiso, cada uno ve las suyas). */
+  canViewInspections: boolean;
+  /** Crear y adaptar plantillas de inspección. */
+  canManageInspectionTemplates: boolean;
 
   // ─── Seguridad ──────────────────────────────────────────
   canViewSecurity: boolean;
@@ -130,6 +136,10 @@ export interface CustomRole {
   permissions: RolePermissions;
   createdAt: string;
   isSystem?: boolean;
+  /** Tipo de usuario base al que corresponde el rol. El nombre del rol es libre y nunca decide permisos. */
+  baseRole?: "admin" | "supervisor" | "worker" | "logistic" | null;
+  /** Rol que se asigna por defecto a usuarios nuevos (uno por empresa). */
+  isDefaultForNew?: boolean;
 }
 
 export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
@@ -201,6 +211,9 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canViewInventoryHistory",
   "canManageInventoryAlerts",
   "canViewInventoryReports",
+  "canPerformInspections",
+  "canViewInspections",
+  "canManageInspectionTemplates",
   "canViewSecurity",
   "canManageHazards",
   "canViewHazards",
@@ -327,6 +340,9 @@ export const ROLE_PERMISSION_GROUPS: {
       "canViewInventoryHistory",
       "canManageInventoryAlerts",
       "canViewInventoryReports",
+      "canPerformInspections",
+      "canViewInspections",
+      "canManageInspectionTemplates",
     ],
   },
   {
@@ -437,6 +453,9 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canViewInventoryHistory: "Ver historial de movimientos",
   canManageInventoryAlerts: "Gestionar alertas de inventario",
   canViewInventoryReports: "Ver informes de inventario",
+  canPerformInspections: "Hacer inspecciones antes de usar equipos",
+  canViewInspections: "Ver inspecciones de toda la empresa",
+  canManageInspectionTemplates: "Gestionar plantillas de inspección",
   canViewSecurity: "Ver seguridad",
   canManageHazards: "Gestionar riesgos",
   canViewHazards: "Ver riesgos",
@@ -479,6 +498,10 @@ const DEFAULT_WORKER_NAMES = ["empleado", "employee", "worker", "trabajador"];
 
 export function pickDefaultWorkerRoleId(customRoles: CustomRole[]): string {
   if (!customRoles.length) return "";
+  const flagged = customRoles.find((r) => r.isDefaultForNew);
+  if (flagged) return flagged.id;
+  const workerBase = customRoles.find((r) => r.baseRole === "worker");
+  if (workerBase) return workerBase.id;
   const norm = (s: string) => s.trim().toLowerCase();
   for (const r of customRoles) {
     const n = norm(r.name);
@@ -508,6 +531,8 @@ export function resolveActiveCustomRole(
     const byProfile = customRoles.find((r) => r.id === profileCustomRoleId);
     if (byProfile) return byProfile;
   }
+  const byBase = customRoles.find((r) => r.baseRole === er);
+  if (byBase) return byBase;
   const legacyId = effectiveRole === "projectManager" ? "role-supervisor" : `role-${effectiveRole}`;
   const legacy = customRoles.find((r) => r.id === legacyId);
   if (legacy) return legacy;
