@@ -240,16 +240,32 @@ export function CorrectiveActionsModule({
     void (async () => {
       const { data } = await supabase
         .from("user_profiles")
-        .select("id, employee_id")
-        .eq("company_id", companyId);
+        .select("id, employee_id, full_name, display_name, email, profile_status, deleted_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null);
       if (cancelled || !data) return;
+      type Row = {
+        id: string;
+        employee_id: string | null;
+        full_name: string | null;
+        display_name: string | null;
+        email: string | null;
+        profile_status: string | null;
+      };
       setProfileOptions(
-        (data as { id: string; employee_id: string | null }[]).map((p) => ({
-          id: p.id,
-          name:
-            employees.find((e) => e.id === p.employee_id)?.name ??
-            p.id.slice(0, 8) + "…",
-        }))
+        (data as Row[])
+          .filter((p) => (p.profile_status ?? "active") !== "inactive")
+          .map((p) => ({
+            id: p.id,
+            // Nombre real de la persona; el código interno nunca se muestra.
+            name:
+              p.full_name?.trim() ||
+              p.display_name?.trim() ||
+              employees.find((e) => e.id === p.employee_id || e.id === p.id)?.name ||
+              p.email?.trim() ||
+              "—",
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name))
       );
     })();
     return () => {
