@@ -259,6 +259,7 @@ export default {
   notif_project_assigned_title: "Nuevo proyecto asignado",
   notif_shift_created_title: "Nuevo turno",
   notif_shift_updated_title: "Turno modificado",
+  schedule_save_error: "No se pudo guardar el turno. Revisa tu conexión o tus permisos.",
   notif_daily_report_title: "Parte diario pendiente",
   notif_daily_report_submitted_title: "Parte diario enviado",
   notif_daily_report_submitted_body: "{project} · {date}",

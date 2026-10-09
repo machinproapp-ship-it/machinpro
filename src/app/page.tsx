@@ -1716,7 +1716,7 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [subcontractorsForWatchdog, setSubcontractorsForWatchdog] = useState<SubcontractorForWatchdog[]>([]);
-  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>(INITIAL_SCHEDULE);
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [clockEntries, setClockEntries] = useState<ClockEntry[]>([]);
   /** Fichajes desde `time_entries` (Supabase); se fusionan con fichajes locales. */
   const [dbClockEntries, setDbClockEntries] = useState<ClockEntry[]>([]);
@@ -3453,33 +3453,30 @@ export default function Home() {
           if (schedErr) {
             console.error("[page] schedule_entries load", schedErr);
           }
-          const schedVac =
-            !schedErr && schedRows?.length
-              ? (schedRows as Record<string, unknown>[]).filter((row) => {
-                  const st = String(row.type ?? "");
-                  const el = row.event_label != null ? String(row.event_label) : "";
-                  return st === "vacation" || (st === "event" && el === "vacation");
-                })
-              : [];
+          const mapSchedRow = (row: Record<string, unknown>): ScheduleEntry => {
+            const st = String(row.start_time ?? "00:00");
+            const et = String(row.end_time ?? "23:59");
+            const rawType = String(row.type ?? "shift");
+            const el = row.event_label != null ? String(row.event_label) : "";
+            const isVac = rawType === "vacation" || (rawType === "event" && el === "vacation");
+            return {
+              id: String(row.id),
+              type: isVac ? ("vacation" as const) : rawType === "event" ? ("event" as const) : ("shift" as const),
+              employeeIds: Array.isArray(row.employee_ids) ? (row.employee_ids as string[]) : [],
+              projectId: row.project_id != null ? String(row.project_id) : undefined,
+              projectCode: row.project_code != null ? String(row.project_code) : undefined,
+              date: String(row.date).slice(0, 10),
+              startTime: st.length >= 5 ? st.slice(0, 5) : st,
+              endTime: et.length >= 5 ? et.slice(0, 5) : et,
+              notes: row.notes != null ? String(row.notes) : undefined,
+              eventLabel: isVac ? "vacation" : el || undefined,
+              createdBy: row.created_by != null ? String(row.created_by) : "",
+            };
+          };
           if (!cancelled && !schedErr) {
-            mappedScheduleVacation = schedVac.map((row) => {
-              const st = String(row.start_time ?? "00:00");
-              const et = String(row.end_time ?? "23:59");
-              return {
-                id: String(row.id),
-                type: "vacation" as const,
-                employeeIds: Array.isArray(row.employee_ids) ? (row.employee_ids as string[]) : [],
-                projectId: row.project_id != null ? String(row.project_id) : undefined,
-                projectCode: row.project_code != null ? String(row.project_code) : undefined,
-                date: String(row.date).slice(0, 10),
-                startTime: st.length >= 5 ? st.slice(0, 5) : st,
-                endTime: et.length >= 5 ? et.slice(0, 5) : et,
-                notes: row.notes != null ? String(row.notes) : undefined,
-                eventLabel: "vacation",
-                createdBy: row.created_by != null ? String(row.created_by) : "",
-              };
-            });
-            setScheduleEntries((prev) => [...prev.filter((e) => e.type !== "vacation"), ...mappedScheduleVacation]);
+            const allSched = ((schedRows ?? []) as Record<string, unknown>[]).map(mapSchedRow);
+            mappedScheduleVacation = allSched.filter((e) => e.type === "vacation");
+            setScheduleEntries(allSched);
           }
 
           if (!cancelled) setDashboardOfficeHydrated(true);
@@ -5465,8 +5462,40 @@ export default function Home() {
     }
   }, []);
 
-  const handleAddScheduleEntry = (entry: Omit<ScheduleEntry, "id">) => {
-    const newId = `se${Date.now()}`;
+  const scheduleSaveError = () => {
+    const msg =
+      (t as Record<string, string>).schedule_save_error ??
+      "No se pudo guardar el turno. Revisa tu conexión o tus permisos.";
+    if (typeof window !== "undefined") window.alert(msg);
+  };
+
+  const scheduleRowFromEntry = (id: string, entry: Omit<ScheduleEntry, "id">) => ({
+    id,
+    company_id: companyId,
+    type: entry.type,
+    employee_ids: entry.employeeIds ?? [],
+    project_id: entry.projectId ?? null,
+    project_code: entry.projectCode ?? null,
+    date: entry.date,
+    start_time: entry.startTime.length === 5 ? `${entry.startTime}:00` : entry.startTime,
+    end_time: entry.endTime.length === 5 ? `${entry.endTime}:00` : entry.endTime,
+    notes: entry.notes ?? null,
+    event_label: entry.eventLabel ?? null,
+    created_by: user?.id ?? entry.createdBy ?? null,
+  });
+
+  const handleAddScheduleEntry = async (entry: Omit<ScheduleEntry, "id">) => {
+    const newId = crypto.randomUUID();
+    if (companyId && supabase) {
+      const { error } = await supabase
+        .from("schedule_entries")
+        .insert(scheduleRowFromEntry(newId, entry));
+      if (error) {
+        console.error("schedule_entries insert", error);
+        scheduleSaveError();
+        return;
+      }
+    }
     setScheduleEntries((prev) => [...prev, { ...entry, id: newId }]);
     if (companyId && supabase && entry.type === "shift") {
       const tl = t as Record<string, string>;
@@ -5483,11 +5512,40 @@ export default function Home() {
     }
   };
 
-  const handleDeleteScheduleEntry = (id: string) => {
+  const handleDeleteScheduleEntry = async (id: string) => {
+    if (companyId && supabase) {
+      const { error } = await supabase
+        .from("schedule_entries")
+        .delete()
+        .eq("id", id)
+        .eq("company_id", companyId);
+      if (error) {
+        console.error("schedule_entries delete", error);
+        scheduleSaveError();
+        return;
+      }
+    }
     setScheduleEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
-  const handleUpdateScheduleEntry = (id: string, entry: Omit<ScheduleEntry, "id">) => {
+  const handleUpdateScheduleEntry = async (id: string, entry: Omit<ScheduleEntry, "id">) => {
+    if (companyId && supabase) {
+      const row = scheduleRowFromEntry(id, entry);
+      const { id: _omitId, company_id: _omitCompany, created_by: _omitBy, ...changes } = row;
+      void _omitId;
+      void _omitCompany;
+      void _omitBy;
+      const { error } = await supabase
+        .from("schedule_entries")
+        .update(changes)
+        .eq("id", id)
+        .eq("company_id", companyId);
+      if (error) {
+        console.error("schedule_entries update", error);
+        scheduleSaveError();
+        return;
+      }
+    }
     setScheduleEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...entry, id } : e))
     );
