@@ -139,6 +139,22 @@ export function useLogisticsSync({
 
   const reload = useCallback(() => setReloadSig((n) => n + 1), []);
 
+  // ── Aislamiento entre empresas: nunca mostrar la caché de otra empresa en este dispositivo ──
+  useEffect(() => {
+    if (!companyId) return;
+    if (cacheBelongsTo(companyId) !== "other") return;
+    setInventoryItems([]);
+    setVehicles([]);
+    try {
+      localStorage.removeItem(INVENTORY_LS_KEY);
+      localStorage.removeItem(VEHICLES_LS_KEY);
+      localStorage.setItem(LOGISTICS_CACHE_COMPANY_KEY, companyId);
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
   // ── Carga inicial (y recargas) ─────────────────────────────────────────────
   useEffect(() => {
     if (!enabled || !companyId) return;
