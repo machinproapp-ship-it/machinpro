@@ -57,6 +57,17 @@ function complianceRecordStatusLabel(t: Record<string, string>, status: string) 
   return L(t, "missing", "Missing");
 }
 
+function passportComplianceFieldLabel(field: { id: string; name: string }, t: Record<string, string>): string {
+  const m: Record<string, string> = {
+    "cf-liability": "compliance_field_liability_insurance",
+    "cf-compliance": "compliance_field_provincial_compliance",
+    "cf-vehicle-inspection": "compliance_field_safety_inspection",
+    "cf-vehicle-insurance": "compliance_field_vehicle_insurance",
+  };
+  const lk = m[field.id];
+  return lk ? L(t, lk, field.name) : field.name;
+}
+
 type HazardMini = {
   id: string;
   title: string;
@@ -296,8 +307,8 @@ export function SafetyPassportPanel({
             <ul className="space-y-1 text-sm">
               {complianceRows.map(({ field, status }) => (
                 <li key={field.id} className="flex justify-between gap-2 border-b border-zinc-100 pb-1">
-                  <span>{field.name}</span>
-                  <span className="shrink-0 font-medium capitalize">{status}</span>
+                  <span>{passportComplianceFieldLabel(field, t)}</span>
+                  <span className="shrink-0 font-medium">{complianceRecordStatusLabel(t, status)}</span>
                 </li>
               ))}
             </ul>

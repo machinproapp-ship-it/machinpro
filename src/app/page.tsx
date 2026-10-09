@@ -119,6 +119,7 @@ import {
   Shield,
   X,
   Bell,
+  ShieldAlert,
   Settings,
   Menu,
   Search,
@@ -6838,9 +6839,10 @@ export default function Home() {
                     type="button"
                     onClick={() => setComplianceNotifOpen((o) => !o)}
                     className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-gray-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-gray-700 dark:bg-gray-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    aria-label={(t as Record<string, string>).notifications ?? "Notifications"}
+                    aria-label={(t as Record<string, string>).complianceWatchdog ?? "Compliance watchdog"}
+                    title={(t as Record<string, string>).complianceWatchdog ?? "Compliance watchdog"}
                   >
-                    <Bell className="h-5 w-5 shrink-0" aria-hidden />
+                    <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden />
                     <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
                       {criticalComplianceCount > 99 ? "99+" : criticalComplianceCount}
                     </span>
@@ -6851,7 +6853,7 @@ export default function Home() {
                       className="absolute right-0 top-full z-50 mt-2 w-[min(95vw,22rem)] max-md:left-1/2 max-md:right-auto max-md:-translate-x-1/2 rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       <p className="border-b border-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-900 dark:border-zinc-700 dark:text-white">
-                        {(t as Record<string, string>).notifications ?? ""}
+                        {(t as Record<string, string>).complianceWatchdog ?? ""}
                       </p>
                       <ul className="max-h-64 overflow-y-auto py-1">
                         {complianceAlerts.filter((a) => a.severity !== "warning").length === 0 ? (

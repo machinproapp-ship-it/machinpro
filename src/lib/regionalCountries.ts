@@ -143,3 +143,16 @@ export const REGIONAL_TZ_BY_COUNTRY: Record<string, string> = {
   IN: "Asia/Kolkata",
   ZA: "Africa/Johannesburg",
 };
+
+/** Nombre del país en el idioma del usuario (Intl); si no se puede, el nombre de la lista. */
+export function localizedCountryName(code: string, language: string, fallback?: string): string {
+  if (code === "EU") return fallback ?? code;
+  try {
+    const dn = new Intl.DisplayNames([language, "en"], { type: "region" });
+    const n = dn.of(code);
+    if (n && n !== code) return n;
+  } catch {
+    /* Intl.DisplayNames no disponible */
+  }
+  return fallback ?? code;
+}

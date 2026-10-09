@@ -27,6 +27,10 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["project_costs_tool_only", "Herramientas", "Tools", "Outils", "Werkzeuge", "Utensili", "Ferramentas"],
   ["project_costs_notes", "Notas (opcional)", "Notes (optional)", "Notes (facultatif)", "Notizen (optional)", "Note (facoltative)", "Notas (opcional)"],
   ["vacations_allowance_hint", "Saldo anual orientativo según los días de cada empleado (se ajustan en su ficha).", "Indicative annual balance based on each employee's allowance (set it in their profile).", "Solde annuel indicatif selon les jours de chaque employé (à régler dans sa fiche).", "Richtwert für das Jahressaldo nach dem Anspruch jedes Mitarbeiters (im Profil einstellbar).", "Saldo annuale indicativo secondo i giorni di ogni dipendente (si impostano nella sua scheda).", "Saldo anual indicativo segundo os dias de cada funcionário (ajustam-se na sua ficha)."],
+  ["billing_status_trial_expired", "Prueba caducada", "Trial expired", "Essai expiré", "Testphase abgelaufen", "Prova scaduta", "Teste expirado"],
+  ["missing", "Falta", "Missing", "Manquant", "Fehlt", "Mancante", "Em falta"],
+  ["onboarding_compliance_sub", "Central · Empleados · Cumplimiento", "Central · Employees · Compliance", "Central · Employés · Conformité", "Zentrale · Mitarbeiter · Compliance", "Centrale · Dipendenti · Conformità", "Central · Funcionários · Conformidade"],
+  ["onboarding_step6_sub", "Central · Empleados · Cumplimiento", "Central · Employees · Compliance", "Central · Employés · Conformité", "Zentrale · Mitarbeiter · Compliance", "Centrale · Dipendenti · Conformità", "Central · Funcionários · Conformidade"],
   ["employee_full_name", "Nombre completo", "Full name", "Nom complet", "Vollständiger Name", "Nome completo", "Nome completo"],
 ];
 

@@ -30,13 +30,19 @@ const TRIAL_TOTAL_DAYS = 14;
 
 function statusLabel(
   t: Record<string, string>,
-  status: string | undefined
+  status: string | undefined,
+  trialEndsAt?: string | null
 ): string {
   switch (status) {
     case "active":
       return t.billing_status_active ?? "Active";
-    case "trialing":
+    case "trialing": {
+      const ends = trialEndsAt ? new Date(trialEndsAt).getTime() : NaN;
+      if (Number.isFinite(ends) && ends <= Date.now()) {
+        return t.billing_status_trial_expired ?? "Trial expired";
+      }
       return t.subscription_status_trialing ?? t.billing_status_trialing ?? "In trial";
+    }
     case "past_due":
       return t.billing_status_past_due ?? "Past due";
     case "canceled":
@@ -309,7 +315,7 @@ export function BillingModule({
           <div>
             <dt className="text-gray-500 dark:text-gray-400">{t.billing_field_status ?? "Status"}</dt>
             <dd className="font-medium text-gray-900 dark:text-white mt-1">
-              {statusLabel(t, subscription?.status)}
+              {statusLabel(t, subscription?.status, subscription?.trial_ends_at)}
             </dd>
           </div>
           <div>
