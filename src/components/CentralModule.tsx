@@ -1388,7 +1388,7 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                if (a.source === "vehicle") {
+                                if ((a.source === "vehicle" || a.source === "equipment")) {
                                   onNavigateAppSection?.("warehouse");
                                 } else if (a.source === "subcontractor") {
                                   onNavigateAppSection?.("subcontractors");
@@ -1399,7 +1399,7 @@ export function CentralModule({
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-red-300/80 bg-white px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/40"
                             >
-                              {a.source === "vehicle"
+                              {(a.source === "vehicle" || a.source === "equipment")
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
                                 : a.source === "subcontractor"
                                   ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
@@ -1449,7 +1449,7 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                if (a.source === "vehicle") {
+                                if ((a.source === "vehicle" || a.source === "equipment")) {
                                   onNavigateAppSection?.("warehouse");
                                 } else if (a.source === "subcontractor") {
                                   onNavigateAppSection?.("subcontractors");
@@ -1460,7 +1460,7 @@ export function CentralModule({
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-amber-300/80 bg-white px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-50 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-100 dark:hover:bg-amber-950/40"
                             >
-                              {a.source === "vehicle"
+                              {(a.source === "vehicle" || a.source === "equipment")
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
                                 : a.source === "subcontractor"
                                   ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")
@@ -1510,7 +1510,7 @@ export function CentralModule({
                             <button
                               type="button"
                               onClick={() => {
-                                if (a.source === "vehicle") {
+                                if ((a.source === "vehicle" || a.source === "equipment")) {
                                   onNavigateAppSection?.("warehouse");
                                 } else if (a.source === "subcontractor") {
                                   onNavigateAppSection?.("subcontractors");
@@ -1521,7 +1521,7 @@ export function CentralModule({
                               }}
                               className="min-h-[44px] shrink-0 rounded-lg border border-yellow-300/80 bg-white px-4 py-2 text-sm font-medium text-yellow-900 hover:bg-yellow-50 dark:border-yellow-800 dark:bg-zinc-900 dark:text-yellow-100 dark:hover:bg-yellow-950/30"
                             >
-                              {a.source === "vehicle"
+                              {(a.source === "vehicle" || a.source === "equipment")
                                 ? (tl.whTabFleet ?? tl.warehouse ?? "Fleet")
                                 : a.source === "subcontractor"
                                   ? (tl.compliance_source_subcontractor ?? tl.subcontractors ?? "Subcontractor")

@@ -128,7 +128,7 @@ import { useLogisticsSync } from "@/lib/useLogisticsSync";
 import { InspectionSettingsFields, type InspectionSettingsValue } from "@/components/InspectionSettingsFields";
 import { InspectionsPanel } from "@/components/InspectionsPanel";
 import type { InspectableItemRef } from "@/components/EquipmentInspectionFlow";
-import type { EquipmentInspection } from "@/lib/inspections";
+import { fetchInspectionStatus, type EquipmentInspection } from "@/lib/inspections";
 import { postAppNotification } from "@/lib/clientNotifications";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NotificationsFullPanel } from "@/components/NotificationsFullPanel";
@@ -142,6 +142,8 @@ import { logAuditEvent, type AuditLogEntry } from "@/lib/useAuditLog";
 import {
   mergeComplianceAlerts,
   runComplianceWatchdog,
+  runEquipmentInspectionWatchdog,
+  type EquipmentInspectionStatusForWatchdog,
   runVehicleDocumentsWatchdog,
   runSubcontractorWatchdog,
   runProjectEmployeeComplianceCheck,
@@ -1422,6 +1424,8 @@ export default function Home() {
   const { subscription: subscriptionRow } = useSubscription(companyId);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
+  /** Estado de inspecciones previas al uso (vista v_equipment_inspection_status) para el Watchdog. */
+  const [equipmentInspectionStatus, setEquipmentInspectionStatus] = useState<EquipmentInspectionStatusForWatchdog[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
@@ -2319,6 +2323,24 @@ export default function Home() {
     demoVehicleIds: DEMO_VEHICLE_IDS,
     normalizeVehicles: normalizeLoadedVehicles,
   });
+  useEffect(() => {
+    if (!session || !companyId) return;
+    let alive = true;
+    const loadStatus = () =>
+      fetchInspectionStatus(companyId)
+        .then((rows) => {
+          if (alive) setEquipmentInspectionStatus(rows);
+        })
+        .catch(() => {
+          /* tabla aún sin migrar o sin conexión: el Watchdog sigue con lo demás */
+        });
+    void loadStatus();
+    const timer = setInterval(loadStatus, 5 * 60_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [session, companyId, logisticsSync.status]);
   const [rentals, setRentals] = useState<Rental[]>(() => {
     if (typeof window === "undefined") return INITIAL_RENTALS;
     try {
@@ -4098,7 +4120,11 @@ export default function Home() {
       })),
       (employees ?? []) as CentralEmployee[]
     );
-    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts, subAlerts, projectEmpAlerts);
+    const equipmentAlerts = runEquipmentInspectionWatchdog(
+      equipmentInspectionStatus,
+      Object.fromEntries((projects ?? []).map((p) => [p.id, p.name] as const))
+    );
+    const merged = mergeComplianceAlerts(empAlerts, vehicleAlerts, subAlerts, projectEmpAlerts, equipmentAlerts);
     setComplianceAlerts(merged);
     if (shouldRunWatchdog()) {
       setLastWatchdogRun();
@@ -4106,7 +4132,7 @@ export default function Home() {
         console.log(`[ComplianceWatchdog] ${merged.length} alertas encontradas`);
       }
     }
-  }, [employees, vehicles, subcontractorsForWatchdog, projects]);
+  }, [employees, vehicles, subcontractorsForWatchdog, projects, equipmentInspectionStatus]);
 
   useEffect(() => {
     if (!complianceNotifOpen) return;
@@ -7509,6 +7535,7 @@ export default function Home() {
               <>
               <LogisticsModule
                 warehouseSubTab={effectiveWarehouseSubTab}
+                syncError={logisticsSync.status === "error" ? logisticsSync.lastError : null}
                 inspectionsPanel={
                   companyId && (rolePerms.canPerformInspections || rolePerms.canViewInspections || rolePerms.canManageInspectionTemplates) ? (
                     <InspectionsPanel
