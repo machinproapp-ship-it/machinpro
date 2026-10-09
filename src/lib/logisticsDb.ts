@@ -137,7 +137,7 @@ export function vehicleToRow(v: Vehicle, companyId: string): Record<string, unkn
     id: v.id,
     company_id: companyId,
     label: strOrNull(v.label) ?? strOrNull(v.plate),
-    plate: v.plate ?? "",
+    plate: strOrNull(v.plate),
     vehicle_status: v.vehicleStatus ?? "available",
     usual_driver_employee_id: strOrNull(v.usualDriverId),
     current_project_id: v.currentProjectId ?? null,

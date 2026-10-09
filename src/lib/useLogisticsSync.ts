@@ -85,12 +85,33 @@ function newUuid(): string {
   });
 }
 
-async function upsertChunks(table: string, rows: Record<string, unknown>[]): Promise<string | null> {
+type UpsertResult = { error: string | null; failedIds: Set<string> };
+
+/**
+ * Sube filas en bloques. Si un bloque falla, reintenta fila a fila para que un registro
+ * con datos inválidos no impida guardar el resto; devuelve los ids que no se pudieron guardar.
+ */
+async function upsertChunks(table: string, rows: Record<string, unknown>[]): Promise<UpsertResult> {
+  const failedIds = new Set<string>();
+  let firstError: string | null = null;
   for (let i = 0; i < rows.length; i += CHUNK) {
-    const { error } = await supabase.from(table).upsert(rows.slice(i, i + CHUNK), { onConflict: "id" });
-    if (error) return error.message;
+    const chunk = rows.slice(i, i + CHUNK);
+    const { error } = await supabase.from(table).upsert(chunk, { onConflict: "id" });
+    if (!error) continue;
+    if (chunk.length === 1) {
+      failedIds.add(String(chunk[0].id));
+      firstError = firstError ?? error.message;
+      continue;
+    }
+    for (const row of chunk) {
+      const { error: rowErr } = await supabase.from(table).upsert([row], { onConflict: "id" });
+      if (rowErr) {
+        failedIds.add(String(row.id));
+        firstError = firstError ?? rowErr.message;
+      }
+    }
   }
-  return null;
+  return { error: firstError, failedIds };
 }
 
 export function useLogisticsSync({
@@ -141,6 +162,8 @@ export function useLogisticsSync({
       let veh: Vehicle[] = ((vehRes.data ?? []) as Record<string, unknown>[]).map((r) => vehicleFromRow(r));
       const toImportInv: InventoryItem[] = [];
       const toImportVeh: Vehicle[] = [];
+      let importFailedInv = new Set<string>();
+      let importFailedVeh = new Set<string>();
 
       // Datos que este dispositivo guardó antes de existir la sincronización: se suben una sola vez,
       // solo si la caché es de esta empresa (o no tiene dueño) y no son los datos de ejemplo.
@@ -161,27 +184,40 @@ export function useLogisticsSync({
         }
       }
 
+      // Lo que no se pudo subir se mantiene en pantalla y queda pendiente (se reintenta luego).
       if (toImportInv.length) {
-        const err = await upsertChunks("inventory_items", toImportInv.map((i) => inventoryItemToRow(i, companyId)));
-        if (!err) inv = [...inv, ...toImportInv];
-        else setLastError(err);
+        const res = await upsertChunks("inventory_items", toImportInv.map((i) => inventoryItemToRow(i, companyId)));
+        inv = [...inv, ...toImportInv];
+        if (res.error) {
+          setLastError(res.error);
+          importFailedInv = res.failedIds;
+        }
       }
       if (toImportVeh.length) {
-        const err = await upsertChunks("fleet_vehicles", toImportVeh.map((v) => vehicleToRow(v, companyId)));
-        if (!err) veh = [...veh, ...toImportVeh];
-        else setLastError(err);
+        const res = await upsertChunks("fleet_vehicles", toImportVeh.map((v) => vehicleToRow(v, companyId)));
+        veh = [...veh, ...toImportVeh];
+        if (res.error) {
+          setLastError(res.error);
+          importFailedVeh = res.failedIds;
+        }
       }
       if (cancelled) return;
 
       if (normalizeVehicles) veh = normalizeVehicles(veh);
-      invSnap.current = new Map(inv.map((i) => [i.id, rowFingerprint(inventoryItemToRow(i, companyId))]));
-      vehSnap.current = new Map(veh.map((v) => [v.id, rowFingerprint(vehicleToRow(v, companyId))]));
+      // Las filas que fallaron no entran en la "foto" de lo guardado, así se vuelven a intentar.
+      invSnap.current = new Map(
+        inv.filter((i) => !importFailedInv.has(i.id)).map((i) => [i.id, rowFingerprint(inventoryItemToRow(i, companyId))])
+      );
+      vehSnap.current = new Map(
+        veh.filter((v) => !importFailedVeh.has(v.id)).map((v) => [v.id, rowFingerprint(vehicleToRow(v, companyId))])
+      );
       loadedFor.current = companyId;
-      pending.current = false;
+      const someFailed = importFailedInv.size > 0 || importFailedVeh.size > 0;
+      pending.current = someFailed;
       setInventoryItems(inv);
       setVehicles(veh);
       writeCache(companyId, inv, veh);
-      setStatus("synced");
+      setStatus(someFailed ? "error" : "synced");
     })();
     return () => {
       cancelled = true;
@@ -223,35 +259,47 @@ export function useLogisticsSync({
           const vehRemoved = [...vehSnap.current.keys()].filter((id) => !vehIds.has(id));
 
           let err: string | null = null;
-          if (invChanged.length) err = await upsertChunks("inventory_items", invChanged);
-          if (!err && invRemoved.length) {
+          let invFailed = new Set<string>();
+          let vehFailed = new Set<string>();
+          if (invChanged.length) {
+            const res = await upsertChunks("inventory_items", invChanged);
+            invFailed = res.failedIds;
+            err = res.error;
+          }
+          if (invRemoved.length) {
             const { error } = await supabase
               .from("inventory_items")
               .update({ deleted_at: now })
               .eq("company_id", companyId)
               .in("id", invRemoved);
-            err = error?.message ?? null;
+            if (error) err = err ?? error.message;
+            else for (const id of invRemoved) invSnap.current.delete(id);
           }
-          if (!err && vehChanged.length) err = await upsertChunks("fleet_vehicles", vehChanged);
-          if (!err && vehRemoved.length) {
+          if (vehChanged.length) {
+            const res = await upsertChunks("fleet_vehicles", vehChanged);
+            vehFailed = res.failedIds;
+            err = err ?? res.error;
+          }
+          if (vehRemoved.length) {
             const { error } = await supabase
               .from("fleet_vehicles")
               .update({ deleted_at: now })
               .eq("company_id", companyId)
               .in("id", vehRemoved);
-            err = error?.message ?? null;
+            if (error) err = err ?? error.message;
+            else for (const id of vehRemoved) vehSnap.current.delete(id);
           }
+
+          // Lo que sí se guardó queda registrado aunque otra fila haya fallado.
+          for (const r of invChanged) if (!invFailed.has(String(r.id))) invSnap.current.set(String(r.id), rowFingerprint(r));
+          for (const r of vehChanged) if (!vehFailed.has(String(r.id))) vehSnap.current.set(String(r.id), rowFingerprint(r));
+          writeCache(companyId, inv, veh);
 
           if (err) {
             setLastError(err);
             setStatus("error");
             return;
           }
-          for (const r of invChanged) invSnap.current.set(String(r.id), rowFingerprint(r));
-          for (const id of invRemoved) invSnap.current.delete(id);
-          for (const r of vehChanged) vehSnap.current.set(String(r.id), rowFingerprint(r));
-          for (const id of vehRemoved) vehSnap.current.delete(id);
-          writeCache(companyId, inv, veh);
           pending.current = false;
           setLastError(null);
           setStatus("synced");
