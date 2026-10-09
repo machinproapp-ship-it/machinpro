@@ -230,6 +230,7 @@ export async function POST(req: NextRequest) {
       color: "#b45309",
       permissions: fullAdministratorPermissions(),
       is_system: true,
+      base_role: "admin",
     });
     if (seedRoleErr) {
       throw new Error(seedRoleErr.message);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { verifyCanManageEmployees } from "@/lib/verify-api-session";
+import { verifyCallerPermission } from "@/lib/verify-api-session";
 import { ROLE_PERMISSION_KEYS, type RolePermissions } from "@/types/roles";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
@@ -33,37 +33,41 @@ function legacyEnumFromCustomRoleId(customRoleId: string): "admin" | "supervisor
   return null;
 }
 
+/**
+ * Tipo de usuario base del nuevo empleado. Sale de `roles.base_role`, nunca del nombre del rol:
+ * la empresa llama a sus roles como quiera.
+ */
 async function resolveRoleFields(
   admin: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
   companyId: string,
   customRoleIdRaw: string | null
 ): Promise<{ profileRole: "admin" | "supervisor" | "worker" | "logistic"; customRoleIdOut: string | null }> {
+  const asBase = (v: unknown): "admin" | "supervisor" | "worker" | "logistic" =>
+    v === "admin" || v === "supervisor" || v === "logistic" ? v : "worker";
   const trimmed = customRoleIdRaw?.trim() || "";
   if (trimmed) {
     const legacy = legacyEnumFromCustomRoleId(trimmed);
     if (legacy) return { profileRole: legacy, customRoleIdOut: trimmed };
     const { data: roleRow } = await admin
       .from("roles")
-      .select("name")
+      .select("id, base_role")
       .eq("id", trimmed)
       .eq("company_id", companyId)
       .maybeSingle();
-    if (roleRow && typeof (roleRow as { name?: string }).name === "string") {
-      const n = String((roleRow as { name: string }).name).toLowerCase();
-      if (n.includes("administr")) return { profileRole: "admin", customRoleIdOut: trimmed };
-      if (n.includes("supervisor")) return { profileRole: "supervisor", customRoleIdOut: trimmed };
-      if (n.includes("logist")) return { profileRole: "logistic", customRoleIdOut: trimmed };
-      return { profileRole: "worker", customRoleIdOut: trimmed };
+    if (roleRow) {
+      return { profileRole: asBase((roleRow as { base_role?: string | null }).base_role), customRoleIdOut: trimmed };
     }
   }
-  const { data: empRow } = await admin
+  // Sin rol elegido: el rol marcado por la empresa para usuarios nuevos; si no hay, el de tipo trabajador.
+  const { data: defRows } = await admin
     .from("roles")
-    .select("id")
+    .select("id, base_role, is_default_for_new, is_system, created_at")
     .eq("company_id", companyId)
-    .ilike("name", "Empleado")
-    .maybeSingle();
-  const empId = empRow && (empRow as { id?: string }).id != null ? String((empRow as { id: string }).id) : null;
-  return { profileRole: "worker", customRoleIdOut: empId };
+    .order("is_default_for_new", { ascending: false })
+    .order("created_at", { ascending: true });
+  const rows = (defRows ?? []) as { id: string; base_role?: string | null; is_default_for_new?: boolean | null }[];
+  const def = rows.find((r) => r.is_default_for_new) ?? rows.find((r) => r.base_role === "worker") ?? null;
+  return { profileRole: def ? asBase(def.base_role) : "worker", customRoleIdOut: def?.id ?? null };
 }
 
 export async function POST(req: NextRequest) {
@@ -141,9 +145,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing companyId, fullName or email" }, { status: 400 });
   }
 
-  const authz = await verifyCanManageEmployees(req, companyId);
+  const authz = await verifyCallerPermission(req, companyId, "canManageEmployees");
   if (!authz) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Solo un admin puede dar de alta a otro admin (nadie se fabrica un admin desde otro rol).
+  const { profileRole: baseRole, customRoleIdOut: customRoleId } = await resolveRoleFields(
+    admin,
+    companyId,
+    customRoleIdBody
+  );
+  if (baseRole === "admin" && !authz.isAdmin) {
+    return NextResponse.json({ error: "Only an admin can create another admin" }, { status: 403 });
   }
 
   const { data: exists } = await admin.from("user_profiles").select("id").eq("email", email).maybeSingle();
@@ -169,11 +183,6 @@ export async function POST(req: NextRequest) {
     }
     userId = createdUser.user.id;
 
-    const { profileRole: baseRole, customRoleIdOut: customRoleId } = await resolveRoleFields(
-      admin,
-      companyId,
-      customRoleIdBody
-    );
 
     const effectivePayType = payType;
     const payAmountForRow =

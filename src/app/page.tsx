@@ -3350,6 +3350,8 @@ export default function Home() {
                 color: r.color,
                 permissions: r.permissions,
                 is_system: true,
+                base_role: r.id.replace(/^role-/, ""),
+                is_default_for_new: r.id === "role-worker",
               }));
           const { data: inserted, error: insErr } = await supabase.from("roles").insert(seedRows).select("*");
           if (cancelled) return;
@@ -7224,6 +7226,8 @@ export default function Home() {
                       color: role.color,
                       permissions: role.permissions,
                       is_system: false,
+                      base_role: role.baseRole ?? "worker",
+                      is_default_for_new: role.isDefaultForNew === true,
                     })
                     .select("*")
                     .single();
@@ -7231,7 +7235,14 @@ export default function Home() {
                     console.error("[page] roles insert", error);
                     return;
                   }
-                  setCustomRoles((prev) => [...prev, customRoleFromSupabaseRow(data as RolesTableRow)]);
+                  const created = customRoleFromSupabaseRow(data as RolesTableRow);
+                  if (created.isDefaultForNew) {
+                    await supabase.from("roles").update({ is_default_for_new: false }).eq("company_id", companyId).neq("id", created.id);
+                  }
+                  setCustomRoles((prev) => [
+                    ...prev.map((r) => (created.isDefaultForNew ? { ...r, isDefaultForNew: false } : r)),
+                    created,
+                  ]);
                 }}
                 onUpdateRole={async (role) => {
                   if (!supabase || !companyId) {
@@ -7244,6 +7255,8 @@ export default function Home() {
                       name: role.name,
                       color: role.color,
                       permissions: role.permissions,
+                      base_role: role.baseRole ?? null,
+                      is_default_for_new: role.isDefaultForNew === true,
                     })
                     .eq("id", role.id)
                     .eq("company_id", companyId);
@@ -7251,7 +7264,12 @@ export default function Home() {
                     console.error("[page] roles update", error);
                     return;
                   }
-                  setCustomRoles((prev) => prev.map((r) => (r.id === role.id ? role : r)));
+                  if (role.isDefaultForNew) {
+                    await supabase.from("roles").update({ is_default_for_new: false }).eq("company_id", companyId).neq("id", role.id);
+                  }
+                  setCustomRoles((prev) =>
+                    prev.map((r) => (r.id === role.id ? role : role.isDefaultForNew ? { ...r, isDefaultForNew: false } : r))
+                  );
                 }}
                 onDeleteRole={async (id) => {
                   const row = customRoles.find((r) => r.id === id);
