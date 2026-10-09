@@ -4163,6 +4163,12 @@ export default function Home() {
               (projects ?? []).find((p) => p.id === projectId)?.name ?? "",
               projectId
             );
+          } else {
+            showToast(
+              "error",
+              (t as Record<string, string>).photoUploadNotAllowed ??
+                "No se pudo guardar la foto. Puede que no tengas permiso para subir fotos en este proyecto."
+            );
           }
           if (fabCategory === "incident" && newId) {
             setFabIncidentToolModal({ entryId: newId, projectId });
@@ -7853,6 +7859,12 @@ export default function Home() {
                       (projects ?? []).find((p) => p.id === projectId)?.name ?? "",
                       projectId
                     );
+                  } else {
+                    showToast(
+                      "error",
+                      (t as Record<string, string>).photoUploadNotAllowed ??
+                        "No se pudo guardar la foto. Puede que no tengas permiso para subir fotos en este proyecto."
+                    );
                   }
                 }}
                 onPhotoInventario={() => {}}
@@ -8162,7 +8174,13 @@ export default function Home() {
                     },
                   });
                 }}
-                canUploadPhotos={!!rolePerms.canUploadPhotos}
+                canUploadPhotos={
+                  effectiveRole === "admin" ||
+                  !!rolePerms.canManageProjectGallery ||
+                  (!!rolePerms.canUploadPhotos &&
+                    (!rolePerms.canViewOnlyAssignedProjects ||
+                      myProjectIdsForInspections.includes(siteSelectedProjectId ?? "")))
+                }
                 onGalleryPhotoDownloaded={(payload) => {
                   void logAuditEvent({
                     company_id: companyId ?? "",
