@@ -169,9 +169,9 @@ export function ProjectEpiSafetyTab({
                     }}
                     className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 text-sm min-h-[44px] px-2"
                   >
-                    <option value="ppe">ppe</option>
-                    <option value="certification">certification</option>
-                    <option value="procedure">procedure</option>
+                    <option value="ppe">{tl.safety_cat_ppe ?? "EPI"}</option>
+                    <option value="certification">{tl.safety_cat_certification ?? "Certificación"}</option>
+                    <option value="procedure">{tl.safety_cat_procedure ?? "Procedimiento"}</option>
                   </select>
                   <select
                     value={row.nameKey}
@@ -226,7 +226,7 @@ export function ProjectEpiSafetyTab({
                 </>
               ) : (
                 <span className="text-sm text-zinc-800 dark:text-zinc-100">
-                  [{row.category}] {row.name}
+                  [{tl[`safety_cat_${row.category}`] ?? row.category}] {row.name}
                 </span>
               )}
             </li>

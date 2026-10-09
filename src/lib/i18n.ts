@@ -32,6 +32,7 @@ import { AH61_GAP_FR } from "@/locales/gapFill/ah61-fr";
 import { AH61_GAP_IT } from "@/locales/gapFill/ah61-it";
 import { AH61_GAP_PT } from "@/locales/gapFill/ah61-pt";
 import { AUDIT_I18N } from "@/locales/auditI18n";
+import { REVISION_I18N } from "@/locales/revisionI18n";
 import type { SecurityMessages } from "@/locales/types";
 
 export const LANGUAGES: { code: Language; flag: string; label: string }[] = [
@@ -60,7 +61,7 @@ export const LANGUAGES: { code: Language; flag: string; label: string }[] = [
 
 type LocaleModule = Record<string, string>;
 
-const EN = { ...(en as object), ...AUDIT_I18N.en } as Record<string, unknown>;
+const EN = { ...(en as object), ...AUDIT_I18N.en, ...REVISION_I18N.en } as Record<string, unknown>;
 
 function isSecurityMessages(v: unknown): v is SecurityMessages {
   return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -105,12 +106,12 @@ export async function loadLocale(lang: string): Promise<Record<string, string>> 
 }
 
 export const ALL_TRANSLATIONS: Record<string, Record<string, string>> = {
-  es: mergeWithEn({ ...(es as object), ...PERMISSION_LABELS_ES, ...AH61_GAP_ES, ...AUDIT_I18N.es } as Record<string, unknown>),
-  en: mergeWithEn({ ...(en as object), ...PERMISSION_LABELS_EN, ...AUDIT_I18N.en } as Record<string, unknown>),
-  fr: mergeWithEn({ ...(fr as object), ...PERMISSION_LABELS_FR, ...AH61_GAP_FR, ...AUDIT_I18N.fr } as Record<string, unknown>),
-  de: mergeWithEn({ ...(de as object), ...PERMISSION_LABELS_DE, ...AH61_GAP_DE, ...AUDIT_I18N.de } as Record<string, unknown>),
-  it: mergeWithEn({ ...(it as object), ...PERMISSION_LABELS_IT, ...AH61_GAP_IT, ...AUDIT_I18N.it } as Record<string, unknown>),
-  pt: mergeWithEn({ ...(pt as object), ...PERMISSION_LABELS_PT, ...AH61_GAP_PT, ...AUDIT_I18N.pt } as Record<string, unknown>),
+  es: mergeWithEn({ ...(es as object), ...PERMISSION_LABELS_ES, ...AH61_GAP_ES, ...AUDIT_I18N.es, ...REVISION_I18N.es } as Record<string, unknown>),
+  en: mergeWithEn({ ...(en as object), ...PERMISSION_LABELS_EN, ...AUDIT_I18N.en, ...REVISION_I18N.en } as Record<string, unknown>),
+  fr: mergeWithEn({ ...(fr as object), ...PERMISSION_LABELS_FR, ...AH61_GAP_FR, ...AUDIT_I18N.fr, ...REVISION_I18N.fr } as Record<string, unknown>),
+  de: mergeWithEn({ ...(de as object), ...PERMISSION_LABELS_DE, ...AH61_GAP_DE, ...AUDIT_I18N.de, ...REVISION_I18N.de } as Record<string, unknown>),
+  it: mergeWithEn({ ...(it as object), ...PERMISSION_LABELS_IT, ...AH61_GAP_IT, ...AUDIT_I18N.it, ...REVISION_I18N.it } as Record<string, unknown>),
+  pt: mergeWithEn({ ...(pt as object), ...PERMISSION_LABELS_PT, ...AH61_GAP_PT, ...AUDIT_I18N.pt, ...REVISION_I18N.pt } as Record<string, unknown>),
 };
 
 export type LanguageWithTranslations =

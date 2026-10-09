@@ -3412,8 +3412,8 @@ export default function ScheduleModule({
                   const lines: string[] = [
                     [
                       lx.personnel ?? "User",
-                      lx.date ?? "Start",
-                      lx.date ?? "End",
+                      lx.vacation_start_date ?? "Start",
+                      lx.vacation_end_date ?? "End",
                       lx.days ?? "Days",
                       "Type",
                     ]
