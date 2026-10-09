@@ -124,6 +124,7 @@ import {
   Search,
 } from "lucide-react";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
+import { useLogisticsSync } from "@/lib/useLogisticsSync";
 import { postAppNotification } from "@/lib/clientNotifications";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NotificationsFullPanel } from "@/components/NotificationsFullPanel";
@@ -802,6 +803,11 @@ const INITIAL_INVENTORY: InventoryItem[] = [
 const INITIAL_VEHICLES: Vehicle[] = [
   { id: "v1", plate: "ABC-1234", usualDriverId: "e2", currentProjectId: "p1", insuranceExpiry: "2026-08-15", inspectionExpiry: "2026-07-01" },
 ];
+const DEMO_INVENTORY_IDS: ReadonlySet<string> = new Set(INITIAL_INVENTORY.map((i) => i.id));
+const DEMO_VEHICLE_IDS: ReadonlySet<string> = new Set(INITIAL_VEHICLES.map((v) => v.id));
+function normalizeLoadedVehicles(list: Vehicle[]): Vehicle[] {
+  return list.map((v) => ({ ...v, documents: ensureVehicleDocuments(v, undefined, undefined) }));
+}
 
 const INITIAL_RENTALS: Rental[] = [
   {
@@ -2289,6 +2295,18 @@ export default function Home() {
     } catch {
       return normalize(INITIAL_VEHICLES);
     }
+  });
+  /** Inventario y flota viven en Supabase; localStorage queda solo como caché offline. */
+  const logisticsSync = useLogisticsSync({
+    companyId,
+    enabled: !!session && !!companyId,
+    inventoryItems,
+    setInventoryItems,
+    vehicles,
+    setVehicles,
+    demoInventoryIds: DEMO_INVENTORY_IDS,
+    demoVehicleIds: DEMO_VEHICLE_IDS,
+    normalizeVehicles: normalizeLoadedVehicles,
   });
   const [rentals, setRentals] = useState<Rental[]>(() => {
     if (typeof window === "undefined") return INITIAL_RENTALS;
@@ -6111,7 +6129,7 @@ export default function Home() {
   }
   const qrUrlForAsset = (id: string) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(id)}`;
   async function saveNewItem() {
-    const id = "inv" + Date.now();
+    const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "inv" + Date.now();
     const isTracked = newItemCategory === "tool" || newItemCategory === "equipment";
     const qrText = newItemQrCodeText.trim();
     let qrCode = qrUrlForAsset(id);
@@ -6239,7 +6257,7 @@ export default function Home() {
         return next;
       });
     } else {
-      const id = "v" + Date.now();
+      const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "v" + Date.now();
       const newVehicle: Vehicle = {
         id,
         plate: vehicleDraft.plate ?? "",
