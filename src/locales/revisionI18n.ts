@@ -37,6 +37,7 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["vehicle_plate", "Matrícula", "Licence plate", "Immatriculation", "Kennzeichen", "Targa", "Matrícula"],
   ["project_save_failed", "No se pudo guardar la obra. Revisa la conexión e inténtalo de nuevo.", "The project could not be saved. Check your connection and try again.", "Le projet n'a pas pu être enregistré. Vérifiez la connexion et réessayez.", "Das Projekt konnte nicht gespeichert werden. Prüfe die Verbindung und versuche es erneut.", "Impossibile salvare il progetto. Controlla la connessione e riprova.", "Não foi possível guardar a obra. Verifica a ligação e tenta de novo."],
   ["project_delete_failed", "No se pudo borrar la obra.", "The project could not be deleted.", "Le projet n'a pas pu être supprimé.", "Das Projekt konnte nicht gelöscht werden.", "Impossibile eliminare il progetto.", "Não foi possível apagar a obra."],
+  ["clock_out_save_failed", "No se pudo guardar tu salida. Revisa la conexión e inténtalo de nuevo.", "Your clock-out could not be saved. Check your connection and try again.", "Ta sortie n'a pas pu être enregistrée. Vérifie la connexion et réessaie.", "Dein Ausstempeln konnte nicht gespeichert werden. Prüfe die Verbindung und versuche es erneut.", "Impossibile salvare l'uscita. Controlla la connessione e riprova.", "Não foi possível guardar a tua saída. Verifica a ligação e tenta de novo."],
   ["employee_full_name", "Nombre completo", "Full name", "Nom complet", "Vollständiger Name", "Nome completo", "Nome completo"],
 ];
 

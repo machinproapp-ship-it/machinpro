@@ -5240,7 +5240,7 @@ export default function Home() {
             ? new Date((row as { clock_in_at: string }).clock_in_at).getTime()
             : Date.now();
           const mins = Math.max(0, Math.round((Date.now() - clockInAt) / 60_000));
-          await supabase
+          const { data: closedRows, error: closeErr } = await supabase
             .from("time_entries")
             .update({
               clock_out_at: new Date().toISOString(),
@@ -5249,7 +5249,17 @@ export default function Home() {
               status: "completed",
               total_minutes: mins,
             })
-            .eq("id", openEntry.id);
+            .eq("id", openEntry.id)
+            .select("id");
+          if (closeErr || !closedRows?.length) {
+            console.error("[page] clock out", closeErr);
+            showToast(
+              "error",
+              (t as Record<string, string>).clock_out_save_failed ??
+                "Your clock-out could not be saved. Check your connection and try again."
+            );
+            return;
+          }
           setDbClockEntries((prev) =>
             prev.map((e) => (e.id === openEntry.id ? { ...e, clockOut: outTime } : e))
           );
