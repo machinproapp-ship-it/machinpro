@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type { PayrollPeriod } from "@/lib/payroll";
 import type { ProductionReport } from "@/lib/productionCatalog";
 import { formatTodayYmdInTimeZone, normalizeIntlCalendarLocale } from "@/lib/dateUtils";
@@ -9,10 +9,9 @@ import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/li
 import { generatePayrollPdf } from "@/lib/generatePayrollPdf";
 import {
   generateInvoicePdf,
-  nextMachinProInvoiceNumber,
-  peekMachinProInvoiceNumber,
   defaultInvoiceTaxPercent,
 } from "@/lib/generateInvoicePdf";
+import { InvoiceNumberUnavailableError, peekInvoiceNumber, reserveInvoiceNumber } from "@/lib/invoiceNumbering";
 import { useToast } from "@/components/Toast";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { supabase } from "@/lib/supabase";
@@ -147,6 +146,17 @@ export function ProductionPayrollSchedulePanel({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [busyEmp, setBusyEmp] = useState<string | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoicePreviewNumber, setInvoicePreviewNumber] = useState<string | null>(null);
+  useEffect(() => {
+    if (!invoiceOpen || !companyId) return;
+    let alive = true;
+    void peekInvoiceNumber(companyId).then((n) => {
+      if (alive) setInvoicePreviewNumber(n);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [invoiceOpen, companyId]);
   const [invClientName, setInvClientName] = useState("");
   const [invClientAddr, setInvClientAddr] = useState("");
   const [invClientEmail, setInvClientEmail] = useState("");
@@ -392,7 +402,14 @@ export function ProductionPayrollSchedulePanel({
     }
     void (async () => {
       try {
-        const num = nextMachinProInvoiceNumber(companyId || "co");
+        const subtotal = aggregatedInvoiceLines.reduce((acc, l) => acc + (Number(l.lineTotal) || 0), 0);
+        const num = await reserveInvoiceNumber(companyId || "co", {
+          source: "production_payroll",
+          projectId: null,
+          clientName: invClientName.trim() || null,
+          total: subtotal * (1 + tax / 100),
+          currency: currency ?? null,
+        });
         const { blob, filename } = await generateInvoicePdf({
           labels: lx,
           companyName,
@@ -429,7 +446,12 @@ export function ProductionPayrollSchedulePanel({
         showToast("success", L("export_success", "Export completed"));
         setInvoiceOpen(false);
       } catch (e) {
-        showToast("error", (e as Error)?.message ?? L("export_error", "Export error"));
+        showToast(
+          "error",
+          e instanceof InvoiceNumberUnavailableError
+            ? L("invoice_number_needs_connection", "Connect to the internet to issue the invoice: its number must be unique.")
+            : (e as Error)?.message ?? L("export_error", "Export error")
+        );
       }
     })();
   };
@@ -664,7 +686,7 @@ export function ProductionPayrollSchedulePanel({
               {periodBounds.start} → {periodBounds.end}
             </p>
             <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
-              {L("invoice_preview_number", "Invoice number")}: {peekMachinProInvoiceNumber(companyId || "co")}
+              {L("invoice_preview_number", "Invoice number")}: {invoicePreviewNumber ?? "…"}
             </p>
             <label className="block text-xs text-zinc-500">
               {L("invoice_client_name", "Client name")}

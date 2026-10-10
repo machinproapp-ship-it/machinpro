@@ -97,10 +97,9 @@ import {
 } from "@/lib/productionCatalog";
 import {
   generateInvoicePdf,
-  nextMachinProInvoiceNumber,
-  peekMachinProInvoiceNumber,
   defaultInvoiceTaxPercent,
 } from "@/lib/generateInvoicePdf";
+import { InvoiceNumberUnavailableError, peekInvoiceNumber, reserveInvoiceNumber } from "@/lib/invoiceNumbering";
 import { generateBenefitReportPdf } from "@/lib/generateBenefitReportPdf";
 import {
   formatTodayYmdInTimeZone,
@@ -811,6 +810,17 @@ export function ProjectsModule({
   const [costFormNotes, setCostFormNotes] = useState("");
   const [costFormBusy, setCostFormBusy] = useState(false);
   const [costInvoiceOpen, setCostInvoiceOpen] = useState(false);
+  const [costInvoicePreviewNumber, setCostInvoicePreviewNumber] = useState<string | null>(null);
+  useEffect(() => {
+    if (!costInvoiceOpen || !companyId) return;
+    let alive = true;
+    void peekInvoiceNumber(companyId).then((n) => {
+      if (alive) setCostInvoicePreviewNumber(n);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [costInvoiceOpen, companyId]);
   const [costInvoiceStart, setCostInvoiceStart] = useState("");
   const [costInvoiceEnd, setCostInvoiceEnd] = useState("");
   const [costInvoiceClientName, setCostInvoiceClientName] = useState("");
@@ -4922,7 +4932,7 @@ export function ProjectsModule({
                         </div>
                         <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
                           {tl.invoice_preview_number ?? "Invoice number"}:{" "}
-                          {peekMachinProInvoiceNumber(companyId || "co")}
+                          {costInvoicePreviewNumber ?? "…"}
                         </p>
                         <div className="grid grid-cols-1 gap-2">
                           <label className="block text-xs text-zinc-500">
@@ -5049,7 +5059,14 @@ export function ProjectsModule({
                                   return;
                                 }
                                 try {
-                                  const num = nextMachinProInvoiceNumber(companyId || "co");
+                                  const subtotal = lines.reduce((acc, l) => acc + (Number(l.lineTotal) || 0), 0);
+                                  const num = await reserveInvoiceNumber(companyId || "co", {
+                                    source: "project_costs",
+                                    projectId: selectedProjectId ?? null,
+                                    clientName: costInvoiceClientName.trim() || null,
+                                    total: subtotal * (1 + tax / 100),
+                                    currency: companyCurrency ?? null,
+                                  });
                                   const { blob, filename } = await generateInvoicePdf({
                                     labels: tl,
                                     companyName: companyName || "MachinPro",
@@ -5087,7 +5104,13 @@ export function ProjectsModule({
                                   showToast("success", tl.export_success ?? PM_EN.export_success);
                                   setCostInvoiceOpen(false);
                                 } catch (e) {
-                                  showToast("error", userFacingErrorMessage(tl, e));
+                                  showToast(
+                                    "error",
+                                    e instanceof InvoiceNumberUnavailableError
+                                      ? (tl.invoice_number_needs_connection ??
+                                          "Connect to the internet to issue an invoice: the number must be unique.")
+                                      : userFacingErrorMessage(tl, e)
+                                  );
                                 }
                               })();
                             }}
