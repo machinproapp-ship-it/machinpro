@@ -94,7 +94,10 @@ export function inventoryItemFromRow(row: Record<string, unknown>): InventoryIte
     unit: String(row.unit ?? ""),
     purchasePriceCAD: numOr(row.purchase_price_cad, 0),
     lowStockThreshold: row.low_stock_threshold == null ? undefined : numOr(row.low_stock_threshold, 0),
-    toolStatus: (str(row.tool_status) as InventoryItem["toolStatus"]) ?? undefined,
+    // Herramientas y equipos sin estado guardado se consideran disponibles (no "perdidos").
+    toolStatus:
+      (str(row.tool_status) as InventoryItem["toolStatus"]) ??
+      (type === "tool" || type === "equipment" ? "available" : undefined),
     assignedToProjectId: str(row.assigned_to_project_id) ?? str(row.current_project_id),
     assignedToEmployeeId: str(row.assigned_to_employee_id),
     imageUrl: str(row.photo_url),

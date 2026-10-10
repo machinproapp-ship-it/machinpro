@@ -1447,8 +1447,8 @@ export function LogisticsModule({
                       )}
                     </div>
                     {isTrackedAsset(item) && (
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${toolStatusBadgeClass(item.toolStatus)}`}>
-                        {getStatusLabel(item.toolStatus === "available" ? "available" : item.toolStatus === "in_use" ? "inUse" : item.toolStatus === "maintenance" ? "maintenance" : item.toolStatus === "out_of_service" ? "outOfService" : "lost")}
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${toolStatusBadgeClass(item.toolStatus ?? "available")}`}>
+                        {getStatusLabel((item.toolStatus ?? "available") === "available" ? "available" : item.toolStatus === "in_use" ? "inUse" : item.toolStatus === "maintenance" ? "maintenance" : item.toolStatus === "out_of_service" ? "outOfService" : "lost")}
                       </span>
                     )}
                     {isTrackedAsset(item) && item.incidentPhotoUrl && (

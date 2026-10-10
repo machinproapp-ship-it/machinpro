@@ -527,7 +527,7 @@ type ShiftFormDatesState = { dates: string[]; rangeAnchor: string | null };
 function reduceShiftFormDates(
   state: ShiftFormDatesState,
   action:
-    | { type: "click"; ymd: string }
+    | { type: "click"; ymd: string; range?: boolean }
     | { type: "replace"; dates: string[] }
     | { type: "discard_anchor" }
 ): ShiftFormDatesState {
@@ -538,22 +538,20 @@ function reduceShiftFormDates(
     const d = [...new Set(action.dates)].filter(Boolean).sort();
     return { dates: d.length ? d : [], rangeAnchor: null };
   }
-  const { ymd } = action;
+  // Tocar un día lo marca o lo desmarca. Con Mayúsculas+clic se marca el rango desde el último día tocado.
+  const { ymd, range } = action;
   const { dates, rangeAnchor } = state;
   const s = new Set(dates);
-  if (rangeAnchor !== null) {
-    if (rangeAnchor === ymd) {
-      s.delete(ymd);
-      return { dates: [...s].sort(), rangeAnchor: null };
-    }
+  if (range && rangeAnchor !== null && rangeAnchor !== ymd) {
     for (const d of enumerateInclusiveYmd(rangeAnchor, ymd)) s.add(d);
-    return { dates: [...s].sort(), rangeAnchor: null };
+    return { dates: [...s].sort(), rangeAnchor: ymd };
   }
   if (s.has(ymd)) {
-    return { dates, rangeAnchor: ymd };
+    s.delete(ymd);
+    return { dates: [...s].sort(), rangeAnchor: null };
   }
   s.add(ymd);
-  return { dates: [...s].sort(), rangeAnchor: null };
+  return { dates: [...s].sort(), rangeAnchor: ymd };
 }
 
 // Monday = first column (0). Returns the Monday of the week containing the given date.
@@ -4654,7 +4652,7 @@ export default function ScheduleModule({
                         <button
                           key={`${ymd}-${day.getTime()}`}
                           type="button"
-                          onClick={() => inMonth && dispatchShiftFormDates({ type: "click", ymd })}
+                          onClick={(e) => inMonth && dispatchShiftFormDates({ type: "click", ymd, range: e.shiftKey })}
                           disabled={!inMonth}
                           className={`relative flex aspect-square min-h-[36px] max-h-10 items-center justify-center rounded-lg text-xs font-medium sm:text-sm ${
                             !inMonth
