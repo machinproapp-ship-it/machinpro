@@ -528,6 +528,28 @@ export interface Project {
   safetyRequirements?: unknown;
 }
 
+/** Fila de `projects` en Supabase a partir del estado de la app. */
+function projectToRow(p: Project, companyId: string): Record<string, unknown> {
+  const date = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
+  return {
+    id: p.id,
+    company_id: companyId,
+    name: p.name,
+    type: p.type || null,
+    location: p.location || null,
+    project_code: p.projectCode || null,
+    budget_cad: p.budgetCAD ?? 0,
+    spent_cad: p.spentCAD ?? 0,
+    estimated_start: date(p.estimatedStart),
+    estimated_end: date(p.estimatedEnd),
+    location_lat: p.locationLat ?? null,
+    location_lng: p.locationLng ?? null,
+    archived: !!p.archived,
+    lifecycle_status: p.lifecycleStatus ?? "active",
+    assigned_employee_ids: p.assignedEmployeeIds ?? [],
+  };
+}
+
 function dashboardFormContextLine(
   f: FormInstance,
   projects: Pick<Project, "id" | "name">[],
@@ -6770,21 +6792,44 @@ export default function Home() {
       lifecycleStatus: projectFormLifecycle,
       assignedEmployeeIds: [] as string[],
     };
+    let saved: Project;
+    let previous: Project[] | null = null;
     if (editingProjectId) {
       const existing = projects.find((p) => p.id === editingProjectId);
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === editingProjectId
-            ? { ...p, ...payload, assignedEmployeeIds: existing?.assignedEmployeeIds ?? [], archived: existing?.archived ?? false }
-            : p
-        )
-      );
+      saved = {
+        ...(existing as Project),
+        ...payload,
+        assignedEmployeeIds: existing?.assignedEmployeeIds ?? [],
+        archived: existing?.archived ?? false,
+      };
+      previous = projects;
+      setProjects((prev) => prev.map((p) => (p.id === editingProjectId ? saved : p)));
     } else {
-      const id = "p" + Date.now().toString(36);
-      setProjects((prev) => [...prev, { id, ...payload } as Project]);
+      const id =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : "p" + Date.now().toString(36);
+      saved = { id, ...payload } as Project;
+      previous = projects;
+      setProjects((prev) => [...prev, saved]);
     }
     invalidateDashboardCache();
     closeProjectForm();
+    void persistProject(saved, previous);
+  }
+
+  /** Guarda la obra en Supabase. Si falla, deshace el cambio en pantalla y avisa. */
+  async function persistProject(p: Project, rollbackTo: Project[] | null) {
+    if (!supabase || !companyId) return;
+    const { error } = await supabase.from("projects").upsert(projectToRow(p, companyId), { onConflict: "id" });
+    if (error) {
+      console.error("[page] project save", error);
+      if (rollbackTo) setProjects(rollbackTo);
+      showToast(
+        "error",
+        (t as Record<string, string>).project_save_failed ?? "The project could not be saved. Check your connection and try again."
+      );
+    }
   }
 
   useEffect(() => {
@@ -7260,10 +7305,30 @@ export default function Home() {
                 onAddProject={() => openProjectForm()}
                 onEditProject={(id) => openProjectForm(projects.find((p) => p.id === id) ?? null)}
                 onArchiveProject={(id) => {
-                  setProjects((prev) => prev.map((p) => p.id === id ? { ...p, archived: !p.archived } : p));
+                  const before = projects;
+                  const target = projects.find((p) => p.id === id);
+                  if (!target) return;
+                  const next = { ...target, archived: !target.archived };
+                  setProjects((prev) => prev.map((p) => (p.id === id ? next : p)));
+                  invalidateDashboardCache();
+                  void persistProject(next, before);
                 }}
                 onDeleteProject={(id) => {
+                  const before = projects;
                   setProjects((prev) => prev.filter((p) => p.id !== id));
+                  invalidateDashboardCache();
+                  if (!supabase || !companyId) return;
+                  void (async () => {
+                    const { error } = await supabase.from("projects").delete().eq("id", id).eq("company_id", companyId);
+                    if (error) {
+                      console.error("[page] project delete", error);
+                      setProjects(before);
+                      showToast(
+                        "error",
+                        (t as Record<string, string>).project_delete_failed ?? "The project could not be deleted."
+                      );
+                    }
+                  })();
                 }}
                 onAddEmployee={() => openEmployeeForm("new")}
                 onUpdateEmployee={(id, upd) => updateEmployee(id, upd as Partial<Employee>)}
