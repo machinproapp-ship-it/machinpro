@@ -32,6 +32,9 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["onboarding_compliance_sub", "Central · Empleados · Cumplimiento", "Central · Employees · Compliance", "Central · Employés · Conformité", "Zentrale · Mitarbeiter · Compliance", "Centrale · Dipendenti · Conformità", "Central · Funcionários · Conformidade"],
   ["onboarding_step6_sub", "Central · Empleados · Cumplimiento", "Central · Employees · Compliance", "Central · Employés · Conformité", "Zentrale · Mitarbeiter · Compliance", "Centrale · Dipendenti · Conformità", "Central · Funcionários · Conformidade"],
   ["invoice_number_needs_connection", "Conéctate a internet para emitir la factura: su número tiene que ser único.", "Connect to the internet to issue the invoice: its number must be unique.", "Connectez-vous à internet pour émettre la facture : son numéro doit être unique.", "Verbinde dich mit dem Internet, um die Rechnung auszustellen: Ihre Nummer muss eindeutig sein.", "Connettiti a internet per emettere la fattura: il suo numero deve essere unico.", "Liga-te à internet para emitir a fatura: o seu número tem de ser único."],
+  ["vehicle_name", "Nombre del vehículo", "Vehicle name", "Nom du véhicule", "Fahrzeugname", "Nome del veicolo", "Nome do veículo"],
+  ["vehicle_name_placeholder", "ej. Ford F-150 2022", "e.g. Ford F-150 2022", "ex. Ford F-150 2022", "z. B. Ford F-150 2022", "es. Ford F-150 2022", "ex. Ford F-150 2022"],
+  ["vehicle_plate", "Matrícula", "Licence plate", "Immatriculation", "Kennzeichen", "Targa", "Matrícula"],
   ["employee_full_name", "Nombre completo", "Full name", "Nom complet", "Vollständiger Name", "Nome completo", "Nome completo"],
 ];
 

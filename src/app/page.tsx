@@ -6408,6 +6408,7 @@ export default function Home() {
       const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "v" + Date.now();
       const newVehicle: Vehicle = {
         id,
+        label: vehicleDraft.label?.trim() || undefined,
         plate: vehicleDraft.plate ?? "",
         usualDriverId: vehicleDraft.usualDriverId ?? "",
         currentProjectId: vehicleDraft.currentProjectId ?? null,
@@ -7974,7 +7975,7 @@ export default function Home() {
                   projectName: p.project_name ?? "",
                   rejectionReason: p.rejected_reason ?? undefined,
                 }))}
-                companyName={profile?.companyName ?? companyName ?? "Canariense Inc"}
+                companyName={profile?.companyName ?? companyName ?? ""}
                 companyLogoUrl={logoUrl || undefined}
                 companyAddress={companyAddress}
                 companyPhone={companyPhone}
@@ -9646,7 +9647,8 @@ export default function Home() {
                 };
                 return (
                   <>
-              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Matrícula</label><input type="text" value={vehicleDraft.plate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, plate: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).vehicle_name ?? "Vehicle name"}</label><input type="text" value={vehicleDraft.label ?? ""} placeholder={(t as Record<string, string>).vehicle_name_placeholder ?? "e.g. Ford F-150 2022"} onChange={(e) => setVehicleDraft((d) => ({ ...d, label: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
+              <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{(t as Record<string, string>).vehicle_plate ?? "Plate"}</label><input type="text" value={vehicleDraft.plate ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, plate: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" /></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Conductor habitual</label><select value={vehicleDraft.usualDriverId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, usualDriverId: e.target.value }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(employees ?? []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Proyecto asignado</label><select value={vehicleDraft.currentProjectId ?? ""} onChange={(e) => setVehicleDraft((d) => ({ ...d, currentProjectId: e.target.value || null }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="">—</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
               <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{tl.status ?? "Estado"}</label><select value={vehicleDraft.vehicleStatus ?? "available"} onChange={(e) => setVehicleDraft((d) => ({ ...d, vehicleStatus: e.target.value as VehicleStatus }))} className="min-h-[44px] w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"><option value="available">{tl.available ?? "Disponible"}</option><option value="in_use">{tl.inUse ?? "En uso"}</option><option value="maintenance">{tl.maintenance ?? "Mantenimiento"}</option><option value="out_of_service">{tl.outOfService ?? "Fuera de servicio"}</option></select></div>

@@ -451,6 +451,11 @@ const VEHICLE_STATUS_OPTIONS: { value: VehicleStatus; labelKey: string }[] = [
   { value: "out_of_service", labelKey: "outOfService" },
 ];
 
+/** Nombre del vehículo (p. ej. "Ford F-150 2022"); si no tiene, la matrícula. */
+function vehicleTitle(v: Vehicle): string {
+  return v.label?.trim() || v.plate?.trim() || "—";
+}
+
 function toolStatusBadgeClass(status: ToolStatus | undefined): string {
   const s = status ?? "available";
   if (s === "available") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
@@ -850,7 +855,7 @@ export function LogisticsModule({
       if (inventoryScope === "onsite") {
         if (!i.assignedToProjectId && (i.location ?? "warehouse") === "warehouse") return false;
       }
-      if (inventoryFilter === "consumable") return i.type === "consumable";
+      if (inventoryFilter === "consumable") return i.type === "consumable" || i.type === "material";
       if (inventoryFilter === "tool") {
         if (filterStatus !== "all") return i.type === "tool" && (i.toolStatus ?? "available") === filterStatus;
         return i.type === "tool";
@@ -2708,7 +2713,10 @@ export function LogisticsModule({
                         onClick={() => setSelectedAsset({ type: "vehicle", id: v.id })}
                         className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-white dark:hover:text-amber-400"
                       >
-                        {v.plate}
+                        {vehicleTitle(v)}
+                        {v.label && v.plate && v.label.trim() !== v.plate.trim() ? (
+                          <span className="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{v.plate}</span>
+                        ) : null}
                       </button>
                       {canViewForms &&
                       (activeFormsTodayByVehicleId[v.id] ?? 0) > 0 &&
@@ -2852,7 +2860,10 @@ export function LogisticsModule({
                           onClick={() => setSelectedAsset({ type: "vehicle", id: v.id })}
                           className="min-w-0 text-left text-sm font-medium text-zinc-900 break-words transition-colors hover:text-amber-600 hover:underline underline-offset-2 dark:text-white dark:hover:text-amber-400"
                         >
-                          {v.plate}
+                          {vehicleTitle(v)}
+                          {v.label && v.plate && v.label.trim() !== v.plate.trim() ? (
+                            <span className="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{v.plate}</span>
+                          ) : null}
                         </button>
                         {canViewForms &&
                         (activeFormsTodayByVehicleId[v.id] ?? 0) > 0 &&
@@ -3080,7 +3091,7 @@ export function LogisticsModule({
                         {veh.map((v) => (
                           <li key={v.id} className="flex items-center gap-2">
                             <Truck className="h-4 w-4 text-zinc-400" />
-                            {v.plate}
+                            {vehicleTitle(v)}
                           </li>
                         ))}
                       </ul>

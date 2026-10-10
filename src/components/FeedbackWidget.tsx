@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useOverlayOpen } from "@/hooks/useOverlayOpen";
 import { Loader2, MessageSquare, X } from "lucide-react";
 import { useToast } from "@/components/Toast";
 
@@ -21,6 +22,7 @@ type FeedbackModule = (typeof MODULE_VALUES)[number];
 
 export function FeedbackWidget({ labels: t, accessToken, userId, companyId }: FeedbackWidgetProps) {
   const { showToast } = useToast();
+  const overlayOpen = useOverlayOpen();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<FeedbackType>("suggestion");
   const [module, setModule] = useState<FeedbackModule>("");
@@ -103,6 +105,8 @@ export function FeedbackWidget({ labels: t, accessToken, userId, companyId }: Fe
     <>
       <button
         type="button"
+        data-floating-fab
+        hidden={overlayOpen && !open}
         title={L(t, "feedback_btn", "Enviar feedback")}
         aria-label={L(t, "feedback_btn", "Enviar feedback")}
         onClick={() => setOpen(true)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useOverlayOpen } from "@/hooks/useOverlayOpen";
 import { X } from "lucide-react";
 
 export type ModuleHelpKey =
@@ -21,6 +22,7 @@ export interface ModuleHelpFabProps {
 
 export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleHelpFabProps) {
   const [open, setOpen] = useState(false);
+  const overlayOpen = useOverlayOpen();
   const L = (k: string, fb: string) => labels[k] ?? fb;
   const mod = `help_module_${moduleKey}`;
   const leg = `help_mod_${moduleKey}`;
@@ -34,6 +36,8 @@ export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleH
     <>
       <button
         type="button"
+        data-floating-fab
+        hidden={overlayOpen && !open}
         onClick={() => setOpen(true)}
         className="fixed bottom-4 right-4 z-[60] flex h-14 w-14 min-h-[56px] min-w-[56px] items-center justify-center rounded-full border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-lg hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 xl:hidden"
         aria-haspopup="dialog"
