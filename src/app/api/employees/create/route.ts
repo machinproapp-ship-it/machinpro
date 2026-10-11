@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildPasswordLink } from "@/lib/authEmailLink";
 import { randomBytes } from "crypto";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -274,13 +275,14 @@ export async function POST(req: NextRequest) {
           "MachinPro";
 
         const baseTrim = getAppBaseUrl().replace(/\/$/, "");
-        const redirectTo = `${baseTrim}/login`;
+        const redirectTo = `${baseTrim}/reset-password?mode=invite`;
         const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
           type: "recovery",
           email,
           options: { redirectTo },
         });
-        const actionLink = linkData?.properties?.action_link;
+        // El empleado nuevo crea su contraseña al entrar (antes entraba con una aleatoria que nadie sabía).
+        const actionLink = linkErr ? null : buildPasswordLink(baseTrim, linkData, "invite");
 
         if (linkErr || !actionLink) {
           console.error("[api/employees/create] generateLink:", linkErr);

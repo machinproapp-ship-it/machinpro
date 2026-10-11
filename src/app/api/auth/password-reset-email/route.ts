@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildPasswordLink } from "@/lib/authEmailLink";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import {
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       email: raw,
       options: { redirectTo },
     });
-    const actionLink = linkData?.properties?.action_link;
+    const actionLink = linkErr ? null : buildPasswordLink(base, linkData, "reset");
     if (linkErr || !actionLink) {
       return NextResponse.json({ ok: true }, { status: 200, headers: rh });
     }

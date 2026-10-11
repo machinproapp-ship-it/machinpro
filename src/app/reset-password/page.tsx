@@ -10,7 +10,7 @@ import { postAuthAudit } from "@/lib/postAuthAudit";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
-type Phase = "loading" | "form" | "success" | "error";
+type Phase = "loading" | "form" | "success" | "error" | "expired";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -30,8 +30,32 @@ export default function ResetPasswordPage() {
     setDark(typeof document !== "undefined" && document.documentElement.classList.contains("dark"));
   }, []);
 
+  /** Enlace seguro: el token se usa solo al guardar, no al abrir la página. */
+  const [tokenHash, setTokenHash] = useState<string | null>(null);
+  const [isInvite, setIsInvite] = useState(false);
+
   useEffect(() => {
     if (!supabase) return;
+    if (typeof window === "undefined") return;
+
+    const search = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    setIsInvite(search.get("mode") === "invite");
+
+    // Enlace caducado o ya usado (Supabase lo indica en la URL)
+    const errCode = hash.get("error_code") ?? search.get("error_code");
+    const errName = hash.get("error") ?? search.get("error");
+    if (errCode === "otp_expired" || errName === "access_denied") {
+      setPhase("expired");
+      return;
+    }
+
+    const th = search.get("token_hash");
+    if (th) {
+      setTokenHash(th);
+      setPhase("form");
+      return;
+    }
 
     let resolved = false;
     let timeoutId: number | undefined;
@@ -56,7 +80,7 @@ export default function ResetPasswordPage() {
       tryForm(r.data.session);
       if (!resolved) {
         timeoutId = window.setTimeout(() => {
-          if (!resolved) setPhase("error");
+          if (!resolved) setPhase("expired");
         }, 12000);
       }
     });
@@ -86,9 +110,27 @@ export default function ResetPasswordPage() {
     }
     setBusy(true);
     try {
+      if (tokenHash) {
+        const { error: otpErr } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+        if (otpErr) {
+          // Puede que el enlace ya se usara en esta misma sesión: si hay sesión, seguimos.
+          const { data: s } = await supabase.auth.getSession();
+          if (!s.session) {
+            setPhase("expired");
+            setBusy(false);
+            return;
+          }
+        }
+        setTokenHash(null);
+      }
       const { data, error } = await supabase.auth.updateUser({ password: pw });
       if (error) {
-        setPhase("error");
+        const weak = /weak|short|characters|password should/i.test(error.message ?? "");
+        if (weak) {
+          setMsg(l("reset_password_too_weak", "Choose a stronger password (letters and numbers, at least 8 characters)."));
+        } else {
+          setPhase("error");
+        }
         setBusy(false);
         return;
       }
@@ -120,7 +162,10 @@ export default function ResetPasswordPage() {
               />
             </div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-              <TextWithBrandMarks text={l("reset_password_title", "")} tone="onLight" />
+              <TextWithBrandMarks
+                text={isInvite ? l("reset_password_invite_title", "Create your password") : l("reset_password_title", "")}
+                tone="onLight"
+              />
             </h1>
           </div>
 
@@ -175,6 +220,20 @@ export default function ResetPasswordPage() {
 
           {phase === "error" ? (
             <p className="text-center text-sm text-red-600 dark:text-red-400">{l("reset_password_error", "")}</p>
+          ) : null}
+
+          {phase === "expired" ? (
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {l("reset_password_link_expired", "This link has expired or was already used. Request a new one.")}
+              </p>
+              <a
+                href="/forgot-password"
+                className="inline-flex w-full items-center justify-center rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-500 min-h-[44px]"
+              >
+                {l("reset_password_request_new", "Request a new link")}
+              </a>
+            </div>
           ) : null}
         </div>
         <p className="mt-8 text-sm font-medium tracking-wide text-white/80 dark:text-teal-200/80">
