@@ -5829,14 +5829,50 @@ export default function Home() {
     [supabase, user?.id, companyId, vacationRequests, t]
   );
 
+  /**
+   * Formularios que puede ver este usuario. Quien solo ve sus obras asignadas (p. ej. trabajadores)
+   * ve los formularios de esas obras y los que creó, firma o le incluyen; nunca los de otras obras.
+   */
+  const formInstancesForUser = useMemo(() => {
+    if (!rolePerms.canViewOnlyAssignedProjects || rolePerms.canViewProjects) return formInstances;
+    const myIds = new Set([user?.id, currentUserEmployeeId, profile?.id].filter(Boolean) as string[]);
+    const myProjects = new Set((visibleProjects ?? []).map((p) => p.id));
+    return formInstances.filter((f) => {
+      if (myIds.has(f.createdBy)) return true;
+      if ((f.attendees ?? []).some((a) => a.employeeId && myIds.has(a.employeeId))) return true;
+      if (f.projectId && myProjects.has(f.projectId)) return true;
+      return false;
+    });
+  }, [formInstances, rolePerms.canViewOnlyAssignedProjects, rolePerms.canViewProjects, user?.id, currentUserEmployeeId, profile?.id, visibleProjects]);
+
   const handleCreateVacationRequest = useCallback(
-    async (start: string, end: string, notes: string, absenceKind?: string) => {
-      if (!supabase || !companyId || !user?.id) return;
+    async (start: string, end: string, notes: string, absenceKind?: string): Promise<boolean> => {
+      if (!supabase || !companyId || !user?.id) return false;
+      const tl = t as Record<string, string>;
       const d0 = new Date(start + "T12:00:00");
       const d1 = new Date(end + "T12:00:00");
-      if (d1 < d0) return;
-      const totalDays = Math.floor((d1.getTime() - d0.getTime()) / 86400000) + 1;
-      const tl = t as Record<string, string>;
+      if (d1 < d0) {
+        showToast("error", tl.vacation_end_before_start ?? "The end date is before the start date.");
+        return false;
+      }
+      // Días laborables (lunes a viernes), igual que muestra el formulario
+      let totalDays = 0;
+      for (let d = new Date(d0); d <= d1; d.setDate(d.getDate() + 1)) {
+        const wd = d.getDay();
+        if (wd !== 0 && wd !== 6) totalDays += 1;
+      }
+      if (totalDays === 0) totalDays = Math.floor((d1.getTime() - d0.getTime()) / 86400000) + 1;
+      const duplicate = vacationRequests.some(
+        (v) =>
+          v.user_id === user.id &&
+          (v.status === "pending" || v.status === "approved") &&
+          v.start_date <= end &&
+          v.end_date >= start
+      );
+      if (duplicate) {
+        showToast("error", tl.vacation_overlap_exists ?? "You already have a request for those dates.");
+        return false;
+      }
       const typeLine =
         absenceKind && absenceKind !== "vacation"
           ? `[${tl[`vacation_type_${absenceKind}`] ?? absenceKind}] `
@@ -5855,8 +5891,12 @@ export default function Home() {
         })
         .select("*")
         .single();
-      if (error || !data) return;
+      if (error || !data) {
+        showToast("error", tl.vacation_request_failed ?? "The request could not be sent. Try again.");
+        return false;
+      }
       setVacationRequests((prev) => [data as VacationRequestRow, ...prev]);
+      showToast("success", tl.vacation_request_sent ?? "Request sent. You'll be notified when it is reviewed.");
       const vacRow = data as VacationRequestRow;
       void (async () => {
         try {
@@ -5893,8 +5933,9 @@ export default function Home() {
           data: { vacationRequestId: vacRow.id, userId: user.id },
         });
       }
+      return true;
     },
-    [supabase, companyId, user?.id, user?.email, profile?.fullName, profile?.email, t, activeEmployees]
+    [supabase, companyId, user?.id, user?.email, profile?.fullName, profile?.email, t, activeEmployees, vacationRequests, showToast]
   );
 
   /** Resuelve nombres en turnos (IDs de perfil, employee_id legacy, o demo e1/e2). Perfil MachinPro gana sobre nombre de employee. */
@@ -8508,6 +8549,7 @@ export default function Home() {
                 onRejectVacation={handleRejectVacation}
                 onRequestVacation={handleCreateVacationRequest}
                 labels={{
+                  ...(t as Record<string, string>),
                   schedule: t.schedule ?? "Horario",
                   payroll_title: (t as Record<string, string>).payroll_title ?? "Nóminas",
                   payroll_pay_toggle_hours: (t as Record<string, string>).payroll_pay_toggle_hours,
@@ -8880,7 +8922,7 @@ export default function Home() {
               <>
               <FormsModule
                 templates={formTemplates}
-                instances={formInstances}
+                instances={formInstancesForUser}
                 projects={visibleProjects.map((p) => ({
                   id: p.id,
                   name: p.name,

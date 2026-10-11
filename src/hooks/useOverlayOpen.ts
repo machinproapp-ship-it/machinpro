@@ -11,6 +11,8 @@ import { useEffect, useState } from "react";
  * que usan los modales de la app.
  */
 const OVERLAY_SELECTOR = '[role="dialog"], [aria-modal="true"], .fixed.inset-0';
+/** Barras de acciones fijas abajo (p. ej. "Siguiente / Enviar" de los formularios). */
+const BOTTOM_BAR_SELECTOR = '.fixed.bottom-0, [data-bottom-actions]';
 
 function anyOverlayVisible(): boolean {
   if (typeof document === "undefined") return false;
@@ -20,6 +22,13 @@ function anyOverlayVisible(): boolean {
     if (el.offsetParent === null && getComputedStyle(el).position !== "fixed") continue;
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) return true;
+  }
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  for (const el of document.querySelectorAll<HTMLElement>(BOTTOM_BAR_SELECTOR)) {
+    if (el.closest("[data-floating-fab]")) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height > 0 && r.width > vw * 0.6 && r.bottom >= vh - 2) return true;
   }
   return false;
 }
@@ -35,8 +44,10 @@ export function useOverlayOpen(): boolean {
     };
     const obs = new MutationObserver(check);
     obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "role", "aria-modal"] });
+    window.addEventListener("resize", check);
     check();
     return () => {
+      window.removeEventListener("resize", check);
       cancelAnimationFrame(frame);
       obs.disconnect();
     };

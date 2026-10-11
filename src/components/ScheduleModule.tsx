@@ -391,7 +391,7 @@ export interface ScheduleModuleProps {
     end: string,
     notes: string,
     absenceKind?: string
-  ) => void | Promise<void>;
+  ) => void | boolean | Promise<void | boolean>;
   onAddEntry?: (entry: Omit<SchedEntry, "id">) => void;
   onUpdateEntry?: (id: string, entry: Omit<SchedEntry, "id">) => void;
   onDeleteEntry?: (id: string) => void;
@@ -2253,6 +2253,7 @@ export default function ScheduleModule({
   const [fNotes, setFNotes] = useState("");
   const [fLabel, setFLabel] = useState("meeting");
   const [vacReqStart, setVacReqStart] = useState("");
+  const [vacReqSending, setVacReqSending] = useState(false);
   const [vacReqAbsenceKind, setVacReqAbsenceKind] = useState<string>("vacation");
   const [vacReqEnd, setVacReqEnd] = useState("");
   const [vacReqNote, setVacReqNote] = useState("");
@@ -3301,17 +3302,31 @@ export default function ScheduleModule({
                   />
                   <button
                     type="button"
+                    disabled={vacReqSending || !vacReqStart || !vacReqEnd}
                     onClick={() => {
-                      if (!vacReqStart || !vacReqEnd) return;
-                      void onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote, vacReqAbsenceKind);
-                      setVacReqNote("");
+                      if (!vacReqStart || !vacReqEnd || vacReqSending) return;
+                      setVacReqSending(true);
+                      void (async () => {
+                        try {
+                          const ok = await onRequestVacation?.(vacReqStart, vacReqEnd, vacReqNote, vacReqAbsenceKind);
+                          if (ok !== false) {
+                            setVacReqNote("");
+                            setVacReqStart("");
+                            setVacReqEnd("");
+                          }
+                        } finally {
+                          setVacReqSending(false);
+                        }
+                      })();
                     }}
-                    className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 sm:w-auto"
+                    className="min-h-[44px] w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50 sm:w-auto"
                   >
-                    {lx.vacation_request ??
-                      lx.vacations_request ??
-                      lx.employees_request_vacation ??
-                      ""}
+                    {vacReqSending
+                      ? lx.employees_invite_sending ?? lx.login_submit_loading ?? "…"
+                      : lx.vacation_request ??
+                        lx.vacations_request ??
+                        lx.employees_request_vacation ??
+                        ""}
                   </button>
                 </div>
                 {vacReqBizDays != null && vacReqBizDays > 0 ? (
