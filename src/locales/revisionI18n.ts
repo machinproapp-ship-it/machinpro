@@ -67,6 +67,15 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["worker_hours_no_rate", "Tu empresa aún no ha puesto tu pago en la app.", "Your company hasn't set your pay in the app yet.", "Ton entreprise n'a pas encore indiqué ta rémunération dans l'app.", "Deine Firma hat deine Vergütung noch nicht in der App eingetragen.", "La tua azienda non ha ancora inserito la tua retribuzione nell'app.", "A tua empresa ainda não indicou o teu pagamento na app."],
   ["worker_hours_period_unset", "Tu periodo de pago no está definido; se muestra esta semana.", "Your pay period isn't set; showing this week.", "Ta période de paie n'est pas définie ; affichage de cette semaine.", "Dein Abrechnungszeitraum ist nicht festgelegt; diese Woche wird angezeigt.", "Il periodo di paga non è definito; viene mostrata questa settimana.", "O teu período de pagamento não está definido; mostra-se esta semana."],
   ["worker_hours_none", "Aún no hay horas en este periodo.", "No hours recorded in this period yet.", "Aucune heure enregistrée sur cette période.", "In diesem Zeitraum sind noch keine Stunden erfasst.", "Nessuna ora registrata in questo periodo.", "Ainda não há horas neste período."],
+  ["worker_production_title", "Mi producción", "My production", "Ma production", "Meine Leistung", "La mia produzione", "A minha produção"],
+  ["worker_production_units", "Producido en el periodo: {units} unidades", "Production this period: {units} units", "Production de la période : {units} unités", "Leistung im Zeitraum: {units} Einheiten", "Produzione del periodo: {units} unità", "Produzido no período: {units} unidades"],
+  ["worker_production_approved", "Aprobado: {amount}", "Approved: {amount}", "Approuvé : {amount}", "Genehmigt: {amount}", "Approvato: {amount}", "Aprovado: {amount}"],
+  ["worker_production_pending", "Pendiente de aprobar: {amount}", "Pending approval: {amount}", "En attente d'approbation : {amount}", "Ausstehend: {amount}", "In attesa di approvazione: {amount}", "Pendente de aprovação: {amount}"],
+  ["inspectionWhoCanUse", "Quién puede usarlo e inspeccionarlo", "Who can use and inspect it", "Qui peut l'utiliser et l'inspecter", "Wer darf es benutzen und prüfen", "Chi può usarlo e ispezionarlo", "Quem pode usá-lo e inspecioná-lo"],
+  ["inspectionAccessEveryone", "Todos", "Everyone", "Tout le monde", "Alle", "Tutti", "Todos"],
+  ["inspectionAccessSome", "Solo algunos roles o personas", "Only some roles or people", "Seulement certains rôles ou personnes", "Nur bestimmte Rollen oder Personen", "Solo alcuni ruoli o persone", "Só alguns papéis ou pessoas"],
+  ["inspectionAccessPeople", "Personas", "People", "Personnes", "Personen", "Persone", "Pessoas"],
+  ["inspectionAccessHint", "El admin siempre puede usarlo e inspeccionarlo.", "The admin can always use and inspect it.", "L'administrateur peut toujours l'utiliser et l'inspecter.", "Der Admin darf es immer benutzen und prüfen.", "L'amministratore può sempre usarlo e ispezionarlo.", "O admin pode sempre usá-lo e inspecioná-lo."],
   ["employee_full_name", "Nombre completo", "Full name", "Nom complet", "Vollständiger Name", "Nome completo", "Nome completo"],
 ];
 

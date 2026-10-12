@@ -99,6 +99,9 @@ export interface InventoryItem {
   requiresInspection?: boolean;
   inspectionFrequency?: "before_each_use" | "daily" | "weekly" | "monthly" | "yearly";
   inspectionTemplateId?: string;
+  /** Vacío = cualquiera puede usarlo e inspeccionarlo. */
+  inspectionAllowedRoleIds?: string[];
+  inspectionAllowedUserIds?: string[];
 }
 
 export interface Vehicle {
@@ -129,6 +132,9 @@ export interface Vehicle {
   requiresInspection?: boolean;
   inspectionFrequency?: "before_each_use" | "daily" | "weekly" | "monthly" | "yearly";
   inspectionTemplateId?: string;
+  /** Vacío = cualquiera puede usarlo e inspeccionarlo. */
+  inspectionAllowedRoleIds?: string[];
+  inspectionAllowedUserIds?: string[];
 }
 
 export interface AssetUsageLog {

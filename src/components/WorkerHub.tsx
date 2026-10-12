@@ -53,6 +53,8 @@ export type WorkerHubProps = {
   onOpenInspections?: () => void;
   /** Moneda de la empresa si el trabajador no tiene una propia en su ficha. */
   companyCurrency?: string | null;
+  /** Cómo cobra el trabajador: con salario fijo no se ficha ni se cuentan horas. */
+  payType?: "fixed" | "hourly" | "production" | null;
 };
 
 function matchesEmployee(
@@ -91,7 +93,9 @@ export function WorkerHub({
   canInspect,
   onOpenInspections,
   companyCurrency,
+  payType,
 }: WorkerHubProps) {
+  const tracksTime = payType !== "fixed";
   const todayYmd = formatTodayYmdInTimeZone(timeZone);
   const [clockTick, setClockTick] = useState(0);
   const projectNameById = useMemo(() => {
@@ -255,7 +259,7 @@ export function WorkerHub({
         </section>
       ) : null}
 
-      {canViewSchedule ? (
+      {canViewSchedule && tracksTime ? (
         <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
           <h2 className="mb-2 text-base font-semibold text-zinc-900 dark:text-white">
             {L(lx, "my_clockin", L(lx, "worker_view_my_clock", "Mi fichaje"))}
@@ -328,7 +332,7 @@ export function WorkerHub({
         </section>
       ) : null}
 
-      {canViewSchedule && userAuthId ? (
+      {canViewSchedule && tracksTime && userAuthId ? (
         <WorkerHoursCard
           userAuthId={userAuthId}
           labels={lx}

@@ -6144,7 +6144,8 @@ export default function Home() {
         ) ?? null
       : null;
     const todayYmdTz = formatTodayYmdInTimeZone(userTimeZone);
-    const canActClock = dateStr === todayYmdTz && effectiveRole !== "admin";
+    // Con salario fijo no se ficha (la empresa paga un salario, no horas); por horas o producción sí.
+    const canActClock = dateStr === todayYmdTz && effectiveRole !== "admin" && profile?.payType !== "fixed";
     const shiftEmpIds = entry.employeeIds ?? [];
     const isOwnShift = scheduleSelfIds.some((sid) =>
       shiftEmpIds.some((eid) => String(eid) === String(sid))
@@ -7832,6 +7833,8 @@ export default function Home() {
                       vehicles={vehicles}
                       projectNameById={projectNameById}
                       currentEmployeeId={profile?.id ?? effectiveEmployeeId}
+                      currentRoleId={profile?.customRoleId ?? null}
+                      seesAllEquipment={effectiveRole === "admin" || !!rolePerms.canViewInspections}
                       myProjectIds={myProjectIdsForInspections}
                       canPerform={!!rolePerms.canPerformInspections}
                       canView={!!rolePerms.canViewInspections}
@@ -8603,6 +8606,7 @@ export default function Home() {
                   setActiveSection("forms");
                 }}
                 onOpenShift={openEmployeeShiftDay}
+                payType={profile?.payType ?? null}
                 companyCurrency={rentalFormCurrency}
                 onClockOut={handleClockOut}
                 canInspect={!!rolePerms.canPerformInspections && perms.warehouse}
@@ -9739,9 +9743,13 @@ export default function Home() {
                             requiresInspection: editInventoryDraft?.requiresInspection,
                             inspectionFrequency: editInventoryDraft?.inspectionFrequency,
                             inspectionTemplateId: editInventoryDraft?.inspectionTemplateId,
+                            inspectionAllowedRoleIds: editInventoryDraft?.inspectionAllowedRoleIds,
+                            inspectionAllowedUserIds: editInventoryDraft?.inspectionAllowedUserIds,
                           }
                         : newItemInspection
                     }
+                    roles={customRoles.map((r) => ({ id: r.id, name: r.name }))}
+                    people={activeEmployees.map((e) => ({ id: e.id, name: e.name }))}
                     onChange={(v) =>
                       editingInventoryId ? setEditInventoryDraft((d) => (d ? { ...d, ...v } : d)) : setNewItemInspection(v)
                     }
@@ -9892,8 +9900,12 @@ export default function Home() {
                   requiresInspection: vehicleDraft.requiresInspection,
                   inspectionFrequency: vehicleDraft.inspectionFrequency,
                   inspectionTemplateId: vehicleDraft.inspectionTemplateId,
+                  inspectionAllowedRoleIds: vehicleDraft.inspectionAllowedRoleIds,
+                  inspectionAllowedUserIds: vehicleDraft.inspectionAllowedUserIds,
                 }}
                 onChange={(v) => setVehicleDraft((d) => ({ ...d, ...v }))}
+                roles={customRoles.map((r) => ({ id: r.id, name: r.name }))}
+                people={activeEmployees.map((e) => ({ id: e.id, name: e.name }))}
               />
               <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-slate-700">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

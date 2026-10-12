@@ -27,6 +27,9 @@ function numOr(v: unknown, fallback: number): number {
 function str(v: unknown): string | undefined {
   return typeof v === "string" && v !== "" ? v : undefined;
 }
+function uuidList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => isUuid(x)) : [];
+}
 function obj(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 }
@@ -79,6 +82,8 @@ export function inventoryItemToRow(item: InventoryItem, companyId: string): Reco
     requires_inspection: !!item.requiresInspection,
     inspection_frequency: item.requiresInspection ? item.inspectionFrequency ?? "before_each_use" : null,
     inspection_template_id: isUuid(item.inspectionTemplateId) ? item.inspectionTemplateId : null,
+    inspection_allowed_role_ids: (item.inspectionAllowedRoleIds ?? []).filter(isUuid),
+    inspection_allowed_user_ids: (item.inspectionAllowedUserIds ?? []).filter(isUuid),
     extra,
   };
 }
@@ -120,6 +125,8 @@ export function inventoryItemFromRow(row: Record<string, unknown>): InventoryIte
     requiresInspection: row.requires_inspection === true,
     inspectionFrequency: asInspectionFrequency(row.inspection_frequency),
     inspectionTemplateId: str(row.inspection_template_id),
+    inspectionAllowedRoleIds: uuidList(row.inspection_allowed_role_ids),
+    inspectionAllowedUserIds: uuidList(row.inspection_allowed_user_ids),
   };
 }
 
@@ -155,6 +162,8 @@ export function vehicleToRow(v: Vehicle, companyId: string): Record<string, unkn
     requires_inspection: !!v.requiresInspection,
     inspection_frequency: v.requiresInspection ? v.inspectionFrequency ?? "before_each_use" : null,
     inspection_template_id: isUuid(v.inspectionTemplateId) ? v.inspectionTemplateId : null,
+    inspection_allowed_role_ids: (v.inspectionAllowedRoleIds ?? []).filter(isUuid),
+    inspection_allowed_user_ids: (v.inspectionAllowedUserIds ?? []).filter(isUuid),
     extra,
   };
 }
@@ -185,6 +194,8 @@ export function vehicleFromRow(row: Record<string, unknown>): Vehicle {
     requiresInspection: row.requires_inspection === true,
     inspectionFrequency: asInspectionFrequency(row.inspection_frequency),
     inspectionTemplateId: str(row.inspection_template_id),
+    inspectionAllowedRoleIds: uuidList(row.inspection_allowed_role_ids),
+    inspectionAllowedUserIds: uuidList(row.inspection_allowed_user_ids),
   };
 }
 

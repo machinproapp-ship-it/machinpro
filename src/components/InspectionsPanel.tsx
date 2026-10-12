@@ -42,6 +42,10 @@ type Props = {
   myProjectIds?: string[];
   canPerform: boolean;
   canView: boolean;
+  /** Rol personalizado del usuario actual (para equipos limitados a ciertos roles). */
+  currentRoleId?: string | null;
+  /** Admin o quien ve todas las inspecciones: ve también los equipos limitados. */
+  seesAllEquipment?: boolean;
   canManageTemplates: boolean;
   /** Avisar al resto cuando un equipo sale NO APTO (notificaciones de la app). */
   onFailedInspection?: (insp: EquipmentInspection) => void;
@@ -163,13 +167,32 @@ export function InspectionsPanel(props: Props) {
     return keys;
   }, [inventoryItems, vehicles, currentEmployeeId, myProjectIds]);
 
+  /** Equipos limitados a ciertos roles o personas en los que este usuario no está. */
+  const blockedKeys = useMemo(() => {
+    const keys = new Set<string>();
+    if (props.seesAllEquipment) return keys;
+    const me = currentEmployeeId ?? "";
+    const role = props.currentRoleId ?? "";
+    const check = (kind: string, id: string, roles?: string[], users?: string[]) => {
+      const r = roles ?? [];
+      const u = users ?? [];
+      if (r.length === 0 && u.length === 0) return;
+      if ((me && u.includes(me)) || (role && r.includes(role))) return;
+      keys.add(`${kind}:${id}`);
+    };
+    for (const i of inventoryItems) check("inventory", i.id, i.inspectionAllowedRoleIds, i.inspectionAllowedUserIds);
+    for (const v of vehicles) check("fleet", v.id, v.inspectionAllowedRoleIds, v.inspectionAllowedUserIds);
+    return keys;
+  }, [inventoryItems, vehicles, currentEmployeeId, props.currentRoleId, props.seesAllEquipment]);
+
   const visibleStatus = useMemo(() => {
-    const list = onlyMine ? status.filter((s) => myItemKeys.has(`${s.itemKind}:${s.itemId}`)) : status;
+    const allowed = status.filter((s) => !blockedKeys.has(`${s.itemKind}:${s.itemId}`));
+    const list = onlyMine ? allowed.filter((s) => myItemKeys.has(`${s.itemKind}:${s.itemId}`)) : allowed;
     return [...list].sort((a, b) => {
       const rank = (s: EquipmentInspectionStatus) => (s.lastResult === "fail" ? 0 : s.needsInspection ? 1 : 2);
       return rank(a) - rank(b) || a.itemLabel.localeCompare(b.itemLabel);
     });
-  }, [status, onlyMine, myItemKeys]);
+  }, [status, onlyMine, myItemKeys, blockedKeys]);
 
   const filteredHistory = useMemo(() => {
     const q = search.trim().toLowerCase();

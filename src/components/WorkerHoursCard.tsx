@@ -89,6 +89,7 @@ export function WorkerHoursCard({
   const [pay, setPay] = useState<ProfilePay | null>(null);
   const [entries, setEntries] = useState<EntryRow[] | null>(null);
   const [tick, setTick] = useState(0);
+  const [production, setProduction] = useState<{ units: number; approved: number; pending: number; reports: number } | null>(null);
   const todayYmd = formatTodayYmdInTimeZone(timeZone);
 
   const period: Period = useMemo(() => {
@@ -133,6 +134,40 @@ export function WorkerHoursCard({
       alive = false;
     };
   }, [userAuthId, range.start, range.end, tick]);
+
+  // Pago por producción: lo producido en el periodo (aprobado y pendiente de aprobar)
+  useEffect(() => {
+    if (String(pay?.pay_type ?? "").toLowerCase() !== "production") {
+      setProduction(null);
+      return;
+    }
+    let alive = true;
+    void supabase
+      .from("production_reports")
+      .select("total_units, total_cost, status, deleted_at")
+      .eq("employee_id", userAuthId)
+      .gte("report_date", range.start)
+      .lte("report_date", range.end)
+      .then(({ data }: { data: { total_units: number | null; total_cost: number | null; status: string | null; deleted_at: string | null }[] | null }) => {
+        if (!alive) return;
+        let units = 0;
+        let approved = 0;
+        let pending = 0;
+        let reports = 0;
+        for (const r of data ?? []) {
+          if (r.deleted_at) continue;
+          reports += 1;
+          units += Number(r.total_units ?? 0);
+          const amount = Number(r.total_cost ?? 0);
+          if (String(r.status ?? "").toLowerCase() === "approved") approved += amount;
+          else pending += amount;
+        }
+        setProduction({ units, approved, pending, reports });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [pay?.pay_type, userAuthId, range.start, range.end]);
 
   // Refresco cada minuto mientras haya un fichaje abierto hoy
   useEffect(() => {
@@ -197,11 +232,13 @@ export function WorkerHoursCard({
         ? L(lx, "payroll_period_biweekly", "Biweekly")
         : L(lx, "payroll_period_weekly", "Weekly");
 
+  if (payType === "fixed" || payType === "salary") return null;
+
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 sm:col-span-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
-          {L(lx, "worker_hours_title", "My hours")}
+          {payType === "production" ? L(lx, "worker_production_title", "My production") : L(lx, "worker_hours_title", "My hours")}
         </h2>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {periodLabel} · {fmtDay(range.start)} – {fmtDay(range.end)}
@@ -230,9 +267,27 @@ export function WorkerHoursCard({
               </p>
             ) : null
           ) : payType === "production" ? (
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              {L(lx, "worker_hours_production", "You are paid by production; hours are for reference.")}
-            </p>
+            <div className="mt-1 space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
+              {production ? (
+                <>
+                  <p>
+                    {L(lx, "worker_production_units", "Production this period: {units} units").replace(
+                      "{units}",
+                      String(Math.round(production.units * 100) / 100)
+                    )}
+                  </p>
+                  <p className="font-semibold">
+                    {L(lx, "worker_production_approved", "Approved: {amount}").replace("{amount}", money(production.approved))}
+                    {production.pending > 0
+                      ? ` · ${L(lx, "worker_production_pending", "Pending approval: {amount}").replace("{amount}", money(production.pending))}`
+                      : ""}
+                  </p>
+                </>
+              ) : null}
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {L(lx, "worker_hours_production", "You are paid by production; hours are for reference.")}
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {L(lx, "worker_hours_no_rate", "Your company hasn't set your pay in the app yet.")}
