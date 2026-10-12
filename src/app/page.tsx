@@ -39,6 +39,7 @@ import { usePPPPricing } from "@/hooks/usePPPPricing";
 import { CURRENCY_BY_TIER } from "@/lib/stripe";
 import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
+import { postAuthAudit } from "@/lib/postAuthAudit";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -1382,7 +1383,7 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const { user, profile, profileStatus, retryProfile, signOut, syncSession } = useAuth();
+  const { user, profile, profileStatus, retryProfile, syncSession } = useAuth();
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -1411,33 +1412,27 @@ export default function Home() {
     window.history.replaceState({}, "", url.pathname + (url.search || ""));
   }, [authLoading, session]);
 
-  const logoutBusyRef = useRef(false);
-  const handleLogout = async () => {
-    if (logoutBusyRef.current) return;
-    logoutBusyRef.current = true;
-    showToast("info", (t as Record<string, string>).logout_in_progress ?? "Cerrando sesión…");
+  /**
+   * Cerrar sesión: se va directamente a /logout, que lo hace el servidor (revoca la sesión,
+   * borra cookies y copia local) y deja al usuario en la pantalla de entrada.
+   * No depende de que Supabase responda en el teléfono.
+   */
+  const handleLogout = () => {
     try {
-      // El idioma elegido se mantiene al salir (la portada y el login siguen en su idioma).
-      if (typeof sessionStorage !== "undefined") {
-        const toRemove: string[] = [];
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const k = sessionStorage.key(i);
-          if (k?.startsWith("machinpro_locale_bootstrapped_")) toRemove.push(k);
-        }
-        for (const k of toRemove) sessionStorage.removeItem(k);
-      }
+      const token = session?.access_token ?? null;
+      void postAuthAudit({ action: "auth_logout", accessToken: token, companyId: profile?.companyId ?? null });
     } catch {
       /* ignore */
     }
     try {
-      await signOut();
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k?.startsWith("machinpro_locale_bootstrapped_")) sessionStorage.removeItem(k);
+      }
     } catch {
-      /* salir igualmente */
+      /* ignore */
     }
-    setSession(null);
-    setLanguage(detectLanguageFromNavigator());
-    // El servidor borra la sesión del todo y vuelve al inicio (funciona aunque el teléfono se atasque).
-    if (typeof window !== "undefined") window.location.replace("/logout");
+    window.location.assign("/logout");
   };
   const companyId = profile?.companyId ?? null;
   const companySettings = useCompanySettings(companyId, session?.access_token ?? null);
@@ -7170,7 +7165,7 @@ export default function Home() {
               ) : null}
               <button
                 type="button"
-                onClick={() => void handleLogout()}
+                onClick={() => handleLogout()}
                 className="min-h-[44px] rounded-xl border border-zinc-300 dark:border-slate-600 px-4 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
               >
                 {tl.settings_sign_out ?? "Cerrar sesión"}
@@ -7438,18 +7433,21 @@ export default function Home() {
                       </span>
                     </Link>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => void handleLogout()}
+                  <a
+                    href="/logout"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleLogout();
+                    }}
                     title={(t as Record<string, string>).settings_sign_out ?? "Sign out"}
                     aria-label={(t as Record<string, string>).settings_sign_out ?? "Sign out"}
-                    className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-2.5 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 sm:min-w-0 sm:px-4"
+                    className="relative z-10 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-600 px-2.5 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 sm:min-w-0 sm:px-4"
                   >
                     <LogOut className="h-4 w-4 shrink-0" aria-hidden />
                     <span className="hidden sm:inline">
                       {(t as Record<string, string>).settings_sign_out ?? "Sign out"}
                     </span>
-                  </button>
+                  </a>
                 </div>
               )}
             </div>
@@ -9288,7 +9286,7 @@ export default function Home() {
                 }
                 companyProfileSaveBusy={companyProfileSaveBusy}
                 session={session}
-                onSignOut={() => void handleLogout()}
+                onSignOut={() => handleLogout()}
                 companyId={companyId}
                 showBillingSection={!!rolePerms.canViewBilling}
                 billingSection={

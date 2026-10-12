@@ -44,6 +44,22 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
+    if (searchParams.get("out") === "1") {
+      // Venimos de cerrar sesión: si quedara algo guardado, se borra aquí y no se entra.
+      void Promise.race([
+        supabase.auth.signOut({ scope: "local" }),
+        new Promise((r) => setTimeout(r, 1500)),
+      ]).finally(() => {
+        try {
+          window.history.replaceState(null, "", "/login");
+        } catch {
+          /* ignore */
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     void supabase.auth.getSession().then((result: AuthGetSessionResult) => {
       if (cancelled) return;
       if (result.data.session) {

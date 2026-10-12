@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
 <body><p>MachinPro…</p><script>
 try{Object.keys(localStorage).forEach(function(k){if(k.indexOf("sb-")===0)localStorage.removeItem(k)})}catch(e){}
 try{Object.keys(sessionStorage).forEach(function(k){sessionStorage.removeItem(k)})}catch(e){}
-location.replace("/login");
+try{var h=location.hostname.replace(/^www\./,"");document.cookie.split(";").forEach(function(c){var n=c.split("=")[0].trim();if(n.indexOf("sb-")===0){document.cookie=n+"=; Max-Age=0; path=/";document.cookie=n+"=; Max-Age=0; path=/; domain=."+h;document.cookie=n+"=; Max-Age=0; path=/; domain="+location.hostname;}})}catch(e){}
+location.replace("/login?out=1");
 </script></body></html>`;
 
   const res = new NextResponse(html, {
