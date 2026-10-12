@@ -4823,6 +4823,15 @@ export default function Home() {
     [profile?.id, effectiveEmployeeId]
   );
 
+  /** El fichaje puede venir con el id del perfil o con el del empleado: los dos son "yo". */
+  const isMyClockEmployeeId = useCallback(
+    (id: string | null | undefined) => {
+      if (!id) return false;
+      return id === currentUserEmployeeId || scheduleSelfIds.includes(id) || (!!user?.id && id === user.id);
+    },
+    [currentUserEmployeeId, scheduleSelfIds, user?.id]
+  );
+
   const assignedClockInProjects = useMemo(() => {
     const ids = new Set(scheduleSelfIds);
     return (projects ?? [])
@@ -5247,11 +5256,17 @@ export default function Home() {
     const todayYmd = localTodayYmd();
     const openEntry = displayClockEntries.find(
       (e) =>
-        e.employeeId === (currentUserEmployeeId ?? "") &&
+        isMyClockEmployeeId(e.employeeId) &&
         e.date === todayYmd &&
         !e.clockOut
     );
-    if (!openEntry) return;
+    if (!openEntry) {
+      showToast(
+        "error",
+        (t as Record<string, string>).clock_out_no_open_entry ?? "No tienes ninguna jornada abierta hoy."
+      );
+      return;
+    }
 
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(openEntry.id);
@@ -5341,7 +5356,7 @@ export default function Home() {
     );
   }, [
     displayClockEntries,
-    currentUserEmployeeId,
+    isMyClockEmployeeId,
     supabase,
     dateLocaleBcp47,
     userTimeZone,
@@ -5363,7 +5378,7 @@ export default function Home() {
     const todayYmd = localTodayYmd();
     const openEntry = displayClockEntries.find(
       (e) =>
-        e.employeeId === (currentUserEmployeeId ?? "") &&
+        isMyClockEmployeeId(e.employeeId) &&
         e.date === todayYmd &&
         !e.clockOut
     );
@@ -5397,7 +5412,7 @@ export default function Home() {
     }
   }, [
     displayClockEntries,
-    currentUserEmployeeId,
+    isMyClockEmployeeId,
     companyId,
     session?.access_token,
     showToast,
@@ -5409,7 +5424,7 @@ export default function Home() {
       const todayYmd = localTodayYmd();
       const openEntry = displayClockEntries.find(
         (e) =>
-          e.employeeId === (currentUserEmployeeId ?? "") &&
+          isMyClockEmployeeId(e.employeeId) &&
           e.date === todayYmd &&
           !e.clockOut
       );
@@ -5450,7 +5465,7 @@ export default function Home() {
     },
     [
       displayClockEntries,
-      currentUserEmployeeId,
+      isMyClockEmployeeId,
       companyId,
       session?.access_token,
       projects,
