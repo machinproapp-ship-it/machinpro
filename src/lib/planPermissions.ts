@@ -58,8 +58,8 @@ export function planIncludesOperationsOrHigher(
   plan: string | null | undefined,
   subscriptionStatus?: string | null
 ): boolean {
-  if (String(subscriptionStatus ?? "").toLowerCase() === "trialing") return true;
   const tier = normalizePlanForModules(plan);
+  if (tier === "trial" || tier === "unknown") return String(subscriptionStatus ?? "").toLowerCase() === "trialing";
   return tier === "operaciones" || tier === "logistica" || tier === "todo_incluido";
 }
 
@@ -82,6 +82,11 @@ function tierAllowsModule(tier: AppPlanTier, mod: SidebarModule): boolean {
   }
 }
 
+/** ¿El plan incluye este módulo? (sin plan elegido o desconocido: sí). */
+export function planAllowsModule(plan: string | null | undefined, mod: SidebarModule): boolean {
+  return tierAllowsModule(normalizePlanForModules(plan), mod);
+}
+
 /**
  * During Stripe `trialing`, keep full navigation so companies can evaluate every module.
  * Otherwise, intersect role permissions with the active paid plan tier.
@@ -91,9 +96,9 @@ export function applyPlanToModulePermissions<T extends ModulePermissionsShape>(
   plan: string | null | undefined,
   options?: { subscriptionStatus?: string | null }
 ): T {
-  if (options?.subscriptionStatus === "trialing") {
-    return base;
-  }
+  // En prueba también manda el plan elegido: si eligió Esencial, no ve Operaciones ni Logística.
+  // Solo una prueba sin plan elegido ("trial") ve todos los módulos.
+  void options;
   const tier = normalizePlanForModules(plan);
   if (tier === "trial" || tier === "unknown") {
     return base;

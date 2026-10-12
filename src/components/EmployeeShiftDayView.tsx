@@ -144,7 +144,10 @@ export function EmployeeShiftDayView({
   onClockCorrectionApplied,
   employeePaymentType = "hourly",
   clockGoalMinutes: clockGoalMinutesProp,
+  projectActions = [],
 }: {
+  /** Lo que el usuario puede hacer en esta obra hoy (inspeccionar, formularios, ver la obra…). */
+  projectActions?: Array<{ key: string; label: string; onClick: () => void; primary?: boolean }>;
   open: boolean;
   onClose: () => void;
   language: string;
@@ -759,6 +762,31 @@ export function EmployeeShiftDayView({
               <p className="text-xs text-zinc-500">{tl.gpsNoGps ?? ""}</p>
             )}
           </section>
+
+          {/* En esta obra */}
+          {projectActions.length > 0 ? (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-white">
+                {tl.shift_actions_title ?? "En esta obra"}
+              </h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {projectActions.map((a) => (
+                  <button
+                    key={a.key}
+                    type="button"
+                    onClick={a.onClick}
+                    className={
+                      a.primary
+                        ? "min-h-[48px] w-full rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-500"
+                        : "min-h-[48px] w-full rounded-xl border border-zinc-300 px-4 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-slate-600 dark:text-zinc-100 dark:hover:bg-slate-800"
+                    }
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {/* Tareas */}
           <section>

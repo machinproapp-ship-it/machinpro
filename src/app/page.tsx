@@ -228,6 +228,7 @@ import { parseProfileCertificates } from "@/lib/employeeCertificatesJson";
 import { useSubscription } from "@/lib/useSubscription";
 import {
   applyPlanToModulePermissions,
+  planAllowsModule,
   planIncludesOperationsOrHigher,
 } from "@/lib/planPermissions";
 import { getCurrencyForCountry } from "@/lib/geoTier";
@@ -1108,26 +1109,15 @@ interface ModulePermissions {
 function permissionsToModule(p: RolePermissions): ModulePermissions {
   return {
     office: p.canViewCentral,
-    warehouse: p.canViewLogistics || p.canPerformInspections || p.canViewInspections,
-    // "Solo proyectos asignados" limita QUÉ obras se ven, no da acceso al módulo por sí solo:
-    // hace falta poder ver alguna parte de la obra (pestañas, fotos, producción...).
+    // Los módulos del menú se abren con permisos de módulo. Los permisos de dentro de la obra
+    // (inspeccionar un equipo, formularios, fotos, producción…) se usan desde el día del horario.
+    warehouse: p.canViewLogistics || p.canViewInspections,
+    // "Solo proyectos asignados" limita QUÉ obras se ven; para entrar en Operaciones hace falta
+    // ver la obra en sí (General o Equipo), como un supervisor.
     site:
       p.canViewProjects ||
       p.canViewSubcontractors ||
-      (p.canViewOnlyAssignedProjects &&
-        (p.canViewProjectGeneral ||
-          p.canViewProjectTeam ||
-          p.canViewProjectInventory ||
-          p.canViewProjectGallery ||
-          p.canViewProjectBlueprints ||
-          p.canViewProjectForms ||
-          p.canViewProjectVisitors ||
-          p.canViewProjectRFI ||
-          p.canViewProjectCosts ||
-          p.canUploadPhotos ||
-          p.canManageProjectGallery ||
-          p.canReportProduction ||
-          p.canViewWorkOrders)),
+      (p.canViewOnlyAssignedProjects && (p.canViewProjectGeneral || p.canViewProjectTeam)),
     worker: false,
     forms:
       p.canViewForms ||
@@ -1435,9 +1425,15 @@ export default function Home() {
     } catch {
       /* ignore */
     }
-    await signOut();
+    try {
+      await signOut();
+    } catch {
+      /* salir igualmente */
+    }
     setSession(null);
     setLanguage(detectLanguageFromNavigator());
+    // Recarga limpia: ningún estado de la sesión anterior se queda en pantalla.
+    if (typeof window !== "undefined") window.location.replace("/");
   };
   const companyId = profile?.companyId ?? null;
   const companySettings = useCompanySettings(companyId, session?.access_token ?? null);
@@ -1466,6 +1462,8 @@ export default function Home() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   /** Estado de inspecciones previas al uso (vista v_equipment_inspection_status) para el Watchdog. */
+  /** Inspecciones abiertas desde el horario (quien no tiene el módulo Logística). */
+  const [inspectionsSheet, setInspectionsSheet] = useState<{ projectId: string | null } | null>(null);
   const [equipmentInspectionStatus, setEquipmentInspectionStatus] = useState<EquipmentInspectionStatusForWatchdog[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
@@ -2381,7 +2379,7 @@ export default function Home() {
       alive = false;
       clearInterval(timer);
     };
-  }, [session, companyId, logisticsSync.status]);
+  }, [session, companyId, logisticsSync.status, inspectionsSheet]);
   const [rentals, setRentals] = useState<Rental[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -4419,6 +4417,20 @@ export default function Home() {
       ? "inspections"
       : warehouseSubTab;
   const [pendingInspectItem, setPendingInspectItem] = useState<InspectableItemRef | null>(null);
+  /** Inspeccionar va con los equipos: plan con Logística (o Todo Incluido) y permiso de inspeccionar. */
+  const canInspectEquipment =
+    !!rolePerms.canPerformInspections && planAllowsModule(subscriptionRow?.plan ?? null, "warehouse");
+  const openInspections = useCallback(
+    (projectId: string | null) => {
+      if (perms.warehouse) {
+        setWarehouseSubTab("inspections");
+        setActiveSection("warehouse");
+        return;
+      }
+      setInspectionsSheet({ projectId });
+    },
+    [perms.warehouse]
+  );
   const clearPendingInspectItem = useCallback(() => setPendingInspectItem(null), []);
   const projectNameById = useMemo(
     () => Object.fromEntries((projects ?? []).map((p) => [p.id, p.name] as const)),
@@ -7057,6 +7069,75 @@ export default function Home() {
     );
   }
 
+  /** Equipos pendientes de inspeccionar por obra, solo de mis obras o a mi nombre y que puedo usar. */
+  const myInspectionsDueByProject = useMemo(() => {
+    const out = new Map<string, number>();
+    let total = 0;
+    if (!canInspectEquipment) return { out, total };
+    const me = profile?.id ?? effectiveEmployeeId ?? "";
+    const roleId = profile?.customRoleId ?? "";
+    const mine = new Set(myProjectIdsForInspections);
+    const allowed = (roles?: string[], users?: string[]) =>
+      (roles ?? []).length === 0 && (users ?? []).length === 0
+        ? true
+        : (!!me && (users ?? []).includes(me)) || (!!roleId && (roles ?? []).includes(roleId));
+    for (const s of equipmentInspectionStatus) {
+      if (!(s.needsInspection || s.lastResult === "fail")) continue;
+      let ok = false;
+      let pid: string | null = s.projectId;
+      if (s.itemKind === "inventory") {
+        const it = inventoryItems.find((i) => i.id === s.itemId);
+        if (!it || !allowed(it.inspectionAllowedRoleIds, it.inspectionAllowedUserIds)) continue;
+        pid = it.assignedToProjectId ?? pid;
+        ok = (!!pid && mine.has(pid)) || (!!me && it.assignedToEmployeeId === me);
+      } else if (s.itemKind === "fleet") {
+        const v = vehicles.find((x) => x.id === s.itemId);
+        if (!v || !allowed(v.inspectionAllowedRoleIds, v.inspectionAllowedUserIds)) continue;
+        pid = v.currentProjectId ?? pid;
+        ok = (!!pid && mine.has(pid)) || (!!me && v.usualDriverId === me);
+      }
+      if (!ok) continue;
+      total += 1;
+      if (pid) out.set(pid, (out.get(pid) ?? 0) + 1);
+    }
+    return { out, total };
+  }, [
+    canInspectEquipment,
+    equipmentInspectionStatus,
+    inventoryItems,
+    vehicles,
+    myProjectIdsForInspections,
+    profile?.id,
+    profile?.customRoleId,
+    effectiveEmployeeId,
+  ]);
+
+  const buildInspectionsPanel = (onlyProjectId?: string | null) =>
+                  companyId && (rolePerms.canPerformInspections || rolePerms.canViewInspections || rolePerms.canManageInspectionTemplates) ? (
+                    <InspectionsPanel
+                      companyId={companyId}
+                      companyName={companyName}
+                      companyLogoUrl={logoUrl?.trim() || null}
+                      countryCode={companyCountry}
+                      locale={dateLocaleBcp47}
+                      labels={t as Record<string, string>}
+                      inventoryItems={inventoryItems}
+                      vehicles={vehicles}
+                      projectNameById={projectNameById}
+                      currentEmployeeId={profile?.id ?? effectiveEmployeeId}
+                      currentRoleId={profile?.customRoleId ?? null}
+                      seesAllEquipment={effectiveRole === "admin" || !!rolePerms.canViewInspections}
+                      myProjectIds={myProjectIdsForInspections}
+                      canPerform={!!rolePerms.canPerformInspections}
+                      canView={!!rolePerms.canViewInspections}
+                      canManageTemplates={!!rolePerms.canManageInspectionTemplates}
+                      onFailedInspection={notifyFailedInspection}
+                      initialItem={pendingInspectItem}
+                      onInitialItemConsumed={clearPendingInspectItem}
+                      onlyProjectId={onlyProjectId ?? null}
+                    />
+                  ) : undefined;
+
   // Con sesión pero sin perfil cargado nunca mostramos la app (evita aparecer como administrador).
   if (session && (!profile || profile.id !== session.user.id)) {
     if (profileStatus === "error" || profileStatus === "missing") {
@@ -7861,31 +7942,7 @@ export default function Home() {
                 warehouseSubTab={effectiveWarehouseSubTab}
                 syncError={logisticsSync.status === "error" ? logisticsSync.lastError : null}
                 moduleTitle={inspectionsOnlyNav ? labels.warehouse : undefined}
-                inspectionsPanel={
-                  companyId && (rolePerms.canPerformInspections || rolePerms.canViewInspections || rolePerms.canManageInspectionTemplates) ? (
-                    <InspectionsPanel
-                      companyId={companyId}
-                      companyName={companyName}
-                      companyLogoUrl={logoUrl?.trim() || null}
-                      countryCode={companyCountry}
-                      locale={dateLocaleBcp47}
-                      labels={t as Record<string, string>}
-                      inventoryItems={inventoryItems}
-                      vehicles={vehicles}
-                      projectNameById={projectNameById}
-                      currentEmployeeId={profile?.id ?? effectiveEmployeeId}
-                      currentRoleId={profile?.customRoleId ?? null}
-                      seesAllEquipment={effectiveRole === "admin" || !!rolePerms.canViewInspections}
-                      myProjectIds={myProjectIdsForInspections}
-                      canPerform={!!rolePerms.canPerformInspections}
-                      canView={!!rolePerms.canViewInspections}
-                      canManageTemplates={!!rolePerms.canManageInspectionTemplates}
-                      onFailedInspection={notifyFailedInspection}
-                      initialItem={pendingInspectItem}
-                      onInitialItemConsumed={clearPendingInspectItem}
-                    />
-                  ) : undefined
-                }
+                inspectionsPanel={buildInspectionsPanel()}
                 onInspectItem={
                   rolePerms.canPerformInspections
                     ? (ref) => {
@@ -8650,11 +8707,10 @@ export default function Home() {
                 payType={profile?.payType ?? null}
                 companyCurrency={rentalFormCurrency}
                 onClockOut={handleClockOut}
-                canInspect={!!rolePerms.canPerformInspections && perms.warehouse}
-                onOpenInspections={() => {
-                  setWarehouseSubTab("inspections");
-                  setActiveSection("warehouse");
-                }}
+                canInspect={canInspectEquipment}
+                onOpenInspections={() => openInspections(null)}
+                inspectionsDueCount={myInspectionsDueByProject.total}
+                canOpenSite={perms.site}
               />
             ) : null}
 
@@ -10466,10 +10522,84 @@ export default function Home() {
           </div>
         </>
       )}
+      {inspectionsSheet ? (
+        <div
+          className="fixed inset-0 z-[70] flex flex-col bg-white dark:bg-slate-950"
+          role="dialog"
+          aria-modal="true"
+          aria-label={(t as Record<string, string>).inspections ?? "Inspecciones"}
+        >
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-slate-700">
+            <div className="min-w-0">
+              <p className="text-lg font-bold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).inspections ?? "Inspecciones"}
+              </p>
+              {inspectionsSheet.projectId ? (
+                <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
+                  {projectNameById[inspectionsSheet.projectId] ?? ""}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setInspectionsSheet(null)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800"
+              aria-label={(t as Record<string, string>).close ?? "Cerrar"}
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {buildInspectionsPanel(inspectionsSheet.projectId)}
+          </div>
+        </div>
+      ) : null}
       {employeeShiftModalModel && (
         <EmployeeShiftDayView
           open
           onClose={() => setEmployeeShiftDayOpen(null)}
+          projectActions={(() => {
+            const tl = t as Record<string, string>;
+            const pid = employeeShiftModalModel.entry.projectId ?? null;
+            const close = () => setEmployeeShiftDayOpen(null);
+            const out: Array<{ key: string; label: string; onClick: () => void; primary?: boolean }> = [];
+            if (canInspectEquipment) {
+              out.push({
+                key: "inspect",
+                label: (() => {
+                  const base = tl.shift_inspect_equipment ?? "Inspeccionar equipos";
+                  const n = pid ? myInspectionsDueByProject.out.get(pid) ?? 0 : myInspectionsDueByProject.total;
+                  return n > 0 ? `${base} (${n})` : base;
+                })(),
+                primary: true,
+                onClick: () => {
+                  close();
+                  openInspections(pid);
+                },
+              });
+            }
+            if (perms.formsNav) {
+              out.push({
+                key: "forms",
+                label: tl.forms ?? "Formularios",
+                onClick: () => {
+                  close();
+                  setActiveSection("forms");
+                },
+              });
+            }
+            if (perms.site && pid && visibleProjects.some((p) => p.id === pid)) {
+              out.push({
+                key: "project",
+                label: tl.shift_open_project ?? "Ver la obra",
+                onClick: () => {
+                  close();
+                  handleGlobalSearchSelectProject(pid);
+                },
+              });
+            }
+            return out;
+          })()}
           language={language}
           labels={t as Record<string, string>}
           scheduleEntry={employeeShiftModalModel.entry}

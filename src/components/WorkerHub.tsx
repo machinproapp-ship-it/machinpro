@@ -55,7 +55,26 @@ export type WorkerHubProps = {
   companyCurrency?: string | null;
   /** Cómo cobra el trabajador: con salario fijo no se ficha ni se cuentan horas. */
   payType?: "fixed" | "hourly" | "production" | null;
+  /** Equipos pendientes de inspeccionar en mis obras. */
+  inspectionsDueCount?: number;
+  /** Tiene el módulo Operaciones (si no, no se le ofrece ir allí). */
+  canOpenSite?: boolean;
 };
+
+/** Suma días a una fecha YYYY-MM-DD sin depender de la zona horaria del navegador. */
+function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map((x) => parseInt(x, 10));
+  const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Lunes de la semana de esa fecha. */
+function mondayOfYmd(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map((x) => parseInt(x, 10));
+  const dow = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)).getUTCDay(); // 0 = domingo
+  return addDaysYmd(ymd, dow === 0 ? -6 : 1 - dow);
+}
 
 function matchesEmployee(
   ids: string[],
@@ -94,6 +113,8 @@ export function WorkerHub({
   onOpenInspections,
   companyCurrency,
   payType,
+  canOpenSite = false,
+  inspectionsDueCount = 0,
 }: WorkerHubProps) {
   const tracksTime = payType !== "fixed";
   const todayYmd = formatTodayYmdInTimeZone(timeZone);
@@ -103,6 +124,43 @@ export function WorkerHub({
     for (const p of projects) m.set(p.id, p.name);
     return m;
   }, [projects]);
+
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDays = useMemo(() => {
+    const monday = addDaysYmd(mondayOfYmd(todayYmd), weekOffset * 7);
+    return Array.from({ length: 7 }, (_, i) => addDaysYmd(monday, i));
+  }, [todayYmd, weekOffset]);
+
+  const myEntriesByDay = useMemo(() => {
+    const map = new Map<string, ScheduleEntry[]>();
+    if (!canViewSchedule) return map;
+    const days = new Set(weekDays);
+    for (const e of scheduleEntries) {
+      if (!days.has(e.date)) continue;
+      if (!matchesEmployee(e.employeeIds ?? [], profileId, legacyEmployeeId)) continue;
+      const arr = map.get(e.date) ?? [];
+      arr.push(e);
+      map.set(e.date, arr);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+    return map;
+  }, [scheduleEntries, weekDays, canViewSchedule, profileId, legacyEmployeeId]);
+
+  const dayFmt = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat(dateLocale, { weekday: "short", day: "numeric", timeZone: "UTC" });
+    } catch {
+      return new Intl.DateTimeFormat("es-ES", { weekday: "short", day: "numeric", timeZone: "UTC" });
+    }
+  }, [dateLocale]);
+  const rangeFmt = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat(dateLocale, { day: "numeric", month: "short", timeZone: "UTC" });
+    } catch {
+      return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", timeZone: "UTC" });
+    }
+  }, [dateLocale]);
+  const ymdToUtcDate = (ymd: string) => new Date(`${ymd}T00:00:00Z`);
 
   const todayShifts = useMemo(() => {
     if (!canViewSchedule) return [];
@@ -217,45 +275,116 @@ export function WorkerHub({
   return (
     <div className="mb-6 grid gap-4 sm:grid-cols-2">
       {canViewSchedule ? (
-        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
-              {L(lx, "worker_view_my_shift", "Mi turno hoy")}
-            </h2>
+        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 sm:col-span-2">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {weekOffset === 0
+                  ? L(lx, "worker_week_title", "Mi semana")
+                  : `${rangeFmt.format(ymdToUtcDate(weekDays[0]!))} – ${rangeFmt.format(ymdToUtcDate(weekDays[6]!))}`}
+              </h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {L(lx, "worker_week_hint", "Toca un día para ver la obra y lo que tienes que hacer.")}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setWeekOffset((n) => n - 1)}
+                aria-label={L(lx, "worker_week_prev", "Semana anterior")}
+                className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:text-zinc-200 dark:hover:bg-slate-800"
+              >
+                ←
+              </button>
+              {weekOffset !== 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setWeekOffset(0)}
+                  className="h-11 rounded-lg border border-amber-500 px-3 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                >
+                  {L(lx, "today", "Hoy")}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setWeekOffset((n) => n + 1)}
+                aria-label={L(lx, "worker_week_next", "Semana siguiente")}
+                className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-slate-600 dark:text-zinc-200 dark:hover:bg-slate-800"
+              >
+                →
+              </button>
+            </div>
           </div>
-          {todayShifts.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {L(lx, "schedule_no_shifts_day", "No hay turno hoy")}
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {todayShifts.map((s) => (
-                <li key={s.id}>
+          <ul className="space-y-1.5">
+            {weekDays.map((ymd) => {
+              const entries = myEntriesByDay.get(ymd) ?? [];
+              const shifts = entries.filter((e) => e.type === "shift");
+              const other = entries.find((e) => e.type !== "shift");
+              const isToday = ymd === todayYmd;
+              const isPast = ymd < todayYmd;
+              const first = shifts[0];
+              const dayLabel = dayFmt.format(ymdToUtcDate(ymd));
+              const base = `flex min-h-[52px] w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm ${
+                isToday
+                  ? "border-amber-500 bg-amber-50 dark:border-amber-500 dark:bg-amber-950/30"
+                  : "border-zinc-200 bg-zinc-50/60 dark:border-slate-700 dark:bg-slate-800/40"
+              } ${isPast && !isToday ? "opacity-70" : ""}`;
+              const dayCol = (
+                <span
+                  className={`w-16 shrink-0 text-xs font-semibold uppercase ${
+                    isToday ? "text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"
+                  }`}
+                >
+                  {isToday ? L(lx, "today", "Hoy") : dayLabel}
+                </span>
+              );
+              if (!first) {
+                return (
+                  <li key={ymd}>
+                    <div className={base}>
+                      {dayCol}
+                      <span className="text-zinc-500 dark:text-zinc-400">
+                        {other
+                          ? other.type === "vacation"
+                            ? L(lx, "schedule_type_vacation", "Vacaciones")
+                            : other.eventLabel || other.notes || L(lx, "schedule_type_event", "Evento")
+                          : L(lx, "worker_day_off", "Libre")}
+                      </span>
+                    </div>
+                  </li>
+                );
+              }
+              return (
+                <li key={ymd}>
                   <button
                     type="button"
                     disabled={!onOpenShift}
-                    onClick={() => onOpenShift?.(s.date, s.id)}
-                    className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-left text-sm hover:bg-amber-100/70 disabled:cursor-default dark:border-amber-900/40 dark:bg-amber-950/25 dark:hover:bg-amber-950/40"
+                    onClick={() => onOpenShift?.(ymd, first.id)}
+                    className={`${base} hover:border-amber-400 disabled:cursor-default`}
                   >
-                    <span className="min-w-0">
-                      <span className="block font-medium text-zinc-900 dark:text-zinc-100">
-                        {s.projectId ? projectNameById.get(s.projectId) ?? s.projectCode ?? "—" : s.projectCode ?? "—"}
-                      </span>
-                      <span className="block text-xs text-zinc-600 dark:text-zinc-400">
-                        {formatTimeHm(s.startTime, dateLocale, timeZone)} →{" "}
-                        {formatTimeHm(s.endTime, dateLocale, timeZone)}
-                      </span>
+                    {dayCol}
+                    <span className="min-w-0 flex-1">
+                      {shifts.map((sh) => (
+                        <span key={sh.id} className="block">
+                          <span className="block truncate font-medium text-zinc-900 dark:text-zinc-100">
+                            {sh.projectId ? projectNameById.get(sh.projectId) ?? sh.projectCode ?? "—" : sh.projectCode ?? "—"}
+                          </span>
+                          <span className="block text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                            {formatTimeHm(sh.startTime, dateLocale, timeZone)} → {formatTimeHm(sh.endTime, dateLocale, timeZone)}
+                          </span>
+                        </span>
+                      ))}
                     </span>
                     {onOpenShift ? (
-                      <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-400">
-                        {L(lx, "worker_view_shift_details", "Ver detalles")} →
+                      <span className="shrink-0 text-amber-700 dark:text-amber-400" aria-hidden>
+                        →
                       </span>
                     ) : null}
                   </button>
                 </li>
-              ))}
-            </ul>
-          )}
+              );
+            })}
+          </ul>
         </section>
       ) : null}
 
@@ -350,7 +479,9 @@ export function WorkerHub({
                 {L(lx, "worker_inspections_title", "Inspect before use")}
               </h2>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {L(lx, "worker_inspections_hint", "Harness, tools, vehicles… check them before you start.")}
+                {inspectionsDueCount > 0
+                  ? L(lx, "worker_inspections_due", "{n} pending in your sites").replace(/\{n\}/g, String(inspectionsDueCount))
+                  : L(lx, "worker_inspections_hint", "Harness, tools, vehicles… check them before you start.")}
               </p>
             </div>
             <button
@@ -364,7 +495,7 @@ export function WorkerHub({
         </section>
       ) : null}
 
-      {canFillForms ? (
+      {canFillForms && pendingForms.length > 0 ? (
         <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 sm:col-span-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
@@ -406,13 +537,15 @@ export function WorkerHub({
             <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
               {L(lx, "worker_view_my_production", "Mi producción")}
             </h2>
-            <button
-              type="button"
-              className="min-h-[44px] rounded-lg border border-zinc-300 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-slate-800"
-              onClick={() => onNavigate("site")}
-            >
-              {L(lx, "site", "Operaciones")}
-            </button>
+            {canOpenSite ? (
+              <button
+                type="button"
+                className="min-h-[44px] rounded-lg border border-zinc-300 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-slate-800"
+                onClick={() => onNavigate("site")}
+              >
+                {L(lx, "site", "Operaciones")}
+              </button>
+            ) : null}
           </div>
           {myProductionTasks.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">

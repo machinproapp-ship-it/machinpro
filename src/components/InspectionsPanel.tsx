@@ -52,6 +52,8 @@ type Props = {
   /** Abre la inspección de este equipo nada más montar (p. ej. desde el botón de una tarjeta o un QR). */
   initialItem?: InspectableItemRef | null;
   onInitialItemConsumed?: () => void;
+  /** Solo los equipos de esta obra (abierto desde el día del horario). */
+  onlyProjectId?: string | null;
 };
 
 const card = "rounded-xl border border-zinc-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900";
@@ -185,14 +187,37 @@ export function InspectionsPanel(props: Props) {
     return keys;
   }, [inventoryItems, vehicles, currentEmployeeId, props.currentRoleId, props.seesAllEquipment]);
 
+  /** Equipos de la obra elegida, más los que el usuario lleva asignados a su nombre. */
+  const projectItemKeys = useMemo(() => {
+    const pid = props.onlyProjectId;
+    if (!pid) return null;
+    const keys = new Set<string>();
+    for (const i of inventoryItems) {
+      if (i.deletedAt) continue;
+      if (i.assignedToProjectId === pid || (currentEmployeeId && i.assignedToEmployeeId === currentEmployeeId)) {
+        keys.add(`inventory:${i.id}`);
+      }
+    }
+    for (const v of vehicles) {
+      if (v.currentProjectId === pid || (currentEmployeeId && v.usualDriverId === currentEmployeeId)) {
+        keys.add(`fleet:${v.id}`);
+      }
+    }
+    return keys;
+  }, [props.onlyProjectId, inventoryItems, vehicles, currentEmployeeId]);
+
   const visibleStatus = useMemo(() => {
-    const allowed = status.filter((s) => !blockedKeys.has(`${s.itemKind}:${s.itemId}`));
+    const allowed = status.filter(
+      (s) =>
+        !blockedKeys.has(`${s.itemKind}:${s.itemId}`) &&
+        (!projectItemKeys || projectItemKeys.has(`${s.itemKind}:${s.itemId}`))
+    );
     const list = onlyMine ? allowed.filter((s) => myItemKeys.has(`${s.itemKind}:${s.itemId}`)) : allowed;
     return [...list].sort((a, b) => {
       const rank = (s: EquipmentInspectionStatus) => (s.lastResult === "fail" ? 0 : s.needsInspection ? 1 : 2);
       return rank(a) - rank(b) || a.itemLabel.localeCompare(b.itemLabel);
     });
-  }, [status, onlyMine, myItemKeys, blockedKeys]);
+  }, [status, onlyMine, myItemKeys, blockedKeys, projectItemKeys]);
 
   const filteredHistory = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -209,8 +234,8 @@ export function InspectionsPanel(props: Props) {
     return verifyChain(sorted);
   }, [history]);
 
-  const failCount = status.filter((s) => s.lastResult === "fail").length;
-  const dueCount = status.filter((s) => s.needsInspection && s.lastResult !== "fail").length;
+  const failCount = visibleStatus.filter((s) => s.lastResult === "fail").length;
+  const dueCount = visibleStatus.filter((s) => s.needsInspection && s.lastResult !== "fail").length;
 
   function openFlow(s: EquipmentInspectionStatus) {
     setSupersedes(null);
