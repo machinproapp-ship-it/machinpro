@@ -6,6 +6,7 @@ import type { FormInstance, FormTemplate } from "@/types/forms";
 import type { ProjectTask } from "@/types/projectTask";
 import type { MainSection } from "@/types/shared";
 import { formatTimeHm, formatTodayYmdInTimeZone } from "@/lib/dateUtils";
+import { WorkerHoursCard } from "@/components/WorkerHoursCard";
 import {
   elapsedMinutesSinceClockStart,
   formatCompletedWorkFromHmPair,
@@ -43,6 +44,15 @@ export type WorkerHubProps = {
   canReportProduction: boolean;
   onNavigate: (section: MainSection) => void;
   onOpenFormInstance: (instanceId: string) => void;
+  /** Abre el detalle del turno (obra, dirección, compañeros y fichaje). */
+  onOpenShift?: (date: string, entryId: string) => void;
+  /** Ficha la salida del fichaje abierto de hoy. */
+  onClockOut?: () => void;
+  /** Muestra el acceso a las inspecciones de equipos. */
+  canInspect?: boolean;
+  onOpenInspections?: () => void;
+  /** Moneda de la empresa si el trabajador no tiene una propia en su ficha. */
+  companyCurrency?: string | null;
 };
 
 function matchesEmployee(
@@ -76,6 +86,11 @@ export function WorkerHub({
   canReportProduction,
   onNavigate,
   onOpenFormInstance,
+  onOpenShift,
+  onClockOut,
+  canInspect,
+  onOpenInspections,
+  companyCurrency,
 }: WorkerHubProps) {
   const todayYmd = formatTodayYmdInTimeZone(timeZone);
   const [clockTick, setClockTick] = useState(0);
@@ -101,6 +116,18 @@ export function WorkerHub({
         c.date === todayYmd &&
         (c.employeeId === profileId || (!!legacyEmployeeId && c.employeeId === legacyEmployeeId))
     );
+  }, [clockEntries, todayYmd, profileId, legacyEmployeeId]);
+
+  /** Fichaje que se quedó abierto otro día (no se fichó la salida). */
+  const staleOpenClock = useMemo(() => {
+    return clockEntries
+      .filter(
+        (c) =>
+          !c.clockOut &&
+          c.date < todayYmd &&
+          (c.employeeId === profileId || (!!legacyEmployeeId && c.employeeId === legacyEmployeeId))
+      )
+      .sort((a, b) => b.date.localeCompare(a.date))[0];
   }, [clockEntries, todayYmd, profileId, legacyEmployeeId]);
 
   useEffect(() => {
@@ -199,17 +226,28 @@ export function WorkerHub({
           ) : (
             <ul className="space-y-2">
               {todayShifts.map((s) => (
-                <li
-                  key={s.id}
-                  className="rounded-xl border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-sm dark:border-amber-900/40 dark:bg-amber-950/25"
-                >
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {s.projectId ? projectNameById.get(s.projectId) ?? s.projectCode ?? "—" : s.projectCode ?? "—"}
-                  </p>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    {formatTimeHm(s.startTime, dateLocale, timeZone)} →{" "}
-                    {formatTimeHm(s.endTime, dateLocale, timeZone)}
-                  </p>
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    disabled={!onOpenShift}
+                    onClick={() => onOpenShift?.(s.date, s.id)}
+                    className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-left text-sm hover:bg-amber-100/70 disabled:cursor-default dark:border-amber-900/40 dark:bg-amber-950/25 dark:hover:bg-amber-950/40"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-medium text-zinc-900 dark:text-zinc-100">
+                        {s.projectId ? projectNameById.get(s.projectId) ?? s.projectCode ?? "—" : s.projectCode ?? "—"}
+                      </span>
+                      <span className="block text-xs text-zinc-600 dark:text-zinc-400">
+                        {formatTimeHm(s.startTime, dateLocale, timeZone)} →{" "}
+                        {formatTimeHm(s.endTime, dateLocale, timeZone)}
+                      </span>
+                    </span>
+                    {onOpenShift ? (
+                      <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-400">
+                        {L(lx, "worker_view_shift_details", "Ver detalles")} →
+                      </span>
+                    ) : null}
+                  </button>
                 </li>
               ))}
             </ul>
@@ -222,10 +260,30 @@ export function WorkerHub({
           <h2 className="mb-2 text-base font-semibold text-zinc-900 dark:text-white">
             {L(lx, "my_clockin", L(lx, "worker_view_my_clock", "Mi fichaje"))}
           </h2>
-          {!todayClock ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {L(lx, "no_entries", L(lx, "noEntries", "Sin fichajes hoy"))}
+          {staleOpenClock ? (
+            <p className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+              {L(
+                lx,
+                "clock_stale_open_notice",
+                "Your clock-in from {date} was never closed. Ask your manager to correct it."
+              ).replace(/\{date\}/g, staleOpenClock.date)}
             </p>
+          ) : null}
+          {!todayClock ? (
+            <div className="space-y-2">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {L(lx, "clock_none_today", "You haven't clocked in today.")}
+              </p>
+              {todayShifts.length > 0 && onOpenShift ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenShift(todayShifts[0]!.date, todayShifts[0]!.id)}
+                  className="min-h-[44px] w-full rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
+                >
+                  {L(lx, "clockIn", "Clock in")}
+                </button>
+              ) : null}
+            </div>
           ) : (
             <dl className="space-y-1 text-sm text-zinc-800 dark:text-zinc-200">
               <div className="flex justify-between gap-2">
@@ -239,6 +297,15 @@ export function WorkerHub({
                 <dt className="text-zinc-500 dark:text-zinc-400">{L(lx, "clockOutEntry", "Salida")}</dt>
                 <dd className="tabular-nums font-medium">{todayClock.clockOut ?? "—"}</dd>
               </div>
+              {!todayClock.clockOut && onClockOut ? (
+                <button
+                  type="button"
+                  onClick={onClockOut}
+                  className="mt-2 min-h-[44px] w-full rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-500"
+                >
+                  {L(lx, "clockOut", "Clock out")}
+                </button>
+              ) : null}
               {todayClock.clockOut ? (
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
                   {(lx.clock_total_worked as string | undefined)?.replace(
@@ -258,6 +325,38 @@ export function WorkerHub({
               ) : null}
             </dl>
           )}
+        </section>
+      ) : null}
+
+      {canViewSchedule && userAuthId ? (
+        <WorkerHoursCard
+          userAuthId={userAuthId}
+          labels={lx}
+          timeZone={timeZone}
+          dateLocale={dateLocale}
+          fallbackCurrency={companyCurrency}
+        />
+      ) : null}
+
+      {canInspect && onOpenInspections ? (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 sm:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {L(lx, "worker_inspections_title", "Inspect before use")}
+              </h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {L(lx, "worker_inspections_hint", "Harness, tools, vehicles… check them before you start.")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenInspections}
+              className="min-h-[44px] rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-500"
+            >
+              {L(lx, "inspect", "Inspect")}
+            </button>
+          </div>
         </section>
       ) : null}
 

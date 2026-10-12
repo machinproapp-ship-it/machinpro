@@ -25,7 +25,7 @@ export type VacationRequestRow = {
   start_date: string;
   end_date: string;
   total_days: number;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "cancelled";
   notes?: string | null;
   admin_comment?: string | null;
 };

@@ -380,12 +380,17 @@ export interface ScheduleModuleProps {
     start_date: string;
     end_date: string;
     total_days: number;
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "cancelled";
     notes?: string | null;
+    admin_comment?: string | null;
   }>;
   vacationEmployeeNames?: Record<string, string>;
   onApproveVacation?: (id: string, comment: string) => void | Promise<void>;
   onRejectVacation?: (id: string, comment: string) => void | Promise<void>;
+  /** El empleado corrige una solicitud suya que aún está pendiente. */
+  onUpdateOwnVacation?: (id: string, start: string, end: string, notes: string) => boolean | Promise<boolean>;
+  /** El empleado retira una solicitud suya pendiente. */
+  onCancelOwnVacation?: (id: string) => boolean | Promise<boolean>;
   onRequestVacation?: (
     start: string,
     end: string,
@@ -2008,6 +2013,8 @@ export default function ScheduleModule({
   vacationEmployeeNames = {},
   onApproveVacation,
   onRejectVacation,
+  onUpdateOwnVacation,
+  onCancelOwnVacation,
   onRequestVacation,
   onAddEntry,
   onUpdateEntry,
@@ -2254,6 +2261,11 @@ export default function ScheduleModule({
   const [fLabel, setFLabel] = useState("meeting");
   const [vacReqStart, setVacReqStart] = useState("");
   const [vacReqSending, setVacReqSending] = useState(false);
+  const [vacEditId, setVacEditId] = useState<string | null>(null);
+  const [vacEditStart, setVacEditStart] = useState("");
+  const [vacEditEnd, setVacEditEnd] = useState("");
+  const [vacEditNote, setVacEditNote] = useState("");
+  const [vacEditBusy, setVacEditBusy] = useState(false);
   const [vacReqAbsenceKind, setVacReqAbsenceKind] = useState<string>("vacation");
   const [vacReqEnd, setVacReqEnd] = useState("");
   const [vacReqNote, setVacReqNote] = useState("");
@@ -2368,7 +2380,7 @@ export default function ScheduleModule({
   }, [vacationRequests, vacationEmployeeNames, currentUserId]);
 
   const filteredVacationRequests = useMemo(() => {
-    let list = [...vacationRequests];
+    let list = vacationRequests.filter((v) => v.status !== "cancelled");
     if (!canApproveVacations && currentUserId) {
       list = list.filter((v) => v.user_id === currentUserId);
     }
@@ -3339,6 +3351,7 @@ export default function ScheduleModule({
             )}
           </div>
 
+          {canApproveVacations ? (
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
@@ -3484,7 +3497,145 @@ export default function ScheduleModule({
               </button>
             </div>
           </div>
+          ) : null}
 
+          {!canApproveVacations ? (
+            <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                {lx.vacation_my_requests ?? "My requests"}
+              </h4>
+              {filteredVacationRequests.filter((v) => v.status !== "cancelled").length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  {lx.vacation_no_requests ?? "You have no requests yet."}
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {[...filteredVacationRequests]
+                    .filter((v) => v.status !== "cancelled")
+                    .sort((a, b) => {
+                      const rank = (x: string) => (x === "pending" ? 0 : x === "approved" ? 1 : 2);
+                      return rank(a.status) - rank(b.status) || b.start_date.localeCompare(a.start_date);
+                    })
+                    .map((v) => {
+                      const stLabel =
+                        v.status === "approved"
+                          ? (lx.vacations_approved ?? labels.approved ?? "")
+                          : v.status === "rejected"
+                            ? (lx.vacations_rejected ?? labels.rejected ?? "")
+                            : (lx.vacations_pending ?? labels.pending ?? "");
+                      const stCls =
+                        v.status === "approved"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                          : v.status === "rejected"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200";
+                      const editing = vacEditId === v.id;
+                      return (
+                        <li key={v.id} className="rounded-lg border border-zinc-200 p-3 text-sm dark:border-slate-700">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-medium tabular-nums text-zinc-900 dark:text-white">
+                              {v.start_date} → {v.end_date}
+                            </p>
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${stCls}`}>{stLabel}</span>
+                          </div>
+                          {v.notes ? <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{v.notes}</p> : null}
+                          {v.status === "rejected" && v.admin_comment ? (
+                            <p className="mt-1 text-xs text-red-700 dark:text-red-300">{v.admin_comment}</p>
+                          ) : null}
+                          {v.status === "pending" && !editing && (onUpdateOwnVacation || onCancelOwnVacation) ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {onUpdateOwnVacation ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setVacEditId(v.id);
+                                    setVacEditStart(v.start_date);
+                                    setVacEditEnd(v.end_date);
+                                    setVacEditNote(v.notes ?? "");
+                                  }}
+                                  className="min-h-[44px] rounded-lg border border-zinc-300 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-slate-800"
+                                >
+                                  {lx.vacation_edit_request ?? "Change dates"}
+                                </button>
+                              ) : null}
+                              {onCancelOwnVacation ? (
+                                <button
+                                  type="button"
+                                  disabled={vacEditBusy}
+                                  onClick={() => {
+                                    setVacEditBusy(true);
+                                    void Promise.resolve(onCancelOwnVacation(v.id)).finally(() => setVacEditBusy(false));
+                                  }}
+                                  className="min-h-[44px] rounded-lg border border-red-300 px-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30"
+                                >
+                                  {lx.vacation_cancel_request ?? "Cancel request"}
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {editing ? (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                {lx.vacation_start_date ?? "Start date"}
+                                <input
+                                  type="date"
+                                  value={vacEditStart}
+                                  onChange={(e) => setVacEditStart(e.target.value)}
+                                  className="mt-1 min-h-[44px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-slate-800"
+                                />
+                              </label>
+                              <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                {lx.vacation_end_date ?? "End date"}
+                                <input
+                                  type="date"
+                                  value={vacEditEnd}
+                                  onChange={(e) => setVacEditEnd(e.target.value)}
+                                  className="mt-1 min-h-[44px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-slate-800"
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                value={vacEditNote}
+                                onChange={(e) => setVacEditNote(e.target.value)}
+                                placeholder={lx.schedule_vacation_comment ?? ""}
+                                className="min-h-[44px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-slate-800 sm:col-span-2"
+                              />
+                              <div className="flex gap-2 sm:col-span-2">
+                                <button
+                                  type="button"
+                                  disabled={vacEditBusy || !vacEditStart || !vacEditEnd}
+                                  onClick={() => {
+                                    if (!onUpdateOwnVacation) return;
+                                    setVacEditBusy(true);
+                                    void Promise.resolve(onUpdateOwnVacation(v.id, vacEditStart, vacEditEnd, vacEditNote))
+                                      .then((ok) => {
+                                        if (ok) setVacEditId(null);
+                                      })
+                                      .finally(() => setVacEditBusy(false));
+                                  }}
+                                  className="min-h-[44px] flex-1 rounded-lg bg-amber-600 px-3 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                                >
+                                  {lx.save ?? "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setVacEditId(null)}
+                                  className="min-h-[44px] flex-1 rounded-lg border border-zinc-300 px-3 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                                >
+                                  {lx.cancel ?? labels.cancel ?? "Cancel"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
+            </div>
+          ) : null}
+
+          {canApproveVacations ? (
           <div className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
             <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
               {lx.vacations_list_heading ?? lx.schedule_vacation_pending_list ?? ""}
@@ -3565,6 +3716,7 @@ export default function ScheduleModule({
               </ul>
             )}
           </div>
+          ) : null}
         </div>
       )}
 

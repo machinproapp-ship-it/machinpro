@@ -937,6 +937,7 @@ export function FormsModule({
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+              {canManage || canApproveForms ? (
               <select
                 value={filterAssigneeId}
                 onChange={(e) => setFilterAssigneeId(e.target.value)}
@@ -947,6 +948,7 @@ export function FormsModule({
                   <option key={e.id} value={e.id}>{e.name}</option>
                 ))}
               </select>
+              ) : null}
               {filterAssigneeId ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">
                   <MapPinned className="h-3.5 w-3.5 shrink-0" />
@@ -1024,7 +1026,11 @@ export function FormsModule({
             {listByTab.length === 0 ? (
               <ModuleEmptyState
                 illustration={<EmptyIllustrationForm />}
-                message={l("module_empty_forms") ?? l("forms_list_empty")}
+                message={
+                  canCreateForms
+                    ? (l("module_empty_forms") ?? l("forms_list_empty"))
+                    : ((t as Record<string, string>).forms_none_for_you ?? "You have no forms right now.")
+                }
                 actionLabel={
                   canCreateForms
                     ? t.newForm

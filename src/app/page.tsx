@@ -1109,7 +1109,25 @@ function permissionsToModule(p: RolePermissions): ModulePermissions {
   return {
     office: p.canViewCentral,
     warehouse: p.canViewLogistics || p.canPerformInspections || p.canViewInspections,
-    site: p.canViewProjects || p.canViewOnlyAssignedProjects || p.canViewSubcontractors,
+    // "Solo proyectos asignados" limita QUÉ obras se ven, no da acceso al módulo por sí solo:
+    // hace falta poder ver alguna parte de la obra (pestañas, fotos, producción...).
+    site:
+      p.canViewProjects ||
+      p.canViewSubcontractors ||
+      (p.canViewOnlyAssignedProjects &&
+        (p.canViewProjectGeneral ||
+          p.canViewProjectTeam ||
+          p.canViewProjectInventory ||
+          p.canViewProjectGallery ||
+          p.canViewProjectBlueprints ||
+          p.canViewProjectForms ||
+          p.canViewProjectVisitors ||
+          p.canViewProjectRFI ||
+          p.canViewProjectCosts ||
+          p.canUploadPhotos ||
+          p.canManageProjectGallery ||
+          p.canReportProduction ||
+          p.canViewWorkOrders)),
     worker: false,
     forms:
       p.canViewForms ||
@@ -5829,6 +5847,81 @@ export default function Home() {
     [supabase, user?.id, companyId, vacationRequests, t]
   );
 
+  /** Días laborables (lunes a viernes) entre dos fechas, ambas incluidas. */
+  const businessDaysBetween = useCallback((start: string, end: string): number => {
+    const d0 = new Date(start + "T12:00:00");
+    const d1 = new Date(end + "T12:00:00");
+    let n = 0;
+    for (let d = new Date(d0); d <= d1; d.setDate(d.getDate() + 1)) {
+      const wd = d.getDay();
+      if (wd !== 0 && wd !== 6) n += 1;
+    }
+    return n || Math.floor((d1.getTime() - d0.getTime()) / 86400000) + 1;
+  }, []);
+
+  /** El empleado corrige su propia solicitud mientras está pendiente. */
+  const handleUpdateOwnVacation = useCallback(
+    async (id: string, start: string, end: string, notes: string): Promise<boolean> => {
+      if (!supabase || !user?.id) return false;
+      const tl = t as Record<string, string>;
+      if (new Date(end + "T12:00:00") < new Date(start + "T12:00:00")) {
+        showToast("error", tl.vacation_end_before_start ?? "The end date is before the start date.");
+        return false;
+      }
+      const overlap = vacationRequests.some(
+        (v) =>
+          v.id !== id &&
+          v.user_id === user.id &&
+          (v.status === "pending" || v.status === "approved") &&
+          v.start_date <= end &&
+          v.end_date >= start
+      );
+      if (overlap) {
+        showToast("error", tl.vacation_overlap_exists ?? "You already have a request for those dates.");
+        return false;
+      }
+      const total = businessDaysBetween(start, end);
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .update({ start_date: start, end_date: end, total_days: total, notes: notes.trim() || null })
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .select("*");
+      if (error || !data?.length) {
+        showToast("error", tl.vacation_update_failed ?? "The request could not be changed. It may already have been reviewed.");
+        return false;
+      }
+      setVacationRequests((prev) => prev.map((v) => (v.id === id ? (data[0] as VacationRequestRow) : v)));
+      showToast("success", tl.vacation_updated ?? "Request updated.");
+      return true;
+    },
+    [supabase, user?.id, t, vacationRequests, businessDaysBetween, showToast]
+  );
+
+  /** El empleado retira su solicitud pendiente. */
+  const handleCancelOwnVacation = useCallback(
+    async (id: string): Promise<boolean> => {
+      if (!supabase || !user?.id) return false;
+      const tl = t as Record<string, string>;
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .update({ status: "cancelled" })
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .select("id");
+      if (error || !data?.length) {
+        showToast("error", tl.vacation_update_failed ?? "The request could not be changed. It may already have been reviewed.");
+        return false;
+      }
+      setVacationRequests((prev) => prev.map((v) => (v.id === id ? { ...v, status: "cancelled" as const } : v)));
+      showToast("success", tl.vacation_cancelled ?? "Request withdrawn.");
+      return true;
+    },
+    [supabase, user?.id, t, showToast]
+  );
+
   /**
    * Formularios que puede ver este usuario. Quien solo ve sus obras asignadas (p. ej. trabajadores)
    * ve los formularios de esas obras y los que creó, firma o le incluyen; nunca los de otras obras.
@@ -6020,7 +6113,16 @@ export default function Home() {
               locationLng: undefined,
             }
           : null;
-    const colleagueNames = (entry.employeeIds ?? [])
+    // Compañeros: todos los que tienen turno ese día en la misma obra (no solo los de este turno)
+    const sameSiteIds = new Set<string>(entry.employeeIds ?? []);
+    if (entry.projectId) {
+      for (const other of scheduleEntries) {
+        if (other.type === "shift" && other.date === dateStr && other.projectId === entry.projectId) {
+          for (const id of other.employeeIds ?? []) sameSiteIds.add(id);
+        }
+      }
+    }
+    const colleagueNames = [...sameSiteIds]
       .filter((id) => !scheduleSelfIds.includes(id))
       .map(
         (id) =>
@@ -6210,9 +6312,12 @@ export default function Home() {
     );
   };
 
+  /** Quien solo hace o ve inspecciones (sin Logística) ve el menú como "Inspecciones". */
+  const inspectionsOnlyNav =
+    !rolePerms.canViewLogistics && !!(rolePerms.canPerformInspections || rolePerms.canViewInspections);
   const labels = {
     office: t.office,
-    warehouse: t.warehouse,
+    warehouse: inspectionsOnlyNav ? ((t as Record<string, string>).inspections ?? "Inspections") : t.warehouse,
     operations: (t as Record<string, string>).operations ?? "Operations",
     site: t.site,
     nav_operations: (t as Record<string, string>).nav_operations ?? t.site,
@@ -7713,6 +7818,7 @@ export default function Home() {
               <LogisticsModule
                 warehouseSubTab={effectiveWarehouseSubTab}
                 syncError={logisticsSync.status === "error" ? logisticsSync.lastError : null}
+                moduleTitle={inspectionsOnlyNav ? labels.warehouse : undefined}
                 inspectionsPanel={
                   companyId && (rolePerms.canPerformInspections || rolePerms.canViewInspections || rolePerms.canManageInspectionTemplates) ? (
                     <InspectionsPanel
@@ -8496,6 +8602,14 @@ export default function Home() {
                   setFormsOpenFillInstanceId(id);
                   setActiveSection("forms");
                 }}
+                onOpenShift={openEmployeeShiftDay}
+                companyCurrency={rentalFormCurrency}
+                onClockOut={handleClockOut}
+                canInspect={!!rolePerms.canPerformInspections && perms.warehouse}
+                onOpenInspections={() => {
+                  setWarehouseSubTab("inspections");
+                  setActiveSection("warehouse");
+                }}
               />
             ) : null}
 
@@ -8548,6 +8662,8 @@ export default function Home() {
                 onApproveVacation={handleApproveVacation}
                 onRejectVacation={handleRejectVacation}
                 onRequestVacation={handleCreateVacationRequest}
+                onUpdateOwnVacation={handleUpdateOwnVacation}
+                onCancelOwnVacation={handleCancelOwnVacation}
                 labels={{
                   ...(t as Record<string, string>),
                   schedule: t.schedule ?? "Horario",

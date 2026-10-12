@@ -238,6 +238,8 @@ export interface ResourceRequest {
 export interface LogisticsModuleProps {
   /** Panel de inspecciones previas al uso (lo monta page.tsx con permisos y empresa). */
   inspectionsPanel?: React.ReactNode;
+  /** Título del módulo (p. ej. "Inspecciones" para quien solo inspecciona). */
+  moduleTitle?: string;
   /** Aviso cuando inventario/flota no se han podido guardar en Supabase. */
   syncError?: string | null;
   inspectionsBadge?: number;
@@ -502,6 +504,7 @@ function projectAssignmentChipClass(assigned: boolean): string {
 
 export function LogisticsModule({
   inspectionsPanel,
+  moduleTitle,
   syncError,
   inspectionsBadge,
   onInspectItem,
@@ -1098,7 +1101,7 @@ export function LogisticsModule({
 
   return (
     <section className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:space-y-8 md:p-8 lg:p-10">
-      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{t.warehouse}</h2>
+      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{moduleTitle ?? t.warehouse}</h2>
       {syncError ? (
         <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
           {tlLabels.logisticsSyncError ?? "No se pudieron guardar los cambios en el servidor. Se reintentará automáticamente."}
