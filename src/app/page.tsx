@@ -7046,29 +7046,6 @@ export default function Home() {
   const isSuppliersFormOpen = supplierFormOpen || editingSupplierId !== null;
   const editSupplierDraft = supplierDraft;
 
-  if (authLoading) {
-    return <CentralAppShellSkeleton />;
-  }
-
-  if (!session && supabase) {
-    return (
-      <>
-        <LoginScreen
-          onLogin={async () => {
-            await syncSession();
-            if (supabase) {
-              const { data } = await supabase.auth.getSession();
-              setSession(data.session ?? null);
-            }
-          }}
-          labels={t as Record<string, string>}
-          demoAccounts={loginDemoAccounts}
-        />
-        <InstallPWABanner labels={t} isDark={darkMode ?? false} />
-      </>
-    );
-  }
-
   /** Equipos pendientes de inspeccionar por obra, solo de mis obras o a mi nombre y que puedo usar. */
   const myInspectionsDueByProject = useMemo(() => {
     const out = new Map<string, number>();
@@ -7111,6 +7088,29 @@ export default function Home() {
     profile?.customRoleId,
     effectiveEmployeeId,
   ]);
+
+  if (authLoading) {
+    return <CentralAppShellSkeleton />;
+  }
+
+  if (!session && supabase) {
+    return (
+      <>
+        <LoginScreen
+          onLogin={async () => {
+            await syncSession();
+            if (supabase) {
+              const { data } = await supabase.auth.getSession();
+              setSession(data.session ?? null);
+            }
+          }}
+          labels={t as Record<string, string>}
+          demoAccounts={loginDemoAccounts}
+        />
+        <InstallPWABanner labels={t} isDark={darkMode ?? false} />
+      </>
+    );
+  }
 
   const buildInspectionsPanel = (onlyProjectId?: string | null) =>
                   companyId && (rolePerms.canPerformInspections || rolePerms.canViewInspections || rolePerms.canManageInspectionTemplates) ? (

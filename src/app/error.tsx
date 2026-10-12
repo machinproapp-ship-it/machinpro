@@ -22,7 +22,14 @@ export default function Error({
         </p>
         <button
           type="button"
-          onClick={reset}
+          onClick={() => {
+            // Recarga completa: con un error de render, reset() vuelve a fallar igual.
+            try {
+              reset();
+            } finally {
+              if (typeof window !== "undefined") window.location.reload();
+            }
+          }}
           className="rounded-lg bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
         >
           Try again
