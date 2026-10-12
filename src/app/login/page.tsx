@@ -51,7 +51,7 @@ export default function LoginPage() {
           redirectAfterLogin && redirectAfterLogin.startsWith("/")
             ? redirectAfterLogin
             : "/";
-        router.replace(target);
+        window.location.replace(target);
       }
     });
     return () => {
@@ -67,7 +67,8 @@ export default function LoginPage() {
             redirectAfterLogin && redirectAfterLogin.startsWith("/")
               ? redirectAfterLogin
               : "/";
-          router.replace(target);
+          // Carga completa: con router.replace se reutilizaba la portada guardada y no entraba a la app.
+          window.location.replace(target);
         }}
         labels={t as Record<string, string>}
         demoAccounts={loginDemoAccounts}

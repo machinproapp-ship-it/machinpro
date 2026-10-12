@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 <body><p>MachinPro…</p><script>
 try{Object.keys(localStorage).forEach(function(k){if(k.indexOf("sb-")===0)localStorage.removeItem(k)})}catch(e){}
 try{Object.keys(sessionStorage).forEach(function(k){sessionStorage.removeItem(k)})}catch(e){}
-location.replace("/");
+location.replace("/login");
 </script></body></html>`;
 
   const res = new NextResponse(html, {

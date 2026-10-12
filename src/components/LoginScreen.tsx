@@ -72,8 +72,9 @@ export default function LoginScreen({
     const { data: sess } = await supabase.auth.getSession();
     const token = sess.session?.access_token ?? null;
     await syncSessionRevFromUser();
-    await postAuthAudit({ action: "auth_login", accessToken: token });
-    await clearRateLimit();
+    // Registro y limpieza en segundo plano: no retrasan la entrada.
+    void postAuthAudit({ action: "auth_login", accessToken: token });
+    void clearRateLimit();
     onLogin();
   };
 

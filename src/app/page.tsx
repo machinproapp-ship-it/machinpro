@@ -1417,7 +1417,7 @@ export default function Home() {
     logoutBusyRef.current = true;
     showToast("info", (t as Record<string, string>).logout_in_progress ?? "Cerrando sesión…");
     try {
-      localStorage.removeItem(LOCALE_STORAGE_KEY);
+      // El idioma elegido se mantiene al salir (la portada y el login siguen en su idioma).
       if (typeof sessionStorage !== "undefined") {
         const toRemove: string[] = [];
         for (let i = 0; i < sessionStorage.length; i++) {
