@@ -1411,7 +1411,11 @@ export default function Home() {
     window.history.replaceState({}, "", url.pathname + (url.search || ""));
   }, [authLoading, session]);
 
+  const logoutBusyRef = useRef(false);
   const handleLogout = async () => {
+    if (logoutBusyRef.current) return;
+    logoutBusyRef.current = true;
+    showToast("info", (t as Record<string, string>).logout_in_progress ?? "Cerrando sesión…");
     try {
       localStorage.removeItem(LOCALE_STORAGE_KEY);
       if (typeof sessionStorage !== "undefined") {
@@ -1432,8 +1436,8 @@ export default function Home() {
     }
     setSession(null);
     setLanguage(detectLanguageFromNavigator());
-    // Recarga limpia: ningún estado de la sesión anterior se queda en pantalla.
-    if (typeof window !== "undefined") window.location.replace("/");
+    // El servidor borra la sesión del todo y vuelve al inicio (funciona aunque el teléfono se atasque).
+    if (typeof window !== "undefined") window.location.replace("/logout");
   };
   const companyId = profile?.companyId ?? null;
   const companySettings = useCompanySettings(companyId, session?.access_token ?? null);

@@ -52,6 +52,11 @@ export async function middleware(request: NextRequest) {
     return finalizeResponse(supabaseResponse, path);
   }
 
+  // Cerrar sesión: no tocar la sesión aquí (renovarla volvería a poner las cookies).
+  if (path === "/logout") {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(url, anon, {
     cookies: {
       getAll() {

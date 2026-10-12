@@ -9,6 +9,7 @@ export async function postAuthAudit(opts: {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     await fetch(`${origin}/api/auth/audit`, {
       method: "POST",
+      keepalive: true,
       headers: {
         "Content-Type": "application/json",
         ...(opts.accessToken ? { Authorization: `Bearer ${opts.accessToken}` } : {}),

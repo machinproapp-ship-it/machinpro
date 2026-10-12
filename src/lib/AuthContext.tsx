@@ -353,19 +353,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const s = sessionRef.current;
     const token = s?.access_token ?? null;
     const companyId = profileRef.current?.companyId ?? null;
-    try {
-      if (reason === "timeout") {
-        await withTimeout(postAuthAudit({ action: "auth_session_timeout", accessToken: token, companyId }), 3000);
-      } else if (reason === "user") {
-        await withTimeout(postAuthAudit({ action: "auth_logout", accessToken: token, companyId }), 3000);
-      }
-    } catch {
-      /* el registro no debe impedir salir */
+    // El registro de auditoría no frena la salida.
+    if (reason === "timeout") {
+      void postAuthAudit({ action: "auth_session_timeout", accessToken: token, companyId });
+    } else if (reason === "user") {
+      void postAuthAudit({ action: "auth_logout", accessToken: token, companyId });
     }
     try {
-      await withTimeout(supabase.auth.signOut(), 5000);
+      await withTimeout(supabase.auth.signOut({ scope: "local" }), 1500);
     } catch {
-      /* ignore */
+      /* el servidor (/logout) termina de borrar la sesión */
     }
     clearStoredSupabaseSession();
     fetchSeqRef.current++;

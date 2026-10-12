@@ -71,6 +71,7 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["shift_inspect_equipment", "Inspeccionar equipos", "Inspect equipment", "Inspecter l'équipement", "Ausrüstung prüfen", "Ispeziona attrezzature", "Inspecionar equipamentos"],
   ["shift_open_project", "Ver la obra", "Open site", "Voir le chantier", "Baustelle öffnen", "Apri cantiere", "Ver a obra"],
   ["close", "Cerrar", "Close", "Fermer", "Schließen", "Chiudi", "Fechar"],
+  ["logout_in_progress", "Cerrando sesión…", "Signing out…", "Déconnexion…", "Abmelden…", "Disconnessione…", "A terminar sessão…"],
   ["forms_none_for_you", "Ahora mismo no tienes formularios.", "You have no forms right now.", "Tu n'as aucun formulaire pour le moment.", "Du hast im Moment keine Formulare.", "Al momento non hai moduli.", "De momento não tens formulários."],
   ["worker_hours_title", "Mis horas", "My hours", "Mes heures", "Meine Stunden", "Le mie ore", "As minhas horas"],
   ["worker_hours_rate", "Tarifa acordada: {rate}/h", "Agreed rate: {rate}/h", "Taux convenu : {rate}/h", "Vereinbarter Satz: {rate}/Std.", "Tariffa concordata: {rate}/h", "Tarifa acordada: {rate}/h"],
