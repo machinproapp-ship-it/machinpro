@@ -1392,7 +1392,7 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const { user, profile, signOut, syncSession } = useAuth();
+  const { user, profile, profileStatus, retryProfile, signOut, syncSession } = useAuth();
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -7055,6 +7055,47 @@ export default function Home() {
         <InstallPWABanner labels={t} isDark={darkMode ?? false} />
       </>
     );
+  }
+
+  // Con sesión pero sin perfil cargado nunca mostramos la app (evita aparecer como administrador).
+  if (session && (!profile || profile.id !== session.user.id)) {
+    if (profileStatus === "error" || profileStatus === "missing") {
+      const tl = t as Record<string, string>;
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 p-6">
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center space-y-4">
+            <p className="text-lg font-semibold text-zinc-900 dark:text-white">MachinPro</p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-300">
+              {profileStatus === "missing"
+                ? tl.profile_missing ?? "Tu usuario no está asociado a ninguna empresa."
+                : tl.profile_load_error ?? "No se pudo cargar tu cuenta."}
+            </p>
+            {session.user.email ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 break-all">{session.user.email}</p>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              {profileStatus === "error" ? (
+                <button
+                  type="button"
+                  onClick={() => retryProfile()}
+                  className="min-h-[44px] rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-500"
+                >
+                  {tl.profile_retry ?? "Reintentar"}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                className="min-h-[44px] rounded-xl border border-zinc-300 dark:border-slate-600 px-4 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+              >
+                {tl.settings_sign_out ?? "Cerrar sesión"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return <CentralAppShellSkeleton />;
   }
 
   return (

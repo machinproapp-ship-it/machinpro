@@ -49,10 +49,16 @@ interface UserProfile {
   payType?: "fixed" | "hourly" | "production" | null;
 }
 
+export type ProfileStatus = "idle" | "loading" | "ready" | "missing" | "error";
+
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
+  /** Estado de carga del perfil: mientras no sea "ready" la app no debe mostrar nada con permisos. */
+  profileStatus: ProfileStatus;
+  /** Vuelve a pedir el perfil (botón Reintentar). */
+  retryProfile: () => void;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: (opts?: { reason?: "user" | "timeout" | "revoked" }) => Promise<void>;
@@ -63,6 +69,51 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+const PROFILE_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error("timeout")), ms);
+    Promise.resolve(p).then(
+      (v) => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(id);
+        reject(e);
+      }
+    );
+  });
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Borra la sesión guardada en el navegador aunque Supabase no responda. */
+function clearStoredSupabaseSession() {
+  if (typeof window === "undefined") return;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("sb-")) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+  try {
+    document.cookie.split(";").forEach((c) => {
+      const name = c.split("=")[0]?.trim();
+      if (name && name.startsWith("sb-")) {
+        document.cookie = `${name}=; Max-Age=0; path=/`;
+      }
+    });
+  } catch {
+    /* ignore */
+  }
+}
 
 type ProfileSelectRow = {
   id: string;
@@ -121,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>("idle");
   const [loading, setLoading] = useState(true);
   const [sessionIdleWarning, setSessionIdleWarning] = useState(false);
 
@@ -135,18 +187,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profileRef.current = profile;
   }, [profile]);
 
+  const fetchSeqRef = useRef(0);
+
   const fetchProfile = async (userId: string) => {
     if (!supabase) return;
-    const { data } = await supabase
-      .from("user_profiles")
-      .select("*, companies(name)")
-      .eq("id", userId)
-      .single();
+    const seq = ++fetchSeqRef.current;
+    const stillCurrent = () => seq === fetchSeqRef.current;
+    if (profileRef.current?.id !== userId) setProfileStatus("loading");
+
+    let data: ProfileSelectRow | null = null;
+    let failed = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = (await withTimeout(
+          supabase.from("user_profiles").select("*, companies(name)").eq("id", userId).maybeSingle(),
+          PROFILE_TIMEOUT_MS
+        )) as { data: unknown; error: unknown };
+        if (res.error) throw res.error;
+        data = (res.data as ProfileSelectRow | null) ?? null;
+        failed = false;
+        break;
+      } catch {
+        failed = true;
+        if (!stillCurrent()) return;
+        await sleep(1000 * (attempt + 1));
+      }
+    }
+    if (!stillCurrent()) return;
+
+    if (failed) {
+      // Sin conexión o Supabase no responde: conservar el perfil anterior si es de este usuario.
+      if (profileRef.current?.id === userId) {
+        setProfileStatus("ready");
+      } else {
+        setProfile(null);
+        setProfileStatus("error");
+      }
+      return;
+    }
 
     if (data) {
-      const { data: authUser } = await supabase.auth.getUser();
-      const email = authUser?.user?.email ?? null;
-      setProfile(mapRowToProfile(data as Parameters<typeof mapRowToProfile>[0], email));
+      const { data: sessWrap0 } = await supabase.auth.getSession();
+      const email = sessWrap0.session?.user?.email ?? null;
+      if (!stillCurrent()) return;
+      setProfile(mapRowToProfile(data, email));
+      setProfileStatus("ready");
       return;
     }
 
@@ -181,9 +266,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq("id", userId)
             .single();
           if (row2) {
-            const { data: authUser } = await supabase.auth.getUser();
-            const email = authUser?.user?.email ?? null;
+            const email = u?.email ?? null;
             setProfile(mapRowToProfile(row2 as ProfileSelectRow, email));
+            setProfileStatus("ready");
             return;
           }
         }
@@ -192,7 +277,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    if (!stillCurrent()) return;
     setProfile(null);
+    setProfileStatus("missing");
+  };
+
+  const retryProfile = () => {
+    const uid = sessionRef.current?.user?.id;
+    if (uid) void fetchProfile(uid);
   };
 
   const syncSession = async () => {
@@ -201,10 +293,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(s);
     setUser(s?.user ?? null);
     if (s?.user) {
-      setProfile(null);
+      if (profileRef.current?.id !== s.user.id) setProfile(null);
       await fetchProfile(s.user.id);
     } else {
       setProfile(null);
+      setProfileStatus("idle");
     }
   };
 
@@ -219,15 +312,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        setProfile(null);
-        void fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
+      const uid = session?.user?.id ?? null;
+      // Fuera del callback: llamar a Supabase dentro de él puede quedarse bloqueado.
+      setTimeout(() => {
+        if (!uid) {
+          fetchSeqRef.current++;
+          setProfile(null);
+          setProfileStatus("idle");
+          return;
+        }
+        const sameUser = profileRef.current?.id === uid;
+        if (!sameUser) setProfile(null);
+        // Renovar el token no cambia el perfil: no lo borramos ni lo volvemos a pedir.
+        if (sameUser && event === "TOKEN_REFRESHED") return;
+        void fetchProfile(uid);
+      }, 0);
     });
 
     return () => subscription.unsubscribe();
@@ -251,12 +353,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const s = sessionRef.current;
     const token = s?.access_token ?? null;
     const companyId = profileRef.current?.companyId ?? null;
-    if (reason === "timeout") {
-      await postAuthAudit({ action: "auth_session_timeout", accessToken: token, companyId });
-    } else if (reason === "user") {
-      await postAuthAudit({ action: "auth_logout", accessToken: token, companyId });
+    try {
+      if (reason === "timeout") {
+        await withTimeout(postAuthAudit({ action: "auth_session_timeout", accessToken: token, companyId }), 3000);
+      } else if (reason === "user") {
+        await withTimeout(postAuthAudit({ action: "auth_logout", accessToken: token, companyId }), 3000);
+      }
+    } catch {
+      /* el registro no debe impedir salir */
     }
-    await supabase.auth.signOut();
+    try {
+      await withTimeout(supabase.auth.signOut(), 5000);
+    } catch {
+      /* ignore */
+    }
+    clearStoredSupabaseSession();
+    fetchSeqRef.current++;
+    setProfileStatus("idle");
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -338,6 +451,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         profile,
+        profileStatus,
+        retryProfile,
         loading,
         signIn,
         signOut,
