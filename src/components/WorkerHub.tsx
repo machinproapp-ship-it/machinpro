@@ -53,6 +53,8 @@ export type WorkerHubProps = {
   onOpenInspections?: () => void;
   /** Control de herramientas: escanear el QR y ver las que tengo a mi nombre. */
   onScanTool?: () => void;
+  /** Título de la tarjeta (por defecto "Mis herramientas"). */
+  toolsTitle?: string;
   myTools?: { id: string; name: string; days: number | null }[];
   onOpenTool?: (id: string) => void;
   /** Moneda de la empresa si el trabajador no tiene una propia en su ficha. */
@@ -116,6 +118,7 @@ export function WorkerHub({
   canInspect,
   onOpenInspections,
   onScanTool,
+  toolsTitle,
   myTools = [],
   onOpenTool,
   companyCurrency,
@@ -507,11 +510,13 @@ export function WorkerHub({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
-                {L(lx, "tool_my_title", "Mis herramientas")}
+                {toolsTitle ?? L(lx, "tool_my_title", "Mis herramientas")}
               </h2>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 {myTools.length > 0
-                  ? L(lx, "tool_my_count", "Tienes {n} a tu nombre").replace(/\{n\}/g, String(myTools.length))
+                  ? toolsTitle
+                    ? String(myTools.length)
+                    : L(lx, "tool_my_count", "Tienes {n} a tu nombre").replace(/\{n\}/g, String(myTools.length))
                   : L(lx, "tool_my_hint", "Escanea el QR para llevarte, devolver o reportar una herramienta.")}
               </p>
             </div>

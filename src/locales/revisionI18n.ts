@@ -218,8 +218,16 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["tool_out_days", "{days} días", "{days} days", "{days} jours", "{days} Tage", "{days} giorni", "{days} dias"],
   ["tool_my_title", "Mis herramientas", "My tools", "Mes outils", "Meine Werkzeuge", "I miei attrezzi", "As minhas ferramentas"],
   ["tool_my_count", "Tienes {n} a tu nombre", "You have {n} under your name", "Tu en as {n} à ton nom", "Du hast {n} auf deinen Namen", "Ne hai {n} a tuo nome", "Tens {n} em teu nome"],
-  ["tool_my_hint", "Escanea el QR para llevarte, devolver o reportar una herramienta.", "Scan the QR to take, return or report a tool.", "Scanne le QR pour prendre, rendre ou signaler un outil.", "Scanne den QR, um ein Werkzeug mitzunehmen, zurückzugeben oder zu melden.", "Scansiona il QR per prendere, restituire o segnalare un attrezzo.", "Lê o QR para levar, devolver ou reportar uma ferramenta."],
+  ["tool_my_hint", "Escanea el QR de una herramienta para entregarla, recibirla o reportar una avería.", "Scan a tool's QR to hand it out, receive it or report damage.", "Scanne le QR d'un outil pour le remettre, le récupérer ou signaler une panne.", "Scanne den QR eines Werkzeugs, um es auszugeben, anzunehmen oder einen Schaden zu melden.", "Scansiona il QR di un attrezzo per consegnarlo, riceverlo o segnalare un guasto.", "Lê o QR de uma ferramenta para a entregar, receber ou reportar uma avaria."],
   ["tool_scan", "Escanear QR", "Scan QR", "Scanner le QR", "QR scannen", "Scansiona QR", "Ler QR"],
+  ["tool_give_to", "¿A quién se la das?", "Who are you giving it to?", "À qui la remets-tu ?", "Wem gibst du es?", "A chi la consegni?", "A quem a entregas?"],
+  ["tool_me", "A mí", "Me", "Moi", "Mir", "A me", "A mim"],
+  ["tool_hand_out", "Entregar", "Hand out", "Remettre", "Ausgeben", "Consegna", "Entregar"],
+  ["tool_handed", "Listo: entregada a {name}.", "Done: handed to {name}.", "C'est fait : remise à {name}.", "Erledigt: an {name} ausgegeben.", "Fatto: consegnata a {name}.", "Feito: entregue a {name}."],
+  ["tool_receive", "Recibida: vuelve al almacén", "Received: back to the warehouse", "Récupérée : retour au dépôt", "Angenommen: zurück ins Lager", "Ricevuta: torna in magazzino", "Recebida: volta ao armazém"],
+  ["tool_view_only", "Solo consulta. Si se avería, avisa a tu supervisor.", "View only. If it breaks, tell your supervisor.", "Consultation seule. En cas de panne, préviens ton superviseur.", "Nur Ansicht. Bei einem Defekt sag deinem Vorarbeiter Bescheid.", "Solo consultazione. Se si guasta, avvisa il tuo supervisore.", "Só consulta. Se avariar, avisa o teu supervisor."],
+  ["tool_scan_short", "Herramientas", "Tools", "Outils", "Werkzeuge", "Attrezzi", "Ferramentas"],
+  ["tool_scan_tools", "Escanear herramienta", "Scan a tool", "Scanner un outil", "Werkzeug scannen", "Scansiona un attrezzo", "Ler ferramenta"],
 ];
 
 const LANGS = ["es", "en", "fr", "de", "it", "pt"] as const;

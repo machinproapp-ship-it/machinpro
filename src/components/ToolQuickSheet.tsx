@@ -11,6 +11,7 @@ import {
   toolReturn,
   toolTake,
   type ToolActionError,
+  type ToolRole,
 } from "@/lib/toolTracking";
 import { uploadInspectionImage } from "@/lib/inspections";
 
@@ -31,6 +32,8 @@ export function ToolQuickSheet({
   defaultProjectId,
   myProjects,
   canInspect,
+  role,
+  people,
   onInspect,
   onClose,
   onChanged,
@@ -47,6 +50,10 @@ export function ToolQuickSheet({
   defaultProjectId: string | null;
   myProjects: { id: string; name: string }[];
   canInspect: boolean;
+  /** logistics: control total · site: supervisor en sus obras · helper: trabajador con permiso · null: solo ver. */
+  role: ToolRole;
+  /** A quién se puede entregar (según la obra elegida). */
+  people: (projectId: string | null) => { id: string; name: string }[];
   onInspect: () => void;
   onClose: () => void;
   /** Tras una acción: recargar inventario y movimientos. */
@@ -58,6 +65,7 @@ export function ToolQuickSheet({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? item.assignedToProjectId ?? "");
+  const [toUser, setToUser] = useState<string>(currentUserId ?? "");
   const [damageOpen, setDamageOpen] = useState(false);
   const [damageNote, setDamageNote] = useState("");
   const [damagePhoto, setDamagePhoto] = useState<Blob | null>(null);
@@ -102,8 +110,16 @@ export function ToolQuickSheet({
     }
   };
 
+  const canHandOut = role === "logistics" || role === "site";
+  const canReceive = canHandOut || (role === "helper" && iHaveIt);
+  const giveTo = canHandOut ? toUser || currentUserId : currentUserId;
   const take = () =>
-    run(() => toolTake(item.id, projectId || null), L(lx, "tool_taken", "Listo: queda a tu nombre."));
+    run(
+      () => toolTake(item.id, projectId || null, undefined, giveTo),
+      giveTo && giveTo !== currentUserId
+        ? L(lx, "tool_handed", "Listo: entregada a {name}.").replace("{name}", personName(giveTo))
+        : L(lx, "tool_taken", "Listo: queda a tu nombre.")
+    );
   const giveBack = () => run(() => toolReturn(item.id), L(lx, "tool_returned", "Listo: devuelta al almacén."));
   const reportDamage = () =>
     run(async () => {
@@ -213,7 +229,7 @@ export function ToolQuickSheet({
             </button>
           ) : null}
 
-          {!iHaveIt ? (
+          {role && (canHandOut || !iHaveIt) ? (
             <>
               {myProjects.length > 0 ? (
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -232,14 +248,37 @@ export function ToolQuickSheet({
                   </select>
                 </label>
               ) : null}
+              {canHandOut ? (
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {L(lx, "tool_give_to", "¿A quién se la das?")}
+                  <select
+                    value={toUser}
+                    onChange={(e) => setToUser(e.target.value)}
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-100"
+                  >
+                    {currentUserId ? <option value={currentUserId}>{L(lx, "tool_me", "A mí")}</option> : null}
+                    {people(projectId || null)
+                      .filter((p) => p.id !== currentUserId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void take()}
-                disabled={busy || unusable}
+                disabled={busy || unusable || (!!holder && holder === giveTo)}
                 className={`${btn} bg-emerald-600 text-white hover:bg-emerald-500`}
               >
                 <ArrowUpFromLine className="h-5 w-5" aria-hidden />
-                {busy ? "…" : L(lx, "tool_take", "Me la llevo")}
+                {busy
+                  ? "…"
+                  : canHandOut && giveTo !== currentUserId
+                    ? L(lx, "tool_hand_out", "Entregar")
+                    : L(lx, "tool_take", "Me la llevo")}
               </button>
               {unusable ? (
                 <p className="text-xs text-red-700 dark:text-red-400">
@@ -247,7 +286,9 @@ export function ToolQuickSheet({
                 </p>
               ) : null}
             </>
-          ) : (
+          ) : null}
+
+          {holder && canReceive ? (
             <button
               type="button"
               onClick={() => void giveBack()}
@@ -255,11 +296,21 @@ export function ToolQuickSheet({
               className={`${btn} border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-slate-600 dark:bg-slate-900 dark:text-zinc-100`}
             >
               <ArrowDownToLine className="h-5 w-5" aria-hidden />
-              {busy ? "…" : L(lx, "tool_return", "La devuelvo al almacén")}
+              {busy
+                ? "…"
+                : iHaveIt
+                  ? L(lx, "tool_return", "La devuelvo al almacén")
+                  : L(lx, "tool_receive", "Recibida: vuelve al almacén")}
             </button>
-          )}
+          ) : null}
 
-          {!damageOpen ? (
+          {!role ? (
+            <p className="rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:bg-slate-800 dark:text-zinc-300">
+              {L(lx, "tool_view_only", "Solo consulta. Si se avería, avisa a tu supervisor.")}
+            </p>
+          ) : null}
+
+          {!role ? null : !damageOpen ? (
             <button
               type="button"
               onClick={() => setDamageOpen(true)}

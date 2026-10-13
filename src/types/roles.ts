@@ -92,6 +92,10 @@ export interface RolePermissions {
   canViewInspections: boolean;
   /** Crear y adaptar plantillas de inspección. */
   canManageInspectionTemplates: boolean;
+  /** Supervisor: controlar las herramientas en sus obras (entregar, recibir, reportar averías con foto). */
+  canControlSiteTools: boolean;
+  /** Trabajador que ayuda: escanear, llevarse/devolver una herramienta y reportar averías con foto. */
+  canHelpWithTools: boolean;
 
   // ─── Seguridad ──────────────────────────────────────────
   canViewSecurity: boolean;
@@ -220,6 +224,8 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canPerformInspections",
   "canViewInspections",
   "canManageInspectionTemplates",
+  "canControlSiteTools",
+  "canHelpWithTools",
   "canViewSecurity",
   "canManageHazards",
   "canViewHazards",
@@ -351,6 +357,8 @@ export const ROLE_PERMISSION_GROUPS: {
       "canPerformInspections",
       "canViewInspections",
       "canManageInspectionTemplates",
+      "canControlSiteTools",
+      "canHelpWithTools",
     ],
   },
   {
@@ -466,6 +474,8 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canPerformInspections: "Hacer inspecciones antes de usar equipos",
   canViewInspections: "Ver inspecciones de toda la empresa",
   canManageInspectionTemplates: "Gestionar plantillas de inspección",
+  canControlSiteTools: "Controlar herramientas en sus obras (entregar, recibir, averías)",
+  canHelpWithTools: "Ayudar con herramientas (escanear, llevar/devolver, reportar avería)",
   canViewSecurity: "Ver seguridad",
   canManageHazards: "Gestionar riesgos",
   canViewHazards: "Ver riesgos",

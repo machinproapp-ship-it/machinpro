@@ -41,7 +41,7 @@ import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
 import { postAuthAudit } from "@/lib/postAuthAudit";
 import { isSelfClockId } from "@/lib/clockSelf";
-import { daysSince, fetchCompanyMovements, heldSince, insertMovement } from "@/lib/toolTracking";
+import { daysSince, fetchCompanyMovements, heldSince, insertMovement, toolRoleFromPermissions } from "@/lib/toolTracking";
 import { resolveInventoryQrScan } from "@/lib/inventoryQrResolve";
 import { permissionsToModule, type ModulePermissions } from "@/lib/modulePermissions";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
@@ -7036,6 +7036,8 @@ export default function Home() {
   }, [employees, teamProfiles]);
   /** Control de herramientas (QR): va con el plan de Logística (o Todo Incluido). */
   const toolTrackingEnabled = planAllowsModule(subscriptionRow?.plan ?? null, "warehouse");
+  /** Logística controla todo; el supervisor, sus obras; el trabajador solo si el admin le da permiso. */
+  const toolRole = toolTrackingEnabled ? toolRoleFromPermissions(rolePerms, effectiveRole === "admin") : null;
   const reloadToolMovements = useCallback(() => {
     if (!companyId) return;
     fetchCompanyMovements(companyId)
@@ -7080,16 +7082,46 @@ export default function Home() {
     () => (toolSheetItemId ? inventoryItems.find((i) => i.id === toolSheetItemId && !i.deletedAt) ?? null : null),
     [toolSheetItemId, inventoryItems]
   );
-  /** Herramientas a mi nombre (para "Mis herramientas" en Inicio). */
-  const myTools = useMemo(() => {
-    if (!toolTrackingEnabled || !profile?.id) return [];
+  /** Lista de herramientas en Inicio: logística ve todas las que están fuera; supervisor, las de sus obras; trabajador, las suyas. */
+  const homeTools = useMemo(() => {
+    if (!toolRole || !profile?.id) return [];
+    const mine = new Set(myProjectIdsForInspections);
     return inventoryItems
-      .filter((i) => !i.deletedAt && i.assignedToEmployeeId === profile.id)
+      .filter((i) => !i.deletedAt && !!i.assignedToEmployeeId)
+      .filter((i) =>
+        toolRole === "logistics"
+          ? true
+          : toolRole === "site"
+            ? i.assignedToEmployeeId === profile.id || (!!i.assignedToProjectId && mine.has(i.assignedToProjectId))
+            : i.assignedToEmployeeId === profile.id
+      )
       .map((i) => {
         const since = heldSince(inventoryMovements, i.id);
-        return { id: i.id, name: i.name, days: since ? daysSince(since) : null };
-      });
-  }, [toolTrackingEnabled, profile?.id, inventoryItems, inventoryMovements]);
+        const who = i.assignedToEmployeeId === profile.id ? null : personNameById[i.assignedToEmployeeId!] ?? null;
+        return { id: i.id, name: who ? `${i.name} · ${who}` : i.name, days: since ? daysSince(since) : null };
+      })
+      .sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
+  }, [toolRole, profile?.id, inventoryItems, inventoryMovements, myProjectIdsForInspections, personNameById]);
+  /** Obras donde puedo entregar: logística, todas; los demás, las suyas. */
+  const toolProjects = useMemo(() => {
+    if (toolRole === "logistics") return (projects ?? []).map((p) => ({ id: p.id, name: p.name }));
+    const mine = new Set(myProjectIdsForInspections);
+    return (projects ?? []).filter((p) => mine.has(p.id)).map((p) => ({ id: p.id, name: p.name }));
+  }, [toolRole, projects, myProjectIdsForInspections]);
+  /** A quién se puede entregar: en una obra, su gente (el supervisor solo esa); sin obra, toda la empresa para logística. */
+  const toolPeople = useCallback(
+    (projectId: string | null) => {
+      const all = teamProfiles.map((p) => ({ id: p.id, name: p.name || p.email || "—" }));
+      if (!projectId) return toolRole === "logistics" ? all : [];
+      const pr = (projects ?? []).find((p) => p.id === projectId);
+      const ids = new Set(pr?.assignedEmployeeIds ?? []);
+      const onSite = teamProfiles
+        .filter((p) => ids.has(p.id) || (!!p.employeeId && ids.has(p.employeeId)))
+        .map((p) => ({ id: p.id, name: p.name || p.email || "—" }));
+      return onSite.length > 0 || toolRole !== "logistics" ? onSite : all;
+    },
+    [teamProfiles, projects, toolRole]
+  );
   /** Obra de hoy (para "Me la llevo"): la del turno de hoy, si lo hay. */
   const myTodayProjectId = useMemo(() => {
     const today = formatTodayYmdInTimeZone(userTimeZone);
@@ -8050,6 +8082,7 @@ export default function Home() {
                 inventoryItems={inventoryItems}
                 inventoryMovements={inventoryMovements}
                 personNameById={personNameById}
+                onOpenToolSheet={toolRole ? (id) => setToolSheetItemId(id) : undefined}
                 adjustModal={adjustModal}
                 adjustQuantity={adjustQuantity}
                 adjustNote={adjustNote}
@@ -8806,8 +8839,13 @@ export default function Home() {
                 onOpenInspections={() => openInspections(null)}
                 inspectionsDueCount={myInspectionsDueByProject.total}
                 canOpenSite={perms.site}
-                onScanTool={toolTrackingEnabled ? () => setToolScanOpen(true) : undefined}
-                myTools={myTools}
+                onScanTool={toolRole ? () => setToolScanOpen(true) : undefined}
+                toolsTitle={
+                  toolRole === "helper"
+                    ? undefined
+                    : (t as Record<string, string>).tool_out_title ?? "Herramientas fuera"
+                }
+                myTools={homeTools}
                 onOpenTool={(id) => setToolSheetItemId(id)}
               />
             ) : null}
@@ -10704,8 +10742,10 @@ export default function Home() {
           personName={(id) => (id ? personNameById[id] ?? "—" : "—")}
           projectName={(id) => (id ? projectNameById[id] ?? "" : "")}
           defaultProjectId={myTodayProjectId}
-          myProjects={visibleProjects.map((p) => ({ id: p.id, name: p.name }))}
+          myProjects={toolProjects}
           canInspect={canInspectEquipment}
+          role={toolRole}
+          people={toolPeople}
           onInspect={() => {
             const it = toolSheetItem;
             setToolSheetItemId(null);
@@ -10758,6 +10798,16 @@ export default function Home() {
                 onClick: () => {
                   close();
                   openInspections(pid);
+                },
+              });
+            }
+            if (toolRole === "site" || toolRole === "logistics") {
+              out.push({
+                key: "tools",
+                label: tl.tool_scan_tools ?? "Escanear herramienta",
+                onClick: () => {
+                  close();
+                  setToolScanOpen(true);
                 },
               });
             }

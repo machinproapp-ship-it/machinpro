@@ -105,8 +105,22 @@ async function rpc(fn: string, args: Record<string, unknown>): Promise<{ ok: tru
   }
 }
 
-export const toolTake = (itemId: string, projectId: string | null, note?: string) =>
-  rpc("tool_take", { p_item_id: itemId, p_project_id: projectId, p_note: note ?? null });
+/** Qué puede hacer cada uno con las herramientas (lo decide el admin con los permisos del rol). */
+export type ToolRole = "logistics" | "site" | "helper" | null;
+
+export function toolRoleFromPermissions(
+  p: { canManageInventory?: boolean; canTransferInventory?: boolean; canControlSiteTools?: boolean; canHelpWithTools?: boolean },
+  isAdmin: boolean
+): ToolRole {
+  if (isAdmin || p.canManageInventory || p.canTransferInventory) return "logistics";
+  if (p.canControlSiteTools) return "site";
+  if (p.canHelpWithTools) return "helper";
+  return null;
+}
+
+/** Entregar a una persona (o a mí si toUserId es null) en una obra. */
+export const toolTake = (itemId: string, projectId: string | null, note?: string, toUserId?: string | null) =>
+  rpc("tool_take", { p_item_id: itemId, p_project_id: projectId, p_note: note ?? null, p_to_user: toUserId ?? null });
 
 export const toolReturn = (itemId: string, note?: string) =>
   rpc("tool_return", { p_item_id: itemId, p_note: note ?? null });

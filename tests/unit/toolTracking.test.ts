@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase", () => ({ supabase: {} }));
 
-import { daysSince, heldSince, movementFromRow } from "@/lib/toolTracking";
+import { daysSince, heldSince, movementFromRow, toolRoleFromPermissions } from "@/lib/toolTracking";
 import type { InventoryLedgerRow } from "@/types/inventoryLedger";
 
 const mv = (p: Partial<InventoryLedgerRow>): InventoryLedgerRow => ({
@@ -51,5 +51,13 @@ describe("toolTracking", () => {
     });
     expect(m).toMatchObject({ id: "5", movementType: "damage", quantity: 1, performedByName: "Ana", photoUrl: "https://x/y.jpg" });
     expect(movementFromRow({ id: 1, item_id: "x", movement_type: "raro" }).movementType).toBe("status_change");
+  });
+
+  it("toolRoleFromPermissions: logística manda; el trabajador solo con permiso", () => {
+    expect(toolRoleFromPermissions({}, true)).toBe("logistics");
+    expect(toolRoleFromPermissions({ canManageInventory: true }, false)).toBe("logistics");
+    expect(toolRoleFromPermissions({ canControlSiteTools: true, canHelpWithTools: true }, false)).toBe("site");
+    expect(toolRoleFromPermissions({ canHelpWithTools: true }, false)).toBe("helper");
+    expect(toolRoleFromPermissions({}, false)).toBeNull();
   });
 });

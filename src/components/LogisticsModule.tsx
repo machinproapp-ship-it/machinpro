@@ -272,6 +272,8 @@ export interface LogisticsModuleProps {
   employees: Employee[];
   /** Nombres por id de perfil o empleado (quién tiene cada herramienta). */
   personNameById?: Record<string, string>;
+  /** Herramientas y equipos: al escanear o tocar, ficha rápida (entregar, recibir, avería). */
+  onOpenToolSheet?: (itemId: string) => void;
   labels: Record<string, string>;
   onAddInventory: () => void;
   onEditInventory: (item: InventoryItem) => void;
@@ -527,6 +529,7 @@ export function LogisticsModule({
   suppliers = [],
   employees = [],
   personNameById = {},
+  onOpenToolSheet,
   labels: t,
   inventoryMovements = [],
   adjustModal,
@@ -691,6 +694,10 @@ export function LogisticsModule({
               return;
             }
             setInvScanOpen(false);
+            if (onOpenToolSheet && (it.type === "tool" || it.type === "equipment")) {
+              onOpenToolSheet(it.id);
+              return;
+            }
             setSelectedAsset({ type: "inventory", id: it.id });
             if (canManageInventory && onInventoryQrPostScan) {
               setQrPostScanItem(it);
@@ -763,6 +770,7 @@ export function LogisticsModule({
       showToast,
       t,
       canManageInventory,
+      onOpenToolSheet,
     ]
   );
 
@@ -1851,7 +1859,13 @@ export function LogisticsModule({
                       "—";
                     const where = projName(i.assignedToProjectId) ?? i.location ?? "";
                     return (
-                      <li key={i.id} className="flex flex-col gap-0.5 px-4 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:text-sm">
+                      <li
+                        key={i.id}
+                        onClick={onOpenToolSheet ? () => onOpenToolSheet(i.id) : undefined}
+                        className={`flex min-h-[44px] flex-col gap-0.5 px-4 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:text-sm ${
+                          onOpenToolSheet ? "cursor-pointer hover:bg-zinc-50 dark:hover:bg-slate-800/60" : ""
+                        }`}
+                      >
                         <span className="font-medium text-zinc-800 dark:text-zinc-100">
                           {i.name} · {who}
                           {where ? ` · ${where}` : ""}
