@@ -16,6 +16,16 @@ export async function login(page: Page, who: { email: string; password: string }
       /* ignore */
     }
   });
+  const diag: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error" || m.type() === "warning") diag.push(`console.${m.type()}: ${m.text().slice(0, 200)}`);
+  });
+  page.on("response", (r) => {
+    if (r.status() >= 400) diag.push(`HTTP ${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`);
+  });
+  page.on("framenavigated", (f) => {
+    if (f === page.mainFrame()) diag.push(`nav → ${f.url()}`);
+  });
   await page.goto("/login");
   await page.locator('input[type="email"]').fill(who.email);
   await page.locator('input[type="password"]').fill(who.password);
@@ -25,8 +35,10 @@ export async function login(page: Page, who: { email: string; password: string }
   try {
     await expect(page.locator('a[href="/logout"]').first()).toBeVisible({ timeout: 30_000 });
   } catch (e) {
-    const text = (await page.locator("body").innerText().catch(() => "")).slice(0, 400);
-    throw new Error(`No entró en la app. URL: ${page.url()}\nPantalla: ${text}\n${String(e)}`);
+    const text = (await page.locator("body").innerText().catch(() => "")).slice(0, 600);
+    throw new Error(
+      `No entró en la app. URL: ${page.url()}\nPantalla: ${text}\nDiagnóstico:\n${diag.slice(-25).join("\n")}\n${String(e)}`
+    );
   }
 }
 
