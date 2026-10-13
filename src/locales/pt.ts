@@ -2486,7 +2486,7 @@ export default {
   landing_languages_badge:
     "🌍 Disponível em 21 idiomas · América do Norte · América Central · América do Sul · Europa · UK · Oceânia",
   landing_hero_subtitle_full:
-    "Pessoal, projetos, horários, logística, segurança, formulários e salários. Tudo pelo telemóvel.",
+    "Pessoal, projetos, horários, logística, segurança, formulários e pré-processamento salarial. Tudo pelo telemóvel.",
   landing_availability:
     "Disponível em 21 idiomas · América do Norte · América Central · América do Sul · Europa · UK · Oceânia",
   landing_countries_languages:
@@ -2513,9 +2513,9 @@ export default {
   landing_feat_offline_desc: "Trabalhe sem rede; sincronize depois.",
   landing_feat_langs_regions: "21 idiomas e moedas",
   landing_feat_langs_regions_desc: "CA · US · MX · ES · UK · EU · AU · NZ · CAD USD MXN EUR GBP AUD NZD",
-  feature_payroll_production: "Salários e pagamento por produção",
+  feature_payroll_production: "Pré-processamento salarial e pagamento por produção",
   feature_payroll_production_desc:
-    "Calcule salários por horas ou unidades produzidas. Exporte para o contabilista.",
+    "Horas aprovadas, horas extra e férias prontas a exportar para o seu fornecedor de salários. Os impostos são calculados pelo fornecedor.",
   feature_work_orders: "Ordens de trabalho",
   feature_work_orders_desc: "Crie ordens de trabalho com catálogo de preços por unidade.",
   feature_inventory_qr: "Inventário QR",

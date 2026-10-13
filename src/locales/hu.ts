@@ -685,8 +685,8 @@ export default {
   "editTask": "Edit task",
   work_order_title: "Munkarendelés",
 
-  feature_payroll_production: "Payroll & production pay",
-  feature_payroll_production_desc: "Calculate payroll by hours or production units. Export for your accountant.",
+  feature_payroll_production: "Pre-payroll & production pay",
+  feature_payroll_production_desc: "Approved hours, overtime and vacation pay, ready to export to your payroll provider. Taxes are calculated by your provider.",
   feature_work_orders: "Work orders",
   feature_work_orders_desc: "Create work orders with unit price catalog. Adjust prices per job site.",
   feature_inventory_qr: "QR inventory",

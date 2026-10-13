@@ -51,3 +51,7 @@ scripts/.ah61-tmp/
 
 # Run manually in Supabase SQL editor (do not commit)
 src/lib/performance-indexes.sql
+
+# Pruebas
+/test-results/
+/playwright-report/

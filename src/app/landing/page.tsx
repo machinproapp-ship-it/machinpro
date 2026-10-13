@@ -170,7 +170,7 @@ const MODULE_ICONS: Record<"central" | "operations" | "schedule" | "logistics" |
   };
 
 const PERSONALIZE_TITLE_FB: Record<string, string> = {
-  feature_payroll_production: "Payroll & production pay",
+  feature_payroll_production: "Pre-payroll & production pay",
   feature_work_orders: "Work orders",
   feature_inventory_qr: "QR inventory",
   feature_training_hub: "Training hub",
@@ -184,7 +184,7 @@ const PERSONALIZE_TITLE_FB: Record<string, string> = {
 
 const PERSONALIZE_DESC_FB: Record<string, string> = {
   feature_payroll_production_desc:
-    "Calculate payroll by hours or production units. Export for your accountant.",
+    "Approved hours, overtime and vacation pay, ready to export to your payroll provider. Taxes are calculated by your provider.",
   feature_work_orders_desc:
     "Create work orders with unit price catalog. Adjust prices per job site.",
   feature_inventory_qr_desc:
@@ -447,7 +447,7 @@ export default function LandingPage() {
               <p className="mt-4 max-w-2xl text-lg text-teal-100/95 sm:text-xl">
                 {tx(
                   "landing_hero_subtitle_full",
-                  "People, projects, schedule, logistics, safety, forms and payroll. All from your phone."
+                  "People, projects, schedule, logistics, safety, forms and pre-payroll. All from your phone."
                 )}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">

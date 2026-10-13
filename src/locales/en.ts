@@ -750,7 +750,7 @@ export default {
     "Email us at support@machin.pro and we will respond within 24 hours.",
   help_faq_what_is: "What is MachinPro?",
   help_faq_what_is_answer:
-    "A construction operations platform: employees, projects, scheduling, logistics, safety, forms and payroll in one place — for field and office teams.",
+    "A construction operations platform: employees, projects, scheduling, logistics, safety, forms and pre-payroll in one place — for field and office teams.",
   help_faq_how_start: "How do I get started?",
   help_faq_how_start_answer:
     "Register your company, complete onboarding, invite people from Central → Employees, then create your first project. Use the in-app checklist to track progress.",
@@ -2778,7 +2778,7 @@ export default {
   landing_languages_badge:
     "🌍 Available in 21 languages · North America · Central America · South America · Europe · UK · Oceania",
   landing_hero_subtitle_full:
-    "People, projects, schedule, logistics, safety, forms and payroll. All from your phone.",
+    "People, projects, schedule, logistics, safety, forms and pre-payroll. All from your phone.",
   landing_availability:
     "Available in 21 languages · North America · Central America · South America · Europe · UK · Oceania",
   landing_countries_languages:
@@ -2805,9 +2805,9 @@ export default {
   landing_feat_offline_desc: "Work without coverage; sync when back online.",
   landing_feat_langs_regions: "21 languages and currencies",
   landing_feat_langs_regions_desc: "CA · US · MX · ES · UK · EU · AU · NZ · CAD USD MXN EUR GBP AUD NZD",
-  feature_payroll_production: "Payroll & production pay",
+  feature_payroll_production: "Pre-payroll & production pay",
   feature_payroll_production_desc:
-    "Calculate payroll by hours or production units. Export for your accountant.",
+    "Approved hours, overtime and vacation pay, ready to export to your payroll provider. Taxes are calculated by your provider.",
   feature_work_orders: "Work orders",
   feature_work_orders_desc: "Create work orders with unit price catalog. Adjust prices per job site.",
   feature_inventory_qr: "QR inventory",
@@ -4128,7 +4128,7 @@ export default {
   about_subtitle: "One platform. All modules. From anywhere.",
   about_company_heading: "MachinPro & Canariense Inc.",
   about_company_intro:
-    "MachinPro is developed by Canariense Inc., headquartered in Ottawa, Canada. Our mission is to give construction companies one connected workspace for people, projects, logistics, safety, forms and payroll — so teams stay aligned from bid to closeout.",
+    "MachinPro is developed by Canariense Inc., headquartered in Ottawa, Canada. Our mission is to give construction companies one connected workspace for people, projects, logistics, safety, forms and pre-payroll — so teams stay aligned from bid to closeout.",
   about_contact_general: "General inquiries:",
   about_cta_plans: "View plans",
   about_cta_beta: "Start free",

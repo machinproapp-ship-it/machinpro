@@ -2473,7 +2473,7 @@ export default {
   landing_languages_badge:
     "🌍 Disponible en 21 langues · Amérique du Nord · Amérique Centrale · Amérique du Sud · Europe · UK · Océanie",
   landing_hero_subtitle_full:
-    "Personnel, projets, horaires, logistique, sécurité, formulaires et paie. Tout depuis votre téléphone.",
+    "Personnel, projets, horaires, logistique, sécurité, formulaires et pré-paie. Tout depuis votre téléphone.",
   landing_availability:
     "Disponible en 21 langues · Amérique du Nord · Amérique Centrale · Amérique du Sud · Europe · UK · Océanie",
   landing_countries_languages:
@@ -2500,9 +2500,9 @@ export default {
   landing_feat_offline_desc: "Travaillez sans couverture ; synchronisez ensuite.",
   landing_feat_langs_regions: "21 langues et devises",
   landing_feat_langs_regions_desc: "CA · US · MX · ES · UK · EU · AU · NZ · CAD USD MXN EUR GBP AUD NZD",
-  feature_payroll_production: "Paie et rémunération à la production",
+  feature_payroll_production: "Pré-paie et rémunération à la production",
   feature_payroll_production_desc:
-    "Calculez la paie par heures ou unités produites. Exportez pour votre comptable.",
+    "Heures approuvées, heures sup. et vacances prêtes à exporter vers votre fournisseur de paie. Les impôts sont calculés par votre fournisseur.",
   feature_work_orders: "Bons de travail",
   feature_work_orders_desc: "Créez des bons de travail avec catalogue de prix à l'unité.",
   feature_inventory_qr: "Inventaire QR",

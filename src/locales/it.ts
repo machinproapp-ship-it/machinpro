@@ -2485,7 +2485,7 @@ export default {
   landing_languages_badge:
     "🌍 Disponibile in 21 lingue · America del Nord · America Centrale · America del Sud · Europa · UK · Oceania",
   landing_hero_subtitle_full:
-    "Personale, progetti, orari, logistica, sicurezza, moduli e buste paga. Tutto dal telefono.",
+    "Personale, progetti, orari, logistica, sicurezza, moduli e pre-paghe. Tutto dal telefono.",
   landing_availability:
     "Disponibile in 21 lingue · America del Nord · America Centrale · America del Sud · Europa · UK · Oceania",
   landing_countries_languages:
@@ -2512,9 +2512,9 @@ export default {
   landing_feat_offline_desc: "Lavora senza copertura; sincronizza dopo.",
   landing_feat_langs_regions: "21 lingue e valute",
   landing_feat_langs_regions_desc: "CA · US · MX · ES · UK · EU · AU · NZ · CAD USD MXN EUR GBP AUD NZD",
-  feature_payroll_production: "Buste paga e retribuzione a produzione",
+  feature_payroll_production: "Pre-paghe e retribuzione a produzione",
   feature_payroll_production_desc:
-    "Calcola le buste paga per ore o unità prodotte. Esporta per il commercialista.",
+    "Ore approvate, straordinari e ferie pronti da esportare al tuo fornitore di paghe. Le tasse le calcola il fornitore.",
   feature_work_orders: "Ordini di lavoro",
   feature_work_orders_desc: "Crea ordini di lavoro con catalogo prezzi per unità.",
   feature_inventory_qr: "Inventario QR",

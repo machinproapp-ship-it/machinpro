@@ -2486,7 +2486,7 @@ export default {
   landing_languages_badge:
     "🌍 Verfügbar in 21 Sprachen · Nordamerika · Mittelamerika · Südamerika · Europa · UK · Ozeanien",
   landing_hero_subtitle_full:
-    "Personal, Projekte, Zeitplan, Logistik, Sicherheit, Formulare und Lohnabrechnung. Alles vom Handy.",
+    "Personal, Projekte, Zeitplan, Logistik, Sicherheit, Formulare und Lohnvorbereitung. Alles vom Handy.",
   landing_availability:
     "Verfügbar in 21 Sprachen · Nordamerika · Mittelamerika · Südamerika · Europa · UK · Ozeanien",
   landing_countries_languages:
@@ -2513,9 +2513,9 @@ export default {
   landing_feat_offline_desc: "Ohne Netz arbeiten; später synchronisieren.",
   landing_feat_langs_regions: "21 Sprachen und Währungen",
   landing_feat_langs_regions_desc: "CA · US · MX · ES · UK · EU · AU · NZ · CAD USD MXN EUR GBP AUD NZD",
-  feature_payroll_production: "Lohnabrechnung & Produktionsvergütung",
+  feature_payroll_production: "Lohnvorbereitung & Produktionsvergütung",
   feature_payroll_production_desc:
-    "Berechnen Sie Löhne nach Stunden oder produzierten Einheiten. Export für den Steuerberater.",
+    "Genehmigte Stunden, Überstunden und Urlaub, bereit für den Export an Ihren Lohnabrechnungsanbieter. Steuern berechnet Ihr Anbieter.",
   feature_work_orders: "Arbeitsaufträge",
   feature_work_orders_desc:
     "Erstellen Sie Arbeitsaufträge mit Einheitspreiskatalog. Preise pro Baustelle anpassen.",

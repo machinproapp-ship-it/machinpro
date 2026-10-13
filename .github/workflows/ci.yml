@@ -1,0 +1,56 @@
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  deployment_status:
+  workflow_dispatch:
+
+jobs:
+  unitarias:
+    name: Tipos y pruebas unitarias
+    if: github.event_name != 'deployment_status'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+
+  extremo-a-extremo:
+    name: App publicada (móvil y escritorio)
+    # Corre cuando Vercel termina de publicar en producción, o a mano.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          E2E_BASE_URL: https://www.machin.pro
+          E2E_WORKER_EMAIL: ${{ secrets.E2E_WORKER_EMAIL }}
+          E2E_WORKER_PASSWORD: ${{ secrets.E2E_WORKER_PASSWORD }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: informe-playwright
+          path: playwright-report
+          retention-days: 14

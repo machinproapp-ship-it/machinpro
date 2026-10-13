@@ -672,7 +672,7 @@ export default {
     "Escríbenos a support@machin.pro y te responderemos en menos de 24 horas.",
   help_faq_what_is: "¿Qué es MachinPro?",
   help_faq_what_is_answer:
-    "Una plataforma de gestión de obras: personal, proyectos, horarios, logística, seguridad, formularios y nóminas en un solo lugar, para obra y oficina.",
+    "Una plataforma de gestión de obras: personal, proyectos, horarios, logística, seguridad, formularios y pre-nómina en un solo lugar, para obra y oficina.",
   help_faq_how_start: "¿Cómo empiezo?",
   help_faq_how_start_answer:
     "Registra tu empresa, completa el onboarding, invita al equipo desde Central → Empleados y crea tu primer proyecto. La checklist en la app te guía paso a paso.",
@@ -2592,7 +2592,7 @@ export default {
   landing_languages_badge:
     "🌍 Disponible en 21 idiomas · América del Norte · América Central · América del Sur · Europa · UK · Oceanía",
   landing_hero_subtitle_full:
-    "Personal, proyectos, horarios, logística, seguridad, formularios y nóminas. Todo desde el móvil.",
+    "Personal, proyectos, horarios, logística, seguridad, formularios y pre-nómina. Todo desde el móvil.",
   landing_availability:
     "Disponible en 21 idiomas · América del Norte · América Central · América del Sur · Europa · UK · Oceanía",
   landing_countries_languages:
@@ -2619,9 +2619,9 @@ export default {
   landing_feat_offline_desc: "Sigue trabajando sin cobertura; sincroniza después.",
   landing_feat_langs_regions: "21 idiomas y monedas",
   landing_feat_langs_regions_desc: "CA · US · MX · ES · UK · EU · AU · NZ · CAD USD MXN EUR GBP AUD NZD",
-  feature_payroll_production: "Nóminas y pago por producción",
+  feature_payroll_production: "Pre-nómina y pago por producción",
   feature_payroll_production_desc:
-    "Calcula nóminas por horas o por unidades producidas. Exporta para tu gestoría.",
+    "Horas aprobadas, extras y vacaciones listas para tu proveedor de nómina o gestoría. Los impuestos los calcula tu proveedor.",
   feature_work_orders: "Órdenes de trabajo",
   feature_work_orders_desc:
     "Crea órdenes de trabajo con catálogo de precios por unidad. Ajusta precios por obra.",
@@ -3951,7 +3951,7 @@ export default {
   about_subtitle: "Una plataforma. Todos los módulos. Desde cualquier lugar.",
   about_company_heading: "MachinPro y Canariense Inc.",
   about_company_intro:
-    "MachinPro es un producto de Canariense Inc., con sede en Ottawa, Canadá. Nuestra misión es ofrecer a las empresas de construcción un espacio único para personal, proyectos, logística, seguridad, formularios y nóminas, alineando obra y oficina de la licitación al cierre.",
+    "MachinPro es un producto de Canariense Inc., con sede en Ottawa, Canadá. Nuestra misión es ofrecer a las empresas de construcción un espacio único para personal, proyectos, logística, seguridad, formularios y pre-nómina, alineando obra y oficina de la licitación al cierre.",
   about_contact_general: "Consultas generales:",
   about_cta_plans: "Ver planes",
   about_cta_beta: "Empezar gratis",

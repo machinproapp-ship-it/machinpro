@@ -1,15 +1,18 @@
 "use client";
 
-import { Fragment, useMemo, useState, useCallback } from "react";
-import { ChevronDown, ChevronRight, Download } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState, useCallback } from "react";
+import { ChevronDown, ChevronRight, Download, Settings2 } from "lucide-react";
 import type { ClockEntryForSchedule } from "@/types/homePage";
+import type { PayrollPeriod } from "@/lib/payroll";
 import {
-  calculateDeductions,
-  totalEmployeeDeductions,
-  totalEmployerContributions,
-  type PayrollPeriod,
-  type PayrollDeduction,
-} from "@/lib/payroll";
+  computePrePayrollRow,
+  defaultOvertimeRule,
+  defaultVacationPayPct,
+  prePayrollEarningLines,
+  type OvertimeRule,
+} from "@/lib/prePayroll";
+import { normalizePrePayrollSettings, type PrePayrollSettings } from "@/lib/companySettingsTypes";
+import { supabase } from "@/lib/supabase";
 import { hoursWorkedFromClockFields, invertProfileToLegacy } from "@/lib/laborCosting";
 import { csvCell, downloadCsvUtf8, fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 import { generatePayrollPdf } from "@/lib/generatePayrollPdf";
@@ -143,7 +146,77 @@ export function PayrollSchedulePanel({
     return { start: addDays(base, -6), end: base };
   }, [periodType, anchorMonth, weekOffset, timeZone]);
 
-  const regularHoursCap = periodType === "weekly" ? 40 : periodType === "biweekly" ? 80 : 160;
+  /** Reglas de pre-nómina de la empresa (horas extra y % de vacaciones). */
+  const [ppSettings, setPpSettings] = useState<PrePayrollSettings | null>(null);
+  const [ppEditing, setPpEditing] = useState(false);
+  const [ppDraft, setPpDraft] = useState<PrePayrollSettings | null>(null);
+  const [ppSaving, setPpSaving] = useState(false);
+
+  const fallbackSettings = useMemo((): PrePayrollSettings => {
+    const r = defaultOvertimeRule(countryCode);
+    return {
+      weeklyOtThreshold: r.weeklyThreshold,
+      dailyOtThreshold: r.dailyThreshold,
+      otMultiplier: r.multiplier,
+      vacationPayPct: defaultVacationPayPct(countryCode),
+    };
+  }, [countryCode]);
+  const settings = ppSettings ?? fallbackSettings;
+  const rule: OvertimeRule = useMemo(
+    () => ({
+      weeklyThreshold: settings.weeklyOtThreshold,
+      dailyThreshold: settings.dailyOtThreshold,
+      multiplier: settings.otMultiplier,
+    }),
+    [settings]
+  );
+
+  useEffect(() => {
+    if (!companyId) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return;
+        const res = await fetch(`/api/company/settings?companyId=${encodeURIComponent(companyId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const j = (await res.json()) as { settings?: { prePayroll?: unknown } };
+        const pp = normalizePrePayrollSettings(j.settings?.prePayroll);
+        if (alive && pp) setPpSettings(pp);
+      } catch {
+        /* se usan los valores por defecto del país */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [companyId]);
+
+  const savePpSettings = async () => {
+    if (!ppDraft || !canManagePayroll || ppSaving) return;
+    setPpSaving(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      const res = await fetch("/api/company/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ companyId, merge: { prePayroll: ppDraft } }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const j = (await res.json()) as { settings?: { prePayroll?: unknown } };
+      setPpSettings(normalizePrePayrollSettings(j.settings?.prePayroll) ?? ppDraft);
+      setPpEditing(false);
+      showToast("success", L("toast_saved", "Saved"));
+    } catch {
+      showToast("error", L("prepay_settings_save_error", "No se pudieron guardar las reglas."));
+    } finally {
+      setPpSaving(false);
+    }
+  };
 
   const resolveRateKey = useCallback(
     (employeeId: string) => {
@@ -172,7 +245,7 @@ export function PayrollSchedulePanel({
 
   const rows = useMemo(() => {
     const { start, end } = periodBounds;
-    const hoursByEmp = new Map<string, number>();
+    const hoursByEmpDate = new Map<string, Record<string, number>>();
     for (const e of clockEntries) {
       if (e.date < start || e.date > end) continue;
       const h = hoursWorkedFromClockFields({
@@ -183,48 +256,28 @@ export function PayrollSchedulePanel({
       });
       if (h <= 0) continue;
       const rosterId = rosterEmployeeIdForClock(e.employeeId);
-      hoursByEmp.set(rosterId, (hoursByEmp.get(rosterId) ?? 0) + h);
+      const byDate = hoursByEmpDate.get(rosterId) ?? {};
+      byDate[e.date] = (byDate[e.date] ?? 0) + h;
+      hoursByEmpDate.set(rosterId, byDate);
     }
 
     const nameById = buildEmployeeNameByClockId(uniqueEmployees, profileToLegacyEmployeeId);
     const ids = viewAllPayroll
-      ? [...new Set([...hoursByEmp.keys(), ...uniqueEmployees.map((e) => e.id)])]
+      ? [...new Set([...hoursByEmpDate.keys(), ...uniqueEmployees.map((e) => e.id)])]
       : currentUserProfileId
         ? [currentUserProfileId]
         : [];
 
     return ids.map((empId) => {
-      const hours = hoursByEmp.get(empId) ?? 0;
       const rate = resolveRateKey(empId);
-      const regularHours = Math.min(hours, regularHoursCap);
-      const otHours = Math.max(0, hours - regularHoursCap);
-      const gross =
-        rate != null
-          ? Math.round((regularHours * rate + otHours * rate * 1.5) * 100) / 100
-          : 0;
-      const isCA = countryCode.trim().toUpperCase() === "CA";
-      const ded = rate != null && isCA ? calculateDeductions(gross, countryCode, currency) : [];
-      const td = rate != null && isCA ? totalEmployeeDeductions(ded) : 0;
-      const ec = rate != null && isCA ? totalEmployerContributions(ded) : 0;
-      const net =
-        rate != null ? Math.max(0, Math.round((gross - td) * 100) / 100) : null;
-      const st = statusByEmp[empId] ?? "draft";
-      const hasRate = rate != null;
+      const calc = computePrePayrollRow(hoursByEmpDate.get(empId) ?? {}, rate, rule, settings.vacationPayPct);
       return {
         employeeId: empId,
+        employeeNumber: profileToLegacyEmployeeId[empId] ?? empId,
         name: nameById.get(empId) ?? empId,
-        hours,
-        regularHours,
-        otHours,
-        rate,
-        gross,
-        deductions: ded,
-        totalDeductions: td,
-        net: net ?? 0,
-        employerCost: ec,
-        status: st,
-        hasRate,
-        payrollCountryIsCa: isCA,
+        calc,
+        hasRate: calc.rate != null,
+        status: statusByEmp[empId] ?? ("draft" as RowStatus),
       };
     });
   }, [
@@ -234,33 +287,89 @@ export function PayrollSchedulePanel({
     profileToLegacyEmployeeId,
     viewAllPayroll,
     currentUserProfileId,
-    countryCode,
-    currency,
     resolveRateKey,
     statusByEmp,
     rosterEmployeeIdForClock,
-    regularHoursCap,
+    rule,
+    settings.vacationPayPct,
   ]);
 
   const exportCsv = () => {
     if (!canExportPayroll) return;
-    const hName = L("employees", "Empleados");
-    const hHours = L("timesheet_hours", "Horas trabajadas");
-    const hGross = L("payroll_gross", "Bruto");
-    const hNet = L("payroll_net", "Neto");
-    const hSt = L("common_status", "Estado");
-    const lines = [
-      [hName, hHours, hGross, hNet, hSt].map((c) => csvCell(c)).join(","),
+    const head = [
+      L("prepay_col_employee_no", "Nº empleado"),
+      L("employees", "Empleado"),
+      L("timesheet_date_from", "Desde"),
+      L("timesheet_date_to", "Hasta"),
+      L("prepay_col_regular_hours", "Horas normales"),
+      L("prepay_col_ot_hours", "Horas extra"),
+      L("prepay_col_rate", "Tarifa"),
+      L("prepay_col_regular_pay", "Importe normales"),
+      L("prepay_col_ot_pay", "Importe extra"),
+      L("prepay_col_vacation", "Vacaciones"),
+      L("prepay_col_gross_total", "Bruto total"),
+      L("common_status", "Estado"),
     ];
+    const lines = [head.map((c) => csvCell(c)).join(",")];
     for (const r of rows) {
+      const c = r.calc;
       lines.push(
-        [csvCell(r.name), csvCell(String(r.hours)), csvCell(String(r.gross)), csvCell(String(r.net)), csvCell(r.status)].join(
-          ","
-        )
+        [
+          r.employeeNumber,
+          r.name,
+          periodBounds.start,
+          periodBounds.end,
+          c.regularHours.toFixed(2),
+          c.overtimeHours.toFixed(2),
+          c.rate != null ? c.rate.toFixed(2) : "",
+          c.regularPay.toFixed(2),
+          c.overtimePay.toFixed(2),
+          c.vacationPay.toFixed(2),
+          c.grossTotal.toFixed(2),
+          r.status,
+        ]
+          .map((x) => csvCell(String(x)))
+          .join(",")
       );
     }
     const slug = fileSlugCompany(companyName, companyId || "co");
-    downloadCsvUtf8(`payroll_${slug}_${filenameDateYmd()}.csv`, lines);
+    downloadCsvUtf8(`prenomina_${slug}_${periodBounds.start}_${periodBounds.end}.csv`, lines);
+    showToast("success", L("export_success", "Export completed"));
+  };
+
+  /** Una fila por persona y concepto (REG / OT / VAC): para importar en Nethris, ADP, Wagepoint, QuickBooks… */
+  const exportEarningLines = () => {
+    if (!canExportPayroll) return;
+    const head = ["employee_number", "employee_name", "period_start", "period_end", "earning_code", "hours", "rate", "amount", "currency"];
+    const lines = [head.join(",")];
+    for (const r of rows) {
+      for (const ln of prePayrollEarningLines({
+        employeeNumber: r.employeeNumber,
+        employeeName: r.name,
+        periodStart: periodBounds.start,
+        periodEnd: periodBounds.end,
+        row: r.calc,
+        multiplier: rule.multiplier,
+      })) {
+        lines.push(
+          [
+            ln.employeeNumber,
+            ln.employeeName,
+            ln.periodStart,
+            ln.periodEnd,
+            ln.earningCode,
+            ln.hours != null ? ln.hours.toFixed(2) : "",
+            ln.rate != null ? ln.rate.toFixed(2) : "",
+            ln.amount.toFixed(2),
+            currency,
+          ]
+            .map((x) => csvCell(String(x)))
+            .join(",")
+        );
+      }
+    }
+    const slug = fileSlugCompany(companyName, companyId || "co");
+    downloadCsvUtf8(`prenomina_import_${slug}_${periodBounds.start}_${periodBounds.end}.csv`, lines);
     showToast("success", L("export_success", "Export completed"));
   };
 
@@ -278,12 +387,14 @@ export function PayrollSchedulePanel({
           currency,
           rows: rows.map((r) => ({
             employeeName: r.name,
-            hours: r.hours,
-            gross: r.hasRate ? r.gross : 0,
-            totalDeductions: r.hasRate ? r.totalDeductions : 0,
-            net: r.hasRate ? r.net : 0,
-            employerCost: r.hasRate ? r.employerCost : 0,
-            deductions: r.hasRate ? r.deductions : [],
+            regularHours: r.calc.regularHours,
+            overtimeHours: r.calc.overtimeHours,
+            rate: r.calc.rate,
+            regularPay: r.calc.regularPay,
+            overtimePay: r.calc.overtimePay,
+            vacationPct: r.calc.vacationPct,
+            vacationPay: r.calc.vacationPay,
+            grossTotal: r.calc.grossTotal,
           })),
         });
         const href = URL.createObjectURL(blob);
@@ -371,6 +482,14 @@ export function PayrollSchedulePanel({
           <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
+              onClick={() => exportEarningLines()}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 sm:w-auto"
+            >
+              <Download className="h-4 w-4" />
+              {L("prepay_export_import", "Exportar para tu nómina")}
+            </button>
+            <button
+              type="button"
               onClick={() => exportCsv()}
               className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-medium sm:w-auto"
             >
@@ -389,12 +508,91 @@ export function PayrollSchedulePanel({
         ) : null}
       </div>
 
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        {L(
-          "payroll_orientative_note",
-          "Las deducciones son orientativas. Consulte a su asesor fiscal."
-        )}
-      </p>
+      <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100">
+        <p>
+          {L(
+            "prepay_note",
+            "Pre-nómina: horas aprobadas, horas extra y vacaciones para pasar a tu proveedor de nómina (Nethris, ADP, Wagepoint, QuickBooks o tu gestoría). Impuestos y cotizaciones los calcula tu proveedor con las tablas oficiales."
+          )}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span>
+            {L("prepay_rule_weekly", "Extra a partir de")} <strong>{settings.weeklyOtThreshold} h/{L("prepay_week", "semana")}</strong>
+          </span>
+          {settings.dailyOtThreshold > 0 ? (
+            <span>
+              {L("prepay_rule_daily", "o de")} <strong>{settings.dailyOtThreshold} h/{L("prepay_day", "día")}</strong>
+            </span>
+          ) : null}
+          <span>
+            {L("prepay_rule_multiplier", "Pago extra")} <strong>×{settings.otMultiplier}</strong>
+          </span>
+          <span>
+            {L("prepay_rule_vacation", "Vacaciones")} <strong>{settings.vacationPayPct}%</strong>
+          </span>
+          {canManagePayroll ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPpDraft(settings);
+                setPpEditing((v) => !v);
+              }}
+              className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-amber-400 px-2 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/30"
+            >
+              <Settings2 className="h-3.5 w-3.5" aria-hidden />
+              {L("prepay_rules_edit", "Cambiar reglas")}
+            </button>
+          ) : null}
+        </div>
+        {ppEditing && ppDraft ? (
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {(
+              [
+                ["weeklyOtThreshold", L("prepay_field_weekly", "Extra desde (h/semana, 0 = no)"), 0, 168, 1],
+                ["dailyOtThreshold", L("prepay_field_daily", "Extra desde (h/día, 0 = no)"), 0, 24, 0.5],
+                ["otMultiplier", L("prepay_field_multiplier", "Multiplicador extra"), 1, 3, 0.25],
+                ["vacationPayPct", L("prepay_field_vacation", "% vacaciones por nómina"), 0, 20, 0.5],
+              ] as const
+            ).map(([key, label, min, max, step]) => (
+              <label key={key} className="block text-[11px] font-medium">
+                {label}
+                <input
+                  type="number"
+                  min={min}
+                  max={max}
+                  step={step}
+                  value={ppDraft[key]}
+                  onChange={(e) => setPpDraft({ ...ppDraft, [key]: Number(e.target.value) })}
+                  className="mt-1 min-h-[40px] w-full rounded-lg border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-100"
+                />
+              </label>
+            ))}
+            <div className="col-span-2 flex gap-2 sm:col-span-4">
+              <button
+                type="button"
+                onClick={() => void savePpSettings()}
+                disabled={ppSaving}
+                className="min-h-[40px] rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {ppSaving ? "…" : L("save", "Guardar")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPpEditing(false)}
+                className="min-h-[40px] rounded-lg border border-zinc-300 px-4 text-sm dark:border-slate-600"
+              >
+                {L("cancel", "Cancelar")}
+              </button>
+            </div>
+            <p className="col-span-2 sm:col-span-4">
+              {L(
+                "prepay_rules_hint",
+                "Depende de tu provincia o convenio: Ontario 44 h/semana; Quebec y la mayoría de EE. UU. 40 h/semana; Alberta y BC también 8 h/día. Vacaciones en Canadá: 4 % (6 % con 5 años o más en muchas provincias)."
+              )}
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-slate-700">
         <table className="w-full min-w-[340px] text-sm md:min-w-[720px]">
@@ -402,10 +600,10 @@ export function PayrollSchedulePanel({
             <tr>
               <th className="px-3 py-3 font-medium w-10" />
               <th className="px-3 py-3 font-medium">{L("employees", "Empleados")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("timesheet_hours", "Horas trabajadas")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("payroll_gross", "Bruto")}</th>
-              <th className="hidden px-3 py-3 font-medium text-right sm:table-cell">{L("payroll_deductions", "Deducciones")}</th>
-              <th className="px-3 py-3 font-medium text-right">{L("payroll_net", "Neto")}</th>
+              <th className="px-3 py-3 font-medium text-right">{L("prepay_col_regular_hours", "Horas normales")}</th>
+              <th className="px-3 py-3 font-medium text-right">{L("prepay_col_ot_hours", "Horas extra")}</th>
+              <th className="hidden px-3 py-3 font-medium text-right sm:table-cell">{L("prepay_col_vacation", "Vacaciones")}</th>
+              <th className="px-3 py-3 font-medium text-right">{L("prepay_col_gross_total", "Bruto total")}</th>
               <th className="px-3 py-3 font-medium">{L("common_status", "Estado")}</th>
               {canManagePayroll ? (
                 <th className="px-3 py-3 font-medium">{L("common_actions", "Acciones")}</th>
@@ -415,6 +613,7 @@ export function PayrollSchedulePanel({
           <tbody className="divide-y divide-zinc-100 dark:divide-slate-800">
             {rows.map((r) => {
               const open = expanded[r.employeeId];
+              const c = r.calc;
               return (
                 <Fragment key={r.employeeId}>
                   <tr className="hover:bg-zinc-50/80 dark:hover:bg-slate-800/40">
@@ -431,15 +630,13 @@ export function PayrollSchedulePanel({
                     <td className="max-w-[9rem] px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100 break-words sm:max-w-none">
                       {r.name}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{r.hours.toFixed(1)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {r.hasRate ? `${currency} ${r.gross.toFixed(2)}` : "—"}
-                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{c.regularHours.toFixed(1)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{c.overtimeHours > 0 ? c.overtimeHours.toFixed(1) : "—"}</td>
                     <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">
-                      {r.hasRate && r.payrollCountryIsCa ? r.totalDeductions.toFixed(2) : "—"}
+                      {r.hasRate && c.vacationPay > 0 ? c.vacationPay.toFixed(2) : "—"}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">
-                      {r.hasRate ? r.net.toFixed(2) : "—"}
+                      {r.hasRate ? `${currency} ${c.grossTotal.toFixed(2)}` : "—"}
                     </td>
                     <td className="px-3 py-2">
                       <span className="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs">
@@ -481,35 +678,41 @@ export function PayrollSchedulePanel({
                   {open ? (
                     <tr className="bg-zinc-50/50 dark:bg-slate-900/50">
                       <td colSpan={canManagePayroll ? 8 : 7} className="px-6 py-3 text-xs text-zinc-600 dark:text-zinc-400">
-                        {r.rate != null ? (
-                          <p className="mb-2 font-medium text-zinc-700 dark:text-zinc-200">
-                            {L("payroll_gross", "Bruto")}: {currency} {r.gross.toFixed(2)} —{" "}
-                            {L("payroll_regular_hours", "Regular")}: {r.regularHours.toFixed(1)} × {currency}{" "}
-                            {r.rate.toFixed(2)}
-                            {r.otHours > 0
-                              ? ` + ${L("payroll_ot_hours", "OT")}: ${r.otHours.toFixed(1)} × ${currency} ${(r.rate * 1.5).toFixed(2)}`
-                              : ""}
-                          </p>
-                        ) : null}
-                        <ul className="space-y-1">
-                          {(r.deductions as PayrollDeduction[]).map((d, i) => (
-                            <li key={i} className="flex justify-between gap-4">
+                        {c.rate != null ? (
+                          <ul className="space-y-1">
+                            <li className="flex justify-between gap-4">
                               <span>
-                                {L(d.nameKey, d.name)}{" "}
-                                {d.isEmployer ? L("payroll_deduction_employer_tag", "(empresa)") : ""}
+                                {L("prepay_col_regular_hours", "Horas normales")}: {c.regularHours.toFixed(2)} × {currency} {c.rate.toFixed(2)}
                               </span>
+                              <span className="tabular-nums">{c.regularPay.toFixed(2)}</span>
+                            </li>
+                            {c.overtimeHours > 0 ? (
+                              <li className="flex justify-between gap-4">
+                                <span>
+                                  {L("prepay_col_ot_hours", "Horas extra")}: {c.overtimeHours.toFixed(2)} × {currency}{" "}
+                                  {(c.rate * rule.multiplier).toFixed(2)}
+                                </span>
+                                <span className="tabular-nums">{c.overtimePay.toFixed(2)}</span>
+                              </li>
+                            ) : null}
+                            {c.vacationPay > 0 ? (
+                              <li className="flex justify-between gap-4">
+                                <span>
+                                  {L("prepay_col_vacation", "Vacaciones")} ({c.vacationPct}%)
+                                </span>
+                                <span className="tabular-nums">{c.vacationPay.toFixed(2)}</span>
+                              </li>
+                            ) : null}
+                            <li className="flex justify-between gap-4 font-semibold text-zinc-800 dark:text-zinc-200">
+                              <span>{L("prepay_col_gross_total", "Bruto total")}</span>
                               <span className="tabular-nums">
-                                {(d.rate * 100).toFixed(2)}% → {d.amount.toFixed(2)}
+                                {currency} {c.grossTotal.toFixed(2)}
                               </span>
                             </li>
-                          ))}
-                        </ul>
-                        {r.employerCost > 0 ? (
-                          <p className="mt-2 font-medium">
-                            {L("payroll_employer_cost", "Coste empresa")}: {currency}{" "}
-                            {r.employerCost.toFixed(2)}
-                          </p>
-                        ) : null}
+                          </ul>
+                        ) : (
+                          <p>{L("prepay_no_rate", "Sin tarifa configurada para esta persona: ponla en su ficha de empleado.")}</p>
+                        )}
                       </td>
                     </tr>
                   ) : null}

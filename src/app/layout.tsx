@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro"),
   title: { default: "MachinPro — Gestión de obras sin caos", template: "%s · MachinPro" },
   description:
-    "Plataforma de gestión para empresas de construcción. Personal, proyectos, logística, seguridad, formularios y nóminas. Todo desde el móvil. 21 idiomas.",
+    "Plataforma de gestión para empresas de construcción. Personal, proyectos, logística, seguridad, formularios y pre-nómina. Todo desde el móvil. 21 idiomas.",
   keywords: [
     "construcción",
     "gestión de obras",

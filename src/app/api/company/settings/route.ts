@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCanManageEmployees, verifyCompanyMembership } from "@/lib/verify-api-session";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { normalizeCompanySettings, type CompanySettingsJson } from "@/lib/companySettingsTypes";
+import {
+  normalizeCompanySettings,
+  normalizePrePayrollSettings,
+  type CompanySettingsJson,
+} from "@/lib/companySettingsTypes";
 
 const SETTINGS_KEYS = new Set(["defaultVacationDays", "weeklyHoursGoal", "dashboardWidgets"] as const);
 
@@ -20,6 +24,10 @@ function applyMerge(prev: CompanySettingsJson, merge: Partial<CompanySettingsJso
     if (Number.isFinite(n) && n >= 1 && n <= 168) {
       next.weeklyHoursGoal = Math.round(n);
     }
+  }
+  if (merge.prePayroll !== undefined) {
+    const pp = normalizePrePayrollSettings(merge.prePayroll);
+    if (pp) next.prePayroll = pp;
   }
   if (merge.dashboardWidgets !== undefined) {
     if (Array.isArray(merge.dashboardWidgets) && merge.dashboardWidgets.every((x) => typeof x === "string")) {

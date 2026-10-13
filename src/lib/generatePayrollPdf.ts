@@ -1,16 +1,18 @@
 import { jsPDF } from "jspdf";
-import type { PayrollDeduction } from "@/lib/payroll";
 import { drawMachinProPdfFooter, drawPdfBrandedHeader } from "@/lib/pdfBranding";
 import { fileSlugCompany, filenameDateYmd } from "@/lib/csvExport";
 
+/** Pre-nómina por horas: lo que se pasa al proveedor de nómina (sin impuestos ni cotizaciones). */
 export type PayrollPdfRow = {
   employeeName: string;
-  hours: number;
-  gross: number;
-  totalDeductions: number;
-  net: number;
-  employerCost: number;
-  deductions: PayrollDeduction[];
+  regularHours: number;
+  overtimeHours: number;
+  rate: number | null;
+  regularPay: number;
+  overtimePay: number;
+  vacationPct: number;
+  vacationPay: number;
+  grossTotal: number;
 };
 
 export type ProductionPayrollPdfRow = {
@@ -144,12 +146,13 @@ async function generateHoursPayrollPdfInner(
 ): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const R = (k: string, fb: string) => L(opts.labels, k, fb);
+  const money = (n: number) => `${opts.currency} ${n.toFixed(2)}`;
 
   let y = await drawPdfBrandedHeader(doc, { companyLogoUrl: opts.companyLogoUrl });
 
   doc.setFontSize(15);
   doc.setFont("helvetica", "bold");
-  doc.text(R("payroll_title", "Payroll"), 105, y, { align: "center" });
+  doc.text(R("prepay_title", "Pre-nómina"), 105, y, { align: "center" });
   y += 8;
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -158,9 +161,7 @@ async function generateHoursPayrollPdfInner(
   doc.text(`${R("timesheet_date_from", "From")}: ${opts.periodStart}  →  ${R("timesheet_date_to", "To")}: ${opts.periodEnd}`, 14, y);
   y += 8;
 
-  let sumNet = 0;
-  let sumEmployer = 0;
-
+  let sumGross = 0;
   const ensure = (need: number) => {
     if (y + need > 275) {
       doc.addPage();
@@ -169,36 +170,38 @@ async function generateHoursPayrollPdfInner(
   };
 
   for (const r of opts.rows) {
-    sumNet += r.net;
-    sumEmployer += r.employerCost;
-    ensure(28);
+    sumGross += r.grossTotal;
+    ensure(30);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text(r.employeeName, 14, y);
     y += 5;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(`${R("timesheet_hours", "Hours")}: ${r.hours.toFixed(1)}`, 14, y);
-    y += 4;
-    doc.text(`${R("payroll_gross", "Gross")}: ${opts.currency} ${r.gross.toFixed(2)}`, 14, y);
-    y += 4;
-    doc.setFont("helvetica", "bold");
-    doc.text(R("payroll_deductions", "Deductions"), 14, y);
-    y += 4;
-    doc.setFont("helvetica", "normal");
-    for (const d of r.deductions) {
-      ensure(5);
-      const tag = d.isEmployer ? ` ${R("payroll_deduction_employer_tag", "(employer)")}` : "";
-      const dn = R(d.nameKey, d.name);
-      doc.text(`• ${dn}${tag}: ${(d.rate * 100).toFixed(2)}% → ${d.amount.toFixed(2)}`, 18, y);
-      y += 3.5;
-    }
-    doc.setFont("helvetica", "bold");
-    doc.text(`${R("payroll_net", "Net")}: ${opts.currency} ${r.net.toFixed(2)}`, 14, y);
-    y += 4;
-    if (r.employerCost > 0) {
-      doc.setFont("helvetica", "normal");
-      doc.text(`${R("payroll_employer_cost", "Employer cost")}: ${opts.currency} ${r.employerCost.toFixed(2)}`, 14, y);
+    if (r.rate == null) {
+      doc.text(R("prepay_no_rate", "Sin tarifa configurada."), 14, y);
+      y += 4;
+    } else {
+      doc.text(
+        `${R("prepay_col_regular_hours", "Regular hours")}: ${r.regularHours.toFixed(2)} × ${money(r.rate)}`,
+        14,
+        y
+      );
+      doc.text(money(r.regularPay), 196, y, { align: "right" });
+      y += 4;
+      if (r.overtimeHours > 0) {
+        doc.text(`${R("prepay_col_ot_hours", "Overtime hours")}: ${r.overtimeHours.toFixed(2)}`, 14, y);
+        doc.text(money(r.overtimePay), 196, y, { align: "right" });
+        y += 4;
+      }
+      if (r.vacationPay > 0) {
+        doc.text(`${R("prepay_col_vacation", "Vacation pay")} (${r.vacationPct}%)`, 14, y);
+        doc.text(money(r.vacationPay), 196, y, { align: "right" });
+        y += 4;
+      }
+      doc.setFont("helvetica", "bold");
+      doc.text(R("prepay_col_gross_total", "Gross total"), 14, y);
+      doc.text(money(r.grossTotal), 196, y, { align: "right" });
       y += 4;
     }
     y += 3;
@@ -207,38 +210,33 @@ async function generateHoursPayrollPdfInner(
     y += 5;
   }
 
-  ensure(16);
+  ensure(22);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(`${R("prepay_pdf_total", "Gross total for the period")}: ${money(sumGross)}`, 14, y);
+  y += 7;
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(90);
   const note = doc.splitTextToSize(
-    R("payroll_orientative_note", "Deductions are indicative."),
+    R(
+      "prepay_note",
+      "Pre-payroll: approved hours, overtime and vacation pay for your payroll provider. Taxes and contributions are calculated by your provider."
+    ),
     182
   );
   for (const ln of note) {
+    ensure(5);
     doc.text(ln, 14, y);
     y += 4;
   }
   doc.setTextColor(0);
-  y += 2;
-
-  ensure(10);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(
-    `${R("payroll_pdf_company_total", "Company total")}: ${opts.currency} ${(sumNet + sumEmployer).toFixed(2)}`,
-    14,
-    y
-  );
-  y += 4;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`(${R("payroll_pdf_nets_plus_employer", "Sum of net pays + employer costs")})`, 14, y);
 
   drawMachinProPdfFooter(doc, R("forms_pdf_footer", "Generated by MachinPro"));
 
   const slug = fileSlugCompany(opts.companyName, opts.companyId || "co");
   return {
     blob: doc.output("blob"),
-    filename: `payroll_${slug}_${filenameDateYmd()}.pdf`,
+    filename: `prenomina_${slug}_${opts.periodStart}_${opts.periodEnd}.pdf`,
   };
 }
