@@ -23,6 +23,18 @@ export async function login(page: Page, who: { email: string; password: string }
   page.on("response", (r) => {
     if (r.status() >= 400) diag.push(`HTTP ${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`);
   });
+  page.on("requestfailed", (r) => diag.push(`FALLÓ ${r.method()} ${r.url().slice(0, 120)} ${r.failure()?.errorText ?? ""}`));
+  page.on("request", (r) => {
+    const u = r.url();
+    if (u.includes("supabase.co") || u.includes("/api/")) diag.push(`→ ${r.method()} ${u.slice(0, 110)}`);
+  });
+  page.on("requestfinished", async (r) => {
+    const u = r.url();
+    if (u.includes("supabase.co") || u.includes("/api/")) {
+      const res = await r.response().catch(() => null);
+      diag.push(`← ${res?.status() ?? "?"} ${u.slice(0, 110)}`);
+    }
+  });
   page.on("framenavigated", (f) => {
     if (f === page.mainFrame()) diag.push(`nav → ${f.url()}`);
   });
@@ -35,9 +47,20 @@ export async function login(page: Page, who: { email: string; password: string }
   try {
     await expect(page.locator('a[href="/logout"]').first()).toBeVisible({ timeout: 30_000 });
   } catch (e) {
-    const text = (await page.locator("body").innerText().catch(() => "")).slice(0, 600);
+    const text = (await page.locator("body").innerText().catch(() => "")).slice(0, 300);
+    const locks = await page
+      .evaluate(async () => {
+        try {
+          const q = await (navigator as Navigator & { locks?: { query: () => Promise<unknown> } }).locks?.query();
+          return JSON.stringify(q);
+        } catch (err) {
+          return String(err);
+        }
+      })
+      .catch(() => "");
+    diag.push(`locks: ${locks}`);
     throw new Error(
-      `No entró en la app. URL: ${page.url()}\nPantalla: ${text}\nDiagnóstico:\n${diag.slice(-25).join("\n")}\n${String(e)}`
+      `No entró en la app. URL: ${page.url()}\nPantalla: ${text}\nDiagnóstico:\n${diag.slice(-40).join("\n")}\n${String(e)}`
     );
   }
 }
