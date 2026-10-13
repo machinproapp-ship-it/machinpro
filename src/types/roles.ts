@@ -38,6 +38,10 @@ export interface RolePermissions {
   canManageProjectBlueprints: boolean;
   canManageProjectRFI: boolean;
   canManageProjectVisitors: boolean;
+  /** Calendario de la obra: crear, cambiar y borrar visitas, entregas y tareas. */
+  canManageProjectCalendar: boolean;
+  /** Calendario de la obra: añadir avisos y escribir en la conversación (sin borrar). */
+  canAddProjectCalendarNotes: boolean;
   canViewProjectCosts: boolean;
   canManageProjectCosts: boolean;
   canExportProjectCosts: boolean;
@@ -175,6 +179,8 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canManageProjectBlueprints",
   "canManageProjectRFI",
   "canManageProjectVisitors",
+  "canManageProjectCalendar",
+  "canAddProjectCalendarNotes",
   "canViewProjectCosts",
   "canManageProjectCosts",
   "canExportProjectCosts",
@@ -295,6 +301,8 @@ export const ROLE_PERMISSION_GROUPS: {
       "canManageProjectBlueprints",
       "canManageProjectRFI",
       "canManageProjectVisitors",
+      "canManageProjectCalendar",
+      "canAddProjectCalendarNotes",
       "canViewProjectCosts",
       "canManageProjectCosts",
       "canExportProjectCosts",
@@ -417,6 +425,8 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageProjectBlueprints: "Gestionar planos",
   canManageProjectRFI: "Gestionar RFI",
   canManageProjectVisitors: "Gestionar visitantes y QR",
+  canManageProjectCalendar: "Gestionar el calendario de la obra (crear, cambiar y borrar)",
+  canAddProjectCalendarNotes: "Añadir avisos y mensajes al calendario de la obra",
   canViewProjectCosts: "Ver costes del proyecto",
   canManageProjectCosts: "Gestionar costes del proyecto",
   canExportProjectCosts: "Exportar costes del proyecto",

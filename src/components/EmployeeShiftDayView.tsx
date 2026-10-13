@@ -9,7 +9,8 @@ import { supabase } from "@/lib/supabase";
 import { insertSignature } from "@/lib/dailyReportsDb";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import { ClockInProjectPicker, type ClockInAssignedProject } from "@/components/ClockInProjectPicker";
-import { formatDateLong, formatTime, formatTimeHm, resolveUserTimezone } from "@/lib/dateUtils";
+import { formatDateLong, formatTime, formatTimeHm, formatTodayYmdInTimeZone, resolveUserTimezone } from "@/lib/dateUtils";
+import { ProjectDayBriefing } from "@/components/ProjectDayBriefing";
 import {
   elapsedMinutesSinceClockStart,
   formatCompletedWorkFromHmPair,
@@ -497,6 +498,26 @@ export function EmployeeShiftDayView({
         </header>
 
         <div className="space-y-6 px-4 py-4">
+          {/* Hoy en la obra: lo apuntado en el calendario y el "Enterado" */}
+          {scheduleEntry.projectId ? (
+            <ProjectDayBriefing
+              projectId={scheduleEntry.projectId}
+              date={scheduleEntry.date}
+              labels={tl as Record<string, string>}
+              dateLocale={locale}
+              currentUserId={currentUserProfileId}
+              canAck={scheduleEntry.date <= formatTodayYmdInTimeZone(tz)}
+              extraPendingLabel={
+                dailyReport && dailyReport.status === "published" && !mySignature && currentUserProfileId
+                  ? tl.pcal_ack_also_report ?? "Con el enterado también firmas el parte diario de hoy."
+                  : null
+              }
+              onAcked={async () => {
+                if (dailyReport && dailyReport.status === "published" && !mySignature) await handleSignReport();
+              }}
+            />
+          ) : null}
+
           {/* Fichaje */}
           <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 space-y-3 bg-zinc-50/80 dark:bg-slate-950/40">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2">

@@ -40,6 +40,7 @@ import { CURRENCY_BY_TIER } from "@/lib/stripe";
 import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
 import { postAuthAudit } from "@/lib/postAuthAudit";
+import { ProjectCalendar } from "@/components/ProjectCalendar";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
 import { InstallPWABanner } from "@/components/InstallPWABanner";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -999,6 +1000,8 @@ const INITIAL_CUSTOM_ROLES: CustomRole[] = [
       canViewProjectVisitors: true,
       canViewProjectRFI: true,
       canManageProjectRFI: true,
+      canManageProjectCalendar: true,
+      canAddProjectCalendarNotes: true,
       canViewSettings: true,
       canViewBinders: true,
       canViewAttendance: true,
@@ -1463,6 +1466,8 @@ export default function Home() {
   /** Estado de inspecciones previas al uso (vista v_equipment_inspection_status) para el Watchdog. */
   /** Inspecciones abiertas desde el horario (quien no tiene el módulo Logística). */
   const [inspectionsSheet, setInspectionsSheet] = useState<{ projectId: string | null } | null>(null);
+  /** Calendario de una obra abierto desde el día del horario. */
+  const [projectCalendarSheet, setProjectCalendarSheet] = useState<{ projectId: string; date: string } | null>(null);
   const [equipmentInspectionStatus, setEquipmentInspectionStatus] = useState<EquipmentInspectionStatusForWatchdog[]>([]);
   const [pendingOpenEmployeeId, setPendingOpenEmployeeId] = useState<string | null>(null);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
@@ -7060,6 +7065,23 @@ export default function Home() {
   const isSuppliersFormOpen = supplierFormOpen || editingSupplierId !== null;
   const editSupplierDraft = supplierDraft;
 
+  /** Nombres de personas por id de perfil o de empleado (para el calendario de la obra). */
+  const personNameById = useMemo(() => {
+    const o: Record<string, string> = {};
+    for (const e of employees) if (e.id && e.name) o[e.id] = e.name;
+    for (const p of teamProfiles) {
+      if (p.name) {
+        o[p.id] = p.name;
+        if (p.employeeId) o[p.employeeId] = p.name;
+      }
+    }
+    return o;
+  }, [employees, teamProfiles]);
+  /** El calendario de la obra va con el plan de Obras (o Todo Incluido). */
+  const projectCalendarEnabled = planAllowsModule(subscriptionRow?.plan ?? null, "site");
+  const canManageProjectCalendar = effectiveRole === "admin" || !!rolePerms.canManageProjectCalendar;
+  const canNoteProjectCalendar = canManageProjectCalendar || !!rolePerms.canAddProjectCalendarNotes;
+
   /** Equipos pendientes de inspeccionar por obra, solo de mis obras o a mi nombre y que puedo usar. */
   const myInspectionsDueByProject = useMemo(() => {
     const out = new Map<string, number>();
@@ -7125,6 +7147,39 @@ export default function Home() {
       </>
     );
   }
+
+  const renderProjectCalendar = (projectId: string, initialDate?: string | null) => {
+    const project = (projects ?? []).find((p) => p.id === projectId);
+    const profileIdByEmployeeId: Record<string, string> = {};
+    for (const p of teamProfiles) if (p.employeeId) profileIdByEmployeeId[p.employeeId] = p.id;
+    const memberIds = Array.from(
+      new Set((project?.assignedEmployeeIds ?? []).map((id) => profileIdByEmployeeId[id] ?? id))
+    );
+    return (
+      <ProjectCalendar
+        key={`${projectId}-${initialDate ?? ""}`}
+        projectId={projectId}
+        labels={t as Record<string, string>}
+        dateLocale={dateLocaleBcp47}
+        todayYmd={formatTodayYmdInTimeZone(userTimeZone)}
+        initialDate={initialDate ?? null}
+        canManage={canManageProjectCalendar}
+        canNote={canNoteProjectCalendar}
+        currentUserId={profile?.id ?? null}
+        shifts={scheduleEntries
+          .filter((e) => e.type === "shift" && e.projectId === projectId)
+          .map((e) => ({
+            id: e.id,
+            date: e.date,
+            startTime: e.startTime,
+            endTime: e.endTime,
+            employeeIds: Array.from(new Set((e.employeeIds ?? []).map((id) => profileIdByEmployeeId[id] ?? id))),
+          }))}
+        nameById={personNameById}
+        members={memberIds.map((id) => ({ id, name: personNameById[id] ?? "—" }))}
+      />
+    );
+  };
 
   const buildInspectionsPanel = (onlyProjectId?: string | null) =>
                   companyId && (rolePerms.canPerformInspections || rolePerms.canViewInspections || rolePerms.canManageInspectionTemplates) ? (
@@ -8263,6 +8318,7 @@ export default function Home() {
             {activeSection === "site" && perms.site && (
               <>
                 <ProjectsModule
+                renderProjectCalendar={projectCalendarEnabled ? (pid) => renderProjectCalendar(pid) : undefined}
                 labels={t}
                 projects={siteProjects}
                 selectedProjectId={siteSelectedProjectId}
@@ -8755,7 +8811,11 @@ export default function Home() {
                 currentUserEmployeeId={currentUserEmployeeId ?? undefined}
                 employeeLabels={scheduleEmployeeLabels}
                 canWrite={!!rolePerms.canCreateShifts}
-                canViewScheduleCalendar={!!rolePerms.canViewSchedule}
+                canViewScheduleCalendar={
+                  // El calendario general es para quien organiza turnos; el trabajador tiene "Mi semana"
+                  // y el calendario de cada obra.
+                  !!rolePerms.canViewSchedule && (effectiveRole === "admin" || !!rolePerms.canCreateShifts)
+                }
                 canViewTimeclock={!!rolePerms.canViewTimeclock}
                 canViewTimesheets={!!rolePerms.canViewTimesheets}
                 canViewTeamAvailability={!!rolePerms.canViewTeamAvailability}
@@ -10539,6 +10599,36 @@ export default function Home() {
           </div>
         </>
       )}
+      {projectCalendarSheet ? (
+        <div
+          className="fixed inset-0 z-[70] flex flex-col bg-zinc-50 dark:bg-slate-950"
+          role="dialog"
+          aria-modal="true"
+          aria-label={(t as Record<string, string>).pcal_open ?? "Calendario de la obra"}
+        >
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <div className="min-w-0">
+              <p className="text-lg font-bold text-zinc-900 dark:text-white">
+                {(t as Record<string, string>).pcal_open ?? "Calendario de la obra"}
+              </p>
+              <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
+                {projectNameById[projectCalendarSheet.projectId] ?? ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setProjectCalendarSheet(null)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-slate-800"
+              aria-label={(t as Record<string, string>).close ?? "Cerrar"}
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {renderProjectCalendar(projectCalendarSheet.projectId, projectCalendarSheet.date)}
+          </div>
+        </div>
+      ) : null}
       {inspectionsSheet ? (
         <div
           className="fixed inset-0 z-[70] flex flex-col bg-white dark:bg-slate-950"
@@ -10592,6 +10682,17 @@ export default function Home() {
                 onClick: () => {
                   close();
                   openInspections(pid);
+                },
+              });
+            }
+            if (projectCalendarEnabled && pid) {
+              out.push({
+                key: "calendar",
+                label: tl.pcal_open ?? "Calendario de la obra",
+                onClick: () => {
+                  const date = employeeShiftModalModel.entry.date;
+                  close();
+                  setProjectCalendarSheet({ projectId: pid, date });
                 },
               });
             }

@@ -438,6 +438,8 @@ export interface ProjectsModuleProps {
   productionCatalogItems?: CatalogItem[];
   projectTaskOverrides?: ProjectTaskOverride[];
   canViewWorkOrders?: boolean;
+  /** Calendario de la obra (visitas, entregas, tareas y avisos). Si no se pasa, no hay pestaña. */
+  renderProjectCalendar?: (projectId: string) => React.ReactNode;
   canManageWorkOrders?: boolean;
   /** Parte diario: sección producción (payType o permiso). */
   showProductionInDailyReport?: boolean;
@@ -574,6 +576,7 @@ function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
 
 type TabId =
   | "general"
+  | "calendario"
   | "personal"
   | "inventario"
   | "galeria"
@@ -602,6 +605,7 @@ function projectToolStatusLabel(
 
 const TABS: { id: TabId; icon: React.ReactNode }[] = [
   { id: "general", icon: <Info className="h-4 w-4" /> },
+  { id: "calendario", icon: <Calendar className="h-4 w-4" /> },
   { id: "personal", icon: <Users className="h-4 w-4" /> },
   { id: "inventario", icon: <Boxes className="h-4 w-4" /> },
   { id: "galeria", icon: <ImageIcon className="h-4 w-4" /> },
@@ -743,6 +747,7 @@ export function ProjectsModule({
   productionCatalogItems = [],
   projectTaskOverrides = [],
   canViewWorkOrders = false,
+  renderProjectCalendar,
   canManageWorkOrders = false,
   showProductionInDailyReport = false,
   onRefreshProductionData,
@@ -986,6 +991,8 @@ export function ProjectsModule({
       switch (id) {
         case "general":
           return showProjectGeneralTab;
+        case "calendario":
+          return !!renderProjectCalendar;
         case "personal":
           return showProjectTeamTab;
         case "inventario":
@@ -1029,6 +1036,7 @@ export function ProjectsModule({
       canViewWorkOrders,
       showProjectMapTab,
       companyId,
+      renderProjectCalendar,
     ]
   );
 
@@ -1168,7 +1176,9 @@ export function ProjectsModule({
   const operationsTabLabelForBreadcrumb = useMemo(() => {
     if (!selectedProject) return "";
     const tab = activeTab;
-    return tab === "general"
+    return tab === "calendario"
+      ? ((t as Record<string, string>).pcal_tab ?? "Calendario")
+      : tab === "general"
       ? (t.siteTabGeneral ?? t.tabGeneral ?? PM_EN.tabGeneral)
       : tab === "personal"
         ? (t.siteTabPersonnel ?? t.personnel ?? PM_EN.personnel)
@@ -2148,7 +2158,9 @@ export function ProjectsModule({
             <div className="flex w-full min-w-0 max-w-full flex-nowrap gap-0 overflow-x-auto overflow-y-hidden scroll-smooth snap-x snap-mandatory px-4 pb-0.5 sm:px-6 [scrollbar-width:thin]">
             {TABS.filter((tab) => projectTabAllowed(tab.id)).map((tab) => {
               const label =
-                tab.id === "general"
+                tab.id === "calendario"
+                  ? (t as Record<string, string>).pcal_tab ?? "Calendario"
+                  : tab.id === "general"
                   ? t.siteTabGeneral ?? t.tabGeneral ?? PM_EN.tabGeneral
                   : tab.id === "personal"
                   ? t.siteTabPersonnel ?? t.personnel ?? PM_EN.personnel
@@ -4491,6 +4503,10 @@ export function ProjectsModule({
             />
           </div>
         )}
+
+        {activeTab === "calendario" && selectedProject && renderProjectCalendar ? (
+          <div className="space-y-4">{renderProjectCalendar(selectedProject.id)}</div>
+        ) : null}
 
         {activeTab === "rfi" && selectedProject && showProjectRfiTab && companyId && (
           <div className="space-y-4">
