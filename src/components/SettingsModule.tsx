@@ -146,6 +146,112 @@ export interface SettingsModuleProps {
   showWorkCatalogSection?: boolean;
 }
 
+/** Cambiar la contraseña sin depender del correo (la persona la escribe ella misma). */
+function ChangePasswordInline({
+  labels: tl,
+  onRequestEmailReset,
+  emailResetBusy,
+}: {
+  labels: Record<string, string>;
+  onRequestEmailReset?: () => void | Promise<void>;
+  emailResetBusy?: boolean;
+}) {
+  const { showToast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [pw1, setPw1] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const tooShort = pw1.length > 0 && pw1.length < 10;
+  const mismatch = pw2.length > 0 && pw1 !== pw2;
+  const save = async () => {
+    if (busy || pw1.length < 10 || pw1 !== pw2) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw1 });
+      if (error) throw error;
+      setPw1("");
+      setPw2("");
+      setOpen(false);
+      showToast("success", tl.password_changed ?? "Contraseña cambiada");
+    } catch (e) {
+      setErr(String((e as { message?: string })?.message ?? tl.password_change_error ?? "Error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const input =
+    "w-full min-h-[44px] rounded-xl border border-zinc-300 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-slate-800 dark:text-zinc-100";
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full max-w-md min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium"
+      >
+        {tl.changePassword ?? "Cambiar contraseña"}
+      </button>
+    );
+  }
+  return (
+    <div className="max-w-md space-y-2 rounded-xl border border-zinc-200 p-4 dark:border-slate-700">
+      <p className="text-sm font-semibold text-zinc-900 dark:text-white">{tl.changePassword ?? "Cambiar contraseña"}</p>
+      <input
+        type="password"
+        autoComplete="new-password"
+        value={pw1}
+        onChange={(e) => setPw1(e.target.value)}
+        placeholder={tl.password_new ?? "Nueva contraseña (mínimo 10 caracteres)"}
+        className={input}
+      />
+      <input
+        type="password"
+        autoComplete="new-password"
+        value={pw2}
+        onChange={(e) => setPw2(e.target.value)}
+        placeholder={tl.password_repeat ?? "Repite la nueva contraseña"}
+        className={input}
+      />
+      {tooShort ? <p className="text-xs text-amber-700 dark:text-amber-400">{tl.password_too_short ?? "Mínimo 10 caracteres."}</p> : null}
+      {mismatch ? <p className="text-xs text-amber-700 dark:text-amber-400">{tl.password_mismatch ?? "No coinciden."}</p> : null}
+      {err ? <p className="text-xs text-red-600">{err}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={busy || pw1.length < 10 || pw1 !== pw2}
+          className="min-h-[44px] rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {busy ? "…" : tl.save ?? "Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setPw1("");
+            setPw2("");
+            setErr(null);
+          }}
+          className="min-h-[44px] rounded-xl border border-zinc-300 px-4 text-sm dark:border-zinc-600"
+        >
+          {tl.cancel ?? "Cancelar"}
+        </button>
+      </div>
+      {onRequestEmailReset ? (
+        <button
+          type="button"
+          onClick={() => void onRequestEmailReset()}
+          disabled={emailResetBusy}
+          className="text-xs font-medium text-amber-700 underline disabled:opacity-50 dark:text-amber-400"
+        >
+          {tl.password_reset_by_email ?? "Prefiero recibir un enlace por correo"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function SettingsModule({
   labels: t,
   language,
@@ -1015,15 +1121,12 @@ export function SettingsModule({
                   </button>
                 ) : null}
               </div>
-              {onRequestPasswordReset ? (
-                <button
-                  type="button"
-                  onClick={() => void onRequestPasswordReset()}
-                  disabled={passwordResetBusy}
-                  className="w-full max-w-md min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 px-4 py-2.5 text-sm font-medium disabled:opacity-50"
-                >
-                  {tl.changePassword ?? ""}
-                </button>
+              {session ? (
+                <ChangePasswordInline
+                  labels={tl as Record<string, string>}
+                  onRequestEmailReset={onRequestPasswordReset}
+                  emailResetBusy={passwordResetBusy}
+                />
               ) : null}
 
               {showMfaSecuritySection && session?.access_token ? (
