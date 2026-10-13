@@ -7,6 +7,7 @@ import {
   PAID_PLAN_ORDER,
   PLANS,
   getPriceForTier,
+  getUsdPriceForTier,
   getPricingDisplayCurrencyCode,
   type BillingPeriod,
   type PaidPlanKey,
@@ -155,11 +156,11 @@ export function PricingPlansPublicSection({
             const plan = PLANS[key];
             const title = tx(plan.labelKey, key);
             const popular = key === "todo_incluido";
-            const price =
-              tierReady && cc != null ? getPriceForTier(key, period, geoTier, cc) : null;
-
-            const listPriceTier1 =
-              tierReady && cc != null ? getPriceForTier(key, period, 1, cc) : null;
+            // Se cobra en USD: el precio grande es en USD y, debajo, el cambio aproximado a su moneda.
+            const price = tierReady && cc != null ? getUsdPriceForTier(key, period, geoTier) : null;
+            const listPriceTier1 = tierReady && cc != null ? getUsdPriceForTier(key, period, 1) : null;
+            const localApprox =
+              tierReady && cc != null && displayCurrencyCode !== "USD" ? getPriceForTier(key, period, geoTier, cc) : null;
 
             const cardShell =
               variant === "beta"
@@ -189,7 +190,7 @@ export function PricingPlansPublicSection({
                     ) : (
                       <>
                         <span className="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">
-                          {formatPricingMoney(price, displayCurrencyCode)}
+                          {formatPricingMoney(price, "USD")}
                         </span>
                         <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                           {period === "monthly"
@@ -206,10 +207,10 @@ export function PricingPlansPublicSection({
                     ) : (
                       <>
                         <span className="text-lg font-semibold text-slate-400 line-through decoration-slate-400 dark:text-slate-500">
-                          {listPriceTier1 != null ? formatPricingMoney(listPriceTier1, displayCurrencyCode) : ""}
+                          {listPriceTier1 != null ? formatPricingMoney(listPriceTier1, "USD") : ""}
                         </span>
                         <span className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-400 sm:text-4xl">
-                          {formatPricingMoney(price!, displayCurrencyCode)}
+                          {formatPricingMoney(price!, "USD")}
                         </span>
                         <span className="w-full text-sm text-slate-500 dark:text-slate-400 sm:w-auto">
                           {period === "monthly"
@@ -220,6 +221,15 @@ export function PricingPlansPublicSection({
                     )}
                   </div>
                 )}
+
+                {localApprox != null ? (
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {tx("pricing_local_approx", "≈ {amount} en tu moneda").replace(
+                      "{amount}",
+                      formatPricingMoney(localApprox, displayCurrencyCode)
+                    )}
+                  </p>
+                ) : null}
 
                 {tierReady && geoTier > 1 ? (
                   <p className="mt-2 text-xs font-medium text-sky-800 dark:text-sky-200">
@@ -299,9 +309,10 @@ export function PricingPlansPublicSection({
         className={`mx-auto mt-8 max-w-2xl space-y-2 px-2 text-center text-xs font-medium ${variant === "beta" ? "text-teal-100/90" : "text-slate-600 dark:text-slate-400"}`}
       >
         <p className="break-words">
-          {(tx("pricing_charged_usd", "") || "").trim()
-            ? tx("pricing_charged_usd", "").replace(/\{currency\}/g, displayCurrencyCode)
-            : `Prices shown in ${displayCurrencyCode}. Charged in USD.`}
+          {tx(
+            "pricing_usd_note",
+            "Precios en dólares (USD), la moneda internacional. Tu banco hace el cambio a tu moneda; debajo de cada precio ves el importe aproximado."
+          )}
         </p>
         <p className={variant === "beta" ? "text-teal-100/80" : "text-slate-500 dark:text-slate-500"}>
           {tx("pricing_local_currency_note", tx("landing_pricing_usd_note", ""))}

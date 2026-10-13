@@ -115,6 +115,11 @@ export function getPriceForTier(
   return Math.round(adjustedUsd * row.rate);
 }
 
+/** Lo que se cobra de verdad (siempre en USD), con céntimos: base × PPP. */
+export function getUsdPriceForTier(plan: PaidPlanKey, period: BillingPeriod, tier: GeoTier): number {
+  return Math.round(PLAN_PRICES_USD[plan][period] * GEO_TIERS[tier] * 100) / 100;
+}
+
 export type PlanDefinition = {
   labelKey: string;
   monthly: { priceId: string };

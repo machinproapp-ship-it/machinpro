@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     const { data: subRow } = await admin
       .from("subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, trial_ends_at, stripe_subscription_id")
       .eq("company_id", companyId)
       .maybeSingle();
 
@@ -160,6 +160,15 @@ export async function POST(req: NextRequest) {
       customerId = customer.id;
     }
 
+    /**
+     * La prueba es de 14 días en total: si paga durante la prueba de la app, el cobro empieza
+     * cuando esta termina (no se suman otros 14). Si ya la gastó o ya tuvo suscripción, cobra hoy.
+     */
+    const trialEnd = remainingTrialEnd(
+      (subRow as { trial_ends_at?: string | null } | null)?.trial_ends_at ?? null,
+      !!(subRow as { stripe_subscription_id?: string | null } | null)?.stripe_subscription_id
+    );
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       customer: customerId,
@@ -173,7 +182,7 @@ export async function POST(req: NextRequest) {
       billing_address_collection: "required",
       customer_update: { address: "auto", name: "auto" },
       subscription_data: {
-        trial_period_days: 14,
+        ...(trialEnd ? { trial_end: trialEnd } : {}),
         metadata: {
           company_id: companyId,
           user_id: checkoutUserId,
@@ -208,4 +217,12 @@ export async function POST(req: NextRequest) {
     console.error("[stripe/checkout]", e);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+/** Fin de la prueba que le queda (segundos Unix) o null si ya no tiene. Stripe pide al menos 48 h. */
+function remainingTrialEnd(trialEndsAt: string | null, hadSubscription: boolean, now = Date.now()): number | null {
+  if (hadSubscription || !trialEndsAt) return null;
+  const end = new Date(trialEndsAt).getTime();
+  if (!Number.isFinite(end) || end - now < 48 * 3600 * 1000) return null;
+  return Math.floor(end / 1000);
 }

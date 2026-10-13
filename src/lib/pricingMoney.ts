@@ -24,7 +24,8 @@ export function formatPricingMoney(amount: number, currencyCode: string): string
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: c,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+      maximumFractionDigits: Number.isInteger(amount) ? 0 : 2,
     }).format(amount);
   } catch {
     return new Intl.NumberFormat("en-US", {
