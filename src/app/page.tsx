@@ -3334,8 +3334,8 @@ export default function Home() {
       const { data: rolesRows, error: rolesErr } = rolesResult;
       if (rolesErr) {
         console.error("[page] roles load", rolesErr);
-        mappedCustomRoles = INITIAL_CUSTOM_ROLES;
-        setCustomRoles(INITIAL_CUSTOM_ROLES);
+        mappedCustomRoles = [];
+        setCustomRoles([]);
       } else {
         let list = (rolesRows ?? []) as RolesTableRow[];
         if (list.length === 0) {
@@ -4321,6 +4321,9 @@ export default function Home() {
   const rentalFormCurrency = useMemo(() => getCurrencyForCountry(companyCountry), [companyCountry]);
   const activeCustomRole = useMemo(() => {
     if (!customRoles.length) {
+      // Con sesión, mientras llegan los roles de la empresa no se concede nada "por defecto":
+      // antes el trabajador veía unos segundos Operaciones y Logística (permisos de ejemplo).
+      if (session) return resolveActiveCustomRole([], effectiveRole, null);
       const fallbackLegacyId =
         effectiveRole === "projectManager" ? "role-supervisor" : `role-${effectiveRole}`;
       return (
@@ -4328,7 +4331,7 @@ export default function Home() {
       );
     }
     return resolveActiveCustomRole(customRoles, effectiveRole, profile?.customRoleId);
-  }, [customRoles, effectiveRole, profile?.customRoleId]);
+  }, [customRoles, effectiveRole, profile?.customRoleId, session]);
   const rolePerms = useMemo(
     () => (effectiveRole === "admin" ? fullAdministratorPermissions() : activeCustomRole.permissions),
     [effectiveRole, activeCustomRole.permissions]
