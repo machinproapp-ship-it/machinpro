@@ -51,6 +51,10 @@ export type WorkerHubProps = {
   /** Muestra el acceso a las inspecciones de equipos. */
   canInspect?: boolean;
   onOpenInspections?: () => void;
+  /** Control de herramientas: escanear el QR y ver las que tengo a mi nombre. */
+  onScanTool?: () => void;
+  myTools?: { id: string; name: string; days: number | null }[];
+  onOpenTool?: (id: string) => void;
   /** Moneda de la empresa si el trabajador no tiene una propia en su ficha. */
   companyCurrency?: string | null;
   /** Cómo cobra el trabajador: con salario fijo no se ficha ni se cuentan horas. */
@@ -111,6 +115,9 @@ export function WorkerHub({
   onClockOut,
   canInspect,
   onOpenInspections,
+  onScanTool,
+  myTools = [],
+  onOpenTool,
   companyCurrency,
   payType,
   canOpenSite = false,
@@ -492,6 +499,50 @@ export function WorkerHub({
               {L(lx, "inspect", "Inspect")}
             </button>
           </div>
+        </section>
+      ) : null}
+
+      {onScanTool ? (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 sm:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-white">
+                {L(lx, "tool_my_title", "Mis herramientas")}
+              </h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {myTools.length > 0
+                  ? L(lx, "tool_my_count", "Tienes {n} a tu nombre").replace(/\{n\}/g, String(myTools.length))
+                  : L(lx, "tool_my_hint", "Escanea el QR para llevarte, devolver o reportar una herramienta.")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onScanTool}
+              className="min-h-[44px] rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
+            >
+              {L(lx, "tool_scan", "Escanear QR")}
+            </button>
+          </div>
+          {myTools.length > 0 ? (
+            <ul className="mt-3 divide-y divide-zinc-100 dark:divide-slate-800">
+              {myTools.map((tool) => (
+                <li key={tool.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenTool?.(tool.id)}
+                    className="flex min-h-[44px] w-full items-center justify-between gap-2 py-2 text-left text-sm"
+                  >
+                    <span className="min-w-0 truncate font-medium text-zinc-900 dark:text-zinc-100">{tool.name}</span>
+                    {tool.days != null ? (
+                      <span className={`shrink-0 text-xs ${tool.days >= 14 ? "font-semibold text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"}`}>
+                        {L(lx, "tool_out_days", "{days} días").replace("{days}", String(tool.days))}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ) : null}
 

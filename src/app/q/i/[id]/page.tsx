@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAppLocale } from "@/hooks/useAppLocale";
 import { QrQuickBackLink, QrQuickResolveLayout } from "@/components/inventory/QrQuickResolveLayout";
 import { supabase } from "@/lib/supabase";
+import { buildInventoryItemQrUrl } from "@/lib/inventoryQrUrl";
 
 const MP_QR_SCAN_KEY = "mp_qr_scan";
 
@@ -50,11 +51,8 @@ export default function QrItemQuickPage() {
         return;
       }
 
-      const qrCode = data.qr_code?.trim();
-      if (!qrCode) {
-        setPhase("error");
-        return;
-      }
+      // Sin código guardado: vale el propio enlace del QR (la app lo reconoce por el id).
+      const qrCode = data.qr_code?.trim() || buildInventoryItemQrUrl(String(data.id));
 
       try {
         sessionStorage.setItem(MP_QR_SCAN_KEY, qrCode);

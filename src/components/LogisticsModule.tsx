@@ -48,6 +48,7 @@ import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import type { VehicleDocument } from "@/lib/vehicleDocumentUtils";
 import { worstVehicleDocStatus } from "@/lib/vehicleDocumentUtils";
 import { cloudinaryFull, cloudinaryThumb } from "@/lib/cloudinaryUrl";
+import { daysSince, heldSince } from "@/lib/toolTracking";
 
 const TeamGpsMapWidget = dynamic(
   () => import("@/components/TeamGpsMapWidget").then((m) => m.TeamGpsMapWidget),
@@ -269,6 +270,8 @@ export interface LogisticsModuleProps {
   rentals: Rental[];
   suppliers: Supplier[];
   employees: Employee[];
+  /** Nombres por id de perfil o empleado (quién tiene cada herramienta). */
+  personNameById?: Record<string, string>;
   labels: Record<string, string>;
   onAddInventory: () => void;
   onEditInventory: (item: InventoryItem) => void;
@@ -523,6 +526,7 @@ export function LogisticsModule({
   rentals = [],
   suppliers = [],
   employees = [],
+  personNameById = {},
   labels: t,
   inventoryMovements = [],
   adjustModal,
@@ -968,6 +972,9 @@ export function LogisticsModule({
       maintenance: tx.inventory_movement_maintenance ?? "Maintenance",
       status_change: tx.inventory_movement_status_change ?? "Status change",
       import: tx.inventory_movement_import ?? "Import",
+      checkout: tx.tool_mov_checkout ?? "Taken",
+      return: tx.tool_mov_return ?? "Returned",
+      damage: tx.tool_mov_damage ?? "Damage",
     };
     return m[mt] ?? mt;
   };
@@ -1819,6 +1826,52 @@ export function LogisticsModule({
               </div>
             )}
           </div>
+          {/* Herramientas fuera: quién tiene qué y desde cuándo */}
+          {(() => {
+            const tx = t as Record<string, string>;
+            const out = (inventoryItems ?? [])
+              .filter((i) => !i.deletedAt && i.assignedToEmployeeId && (i.type === "tool" || i.type === "equipment"))
+              .map((i) => {
+                const since = heldSince(inventoryMovements ?? [], i.id) ?? i.lastMovementAt ?? null;
+                return { i, since, days: since ? daysSince(since) : null };
+              })
+              .sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
+            if (out.length === 0) return null;
+            const projName = (id?: string) => (id ? projects.find((p) => p.id === id)?.name : undefined);
+            return (
+              <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
+                <h3 className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-slate-700">
+                  {(tx.tool_out_title ?? "Herramientas fuera") + ` (${out.length})`}
+                </h3>
+                <ul className="divide-y divide-zinc-200 dark:divide-slate-700 max-h-72 overflow-y-auto">
+                  {out.map(({ i, days }) => {
+                    const who =
+                      personNameById[i.assignedToEmployeeId!] ??
+                      employees.find((e) => e.id === i.assignedToEmployeeId)?.name ??
+                      "—";
+                    const where = projName(i.assignedToProjectId) ?? i.location ?? "";
+                    return (
+                      <li key={i.id} className="flex flex-col gap-0.5 px-4 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:text-sm">
+                        <span className="font-medium text-zinc-800 dark:text-zinc-100">
+                          {i.name} · {who}
+                          {where ? ` · ${where}` : ""}
+                        </span>
+                        {days != null ? (
+                          <span
+                            className={`shrink-0 ${
+                              days >= 14 ? "font-semibold text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"
+                            }`}
+                          >
+                            {(tx.tool_out_days ?? "{days} días").replace("{days}", String(days))}
+                          </span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })()}
           {/* Movimientos recientes (empresa) */}
           {canViewInventoryHistory && (inventoryMovements ?? []).length > 0 ? (
             <div className="rounded-xl border border-zinc-200 dark:border-slate-700 overflow-hidden">
@@ -1839,6 +1892,7 @@ export function LogisticsModule({
                         <span className="font-medium text-zinc-800 dark:text-zinc-100">
                           {ledgerMovementLabel(mov.movementType, tx)} · {mov.itemName ?? mov.itemId}
                           {mov.quantity != null && mov.quantity > 0 ? ` · ${mov.quantity}` : ""}
+                          {mov.performedByName ? ` · ${mov.performedByName}` : ""}
                         </span>
                         {mov.notes ? (
                           <span className="text-zinc-500 dark:text-zinc-400 break-words max-w-full">

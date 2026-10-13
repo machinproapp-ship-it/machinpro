@@ -41,6 +41,8 @@ import { BillingModule } from "@/components/BillingModule";
 import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsModule";
 import { postAuthAudit } from "@/lib/postAuthAudit";
 import { isSelfClockId } from "@/lib/clockSelf";
+import { daysSince, fetchCompanyMovements, heldSince, insertMovement } from "@/lib/toolTracking";
+import { resolveInventoryQrScan } from "@/lib/inventoryQrResolve";
 import { permissionsToModule, type ModulePermissions } from "@/lib/modulePermissions";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
 import LoginScreen, { type LoginDemoAccount } from "@/components/LoginScreen";
@@ -83,6 +85,14 @@ const TrainingHubModule = dynamic(
 const SubcontractorsModule = dynamic(
   () => import("@/components/SubcontractorsModule").then((m) => ({ default: m.SubcontractorsModule })),
   { ssr: false, loading: moduleRouteFallback }
+);
+const ToolQuickSheet = dynamic(
+  () => import("@/components/ToolQuickSheet").then((m) => ({ default: m.ToolQuickSheet })),
+  { ssr: false }
+);
+const InventoryQrScannerModal = dynamic(
+  () => import("@/components/InventoryQrScannerModal").then((m) => ({ default: m.InventoryQrScannerModal })),
+  { ssr: false }
 );
 const WorkerHub = dynamic(
   () => import("@/components/WorkerHub").then((m) => ({ default: m.WorkerHub })),
@@ -1346,9 +1356,7 @@ export default function Home() {
     const sp = new URLSearchParams(window.location.search);
     const scan = sp.get("mp_qr_scan");
     if (!scan) return;
-    setActiveSection("warehouse");
-    setWarehouseSubTab("inventory");
-    setPendingInventoryQrScan(scan);
+    setPendingToolScan(scan);
     const url = new URL(window.location.href);
     url.searchParams.delete("mp_qr_scan");
     window.history.replaceState({}, "", url.pathname + (url.search || ""));
@@ -2249,6 +2257,10 @@ export default function Home() {
   const [warehouseSubTab, setWarehouseSubTab] = useState<WarehouseSubTabId>("inventory");
   const [warehouseOpenInventoryId, setWarehouseOpenInventoryId] = useState<string | null>(null);
   const [pendingInventoryQrScan, setPendingInventoryQrScan] = useState<string | null>(null);
+  /** Control de herramientas: QR escaneado pendiente de resolver, ficha abierta y escáner. */
+  const [pendingToolScan, setPendingToolScan] = useState<string | null>(null);
+  const [toolSheetItemId, setToolSheetItemId] = useState<string | null>(null);
+  const [toolScanOpen, setToolScanOpen] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -2568,6 +2580,10 @@ export default function Home() {
         createdAt: row.createdAt ?? new Date().toISOString(),
       };
       setInventoryMovements((prev) => [...prev, full]);
+      // Historial en el servidor (si el artículo aún no se ha subido, se reintenta una vez).
+      void insertMovement(full).catch(() => {
+        setTimeout(() => void insertMovement(full).catch(() => {}), 5000);
+      });
     },
     []
   );
@@ -7018,6 +7034,70 @@ export default function Home() {
     }
     return o;
   }, [employees, teamProfiles]);
+  /** Control de herramientas (QR): va con el plan de Logística (o Todo Incluido). */
+  const toolTrackingEnabled = planAllowsModule(subscriptionRow?.plan ?? null, "warehouse");
+  const reloadToolMovements = useCallback(() => {
+    if (!companyId) return;
+    fetchCompanyMovements(companyId)
+      .then((rows) => setInventoryMovements(rows))
+      .catch(() => {
+        /* migración aún sin aplicar o sin conexión: queda la copia local */
+      });
+  }, [companyId]);
+  useEffect(() => {
+    if (!session || !companyId) return;
+    reloadToolMovements();
+  }, [session, companyId, reloadToolMovements]);
+
+  /** QR escaneado (cámara o enlace /q/i/…): se resuelve cuando el inventario ya está cargado. */
+  useEffect(() => {
+    if (!pendingToolScan || !companyId) return;
+    if (logisticsSync.status === "idle" || logisticsSync.status === "loading") return;
+    const scan = pendingToolScan;
+    setPendingToolScan(null);
+    void resolveInventoryQrScan(scan, inventoryItems, companyId)
+      .then((r) => {
+        const id = r.kind === "item" || r.kind === "blank_consumed" ? r.itemId : r.kind === "legacy_plain" ? r.itemId : undefined;
+        if (id && inventoryItems.some((i) => i.id === id && !i.deletedAt)) {
+          setToolScanOpen(false);
+          setToolSheetItemId(id);
+          return;
+        }
+        if (perms.warehouse) {
+          // Etiqueta en blanco u otro código: lo resuelve Logística como siempre.
+          setActiveSection("warehouse");
+          setWarehouseSubTab("inventory");
+          setPendingInventoryQrScan(scan);
+          setToolScanOpen(false);
+          return;
+        }
+        showToast("error", (t as Record<string, string>).inventory_qrItemNotFound ?? "QR no encontrado");
+      })
+      .catch(() => showToast("error", (t as Record<string, string>).tool_err_network ?? "Error"));
+  }, [pendingToolScan, companyId, logisticsSync.status, inventoryItems, perms.warehouse, showToast, t]);
+
+  const toolSheetItem = useMemo(
+    () => (toolSheetItemId ? inventoryItems.find((i) => i.id === toolSheetItemId && !i.deletedAt) ?? null : null),
+    [toolSheetItemId, inventoryItems]
+  );
+  /** Herramientas a mi nombre (para "Mis herramientas" en Inicio). */
+  const myTools = useMemo(() => {
+    if (!toolTrackingEnabled || !profile?.id) return [];
+    return inventoryItems
+      .filter((i) => !i.deletedAt && i.assignedToEmployeeId === profile.id)
+      .map((i) => {
+        const since = heldSince(inventoryMovements, i.id);
+        return { id: i.id, name: i.name, days: since ? daysSince(since) : null };
+      });
+  }, [toolTrackingEnabled, profile?.id, inventoryItems, inventoryMovements]);
+  /** Obra de hoy (para "Me la llevo"): la del turno de hoy, si lo hay. */
+  const myTodayProjectId = useMemo(() => {
+    const today = formatTodayYmdInTimeZone(userTimeZone);
+    const ids = new Set(scheduleSelfIds);
+    const e = scheduleEntries.find((x) => x.date === today && x.projectId && (x.employeeIds ?? []).some((id) => ids.has(id)));
+    return e?.projectId ?? null;
+  }, [scheduleEntries, scheduleSelfIds, userTimeZone]);
+
   /** El calendario de la obra va con el plan de Obras (o Todo Incluido). */
   const projectCalendarEnabled = planAllowsModule(subscriptionRow?.plan ?? null, "site");
   const canManageProjectCalendar = effectiveRole === "admin" || !!rolePerms.canManageProjectCalendar;
@@ -7969,6 +8049,7 @@ export default function Home() {
                 projects={projects}
                 inventoryItems={inventoryItems}
                 inventoryMovements={inventoryMovements}
+                personNameById={personNameById}
                 adjustModal={adjustModal}
                 adjustQuantity={adjustQuantity}
                 adjustNote={adjustNote}
@@ -8725,6 +8806,9 @@ export default function Home() {
                 onOpenInspections={() => openInspections(null)}
                 inspectionsDueCount={myInspectionsDueByProject.total}
                 canOpenSite={perms.site}
+                onScanTool={toolTrackingEnabled ? () => setToolScanOpen(true) : undefined}
+                myTools={myTools}
+                onOpenTool={(id) => setToolSheetItemId(id)}
               />
             ) : null}
 
@@ -10601,6 +10685,57 @@ export default function Home() {
             {buildInspectionsPanel(inspectionsSheet.projectId)}
           </div>
         </div>
+      ) : null}
+      {toolScanOpen ? (
+        <InventoryQrScannerModal
+          open
+          labels={t}
+          onClose={() => setToolScanOpen(false)}
+          onDecoded={(text: string) => setPendingToolScan(text)}
+        />
+      ) : null}
+      {toolSheetItem && companyId ? (
+        <ToolQuickSheet
+          item={toolSheetItem}
+          labels={t as Record<string, string>}
+          companyId={companyId}
+          currentUserId={profile?.id ?? null}
+          dateLocale={dateLocaleBcp47}
+          personName={(id) => (id ? personNameById[id] ?? "—" : "—")}
+          projectName={(id) => (id ? projectNameById[id] ?? "" : "")}
+          defaultProjectId={myTodayProjectId}
+          myProjects={visibleProjects.map((p) => ({ id: p.id, name: p.name }))}
+          canInspect={canInspectEquipment}
+          onInspect={() => {
+            const it = toolSheetItem;
+            setToolSheetItemId(null);
+            setPendingInspectItem({
+              kind: "inventory",
+              id: it.id,
+              label: it.name,
+              serial: it.serialNumber ?? it.internalId ?? null,
+              projectId: it.assignedToProjectId ?? null,
+              templateId: it.inspectionTemplateId ?? null,
+            });
+            openInspections(it.assignedToProjectId ?? null);
+          }}
+          onClose={() => setToolSheetItemId(null)}
+          onChanged={() => {
+            logisticsSync.reload();
+            reloadToolMovements();
+          }}
+          onOpenFull={
+            perms.warehouse
+              ? () => {
+                  const id = toolSheetItem.id;
+                  setToolSheetItemId(null);
+                  setWarehouseSubTab("inventory");
+                  setActiveSection("warehouse");
+                  setWarehouseOpenInventoryId(id);
+                }
+              : undefined
+          }
+        />
       ) : null}
       {employeeShiftModalModel && (
         <EmployeeShiftDayView

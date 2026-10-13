@@ -6,7 +6,13 @@ export type InventoryMovementKind =
   | "transfer"
   | "maintenance"
   | "status_change"
-  | "import";
+  | "import"
+  /** El trabajador se la lleva (escaneando el QR). */
+  | "checkout"
+  /** Vuelve al almacén. */
+  | "return"
+  /** Avería reportada. */
+  | "damage";
 
 export interface InventoryLedgerRow {
   id: string;
@@ -22,4 +28,8 @@ export interface InventoryLedgerRow {
   performedByName?: string;
   notes?: string;
   createdAt: string;
+  /** De quién a quién (ids de perfil), en "me la llevo" / "la devuelvo". */
+  fromUserId?: string;
+  toUserId?: string;
+  photoUrl?: string;
 }
