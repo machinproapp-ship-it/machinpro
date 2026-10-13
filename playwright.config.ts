@@ -19,7 +19,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "movil", use: { ...devices["Pixel 7"] } },
-    { name: "escritorio", use: { ...devices["Desktop Chrome"] } },
+    { name: "sesiones", testMatch: /auth\.setup\.ts/, use: { ...devices["Desktop Chrome"] } },
+    { name: "movil", use: { ...devices["Pixel 7"] }, dependencies: ["sesiones"] },
+    { name: "escritorio", use: { ...devices["Desktop Chrome"] }, dependencies: ["sesiones"] },
   ],
 });

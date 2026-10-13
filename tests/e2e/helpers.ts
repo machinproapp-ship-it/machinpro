@@ -22,8 +22,18 @@ export async function login(page: Page, who: { email: string; password: string }
   await page.locator('input[type="password"]').press("Tab");
   await page.getByRole("button", { name: /iniciar sesión|sign in|log in/i }).click();
   // Debe entrar a la primera, sin recargar (fallo corregido el 12-oct).
-  await expect(page.locator('a[href="/logout"]').first()).toBeVisible({ timeout: 30_000 });
+  try {
+    await expect(page.locator('a[href="/logout"]').first()).toBeVisible({ timeout: 30_000 });
+  } catch (e) {
+    const text = (await page.locator("body").innerText().catch(() => "")).slice(0, 400);
+    throw new Error(`No entró en la app. URL: ${page.url()}\nPantalla: ${text}\n${String(e)}`);
+  }
 }
+
+export const STATE = {
+  worker: "tests/e2e/.auth/worker.json",
+  admin: "tests/e2e/.auth/admin.json",
+};
 
 /** Abre el menú en móvil (en escritorio la barra lateral ya está visible). */
 export async function openMenu(page: Page) {
