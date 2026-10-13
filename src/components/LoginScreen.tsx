@@ -102,10 +102,19 @@ export default function LoginScreen({
       /* continue login if rate-limit unreachable */
     }
 
-    const { error: signErr } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    // Si el servidor no contesta, no dejar el botón en "Entrando…" para siempre.
+    let signErr: { message: string } | null = null;
+    try {
+      const res = await Promise.race([
+        supabase.auth.signInWithPassword({ email: email.trim(), password }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 25_000)),
+      ]);
+      signErr = res.error;
+    } catch {
+      setError(l("login_timeout", "El servidor no responde. Revisa la conexión e inténtalo de nuevo."));
+      setLoading(false);
+      return;
+    }
     if (signErr) {
       try {
         await fetch(`${origin}/api/auth/rate-limit`, {
