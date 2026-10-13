@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { passwordProblem } from "@/lib/passwordPolicy";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCountryConfig } from "@/lib/countryConfig";
@@ -136,8 +137,8 @@ export async function POST(req: NextRequest) {
   if (!termsAccepted) {
     return NextResponse.json({ error: "Terms must be accepted" }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Password too short" }, { status: 400 });
+  if (passwordProblem(password)) {
+    return NextResponse.json({ error: "Password should contain at least one character of each: lowercase, uppercase, number (min 8)" }, { status: 400 });
   }
 
   const { data: invRow, error: invErr } = await admin

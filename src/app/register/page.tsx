@@ -1,5 +1,6 @@
 "use client";
 
+import { passwordProblem, passwordProblemText } from "@/lib/passwordPolicy";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { TextWithBrandMarks } from "@/components/BrandWordmark";
@@ -74,8 +75,9 @@ export default function RegisterPublicPage() {
   const submit = async () => {
     setFormError(null);
     if (!supabase) return;
-    if (password.length < 8) {
-      setFormError(tx("register_free_error_password_short", "Password must be at least 8 characters."));
+    const pwProblem = passwordProblem(password);
+    if (pwProblem) {
+      setFormError(passwordProblemText(pwProblem, t as Record<string, string>));
       return;
     }
     if (password !== confirmPassword) {
@@ -251,6 +253,13 @@ export default function RegisterPublicPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 min-h-[44px]"
               />
+              <p
+                className={`mt-1 text-xs ${
+                  password && passwordProblem(password) ? "text-amber-700 dark:text-amber-400" : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                {tx("password_rule_hint", "Mínimo 8 caracteres, con minúscula, mayúscula y número.")}
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">

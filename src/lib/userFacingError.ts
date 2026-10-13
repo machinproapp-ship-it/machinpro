@@ -33,6 +33,15 @@ export function userFacingErrorMessage(
   if (lower.includes("validation") || lower.includes("invalid input") || lower.includes("violates")) {
     return L("error_validation", "Please check the highlighted fields.");
   }
+  if (lower.includes("should contain at least one character")) {
+    return L("password_rule_mix", "Use at least one lowercase letter, one uppercase letter and one number.");
+  }
+  if (lower.includes("password should be at least")) {
+    return L("password_rule_short", "The password needs at least {n} characters.").replace("{n}", "8");
+  }
+  if (lower.includes("already registered") || lower.includes("already been registered")) {
+    return L("error_email_registered", "This email already has an account. Sign in or reset your password.");
+  }
   if (lower.includes("weak") || lower.includes("easy to guess")) {
     return L("error_password_weak", "Password is too common. Please choose a stronger one.");
   }

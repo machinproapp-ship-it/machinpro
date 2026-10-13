@@ -1,5 +1,7 @@
 "use client";
 
+import { passwordProblem, passwordProblemText } from "@/lib/passwordPolicy";
+import { userFacingErrorMessage } from "@/lib/userFacingError";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
@@ -162,10 +164,11 @@ function ChangePasswordInline({
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const tooShort = pw1.length > 0 && pw1.length < 10;
+  const pwProblem = passwordProblem(pw1, 10);
+  const tooShort = pw1.length > 0 && !!pwProblem;
   const mismatch = pw2.length > 0 && pw1 !== pw2;
   const save = async () => {
-    if (busy || pw1.length < 10 || pw1 !== pw2) return;
+    if (busy || pwProblem || pw1 !== pw2) return;
     setBusy(true);
     setErr(null);
     try {
@@ -176,7 +179,7 @@ function ChangePasswordInline({
       setOpen(false);
       showToast("success", tl.password_changed ?? "Contraseña cambiada");
     } catch (e) {
-      setErr(String((e as { message?: string })?.message ?? tl.password_change_error ?? "Error"));
+      setErr(userFacingErrorMessage(tl, e));
     } finally {
       setBusy(false);
     }
@@ -213,14 +216,14 @@ function ChangePasswordInline({
         placeholder={tl.password_repeat ?? "Repite la nueva contraseña"}
         className={input}
       />
-      {tooShort ? <p className="text-xs text-amber-700 dark:text-amber-400">{tl.password_too_short ?? "Mínimo 10 caracteres."}</p> : null}
+      {tooShort ? <p className="text-xs text-amber-700 dark:text-amber-400">{passwordProblemText(pwProblem, tl, 10)}</p> : null}
       {mismatch ? <p className="text-xs text-amber-700 dark:text-amber-400">{tl.password_mismatch ?? "No coinciden."}</p> : null}
       {err ? <p className="text-xs text-red-600">{err}</p> : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => void save()}
-          disabled={busy || pw1.length < 10 || pw1 !== pw2}
+          disabled={busy || !!pwProblem || pw1 !== pw2}
           className="min-h-[44px] rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
         >
           {busy ? "…" : tl.save ?? "Guardar"}

@@ -1,5 +1,6 @@
 "use client";
 
+import { passwordProblem, passwordProblemText } from "@/lib/passwordPolicy";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
@@ -187,8 +188,9 @@ export default function RegisterInvitationPage() {
       setFormError(l("register_password_mismatch", "Passwords do not match"));
       return;
     }
-    if (password.length < 8) {
-      setFormError(l("register_error_password_short", "Password too short"));
+    const pwProblem = passwordProblem(password);
+    if (pwProblem) {
+      setFormError(passwordProblemText(pwProblem, t as Record<string, string>));
       return;
     }
     if (!terms) {

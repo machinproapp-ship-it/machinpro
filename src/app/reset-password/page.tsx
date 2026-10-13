@@ -1,5 +1,6 @@
 "use client";
 
+import { passwordProblem, passwordProblemText } from "@/lib/passwordPolicy";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
@@ -100,8 +101,9 @@ export default function ResetPasswordPage() {
   const submit = async () => {
     if (!supabase) return;
     setMsg("");
-    if (pw.length < 8) {
-      setMsg(l("reset_password_too_short", "Password must be at least 8 characters"));
+    const pwProblem = passwordProblem(pw);
+    if (pwProblem) {
+      setMsg(passwordProblemText(pwProblem, t as Record<string, string>));
       return;
     }
     if (pw !== pw2) {
