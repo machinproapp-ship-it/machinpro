@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { creds, login, logout, openMenu } from "./helpers";
+import { creds, login, logout, navItem, openMenu } from "./helpers";
 
 test.describe("trabajador", () => {
   test.skip(!creds.worker.email || !creds.worker.password, "Faltan E2E_WORKER_EMAIL / E2E_WORKER_PASSWORD");
@@ -19,7 +19,7 @@ test.describe("trabajador", () => {
 
     // Menú: sin Operaciones ni Logística (salvo que el admin le dé esos permisos).
     await openMenu(page);
-    await expect(page.locator("#schedule-nav-item").first()).toBeVisible();
+    await expect(navItem(page, "schedule-nav-item").first()).toBeVisible();
     await expect(page.locator("#operations-nav-item")).toHaveCount(0);
     await expect(page.locator("#logistics-nav-item")).toHaveCount(0);
 

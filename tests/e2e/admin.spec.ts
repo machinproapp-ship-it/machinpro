@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { creds, login, logout, openMenu } from "./helpers";
+import { creds, login, logout, navItem, openMenu } from "./helpers";
 
 test.describe("admin", () => {
   test.skip(!creds.admin.email || !creds.admin.password, "Faltan E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD");
@@ -10,8 +10,8 @@ test.describe("admin", () => {
     await login(page, creds.admin);
     await expect(page.getByText(/Something went wrong|Minified React error/i)).toHaveCount(0);
     await openMenu(page);
-    await expect(page.locator("#schedule-nav-item").first()).toBeVisible();
-    await expect(page.locator("#settings-nav-item").first()).toBeVisible();
+    await expect(navItem(page, "schedule-nav-item").first()).toBeVisible();
+    await expect(navItem(page, "settings-nav-item").first()).toBeVisible();
     expect(errors, errors.join("\n")).toEqual([]);
     await logout(page);
   });
@@ -19,7 +19,7 @@ test.describe("admin", () => {
   test("la pre-nómina no muestra impuestos inventados", async ({ page }) => {
     await login(page, creds.admin);
     await openMenu(page);
-    await page.locator("#schedule-nav-item").first().click();
+    await navItem(page, "schedule-nav-item").first().click();
     const tab = page.getByRole("button", { name: /Pre-nómina|Pre-payroll/i }).first();
     test.skip((await tab.count()) === 0, "La pestaña de pre-nómina no está disponible");
     await tab.click();
