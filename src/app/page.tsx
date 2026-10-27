@@ -42,6 +42,19 @@ import type { CorrectiveActionsPrefill } from "@/components/CorrectiveActionsMod
 import { postAuthAudit } from "@/lib/postAuthAudit";
 import { isSelfClockId } from "@/lib/clockSelf";
 import { daysSince, fetchCompanyMovements, heldSince, insertMovement, toolRoleFromPermissions } from "@/lib/toolTracking";
+import {
+  buildRequestLines,
+  cancelResourceRequest,
+  createResourceRequest,
+  dispatchResourceRequest,
+  fetchResourceRequests,
+  receiveResourceRequest,
+  setResourceRequestItemStatus,
+  setResourceRequestStatus,
+  type RequestActionError,
+  type ResourceRequest,
+  type ResourceRequestStatus,
+} from "@/lib/resourceRequests";
 import { resolveInventoryQrScan } from "@/lib/inventoryQrResolve";
 import { permissionsToModule, type ModulePermissions } from "@/lib/modulePermissions";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
@@ -132,6 +145,7 @@ import {
   AlertTriangle,
   Shield,
   X,
+  Loader2,
   Bell,
   ShieldAlert,
   Settings,
@@ -268,46 +282,6 @@ export type {
   EmployeeDocument,
 } from "@/types/homePage";
 
-type ResourceRequestStatus =
-  | "pending"
-  | "preparing"
-  | "ready"
-  | "dispatched"
-  | "received";
-
-type ResourceRequestItemStatus =
-  | "pending"
-  | "ready"
-  | "substituted"
-  | "unavailable";
-
-interface ResourceRequestItem {
-  id: string;
-  type: "tool" | "equipment" | "consumable" | "material" | "vehicle";
-  inventoryItemId?: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  notes?: string;
-  status: ResourceRequestItemStatus;
-  substituteId?: string;
-  substituteName?: string;
-}
-
-interface ResourceRequest {
-  id: string;
-  projectId: string;
-  requestedBy: string;
-  requestedByName: string;
-  neededBy: string;
-  status: ResourceRequestStatus;
-  items: ResourceRequestItem[];
-  notes?: string;
-  preparedBy?: string;
-  dispatchedAt?: string;
-  receivedAt?: string;
-  createdAt: string;
-}
 
 // Moneda: símbolos y tasas (referencia CAD). Tipos en @/lib/i18n.
 const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -2423,149 +2397,100 @@ export default function Home() {
   const [requestQuantities, setRequestQuantities] = useState<Record<string, number>>({});
   const [requestExternal, setRequestExternal] = useState<string>("");
 
-  const handleUpdateRequestStatus = (id: string, status: ResourceRequestStatus) => {
-    setResourceRequests((prev) => {
-      const next = prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status,
-              ...(status === "dispatched" ? { dispatchedAt: new Date().toISOString() } : {}),
-            }
-          : r
-      );
-      try {
-        localStorage.setItem("machinpro_resource_requests", JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+  /** Pedidos de material obra → taller: viven en el servidor (el móvil de logística los ve al momento). */
+  const [resourceRequests, setResourceRequests] = useState<ResourceRequest[]>([]);
+  const [requestSending, setRequestSending] = useState(false);
+  const rrLabel = (key: string, fallback: string) => (t as Record<string, string>)[key] ?? fallback;
+  const requestErrorText = (e: RequestActionError) => {
+    if (e === "not_allowed") return rrLabel("rr_err_not_allowed", "No tienes permiso para hacer esto.");
+    if (e === "not_ready") return rrLabel("rr_err_not_ready", "El servidor aún no está actualizado. Inténtalo más tarde.");
+    if (e === "already_closed") return rrLabel("rr_err_closed", "Este pedido ya cambió. Se ha actualizado la lista.");
+    if (e === "empty") return rrLabel("rr_err_empty", "Pon la cantidad de al menos un material.");
+    return rrLabel("rr_err_network", "No se pudo guardar. Revisa la conexión.");
   };
-
-  const handleMarkResourceItemReady = (requestId: string, itemId: string) => {
-    setResourceRequests((prev) => {
-      const next = prev.map((r) =>
-        r.id === requestId
-          ? {
-              ...r,
-              items: r.items.map((it) =>
-                it.id === itemId
-                  ? {
-                      ...it,
-                      status: (it.status === "ready" ? "pending" : "ready") as ResourceRequestItemStatus,
-                    }
-                  : it
-              ),
-            }
-          : r
-      );
-      try {
-        localStorage.setItem("machinpro_resource_requests", JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  };
-
-  const handleConfirmReception = (requestId: string) => {
-    const target = resourceRequests.find((r) => r.id === requestId);
-    if (!target) return;
-    setInventoryItems((prev) => {
-      const next = prev.map((item) => {
-        const reqItem = target.items.find((ri) => ri.inventoryItemId === item.id);
-        if (!reqItem) return item;
-        if (reqItem.type === "tool" || reqItem.type === "equipment") {
-          return {
-            ...item,
-            assignedToProjectId: target.projectId,
-            toolStatus: "in_use" as const,
-          };
-        }
-        if (reqItem.type === "consumable" || reqItem.type === "material") {
-          return {
-            ...item,
-            quantity: Math.max(0, item.quantity - reqItem.quantity),
-          };
-        }
-        return item;
+  const reloadResourceRequests = () => {
+    if (!companyId) return;
+    fetchResourceRequests(companyId)
+      .then(setResourceRequests)
+      .catch(() => {
+        /* servidor sin actualizar o sin conexión */
       });
-      try {
-        localStorage.setItem("machinpro_inventory", JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-    setResourceRequests((prev) => {
-      const next = prev.map((r) =>
-        r.id === requestId
-          ? { ...r, status: "received" as const, receivedAt: new Date().toISOString() }
-          : r
-      );
-      try {
-        localStorage.setItem("machinpro_resource_requests", JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+  };
+  const runRequestAction = async (
+    action: () => Promise<{ ok: true; data: unknown } | { ok: false; error: RequestActionError }>
+  ): Promise<boolean> => {
+    const res = await action();
+    if (!res.ok) {
+      showToast("error", requestErrorText(res.error));
+      reloadResourceRequests();
+      return false;
+    }
+    reloadResourceRequests();
+    return true;
   };
 
-  const submitResourceRequest = () => {
-    if (!requestModalProjectId) return;
-    const items: ResourceRequestItem[] = [];
-    inventoryItems.forEach((i) => {
-      const qty = requestQuantities[i.id] ?? 0;
-      if (qty > 0) {
-        items.push({
-          id: "reqItem_" + Date.now() + "_" + i.id,
-          type: i.type === "material" ? "material" : i.type,
-          inventoryItemId: i.id,
-          name: i.name,
-          quantity: qty,
-          unit: i.unit,
-          status: "pending",
-        });
+  const handleUpdateRequestStatus = async (id: string, status: ResourceRequestStatus): Promise<boolean> => {
+    if (status === "dispatched") {
+      const ok = await runRequestAction(() => dispatchResourceRequest(id));
+      if (ok) {
+        logisticsSync.reload();
+        reloadToolMovements();
       }
-    });
-    if (requestExternal.trim()) {
-      items.push({
-        id: "reqItem_ext_" + Date.now(),
-        type: "consumable",
-        name: requestExternal.trim(),
-        quantity: 1,
-        unit: "",
-        status: "pending",
-      });
+      return ok;
     }
-    if (!items.length) return;
-    const newReq: ResourceRequest = {
-      id: "req_" + Date.now(),
-      projectId: requestModalProjectId,
-      requestedBy: effectiveEmployeeId ?? "unknown",
-      requestedByName:
-        employees.find((e) => e.id === effectiveEmployeeId)?.name ?? "Supervisor",
-      neededBy: requestNeededBy || new Date().toISOString().slice(0, 10),
-      status: "pending",
-      items,
-      notes: requestNotes || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    setResourceRequests((prev) => {
-      const next = [...prev, newReq];
-      try {
-        localStorage.setItem("machinpro_resource_requests", JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-    setRequestModalProjectId(null);
-    setRequestNeededBy("");
-    setRequestNotes("");
-    setRequestQuantities({});
-    setRequestExternal("");
+    if (status === "cancelled") return runRequestAction(() => cancelResourceRequest(id));
+    if (status === "received") return runRequestAction(() => receiveResourceRequest(id));
+    return runRequestAction(() => setResourceRequestStatus(id, status));
   };
-  const [resourceRequests, setResourceRequests] = useState<ResourceRequest[]>(() => {
-    try {
-      if (typeof window === "undefined") return [];
-      return JSON.parse(localStorage.getItem("machinpro_resource_requests") ?? "[]") as ResourceRequest[];
-    } catch {
-      return [];
+
+  const handleMarkResourceItemReady = async (requestId: string, itemId: string): Promise<boolean> => {
+    const line = resourceRequests.find((r) => r.id === requestId)?.items.find((it) => it.id === itemId);
+    const next = line?.status === "ready" ? "pending" : "ready";
+    return runRequestAction(() => setResourceRequestItemStatus(requestId, itemId, next));
+  };
+
+  const handleMarkResourceItemUnavailable = async (requestId: string, itemId: string): Promise<boolean> => {
+    const line = resourceRequests.find((r) => r.id === requestId)?.items.find((it) => it.id === itemId);
+    const next = line?.status === "unavailable" ? "pending" : "unavailable";
+    return runRequestAction(() => setResourceRequestItemStatus(requestId, itemId, next));
+  };
+
+  const handleConfirmReception = async (requestId: string): Promise<boolean> => {
+    const ok = await runRequestAction(() => receiveResourceRequest(requestId));
+    if (ok) showToast("success", rrLabel("rr_received_ok", "Recibido en obra."));
+    return ok;
+  };
+
+  const handleCancelResourceRequest = async (requestId: string): Promise<boolean> =>
+    runRequestAction(() => cancelResourceRequest(requestId));
+
+  const submitResourceRequest = async () => {
+    if (!requestModalProjectId || requestSending) return;
+    const lines = buildRequestLines(
+      requestQuantities,
+      inventoryItems.map((i) => i.id),
+      requestExternal
+    );
+    if (!lines.length) {
+      showToast("error", requestErrorText("empty"));
+      return;
     }
-  });
+    setRequestSending(true);
+    try {
+      const ok = await runRequestAction(() =>
+        createResourceRequest(requestModalProjectId, lines, requestNeededBy || null, requestNotes.trim() || null)
+      );
+      if (!ok) return;
+      showToast("success", rrLabel("rr_sent_ok", "Pedido enviado. Logística ya está avisada."));
+      setRequestModalProjectId(null);
+      setRequestNeededBy("");
+      setRequestNotes("");
+      setRequestQuantities({});
+      setRequestExternal("");
+    } finally {
+      setRequestSending(false);
+    }
+  };
   const [adjustModal, setAdjustModal] = useState<{ itemId: string; type: "add" | "remove" } | null>(null);
   const [adjustQuantity, setAdjustQuantity] = useState("");
   const [adjustNote, setAdjustNote] = useState("");
@@ -7038,6 +6963,15 @@ export default function Home() {
   const toolTrackingEnabled = planAllowsModule(subscriptionRow?.plan ?? null, "warehouse");
   /** Logística controla todo; el supervisor, sus obras; el trabajador solo si el admin le da permiso. */
   const toolRole = toolTrackingEnabled ? toolRoleFromPermissions(rolePerms, effectiveRole === "admin") : null;
+  /** Pedir material al taller desde la obra (logística, supervisor o quien tenga el permiso). */
+  const canRequestMaterials =
+    toolTrackingEnabled &&
+    (effectiveRole === "admin" ||
+      !!rolePerms.canManageInventory ||
+      !!rolePerms.canTransferInventory ||
+      !!rolePerms.canCreatePurchaseOrders ||
+      !!rolePerms.canControlSiteTools ||
+      !!rolePerms.canRequestMaterials);
   const reloadToolMovements = useCallback(() => {
     if (!companyId) return;
     fetchCompanyMovements(companyId)
@@ -7050,6 +6984,48 @@ export default function Home() {
     if (!session || !companyId) return;
     reloadToolMovements();
   }, [session, companyId, reloadToolMovements]);
+
+  /** Pedidos de material: se cargan al entrar, al volver a la app, cada minuto y al momento si alguien pide. */
+  useEffect(() => {
+    if (!session || !companyId) return;
+    let alive = true;
+    const load = () => {
+      fetchResourceRequests(companyId)
+        .then((rows) => {
+          if (alive) setResourceRequests(rows);
+        })
+        .catch(() => {
+          /* servidor sin actualizar o sin conexión */
+        });
+    };
+    load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    const timer = window.setInterval(onVisible, 60_000);
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`resource-requests-${companyId}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "resource_requests", filter: `company_id=eq.${companyId}` },
+          () => load()
+        )
+        .subscribe();
+    } catch {
+      channel = null;
+    }
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.clearInterval(timer);
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [session, companyId]);
 
   /** QR escaneado (cámara o enlace /q/i/…): se resuelve cuando el inventario ya está cargado. */
   useEffect(() => {
@@ -8271,6 +8247,8 @@ export default function Home() {
                 resourceRequests={resourceRequests}
                 onUpdateResourceRequestStatus={handleUpdateRequestStatus}
                 onMarkResourceItemReady={handleMarkResourceItemReady}
+                onMarkResourceItemUnavailable={handleMarkResourceItemUnavailable}
+                onCancelResourceRequest={handleCancelResourceRequest}
                 cloudinaryCloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ""}
                 cloudinaryUploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ""}
                 companyName={profile?.companyName ?? companyName ?? ""}
@@ -8556,9 +8534,12 @@ export default function Home() {
                     )
                   );
                 }}
-                onOpenResourceRequest={(projectId) => setRequestModalProjectId(projectId)}
+                onOpenResourceRequest={
+                  canRequestMaterials ? (projectId) => setRequestModalProjectId(projectId) : undefined
+                }
                 resourceRequests={resourceRequests}
                 onConfirmReception={handleConfirmReception}
+                onCancelResourceRequest={handleCancelResourceRequest}
                 companyPlan={subscriptionRow?.plan ?? "esencial"}
                 blueprints={blueprints}
                 currentUserEmployeeId={currentUserEmployeeId ?? ""}
@@ -9579,9 +9560,10 @@ export default function Home() {
                             </div>
                             <input
                               type="number"
+                              inputMode="numeric"
                               min={0}
-                              max={item.quantity}
-                              value={requestQuantities[item.id] ?? 0}
+                              value={requestQuantities[item.id] || ""}
+                              placeholder="0"
                               onChange={(e) =>
                                 setRequestQuantities((prev) => ({
                                   ...prev,
@@ -9605,17 +9587,23 @@ export default function Home() {
                             key={item.id}
                             className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800"
                           >
-                            <div>
-                              <span className="text-sm">{item.name}</span>
+                            <div className="min-w-0 pr-2">
+                              <span className="text-sm break-words">{item.name}</span>
                               <span className="text-xs text-zinc-400 ml-2">
-                                ({item.quantity} {item.unit})
+                                ({item.quantity} {item.unit} {rrLabel("rr_in_shop", "en el taller")})
                               </span>
+                              {(requestQuantities[item.id] ?? 0) > item.quantity && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                                  {rrLabel("rr_more_than_stock", "Pides más de lo que hay. Logística te dirá qué puede mandar.")}
+                                </p>
+                              )}
                             </div>
                             <input
                               type="number"
+                              inputMode="numeric"
                               min={0}
-                              max={item.quantity}
-                              value={requestQuantities[item.id] ?? 0}
+                              value={requestQuantities[item.id] || ""}
+                              placeholder="0"
                               onChange={(e) =>
                                 setRequestQuantities((prev) => ({
                                   ...prev,
@@ -9629,13 +9617,16 @@ export default function Home() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-semibold mb-2">
-                        Externos / Compras directas
+                      <p className="text-sm font-semibold mb-1">
+                        {rrLabel("rr_other_title", "Algo que no está en la lista")}
+                      </p>
+                      <p className="text-xs text-zinc-500 mb-2">
+                        {rrLabel("rr_other_hint", "Escribe una cosa por línea.")}
                       </p>
                       <textarea
                         value={requestExternal}
                         onChange={(e) => setRequestExternal(e.target.value)}
-                        placeholder="Ej: Alquiler excavadora, cemento especial..."
+                        placeholder={rrLabel("rr_other_ph", "Ej: 2 cajas de tornillos de 3 pulgadas")}
                         className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm min-h-[80px] resize-none"
                       />
                     </div>
@@ -9643,9 +9634,11 @@ export default function Home() {
                   <div className="p-4 border-t border-zinc-200 dark:border-slate-700">
                     <button
                       type="button"
-                      onClick={submitResourceRequest}
-                      className="w-full rounded-xl bg-amber-600 hover:bg-amber-500 text-white py-3 text-sm font-semibold min-h-[44px] transition-colors"
+                      onClick={() => void submitResourceRequest()}
+                      disabled={requestSending}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white py-3 text-sm font-semibold min-h-[44px] transition-colors"
                     >
+                      {requestSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                       {t.sendRequest ?? "Enviar solicitud"}
                     </button>
                   </div>

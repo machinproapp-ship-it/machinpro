@@ -201,46 +201,8 @@ export interface Employee {
 export type InventoryMovement = InventoryLedgerRow;
 export type { InventoryMovementKind };
 
-export type ResourceRequestStatus =
-  | "pending"
-  | "preparing"
-  | "ready"
-  | "dispatched"
-  | "received";
-
-export type ResourceRequestItemStatus =
-  | "pending"
-  | "ready"
-  | "substituted"
-  | "unavailable";
-
-export interface ResourceRequestItem {
-  id: string;
-  type: "tool" | "equipment" | "consumable" | "material" | "vehicle";
-  inventoryItemId?: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  notes?: string;
-  status: ResourceRequestItemStatus;
-  substituteId?: string;
-  substituteName?: string;
-}
-
-export interface ResourceRequest {
-  id: string;
-  projectId: string;
-  requestedBy: string;
-  requestedByName: string;
-  neededBy: string;
-  status: ResourceRequestStatus;
-  items: ResourceRequestItem[];
-  notes?: string;
-  preparedBy?: string;
-  dispatchedAt?: string;
-  receivedAt?: string;
-  createdAt: string;
-}
+export type { ResourceRequest, ResourceRequestItem, ResourceRequestItemStatus, ResourceRequestStatus } from "@/lib/resourceRequests";
+import type { ResourceRequest, ResourceRequestItem, ResourceRequestStatus } from "@/lib/resourceRequests";
 
 export interface LogisticsModuleProps {
   /** Panel de inspecciones previas al uso (lo monta page.tsx con permisos y empresa). */
@@ -308,8 +270,10 @@ export interface LogisticsModuleProps {
   complianceRecords?: ComplianceRecord[];
   onComplianceRecordsChange?: (records: ComplianceRecord[]) => void;
   resourceRequests?: ResourceRequest[];
-  onUpdateResourceRequestStatus?: (id: string, status: ResourceRequestStatus) => void;
-  onMarkResourceItemReady?: (requestId: string, itemId: string) => void;
+  onUpdateResourceRequestStatus?: (id: string, status: ResourceRequestStatus) => Promise<boolean> | void;
+  onMarkResourceItemReady?: (requestId: string, itemId: string) => Promise<boolean> | void;
+  onMarkResourceItemUnavailable?: (requestId: string, itemId: string) => Promise<boolean> | void;
+  onCancelResourceRequest?: (requestId: string) => Promise<boolean> | void;
   companyName?: string;
   companyId?: string;
   /** Flota → pestaña Seguimiento (mapa GPS del día). */
@@ -575,6 +539,8 @@ export function LogisticsModule({
   resourceRequests = [],
   onUpdateResourceRequestStatus,
   onMarkResourceItemReady,
+  onMarkResourceItemUnavailable,
+  onCancelResourceRequest,
   companyName = "",
   companyId = "",
   gpsMapTimeZone = "",
@@ -611,7 +577,7 @@ export function LogisticsModule({
   auditUserName = "",
 }: LogisticsModuleProps) {
   const { showToast } = useToast();
-  const canFulfillOrders = canManageInventory || canCreatePurchaseOrders;
+  const canFulfillOrders = canManageInventory || canCreatePurchaseOrders || canTransferInventory;
   const tlLabels = t as Record<string, string>;
   const vehicleInspectionLabel =
     vehicleInspectionLabelProp ??
@@ -2481,106 +2447,134 @@ export function LogisticsModule({
 
       {warehouseSubTab === "orders" && (
         <div className="space-y-3">
-          {(resourceRequests ?? []).length === 0 ? (
-            <div className="text-center py-12 text-zinc-400">
-              <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm text-zinc-600 dark:text-zinc-300 max-w-sm mx-auto">
-                {tlLabels.noOrders ?? "No resource orders yet."}
-              </p>
-            </div>
-          ) : (
-            (resourceRequests ?? [])
+          {(() => {
+            const runOrderAction = (key: string, action: () => Promise<boolean> | void, okText?: string) => {
+              void (async () => {
+                setOrderActionKey(key);
+                try {
+                  const ok = await action();
+                  if (ok !== false) showToast("success", okText ?? tlLabels.saved_successfully ?? "Guardado");
+                } catch (err) {
+                  showToast("error", userFacingErrorMessage(tlLabels, err));
+                } finally {
+                  setOrderActionKey(null);
+                }
+              })();
+            };
+            const visible = (resourceRequests ?? [])
+              .filter((r: ResourceRequest) => r.status !== "cancelled")
               .slice()
-              .sort(
-                (a: ResourceRequest, b: ResourceRequest) =>
-                  new Date(b.createdAt).getTime() -
-                  new Date(a.createdAt).getTime()
-              )
-              .map((request: ResourceRequest) => {
-                const statusColors: Record<ResourceRequestStatus, string> = {
-                  pending: "bg-zinc-100 text-zinc-600 border border-zinc-200 dark:border-zinc-600",
-                  preparing: "bg-zinc-50 text-zinc-700 border border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800/50 dark:text-zinc-300",
-                  ready: "bg-emerald-100 text-emerald-700",
-                  dispatched: "bg-amber-100 text-amber-700",
-                  received: "bg-zinc-100 text-zinc-400",
-                };
-                const statusLabels: Record<ResourceRequestStatus, string> = {
-                  pending:
-                    tlLabels.pending ?? "Pending",
-                  preparing:
-                    tlLabels.startPreparing ?? "Preparing",
-                  ready:
-                    tlLabels.markReady ?? "Ready",
-                  dispatched:
-                    tlLabels.dispatch ?? "Dispatched",
-                  received:
-                    tlLabels.confirmReception ?? "Received",
-                };
-                return (
-                  <div
-                    key={request.id}
-                    className="rounded-xl border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 pr-2">
-                        <p className="text-sm font-semibold break-words">
-                          {(projects ?? []).find((p) => p.id === request.projectId)?.name ?? request.projectId}
-                        </p>
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                          {request.requestedByName} ·{" "}
-                          {tlLabels.neededBy ?? "Needed by"}
-                          : {request.neededBy}
-                        </p>
-                      </div>
-                      <span
-                        className={`text-xs rounded-full px-2 py-1 font-medium shrink-0 ${
-                          statusColors[request.status as ResourceRequestStatus]
-                        }`}
-                      >
-                        {statusLabels[request.status as ResourceRequestStatus]}
-                      </span>
+              .sort((a: ResourceRequest, b: ResourceRequest) => {
+                const openA = a.status === "received" ? 1 : 0;
+                const openB = b.status === "received" ? 1 : 0;
+                if (openA !== openB) return openA - openB;
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              });
+            if (visible.length === 0) {
+              return (
+                <div className="text-center py-12 text-zinc-400">
+                  <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300 max-w-sm mx-auto">
+                    {tlLabels.noOrders ?? "No resource orders yet."}
+                  </p>
+                </div>
+              );
+            }
+            const statusColors: Record<ResourceRequestStatus, string> = {
+              pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+              preparing: "bg-zinc-50 text-zinc-700 border border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800/50 dark:text-zinc-300",
+              ready: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200",
+              dispatched: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200",
+              received: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+              cancelled: "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500",
+            };
+            const statusLabels: Record<ResourceRequestStatus, string> = {
+              pending: tlLabels.rr_status_pending ?? "Nuevo",
+              preparing: tlLabels.rr_status_preparing ?? "Preparando",
+              ready: tlLabels.rr_status_ready ?? "Listo",
+              dispatched: tlLabels.rr_status_dispatched ?? "En camino",
+              received: tlLabels.rr_status_received ?? "Recibido",
+              cancelled: tlLabels.rr_status_cancelled ?? "Anulado",
+            };
+            const stockById = new Map((inventoryItems ?? []).map((i) => [i.id, i] as const));
+            return visible.map((request: ResourceRequest) => {
+              const open = request.status === "pending" || request.status === "preparing" || request.status === "ready";
+              return (
+                <div
+                  key={request.id}
+                  className={`rounded-xl border bg-white dark:bg-slate-900 p-4 space-y-3 ${
+                    request.status === "pending"
+                      ? "border-amber-300 dark:border-amber-700"
+                      : "border-zinc-200 dark:border-slate-700"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 pr-2">
+                      <p className="text-sm font-semibold break-words">
+                        {(projects ?? []).find((p) => p.id === request.projectId)?.name ?? request.projectId}
+                      </p>
+                      <p className="text-xs text-zinc-500 mt-0.5 break-words">
+                        {request.requestedByName}
+                        {request.neededBy ? ` · ${tlLabels.neededBy ?? "Needed by"}: ${request.neededBy}` : ""}
+                      </p>
+                      {request.notes ? (
+                        <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1 break-words">{request.notes}</p>
+                      ) : null}
                     </div>
+                    <span
+                      className={`text-xs rounded-full px-2 py-1 font-medium shrink-0 ${statusColors[request.status]}`}
+                    >
+                      {statusLabels[request.status]}
+                    </span>
+                  </div>
 
-                    <div className="space-y-1.5">
-                      {request.items.map((item: ResourceRequestItem) => (
+                  <div className="space-y-1.5">
+                    {request.items.map((item: ResourceRequestItem) => {
+                      const stock = item.inventoryItemId ? stockById.get(item.inventoryItemId) : undefined;
+                      const isMaterial = item.type === "material" || item.type === "consumable";
+                      const short = open && stock && isMaterial && stock.quantity < item.quantity;
+                      return (
                         <div
                           key={item.id}
                           className="flex flex-col gap-2 text-sm min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between"
                         >
-                          <span
-                            className={
-                              item.status === "ready"
-                                ? "line-through text-zinc-400 break-words"
-                                : "text-zinc-700 break-words dark:text-zinc-300"
-                            }
-                          >
-                            {item.quantity}x {item.name}
-                          </span>
-                          {canFulfillOrders &&
-                            request.status !== "dispatched" &&
-                            request.status !== "received" && (
+                          <div className="min-w-0">
+                            <span
+                              className={
+                                item.status === "ready"
+                                  ? "line-through text-zinc-400 break-words"
+                                  : item.status === "unavailable"
+                                    ? "text-red-600 dark:text-red-400 break-words"
+                                    : "text-zinc-700 break-words dark:text-zinc-300"
+                              }
+                            >
+                              {item.quantity} {item.unit || "x"} {item.name}
+                            </span>
+                            {open && stock && isMaterial ? (
+                              <span className={`ml-2 text-xs ${short ? "text-amber-600 dark:text-amber-400" : "text-zinc-400"}`}>
+                                ({stock.quantity} {tlLabels.rr_in_shop ?? "en el taller"})
+                              </span>
+                            ) : null}
+                            {item.status === "unavailable" ? (
+                              <span className="ml-2 text-xs text-red-600 dark:text-red-400">
+                                {tlLabels.rr_line_unavailable ?? "No hay"}
+                              </span>
+                            ) : null}
+                          </div>
+                          {canFulfillOrders && open && (
+                            <div className="flex gap-2 shrink-0">
                               <button
                                 type="button"
                                 disabled={orderActionKey !== null}
-                                onClick={() => {
-                                  const k = `ord-line-${request.id}-${item.id}`;
-                                  void (async () => {
-                                    setOrderActionKey(k);
-                                    try {
-                                      await new Promise((r) => setTimeout(r, 0));
-                                      onMarkResourceItemReady?.(request.id, item.id);
-                                      showToast("success", tlLabels.saved_successfully ?? "Guardado");
-                                    } catch (err) {
-                                      showToast("error", userFacingErrorMessage(tlLabels, err));
-                                    } finally {
-                                      setOrderActionKey(null);
-                                    }
-                                  })();
-                                }}
+                                onClick={() =>
+                                  runOrderAction(`ord-line-${request.id}-${item.id}`, () =>
+                                    onMarkResourceItemReady?.(request.id, item.id)
+                                  )
+                                }
                                 className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-3 py-2 text-xs transition-colors disabled:opacity-50 ${
                                   item.status === "ready"
                                     ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-zinc-100 text-zinc-600 hover:bg-emerald-100 hover:text-emerald-700"
+                                    : "bg-zinc-100 text-zinc-600 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-zinc-800 dark:text-zinc-300"
                                 }`}
                               >
                                 {orderActionKey === `ord-line-${request.id}-${item.id}` ? (
@@ -2590,106 +2584,90 @@ export function LogisticsModule({
                                   ? `✓ ${tlLabels.resource_order_line_ready ?? "Ready"}`
                                   : (tlLabels.resource_order_line_mark ?? "Mark ready")}
                               </button>
-                            )}
+                              {onMarkResourceItemUnavailable ? (
+                                <button
+                                  type="button"
+                                  disabled={orderActionKey !== null}
+                                  onClick={() =>
+                                    runOrderAction(`ord-na-${request.id}-${item.id}`, () =>
+                                      onMarkResourceItemUnavailable(request.id, item.id)
+                                    )
+                                  }
+                                  className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-2 text-xs transition-colors disabled:opacity-50 ${
+                                    item.status === "unavailable"
+                                      ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200"
+                                      : "bg-zinc-100 text-zinc-600 hover:bg-red-50 hover:text-red-700 dark:bg-zinc-800 dark:text-zinc-300"
+                                  }`}
+                                >
+                                  {tlLabels.rr_line_unavailable ?? "No hay"}
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-
-                    {canFulfillOrders && (
-                      <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800 min-[480px]:flex-row">
-                        {request.status === "pending" && (
-                          <button
-                            type="button"
-                            disabled={orderActionKey !== null}
-                            onClick={() => {
-                              const k = `ord-${request.id}-preparing`;
-                              void (async () => {
-                                setOrderActionKey(k);
-                                try {
-                                  await new Promise((r) => setTimeout(r, 0));
-                                  onUpdateResourceRequestStatus?.(request.id, "preparing");
-                                  showToast("success", tlLabels.saved_successfully ?? "Guardado");
-                                } catch (err) {
-                                  showToast("error", userFacingErrorMessage(tlLabels, err));
-                                } finally {
-                                  setOrderActionKey(null);
-                                }
-                              })();
-                            }}
-                            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-300 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                          >
-                            {orderActionKey === `ord-${request.id}-preparing` ? (
-                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-                            ) : null}
-                            {tlLabels.startPreparing ?? "Start preparing"}
-                          </button>
-                        )}
-                        {request.status === "preparing" && (
-                          <button
-                            type="button"
-                            disabled={orderActionKey !== null}
-                            onClick={() => {
-                              const k = `ord-${request.id}-ready`;
-                              void (async () => {
-                                setOrderActionKey(k);
-                                try {
-                                  await new Promise((r) => setTimeout(r, 0));
-                                  onUpdateResourceRequestStatus?.(request.id, "ready");
-                                  showToast("success", tlLabels.saved_successfully ?? "Guardado");
-                                } catch (err) {
-                                  showToast("error", userFacingErrorMessage(tlLabels, err));
-                                } finally {
-                                  setOrderActionKey(null);
-                                }
-                              })();
-                            }}
-                            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-300 py-2.5 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50"
-                          >
-                            {orderActionKey === `ord-${request.id}-ready` ? (
-                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-                            ) : null}
-                            {tlLabels.markReady ?? "Mark as ready"}
-                          </button>
-                        )}
-                        {request.status === "ready" && (
-                          <button
-                            type="button"
-                            disabled={orderActionKey !== null}
-                            onClick={() => {
-                              const k = `ord-${request.id}-dispatched`;
-                              void (async () => {
-                                setOrderActionKey(k);
-                                try {
-                                  await new Promise((r) => setTimeout(r, 0));
-                                  onUpdateResourceRequestStatus?.(request.id, "dispatched");
-                                  showToast("success", tlLabels.saved_successfully ?? "Guardado");
-                                } catch (err) {
-                                  showToast("error", userFacingErrorMessage(tlLabels, err));
-                                } finally {
-                                  setOrderActionKey(null);
-                                }
-                              })();
-                            }}
-                            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
-                          >
-                            {orderActionKey === `ord-${request.id}-dispatched` ? (
-                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-                            ) : null}
-                            🚚 {tlLabels.dispatch ?? "Dispatch"}
-                          </button>
-                        )}
-                        {request.status === "dispatched" && (
-                          <p className="text-sm text-zinc-500 italic py-2">
-                            🚚{" "}
-                            {tlLabels.inTransit ?? "In transit to site"}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
-                );
-              })
-          )}
+
+                  {canFulfillOrders && open && (
+                    <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800 min-[480px]:flex-row">
+                      {request.status === "pending" && (
+                        <button
+                          type="button"
+                          disabled={orderActionKey !== null}
+                          onClick={() =>
+                            runOrderAction(`ord-${request.id}-preparing`, () =>
+                              onUpdateResourceRequestStatus?.(request.id, "preparing")
+                            )
+                          }
+                          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-300 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        >
+                          {orderActionKey === `ord-${request.id}-preparing` ? (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                          ) : null}
+                          {tlLabels.startPreparing ?? "Start preparing"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={orderActionKey !== null}
+                        onClick={() =>
+                          runOrderAction(
+                            `ord-${request.id}-dispatched`,
+                            () => onUpdateResourceRequestStatus?.(request.id, "dispatched"),
+                            tlLabels.rr_dispatched_ok ?? "Enviado. El stock del taller ya está descontado."
+                          )
+                        }
+                        className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
+                      >
+                        {orderActionKey === `ord-${request.id}-dispatched` ? (
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                        ) : null}
+                        🚚 {tlLabels.dispatch ?? "Dispatch"}
+                      </button>
+                      {onCancelResourceRequest ? (
+                        <button
+                          type="button"
+                          disabled={orderActionKey !== null}
+                          onClick={() =>
+                            runOrderAction(`ord-${request.id}-cancel`, () => onCancelResourceRequest(request.id))
+                          }
+                          className="inline-flex min-h-[44px] items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800"
+                        >
+                          {tlLabels.rr_cancel ?? "Anular"}
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                  {request.status === "dispatched" && (
+                    <p className="text-sm text-zinc-500 italic">
+                      🚚 {tlLabels.inTransit ?? "In transit to site"}
+                    </p>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
       {warehouseSubTab === "fleet" && (

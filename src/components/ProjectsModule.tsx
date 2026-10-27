@@ -297,7 +297,8 @@ export interface ProjectsModuleProps {
   cloudName?: string;
   onOpenResourceRequest?: (projectId: string) => void;
   resourceRequests?: ResourceRequest[];
-  onConfirmReception?: (requestId: string) => void;
+  onConfirmReception?: (requestId: string) => Promise<boolean> | void;
+  onCancelResourceRequest?: (requestId: string) => Promise<boolean> | void;
   companyPlan?: string;
   projectForms?: ProjectForm[];
   onDeleteForm?: (formId: string) => void;
@@ -654,6 +655,7 @@ export function ProjectsModule({
   onOpenResourceRequest,
   resourceRequests = [],
   onConfirmReception,
+  onCancelResourceRequest,
   companyPlan = "esencial",
   projectForms,
   onDeleteForm,
@@ -1688,11 +1690,16 @@ export function ProjectsModule({
     ? daysLeft(selectedProject.estimatedEnd)
     : null;
 
-  const dispatchedRequestsForProject = selectedProject
-    ? (resourceRequests ?? []).filter(
-        (r) => r.projectId === selectedProject.id && r.status === "dispatched"
-      )
+  const openRequestsForProject = selectedProject
+    ? (resourceRequests ?? [])
+        .filter(
+          (r) =>
+            r.projectId === selectedProject.id &&
+            (r.status === "pending" || r.status === "preparing" || r.status === "ready" || r.status === "dispatched")
+        )
+        .sort((a, b) => (a.status === "dispatched" ? -1 : 0) - (b.status === "dispatched" ? -1 : 0))
     : [];
+  const [requestBusyId, setRequestBusyId] = useState<string | null>(null);
 
   const budgetBarToneClass =
     progress < 70 ? "bg-emerald-500" : progress <= 90 ? "bg-amber-500" : "bg-red-500";
@@ -2234,36 +2241,95 @@ export function ProjectsModule({
       {/* Contenido */}
       <div className="w-full min-w-0 max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8">
 
-        {dispatchedRequestsForProject.length > 0 && (
+        {openRequestsForProject.length > 0 && (
           <div className="space-y-2 mb-3">
-            {dispatchedRequestsForProject.map((request) => (
-              <div
-                key={request.id}
-                className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-amber-600 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                      {t.resourcesInTransit ?? PM_EN.resourcesInTransit}
-                    </p>
-                    <p className="text-xs text-amber-600 dark:text-amber-500">
-                      {request.items.length} items ·{" "}
-                      {t.neededBy ?? PM_EN.neededBy}: {request.neededBy}
-                    </p>
+            {openRequestsForProject.map((request) => {
+              const tx = t as Record<string, string>;
+              const inTransit = request.status === "dispatched";
+              const statusText =
+                request.status === "pending"
+                  ? (tx.rr_project_pending ?? "Pedido al taller · esperando a logística")
+                  : request.status === "preparing"
+                    ? (tx.rr_project_preparing ?? "Logística lo está preparando")
+                    : request.status === "ready"
+                      ? (tx.rr_project_ready ?? "Preparado en el taller")
+                      : (t.resourcesInTransit ?? PM_EN.resourcesInTransit);
+              const summary = request.items
+                .filter((it) => it.status !== "unavailable")
+                .map((it) => `${it.quantity} ${it.unit || "x"} ${it.name}`)
+                .join(", ");
+              const missing = request.items.filter((it) => it.status === "unavailable").map((it) => it.name);
+              const busy = requestBusyId === request.id;
+              const run = (action: () => Promise<boolean> | void) => {
+                void (async () => {
+                  setRequestBusyId(request.id);
+                  try {
+                    await action();
+                  } finally {
+                    setRequestBusyId(null);
+                  }
+                })();
+              };
+              return (
+                <div
+                  key={request.id}
+                  className={`rounded-xl border p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
+                    inTransit
+                      ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                      : "bg-zinc-50 dark:bg-slate-800/50 border-zinc-200 dark:border-slate-700"
+                  }`}
+                >
+                  <div className="flex items-start gap-2 min-w-0">
+                    <Truck className={`h-4 w-4 shrink-0 mt-0.5 ${inTransit ? "text-amber-600" : "text-zinc-400"}`} />
+                    <div className="min-w-0">
+                      <p
+                        className={`text-sm font-medium ${
+                          inTransit ? "text-amber-700 dark:text-amber-400" : "text-zinc-700 dark:text-zinc-200"
+                        }`}
+                      >
+                        {statusText}
+                      </p>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 break-words">{summary}</p>
+                      {missing.length > 0 ? (
+                        <p className="text-xs text-red-600 dark:text-red-400 break-words">
+                          {(tx.rr_project_missing ?? "No hay en el taller")}: {missing.join(", ")}
+                        </p>
+                      ) : null}
+                      {request.neededBy ? (
+                        <p className="text-xs text-zinc-500">
+                          {t.neededBy ?? PM_EN.neededBy}: {request.neededBy}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
+                  {inTransit && onConfirmReception ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => run(() => onConfirmReception(request.id))}
+                      className="shrink-0 inline-flex items-center justify-center gap-2 text-sm rounded-xl bg-amber-600 text-white px-3 py-2 min-h-[44px] hover:bg-amber-500 disabled:opacity-60 transition-colors font-medium"
+                    >
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                      {t.confirmReception ?? PM_EN.confirmReception}
+                    </button>
+                  ) : null}
+                  {request.status === "pending" &&
+                  onCancelResourceRequest &&
+                  currentUserProfileId &&
+                  request.requestedBy === currentUserProfileId ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => run(() => onCancelResourceRequest(request.id))}
+                      className="shrink-0 inline-flex items-center justify-center gap-2 text-sm rounded-xl border border-zinc-300 dark:border-zinc-600 px-3 py-2 min-h-[44px] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-60"
+                    >
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                      {tx.rr_cancel ?? "Anular"}
+                    </button>
+                  ) : null}
                 </div>
-                {onConfirmReception && (
-                  <button
-                    type="button"
-                    onClick={() => onConfirmReception(request.id)}
-                    className="shrink-0 text-sm rounded-xl bg-amber-600 text-white px-3 py-2 min-h-[44px] hover:bg-amber-500 transition-colors font-medium"
-                  >
-                    {t.confirmReception ?? PM_EN.confirmReception}
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -2784,8 +2850,9 @@ export function ProjectsModule({
         {/* ══ TAB INVENTARIO ══ */}
         {activeTab === "inventario" && (
           <div className="space-y-6">
-            {canEdit && (
+            {(canEdit || onOpenResourceRequest) && (
               <div className="mb-4 flex flex-wrap gap-2">
+                {canEdit && (
                 <div className="flex-1 min-w-[220px] flex gap-2">
                   <select
                     value={addItemToProjectId}
@@ -2812,6 +2879,7 @@ export function ProjectsModule({
                     {tl.projects_inv_assign ?? PM_EN.projects_inv_assign}
                   </button>
                 </div>
+                )}
                 {onOpenResourceRequest && selectedProject && (
                   <button
                     type="button"

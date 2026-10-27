@@ -96,6 +96,8 @@ export interface RolePermissions {
   canControlSiteTools: boolean;
   /** Trabajador que ayuda: escanear, llevarse/devolver una herramienta y reportar averías con foto. */
   canHelpWithTools: boolean;
+  /** Encargado de obra: pedir material al taller ("tráeme 3 hojas de plywood"). */
+  canRequestMaterials: boolean;
 
   // ─── Seguridad ──────────────────────────────────────────
   canViewSecurity: boolean;
@@ -226,6 +228,7 @@ export const ROLE_PERMISSION_KEYS: (keyof RolePermissions)[] = [
   "canManageInspectionTemplates",
   "canControlSiteTools",
   "canHelpWithTools",
+  "canRequestMaterials",
   "canViewSecurity",
   "canManageHazards",
   "canViewHazards",
@@ -359,6 +362,7 @@ export const ROLE_PERMISSION_GROUPS: {
       "canManageInspectionTemplates",
       "canControlSiteTools",
       "canHelpWithTools",
+      "canRequestMaterials",
     ],
   },
   {
@@ -476,6 +480,7 @@ export const ROLE_PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canManageInspectionTemplates: "Gestionar plantillas de inspección",
   canControlSiteTools: "Controlar herramientas en sus obras (entregar, recibir, averías)",
   canHelpWithTools: "Ayudar con herramientas (escanear, llevar/devolver, reportar avería)",
+  canRequestMaterials: "Pedir material al taller desde la obra",
   canViewSecurity: "Ver seguridad",
   canManageHazards: "Gestionar riesgos",
   canViewHazards: "Ver riesgos",
