@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SOLUTIONS } from "@/content/solutions";
 
 const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://machin.pro").replace(/\/$/, "");
 
@@ -13,5 +14,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/beta`, lastModified: now, changeFrequency: weekly, priority: 0.7 },
     { url: `${base}/legal/privacy`, lastModified: now, changeFrequency: weekly, priority: 0.7 },
     { url: `${base}/legal/terms`, lastModified: now, changeFrequency: weekly, priority: 0.7 },
+    ...SOLUTIONS.flatMap((s) => [
+      { url: `${base}/solutions/${s.slug}`, lastModified: now, changeFrequency: weekly, priority: 0.8 },
+      { url: `${base}/solutions/${s.slug}?lang=es`, lastModified: now, changeFrequency: weekly, priority: 0.6 },
+    ]),
   ];
 }

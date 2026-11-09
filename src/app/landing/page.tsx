@@ -699,7 +699,7 @@ export default function LandingPage() {
           </a>
         </div>
       </section>
-      <LandingPageFooter tx={tx} ppp={ppp} scrollToId={scrollToId} />
+      <LandingPageFooter tx={tx} ppp={ppp} scrollToId={scrollToId} language={language} />
 
       <LandingPwaInstallBar tx={tx} dark={dark} />
     </div>

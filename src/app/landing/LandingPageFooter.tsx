@@ -5,6 +5,7 @@ import type { PPPPricingResult } from "@/hooks/usePPPPricing";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { BrandWordmark, TextWithBrandMarks } from "@/components/BrandWordmark";
 import { PppLandingFooterBar } from "@/components/PppLandingFooter";
+import { SOLUTIONS } from "@/content/solutions";
 
 type TxFn = (key: string, fallback: string) => string;
 
@@ -12,8 +13,10 @@ export function LandingPageFooter({
   tx,
   ppp,
   scrollToId,
+  language = "en",
 }: {
   tx: TxFn;
+  language?: string;
   ppp: PPPPricingResult;
   scrollToId: (id: string) => void;
 }) {
@@ -74,6 +77,18 @@ export function LandingPageFooter({
               >
                 {tx("landing_footer_about", "About MachinPro")}
               </Link>
+            </div>
+            <div className="space-y-2">
+              <p className="font-semibold text-slate-900 dark:text-white">{tx("landing_footer_solutions", "Solutions")}</p>
+              {SOLUTIONS.map((sol) => (
+                <Link
+                  key={sol.slug}
+                  href={`/solutions/${sol.slug}${language === "es" ? "?lang=es" : ""}`}
+                  className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
+                >
+                  {sol.content[language === "es" ? "es" : "en"].kicker}
+                </Link>
+              ))}
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-slate-900 dark:text-white">{tx("landing_footer_legal", "Legal")}</p>

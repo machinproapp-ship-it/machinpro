@@ -260,6 +260,7 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["rr_project_preparing", "Logística lo está preparando", "Logistics is preparing it", "La logistique le prépare", "Die Logistik bereitet es vor", "La logistica lo sta preparando", "A logística está a preparar"],
   ["rr_project_ready", "Preparado en el taller", "Ready at the shop", "Prêt à l'atelier", "Im Lager bereit", "Pronto in magazzino", "Pronto no armazém"],
   ["rr_project_missing", "No hay en el taller", "Not in the shop", "Pas à l'atelier", "Nicht im Lager", "Non in magazzino", "Não há no armazém"],
+  ["landing_footer_solutions", "Soluciones", "Solutions", "Solutions", "Lösungen", "Soluzioni", "Soluções"],
 ];
 
 const LANGS = ["es", "en", "fr", "de", "it", "pt"] as const;
