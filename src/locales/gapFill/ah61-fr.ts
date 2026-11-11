@@ -147,7 +147,7 @@ export const AH61_GAP_FR: Record<string, string> = {
   landing_countries_strip_line: "🇨🇦 Canada · 🇺🇸 États-Unis · 🇪🇸 Espagne · 🇲🇽 Mexique · 🇬🇧 Royaume-Uni · 🇩🇪 Allemagne · 🇦🇺 Australie · 🇳🇿 Nouvelle-Zélande",
   landing_countries_strip_title: "Disponible pour les équipes dans",
   landing_faq_a1: "Oui, 14 jours. Aucune carte de crédit requise.",
-  landing_faq_a2: "Essentiel : 15 utilisateurs · Opérations/Logistique : 30 utilisateurs · Tout compris : illimité.",
+  landing_faq_a2: "Tous les forfaits incluent des utilisateurs illimités. Vous ne payez pas par personne.",
   landing_faq_a3: "Oui. Les formulaires et les fonctionnalités clés fonctionnent hors ligne et se synchronisent automatiquement lors de la remise en ligne.",
   landing_faq_a4: "Hébergé sur Supabase avec une sécurité au niveau des lignes. Conforme au RGPD et à la LPRPDE.",
   landing_faq_a5: "Oui. Pas de contrats, pas de frais d'annulation.",

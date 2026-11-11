@@ -144,7 +144,7 @@ export const AH61_GAP_DE: Record<string, string> = {
   landing_countries_strip_line: "🇨🇦 Kanada · 🇺🇸 USA · 🇪🇸 Spanien · 🇲🇽 Mexiko · 🇬🇧 Großbritannien · 🇩🇪 Deutschland · 🇦🇺 Australien · 🇳🇿 Neuseeland",
   landing_countries_strip_title: "Verfügbar für Teams in",
   landing_faq_a1: "Ja, 14 Tage. Keine Kreditkarte erforderlich.",
-  landing_faq_a2: "Essential: 15 Benutzer · Operations/Logistik: 30 Benutzer · All Inclusive: unbegrenzt.",
+  landing_faq_a2: "Alle Tarife enthalten unbegrenzt viele Benutzer. Sie zahlen nicht pro Person.",
   landing_faq_a3: "Ja. Formulare und Schlüsselfunktionen funktionieren offline und werden automatisch synchronisiert, wenn sie wieder online sind.",
   landing_faq_a4: "Gehostet auf Supabase mit Sicherheit auf Zeilenebene. DSGVO- und PIPEDA-konform.",
   landing_faq_a5: "Ja. Keine Verträge, keine Stornogebühren.",

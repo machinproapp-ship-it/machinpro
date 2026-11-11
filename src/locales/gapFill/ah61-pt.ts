@@ -143,7 +143,7 @@ export const AH61_GAP_PT: Record<string, string> = {
   landing_countries_strip_line: "🇨🇦 Canadá · 🇺🇸 EUA · 🇪🇸 Espanha · 🇲🇽 México · 🇬🇧 Reino Unido · 🇩🇪 Alemanha · 🇦🇺 Austrália · 🇳🇿 Nova Zelândia",
   landing_countries_strip_title: "Disponível para equipas em",
   landing_faq_a1: "Sim, 14 dias. Não é necessário cartão de crédito.",
-  landing_faq_a2: "Essencial: 15 utilizadores · Operações/Logística: 30 utilizadores · Tudo Incluído: ilimitado.",
+  landing_faq_a2: "Todos os planos incluem utilizadores ilimitados. Não paga por pessoa.",
   landing_faq_a3: "Sim. Os formulários e os principais recursos funcionam offline e são sincronizados automaticamente quando estão online novamente.",
   landing_faq_a4: "Hospedado no Supabase com segurança em nível de linha. Compatível com GDPR e PIPEDA.",
   landing_faq_a5: "Sim. Sem contratos, sem taxas de cancelamento.",

@@ -305,7 +305,7 @@ export default function LandingPage() {
           "landing_faq_q2",
           "landing_faq_a2",
           "How many users can I add?",
-          "Essential: 15 users · Operations/Logistics: 30 users · All Inclusive: unlimited.",
+          "All plans include unlimited users. You don't pay per person.",
         ],
         [
           "landing_faq_q3",
