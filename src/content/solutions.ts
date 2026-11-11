@@ -452,7 +452,6 @@ const ALL_SOLUTIONS: Solution[] = [
   {
     slug: "registro-jornada-obra",
     defaultLang: "es",
-    draft: true,
     content: {
       es: {
         title: "Registro de jornada en obra: fichaje digital para constructoras",
