@@ -23,6 +23,8 @@ export interface Solution {
   slug: string;
   /** Idioma por defecto de la página (las de España, en español). */
   defaultLang?: SolutionLang;
+  /** Borrador: no se publica hasta que lo que promete esté activo. */
+  draft?: boolean;
   content: Record<SolutionLang, SolutionContent>;
 }
 
@@ -58,7 +60,7 @@ export const SOLUTION_UI: Record<
   },
 };
 
-export const SOLUTIONS: Solution[] = [
+const ALL_SOLUTIONS: Solution[] = [
   {
     slug: "construction-tool-tracking",
     content: {
@@ -450,6 +452,7 @@ export const SOLUTIONS: Solution[] = [
   {
     slug: "registro-jornada-obra",
     defaultLang: "es",
+    draft: true,
     content: {
       es: {
         title: "Registro de jornada en obra: fichaje digital para constructoras",
@@ -542,6 +545,9 @@ export const SOLUTIONS: Solution[] = [
     },
   },
 ];
+
+/** Solo las páginas publicadas (sin borradores). */
+export const SOLUTIONS: Solution[] = ALL_SOLUTIONS.filter((s) => !s.draft);
 
 export function findSolution(slug: string): Solution | undefined {
   return SOLUTIONS.find((s) => s.slug === slug);
