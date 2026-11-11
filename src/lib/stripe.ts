@@ -115,6 +115,41 @@ export function getPriceForTier(
   return Math.round(adjustedUsd * row.rate);
 }
 
+/**
+ * Precios en euros (zona euro). Deben coincidir con la opción EUR de cada precio en Stripe.
+ * Mientras EUR_PRICING_LIVE sea false, la web y el cobro siguen en USD.
+ */
+export const EUR_PRICING_LIVE = false;
+
+export const PLAN_PRICES_EUR: Record<PaidPlanKey, { monthly: number; annual: number }> = {
+  esencial: { monthly: 35, annual: 336 },
+  operaciones: { monthly: 55, annual: 528 },
+  logistica: { monthly: 55, annual: 528 },
+  todo_incluido: { monthly: 89, annual: 854.4 },
+};
+
+export const EUROZONE_COUNTRIES = new Set([
+  "AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PT", "SI", "SK",
+]);
+
+/** Moneda en la que se cobra a una empresa de ese país. */
+export function chargeCurrencyForCountry(countryCode: string | null | undefined): "USD" | "EUR" {
+  const cc = (countryCode ?? "").trim().toUpperCase();
+  return EUR_PRICING_LIVE && EUROZONE_COUNTRIES.has(cc) ? "EUR" : "USD";
+}
+
+/** Lo que se cobra (importe y moneda), con el descuento PPP del tier. */
+export function getChargePrice(
+  plan: PaidPlanKey,
+  period: BillingPeriod,
+  tier: GeoTier,
+  countryCode: string | null | undefined
+): { amount: number; currency: "USD" | "EUR" } {
+  const currency = chargeCurrencyForCountry(countryCode);
+  const base = currency === "EUR" ? PLAN_PRICES_EUR[plan][period] : PLAN_PRICES_USD[plan][period];
+  return { amount: Math.round(base * GEO_TIERS[tier] * 100) / 100, currency };
+}
+
 /** Lo que se cobra de verdad (siempre en USD), con céntimos: base × PPP. */
 export function getUsdPriceForTier(plan: PaidPlanKey, period: BillingPeriod, tier: GeoTier): number {
   return Math.round(PLAN_PRICES_USD[plan][period] * GEO_TIERS[tier] * 100) / 100;

@@ -8,7 +8,8 @@ import { formatPricingMoney } from "@/lib/pricingMoney";
 import {
   PLANS,
   getPriceForTier,
-  getUsdPriceForTier,
+  chargeCurrencyForCountry,
+  getChargePrice,
   getStripePriceId,
   getPricingDisplayCurrencyCode,
   PAID_PLAN_ORDER,
@@ -240,8 +241,10 @@ export function PricingModule({
       ) : null}
 
       <p className="text-center text-[13px] text-zinc-600 dark:text-zinc-400 mb-8 max-w-2xl mx-auto px-2 break-words space-y-1">
-        {lx.pricing_usd_note ??
-          "Precios en dólares (USD), la moneda internacional. Tu banco hace el cambio a tu moneda; debajo de cada precio ves el importe aproximado."}
+        {chargeCurrencyForCountry(countryCode) === "EUR"
+          ? (lx.pricing_eur_note ?? "Precios en euros. Impuestos no incluidos.")
+          : (lx.pricing_usd_note ??
+            "Precios en dólares (USD), la moneda internacional. Tu banco hace el cambio a tu moneda; debajo de cada precio ves el importe aproximado.")}
       </p>
 
       {error && (
@@ -254,10 +257,14 @@ export function PricingModule({
         {PAID_PLAN_ORDER.map((key) => {
           const plan = PLANS[key];
           // Se cobra en USD: el precio grande es en USD y, debajo, el cambio aproximado a su moneda.
-          const price = getUsdPriceForTier(key, period, geoTier);
-          const listPrice = getUsdPriceForTier(key, period, 1);
+          const charge = getChargePrice(key, period, geoTier, countryCode);
+          const chargeCurrency = charge.currency;
+          const price = charge.amount;
+          const listPrice = getChargePrice(key, period, 1, countryCode).amount;
           const localApprox =
-            displayCurrencyCode !== "USD" ? getPriceForTier(key, period, geoTier, countryCode) : null;
+            chargeCurrency === "USD" && displayCurrencyCode !== "USD"
+              ? getPriceForTier(key, period, geoTier, countryCode)
+              : null;
           const title = lx[plan.labelKey] ?? plan.labelKey;
           const isFeatured = key === "todo_incluido";
           const isCurrent = currentNormalized === key;
@@ -282,10 +289,10 @@ export function PricingModule({
                 {!loadingTier && geoTier > 1 ? (
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span className="text-lg font-semibold text-zinc-400 line-through decoration-zinc-400 dark:text-zinc-500">
-                      {formatPricingMoney(listPrice, "USD")}
+                      {formatPricingMoney(listPrice, chargeCurrency)}
                     </span>
                     <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
-                      {formatPricingMoney(price, "USD")}
+                      {formatPricingMoney(price, chargeCurrency)}
                     </span>
                     <span className="text-sm text-zinc-500 dark:text-zinc-400 w-full sm:w-auto sm:ml-0">
                       {period === "monthly"
@@ -296,7 +303,7 @@ export function PricingModule({
                 ) : (
                   <>
                     <span className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white">
-                      {loadingTier ? "…" : formatPricingMoney(price, "USD")}
+                      {loadingTier ? "…" : formatPricingMoney(price, chargeCurrency)}
                     </span>
                     <span className="text-sm text-zinc-500 dark:text-zinc-400 ml-1">
                       {period === "monthly"

@@ -7,7 +7,8 @@ import {
   PAID_PLAN_ORDER,
   PLANS,
   getPriceForTier,
-  getUsdPriceForTier,
+  chargeCurrencyForCountry,
+  getChargePrice,
   getPricingDisplayCurrencyCode,
   type BillingPeriod,
   type PaidPlanKey,
@@ -157,10 +158,14 @@ export function PricingPlansPublicSection({
             const title = tx(plan.labelKey, key);
             const popular = key === "todo_incluido";
             // Se cobra en USD: el precio grande es en USD y, debajo, el cambio aproximado a su moneda.
-            const price = tierReady && cc != null ? getUsdPriceForTier(key, period, geoTier) : null;
-            const listPriceTier1 = tierReady && cc != null ? getUsdPriceForTier(key, period, 1) : null;
+            const charge = tierReady && cc != null ? getChargePrice(key, period, geoTier, cc) : null;
+            const chargeCurrency = charge?.currency ?? "USD";
+            const price = charge ? charge.amount : null;
+            const listPriceTier1 = tierReady && cc != null ? getChargePrice(key, period, 1, cc).amount : null;
             const localApprox =
-              tierReady && cc != null && displayCurrencyCode !== "USD" ? getPriceForTier(key, period, geoTier, cc) : null;
+              tierReady && cc != null && chargeCurrency === "USD" && displayCurrencyCode !== "USD"
+                ? getPriceForTier(key, period, geoTier, cc)
+                : null;
 
             const cardShell =
               variant === "beta"
@@ -190,7 +195,7 @@ export function PricingPlansPublicSection({
                     ) : (
                       <>
                         <span className="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">
-                          {formatPricingMoney(price, "USD")}
+                          {formatPricingMoney(price, chargeCurrency)}
                         </span>
                         <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                           {period === "monthly"
@@ -207,10 +212,10 @@ export function PricingPlansPublicSection({
                     ) : (
                       <>
                         <span className="text-lg font-semibold text-slate-400 line-through decoration-slate-400 dark:text-slate-500">
-                          {listPriceTier1 != null ? formatPricingMoney(listPriceTier1, "USD") : ""}
+                          {listPriceTier1 != null ? formatPricingMoney(listPriceTier1, chargeCurrency) : ""}
                         </span>
                         <span className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-400 sm:text-4xl">
-                          {formatPricingMoney(price!, "USD")}
+                          {formatPricingMoney(price!, chargeCurrency)}
                         </span>
                         <span className="w-full text-sm text-slate-500 dark:text-slate-400 sm:w-auto">
                           {period === "monthly"
@@ -309,10 +314,12 @@ export function PricingPlansPublicSection({
         className={`mx-auto mt-8 max-w-2xl space-y-2 px-2 text-center text-xs font-medium ${variant === "beta" ? "text-teal-100/90" : "text-slate-600 dark:text-slate-400"}`}
       >
         <p className="break-words">
-          {tx(
-            "pricing_usd_note",
-            "Precios en dólares (USD), la moneda internacional. Tu banco hace el cambio a tu moneda; debajo de cada precio ves el importe aproximado."
-          )}
+          {cc != null && chargeCurrencyForCountry(cc) === "EUR"
+            ? tx("pricing_eur_note", "Precios en euros. Impuestos no incluidos.")
+            : tx(
+                "pricing_usd_note",
+                "Precios en dólares (USD), la moneda internacional. Tu banco hace el cambio a tu moneda; debajo de cada precio ves el importe aproximado."
+              )}
         </p>
         <p className={variant === "beta" ? "text-teal-100/80" : "text-slate-500 dark:text-slate-500"}>
           {tx("pricing_local_currency_note", tx("landing_pricing_usd_note", ""))}

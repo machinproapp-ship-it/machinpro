@@ -5,6 +5,7 @@ import { getSessionUserAndCompany } from "@/lib/notifications-server";
 import { getPppTierFromCountryCode } from "@/lib/geoTier";
 import {
   getStripe,
+  chargeCurrencyForCountry,
   getStripePriceId,
   checkoutDiscountsForTier,
   getPlanFromPriceId,
@@ -204,6 +205,18 @@ export async function POST(req: NextRequest) {
       },
       ...(discounts ? { discounts } : {}),
     };
+
+    /** Zona euro: cobrar en euros si el precio de Stripe tiene la opción EUR (si no, sigue en USD). */
+    if (chargeCurrencyForCountry(effectiveCountry) === "EUR") {
+      try {
+        const pr = await stripe.prices.retrieve(priceId, { expand: ["currency_options"] });
+        if (pr.currency_options && "eur" in pr.currency_options) {
+          sessionParams.currency = "eur";
+        }
+      } catch {
+        /* sigue en USD */
+      }
+    }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 

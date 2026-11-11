@@ -10,3 +10,17 @@ describe("precios en USD", () => {
     expect(formatPricingMoney(374.4, "USD")).toBe("$374.40");
   });
 });
+
+import { EUROZONE_COUNTRIES, EUR_PRICING_LIVE, getChargePrice } from "@/lib/stripe";
+
+describe("cobro en euros", () => {
+  it("España cobra en euros solo cuando están activados, con el 20% de su región", () => {
+    const p = getChargePrice("esencial", "monthly", 2, "ES");
+    if (EUR_PRICING_LIVE) expect(p).toEqual({ amount: 28, currency: "EUR" });
+    else expect(p).toEqual({ amount: 31.2, currency: "USD" });
+    expect(EUROZONE_COUNTRIES.has("ES")).toBe(true);
+  });
+  it("Canadá sigue en dólares", () => {
+    expect(getChargePrice("todo_incluido", "monthly", 1, "CA")).toEqual({ amount: 99, currency: "USD" });
+  });
+});

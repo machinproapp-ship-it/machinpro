@@ -290,6 +290,7 @@ const ROWS: [string, string, string, string, string, string, string][] = [
   ["wr_err_not_ready", "El servidor aún no está actualizado. Inténtalo más tarde.", "The server isn't updated yet. Try again later.", "Le serveur n'est pas encore à jour. Réessayez plus tard.", "Der Server ist noch nicht aktualisiert. Versuchen Sie es später.", "Il server non è ancora aggiornato. Riprova più tardi.", "O servidor ainda não está atualizado. Tente mais tarde."],
   ["wr_err_range", "Elige un periodo de como mucho 13 meses.", "Choose a period of 13 months at most.", "Choisissez une période de 13 mois maximum.", "Wählen Sie höchstens 13 Monate.", "Scegli un periodo di massimo 13 mesi.", "Escolha um período de 13 meses no máximo."],
   ["wr_err_network", "No se pudo cargar. Revisa la conexión.", "Couldn't load. Check your connection.", "Chargement impossible. Vérifiez la connexion.", "Laden fehlgeschlagen. Prüfen Sie die Verbindung.", "Impossibile caricare. Controlla la connessione.", "Não foi possível carregar. Verifique a ligação."],
+  ["pricing_eur_note", "Precios en euros. Impuestos no incluidos.", "Prices in euros. Taxes not included.", "Prix en euros. Taxes non comprises.", "Preise in Euro. Steuern nicht inbegriffen.", "Prezzi in euro. Tasse escluse.", "Preços em euros. Impostos não incluídos."],
 ];
 
 const LANGS = ["es", "en", "fr", "de", "it", "pt"] as const;
