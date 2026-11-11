@@ -195,7 +195,7 @@ export const SOLUTIONS: Solution[] = [
           },
           {
             q: "What if a worker forgets to clock out?",
-            a: "The supervisor sees open shifts and can correct them. Every change is recorded and can't be erased.",
+            a: "The supervisor sees open shifts and can correct them.",
           },
           {
             q: "Does it work without signal?",
@@ -241,7 +241,7 @@ export const SOLUTIONS: Solution[] = [
           },
           {
             q: "¿Y si un trabajador se olvida de fichar la salida?",
-            a: "El supervisor ve los turnos abiertos y puede corregirlos. Cada cambio queda registrado y no se puede borrar.",
+            a: "El supervisor ve los turnos abiertos y puede corregirlos.",
           },
           {
             q: "¿Funciona sin cobertura?",
@@ -374,7 +374,7 @@ export const SOLUTIONS: Solution[] = [
           },
           {
             title: "Sign it",
-            body: "The crew confirms with “Got it” and the supervisor signs. Everything is dated and can't be edited later.",
+            body: "The crew confirms with “Got it” and the supervisor signs. Everything is dated.",
           },
           {
             title: "Send the PDF",
@@ -388,8 +388,8 @@ export const SOLUTIONS: Solution[] = [
             a: "Yes. You create your own forms and inspections, and they can be filled in on site from any phone.",
           },
           {
-            q: "Are the reports really tamper-proof?",
-            a: "Signed reports and the audit log can't be edited or deleted — that's what protects you in an inspection.",
+            q: "Is there a record of who did what?",
+            a: "Yes. Every report is dated and signed, and the activity log records who did what. That log can't be edited or deleted.",
           },
           {
             q: "Can the client see the reports?",
@@ -420,7 +420,7 @@ export const SOLUTIONS: Solution[] = [
           },
           {
             title: "Fírmalo",
-            body: "La cuadrilla confirma con “Enterado” y el supervisor firma. Todo queda fechado y no se puede editar después.",
+            body: "La cuadrilla confirma con “Enterado” y el supervisor firma. Todo queda fechado.",
           },
           {
             title: "Envía el PDF",
@@ -434,8 +434,8 @@ export const SOLUTIONS: Solution[] = [
             a: "Sí. Creas tus propios formularios e inspecciones, y se rellenan en la obra desde cualquier móvil.",
           },
           {
-            q: "¿De verdad no se pueden modificar?",
-            a: "Los partes firmados y el registro de auditoría no se pueden editar ni borrar. Eso es lo que te protege en una inspección.",
+            q: "¿Queda registro de quién hizo qué?",
+            a: "Sí. Cada parte queda fechado y firmado, y el registro de actividad guarda quién hizo qué. Ese registro no se puede editar ni borrar.",
           },
           {
             q: "¿El cliente puede ver los partes?",
