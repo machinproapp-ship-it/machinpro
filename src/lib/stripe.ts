@@ -117,9 +117,9 @@ export function getPriceForTier(
 
 /**
  * Precios en euros (zona euro). Deben coincidir con la opción EUR de cada precio en Stripe.
- * Mientras EUR_PRICING_LIVE sea false, la web y el cobro siguen en USD.
+ * Activo desde el 11 nov 2026 (opción EUR añadida a los precios live).
  */
-export const EUR_PRICING_LIVE = false;
+export const EUR_PRICING_LIVE = true;
 
 export const PLAN_PRICES_EUR: Record<PaidPlanKey, { monthly: number; annual: number }> = {
   esencial: { monthly: 35, annual: 336 },
