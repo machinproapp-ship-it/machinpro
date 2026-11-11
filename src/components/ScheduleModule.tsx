@@ -49,6 +49,7 @@ import { ALL_TRANSLATIONS } from "@/lib/i18n";
 import { jsPDF } from "jspdf";
 import { PayrollSchedulePanel } from "@/components/PayrollSchedulePanel";
 import { ProductionPayrollSchedulePanel } from "@/components/ProductionPayrollSchedulePanel";
+import { WorkdayRecordPanel } from "@/components/WorkdayRecordPanel";
 import type { ClockEntryForSchedule } from "@/types/homePage";
 import type { ProductionReport } from "@/lib/productionCatalog";
 
@@ -4125,6 +4126,16 @@ export default function ScheduleModule({
             </div>
           ) : null}
         </>
+      )}
+
+      {showTimesheetsTab && scheduleSubTab === "timesheets" && (canManagePayroll || canExportPayroll || viewAll) && (
+        <WorkdayRecordPanel
+          labels={lx}
+          companyId={companyId}
+          companyName={companyName}
+          timeZone={scheduleTz}
+          dateLocale={dateLocale}
+        />
       )}
 
       {showTimesheetsTab && scheduleSubTab === "timesheets" && (

@@ -9,6 +9,7 @@ function isPublicMarketingPath(pathname: string): boolean {
     "/pricing",
     "/about",
     "/solutions",
+    "/inspeccion",
     "/help",
     "/beta",
     "/legal",
@@ -85,6 +86,7 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/pricing") ||
     path.startsWith("/about") ||
     path.startsWith("/solutions") ||
+    path.startsWith("/inspeccion") ||
     path.startsWith("/help") ||
     path.startsWith("/beta") ||
     path.startsWith("/legal") ||
