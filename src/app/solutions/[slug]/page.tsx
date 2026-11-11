@@ -12,7 +12,8 @@ type Search = { lang?: string };
 
 export const dynamicParams = false;
 
-const pickLang = (raw?: string): SolutionLang => (raw === "es" ? "es" : "en");
+const pickLang = (raw?: string, fallback: SolutionLang = "en"): SolutionLang =>
+  raw === "es" ? "es" : raw === "en" ? "en" : fallback;
 
 export function generateStaticParams(): Params[] {
   return SOLUTIONS.map((s) => ({ slug: s.slug }));
@@ -29,16 +30,20 @@ export async function generateMetadata({
   const { lang } = await searchParams;
   const sol = findSolution(slug);
   if (!sol) return {};
-  const l = pickLang(lang);
+  const l = pickLang(lang, sol.defaultLang);
+  const def = sol.defaultLang ?? "en";
   const c = sol.content[l];
-  const url = `${site}/solutions/${slug}${l === "es" ? "?lang=es" : ""}`;
+  const url = `${site}/solutions/${slug}${l === def ? "" : `?lang=${l}`}`;
   return {
     metadataBase: new URL(site),
     title: c.title,
     description: c.description,
     alternates: {
       canonical: url,
-      languages: { en: `${site}/solutions/${slug}`, es: `${site}/solutions/${slug}?lang=es` },
+      languages: {
+        en: `${site}/solutions/${slug}${def === "en" ? "" : "?lang=en"}`,
+        es: `${site}/solutions/${slug}${def === "es" ? "" : "?lang=es"}`,
+      },
     },
     openGraph: { title: c.title, description: c.description, url, siteName: "MachinPro", type: "website" },
   };
@@ -55,11 +60,13 @@ export default async function SolutionPage({
   const { lang } = await searchParams;
   const sol = findSolution(slug);
   if (!sol) notFound();
-  const l = pickLang(lang);
+  const def = sol.defaultLang ?? "en";
+  const l = pickLang(lang, def);
   const c = sol.content[l];
   const ui = SOLUTION_UI[l];
   const others = SOLUTIONS.filter((s) => s.slug !== slug);
-  const q = l === "es" ? "?lang=es" : "";
+  const linkTo = (o: { slug: string; defaultLang?: SolutionLang }) =>
+    `/solutions/${o.slug}${l === (o.defaultLang ?? "en") ? "" : `?lang=${l}`}`;
 
   const faqLd = {
     "@context": "https://schema.org",
@@ -78,7 +85,7 @@ export default async function SolutionPage({
       <main className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
         <div className="flex justify-end">
           <Link
-            href={`/solutions/${slug}${l === "es" ? "" : "?lang=es"}`}
+            href={`/solutions/${slug}${(l === "es" ? "en" : "es") === def ? "" : `?lang=${l === "es" ? "en" : "es"}`}`}
             hrefLang={l === "es" ? "en" : "es"}
             className="inline-flex min-h-[44px] items-center text-sm text-slate-500 underline-offset-4 hover:underline dark:text-slate-400"
           >
@@ -172,7 +179,7 @@ export default async function SolutionPage({
             {others.map((o) => (
               <li key={o.slug}>
                 <Link
-                  href={`/solutions/${o.slug}${q}`}
+                  href={linkTo(o)}
                   className="inline-flex min-h-[44px] items-center text-amber-700 underline-offset-4 hover:underline dark:text-amber-400"
                 >
                   {o.content[l].h1}

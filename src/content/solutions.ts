@@ -21,6 +21,8 @@ export interface SolutionContent {
 
 export interface Solution {
   slug: string;
+  /** Idioma por defecto de la página (las de España, en español). */
+  defaultLang?: SolutionLang;
   content: Record<SolutionLang, SolutionContent>;
 }
 
@@ -440,6 +442,100 @@ export const SOLUTIONS: Solution[] = [
           {
             q: "¿El cliente puede ver los partes?",
             a: "Le envías el PDF. El cliente no necesita cuenta.",
+          },
+        ],
+      },
+    },
+  },
+  {
+    slug: "registro-jornada-obra",
+    defaultLang: "es",
+    content: {
+      es: {
+        title: "Registro de jornada en obra: fichaje digital para constructoras",
+        description:
+          "Fichaje desde el móvil en la obra, historial de cambios que no se puede borrar y acceso para la Inspección de Trabajo. Para constructoras y reformistas. 14 días gratis.",
+        kicker: "Registro de jornada",
+        h1: "El registro de jornada de tu obra, en el móvil y listo para una inspección",
+        intro:
+          "Desde 2019 toda empresa debe registrar cada día la entrada y la salida de cada trabajador, y el Gobierno prepara que sea obligatorio en digital. Con MachinPro la cuadrilla ficha desde el móvil en la obra, cada corrección queda guardada y puedes dar a la Inspección un enlace de solo lectura.",
+        problemsTitle: "¿Te suena?",
+        problems: [
+          "Hojas de firmas en papel que se mojan, se pierden o se rellenan a final de mes.",
+          "Cada obra en un sitio distinto y nadie sabe a qué hora llegó cada uno.",
+          "Un Excel que cualquiera puede cambiar sin dejar rastro.",
+          "Miedo a que llegue un inspector y no tener el registro a mano.",
+        ],
+        stepsTitle: "Cómo funciona",
+        steps: [
+          {
+            title: "Fichaje en la obra",
+            body: "Cada trabajador ficha entrada y salida desde su móvil, con su propio usuario. Ves quién está en cada obra ahora mismo.",
+          },
+          {
+            title: "Cambios con rastro",
+            body: "Si un encargado corrige un fichaje, queda guardado quién lo cambió, cuándo y qué ponía antes. Ese historial no se puede borrar.",
+          },
+          {
+            title: "Listo para la Inspección",
+            body: "Descarga el registro de cualquier periodo o crea un enlace de solo lectura para la Inspección de Trabajo, con caducidad.",
+          },
+        ],
+        plan: "Incluido en todos los planes, desde Esencial. Además del fichaje tienes partes diarios, pedidos de material y control de herramientas según el plan.",
+        faq: [
+          {
+            q: "¿Ya es obligatorio fichar en digital?",
+            a: "El registro diario de jornada es obligatorio desde 2019. Que sea digital está en tramitación (noviembre de 2026). Con MachinPro ya lo cumples en digital, se apruebe cuando se apruebe.",
+          },
+          {
+            q: "¿Los trabajadores pueden ver sus propios fichajes?",
+            a: "Sí. Cada trabajador ve sus horas desde su móvil.",
+          },
+          {
+            q: "¿Funciona sin cobertura en la obra?",
+            a: "Sí. La app sigue funcionando sin conexión y sincroniza cuando vuelve la señal.",
+          },
+        ],
+      },
+      en: {
+        title: "Working time records for construction sites",
+        description:
+          "Crews clock in on site from their phone, every correction is logged and can't be erased, and inspectors get read-only access. Free 14-day trial.",
+        kicker: "Working time records",
+        h1: "Your site's working time record, on the phone and ready for an inspection",
+        intro:
+          "Crews clock in and out from their phone on site. Every correction is logged with who changed what and when, and you can give a labour inspector a read-only link.",
+        problemsTitle: "Sound familiar?",
+        problems: [
+          "Paper sign-in sheets that get wet, lost or filled in at the end of the month.",
+          "Every crew on a different site and nobody knows when each person arrived.",
+          "A spreadsheet anyone can change without a trace.",
+          "Worrying that an inspector shows up and the record isn't at hand.",
+        ],
+        stepsTitle: "How it works",
+        steps: [
+          {
+            title: "Clock in on site",
+            body: "Each worker clocks in and out from their own phone. You see who is on which site right now.",
+          },
+          {
+            title: "Changes leave a trace",
+            body: "When a supervisor corrects an entry, MachinPro stores who changed it, when, and what it said before. That history can't be deleted.",
+          },
+          {
+            title: "Ready for an inspection",
+            body: "Download the record for any period or create an expiring read-only link for the inspector.",
+          },
+        ],
+        plan: "Included in every plan, from Essential.",
+        faq: [
+          {
+            q: "Can workers see their own entries?",
+            a: "Yes. Each worker sees their hours on their phone.",
+          },
+          {
+            q: "Does it work without signal on site?",
+            a: "Yes. The app keeps working offline and syncs when the phone gets signal again.",
           },
         ],
       },

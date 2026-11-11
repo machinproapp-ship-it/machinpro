@@ -83,7 +83,7 @@ export function LandingPageFooter({
               {SOLUTIONS.map((sol) => (
                 <Link
                   key={sol.slug}
-                  href={`/solutions/${sol.slug}${language === "es" ? "?lang=es" : ""}`}
+                  href={`/solutions/${sol.slug}${(language === "es" ? "es" : "en") === (sol.defaultLang ?? "en") ? "" : `?lang=${language === "es" ? "es" : "en"}`}`}
                   className="block min-h-[44px] py-2 text-left text-slate-600 hover:text-[#1a4f5e] dark:text-slate-400 dark:hover:text-teal-400"
                 >
                   {sol.content[language === "es" ? "es" : "en"].kicker}
