@@ -15,7 +15,8 @@ export async function GET() {
     const { error } = await supabase.from("companies").select("id").limit(1);
     const elapsed = Date.now() - start;
 
-    if (error) {
+    // Sin sesión, la seguridad (RLS) responde "permission denied" (42501): eso ya prueba que la base de datos contesta.
+    if (error && error.code !== "42501") {
       return NextResponse.json(
         { status: "error", error: error.message, elapsed_ms: elapsed },
         { status: 503 }
