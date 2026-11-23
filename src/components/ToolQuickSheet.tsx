@@ -8,6 +8,7 @@ import {
   daysSince,
   fetchItemMovements,
   toolReportDamage,
+  toolAssignProject,
   toolReturn,
   toolTake,
   type ToolActionError,
@@ -64,14 +65,24 @@ export function ToolQuickSheet({
   const [history, setHistory] = useState<InventoryLedgerRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
-  const [projectId, setProjectId] = useState<string>(defaultProjectId ?? item.assignedToProjectId ?? "");
-  const [toUser, setToUser] = useState<string>(currentUserId ?? "");
+  const canHandOut = role === "logistics" || role === "site";
+  // Almacén / supervisor parten de dónde está ahora; el trabajador con permiso, de su obra de hoy.
+  const [projectId, setProjectId] = useState<string>(
+    canHandOut
+      ? item.assignedToProjectId ?? ""
+      : defaultProjectId ?? item.assignedToProjectId ?? ""
+  );
+  // Almacén / supervisor: por defecto, la persona que la tiene ahora ("" = nadie, se queda en la obra).
+  const [toUser, setToUser] = useState<string>(
+    canHandOut ? item.assignedToEmployeeId ?? "" : currentUserId ?? ""
+  );
   const [damageOpen, setDamageOpen] = useState(false);
   const [damageNote, setDamageNote] = useState("");
   const [damagePhoto, setDamagePhoto] = useState<Blob | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const holder = item.assignedToEmployeeId || null;
+  const siteId = item.assignedToProjectId || null;
   const iHaveIt = !!currentUserId && holder === currentUserId;
   const status = item.toolStatus ?? "available";
   const unusable = status === "out_of_service" || status === "lost" || status === "maintenance";
@@ -110,16 +121,28 @@ export function ToolQuickSheet({
     }
   };
 
-  const canHandOut = role === "logistics" || role === "site";
   const canReceive = canHandOut || (role === "helper" && iHaveIt);
-  const giveTo = canHandOut ? toUser || currentUserId : currentUserId;
-  const take = () =>
-    run(
+  const giveTo = canHandOut ? toUser || null : currentUserId;
+  /** Lo que el almacén va a dejar: obra sola, persona (con o sin obra) o nada elegido. */
+  const sameAsNow = (giveTo ?? null) === holder && (projectId || null) === siteId;
+  const take = () => {
+    if (canHandOut && !giveTo) {
+      if (!projectId) {
+        setMsg({ kind: "err", text: L(lx, "tool_need_target", "Elige una obra o una persona.") });
+        return;
+      }
+      return run(
+        () => toolAssignProject(item.id, projectId),
+        L(lx, "tool_assigned_site", "Listo: queda en {name}.").replace("{name}", projectName(projectId))
+      );
+    }
+    return run(
       () => toolTake(item.id, projectId || null, undefined, giveTo),
       giveTo && giveTo !== currentUserId
         ? L(lx, "tool_handed", "Listo: entregada a {name}.").replace("{name}", personName(giveTo))
         : L(lx, "tool_taken", "Listo: queda a tu nombre.")
     );
+  };
   const giveBack = () => run(() => toolReturn(item.id), L(lx, "tool_returned", "Listo: devuelta al almacén."));
   const reportDamage = () =>
     run(async () => {
@@ -141,7 +164,9 @@ export function ToolQuickSheet({
       return iso.slice(0, 16).replace("T", " ");
     }
   };
-  const lastOut = history?.find((m) => m.movementType === "checkout" || m.movementType === "out");
+  const lastOut = history?.find(
+    (m) => m.movementType === "checkout" || m.movementType === "out" || m.movementType === "transfer"
+  );
   const movLabel = (m: InventoryLedgerRow) => {
     const map: Record<string, string> = {
       checkout: L(lx, "tool_mov_checkout", "Se la llevó"),
@@ -192,14 +217,17 @@ export function ToolQuickSheet({
             <p className="text-zinc-800 dark:text-zinc-200">
               {holder
                 ? `${L(lx, "tool_held_by", "La tiene")}: ${iHaveIt ? L(lx, "tool_you", "tú") : personName(holder)}`
-                : L(lx, "tool_in_warehouse", "En el almacén")}
+                : siteId
+                  ? L(lx, "tool_on_site", "En la obra: {name}").replace("{name}", projectName(siteId) || "—")
+                  : L(lx, "tool_in_warehouse", "En el almacén")}
             </p>
-            {holder && (item.assignedToProjectId || item.location) ? (
-              <p className="text-zinc-600 dark:text-zinc-400">
-                {projectName(item.assignedToProjectId) || item.location}
-              </p>
+            {holder && siteId ? (
+              <p className="text-zinc-600 dark:text-zinc-400">{projectName(siteId)}</p>
             ) : null}
-            {holder && lastOut ? (
+            {!holder && siteId ? (
+              <p className="text-zinc-600 dark:text-zinc-400">{L(lx, "tool_no_person", "Sin persona asignada")}</p>
+            ) : null}
+            {(holder || siteId) && lastOut ? (
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 {L(lx, "tool_since", "Desde {date} ({days} días)")
                   .replace("{date}", fmt(lastOut.createdAt))
@@ -256,8 +284,15 @@ export function ToolQuickSheet({
                     onChange={(e) => setToUser(e.target.value)}
                     className="mt-1 min-h-[44px] w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-zinc-100"
                   >
+                    <option value="">{L(lx, "tool_person_none", "Nadie: se queda en la obra")}</option>
                     {currentUserId ? <option value={currentUserId}>{L(lx, "tool_me", "A mí")}</option> : null}
-                    {people(projectId || null)
+                    {[
+                      // Quien la tiene ahora siempre aparece, aunque no esté en esa obra.
+                      ...(holder && holder !== currentUserId && !people(projectId || null).some((p) => p.id === holder)
+                        ? [{ id: holder, name: personName(holder) }]
+                        : []),
+                      ...people(projectId || null),
+                    ]
                       .filter((p) => p.id !== currentUserId)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
@@ -270,14 +305,18 @@ export function ToolQuickSheet({
               <button
                 type="button"
                 onClick={() => void take()}
-                disabled={busy || unusable || (!!holder && holder === giveTo)}
+                disabled={
+                  busy ||
+                  unusable ||
+                  (canHandOut ? sameAsNow || (!giveTo && !projectId) : !!holder && holder === giveTo)
+                }
                 className={`${btn} bg-emerald-600 text-white hover:bg-emerald-500`}
               >
                 <ArrowUpFromLine className="h-5 w-5" aria-hidden />
                 {busy
                   ? "…"
-                  : canHandOut && giveTo !== currentUserId
-                    ? L(lx, "tool_hand_out", "Entregar")
+                  : canHandOut
+                    ? L(lx, "tool_assign", "Asignar")
                     : L(lx, "tool_take", "Me la llevo")}
               </button>
               {unusable ? (
@@ -288,7 +327,7 @@ export function ToolQuickSheet({
             </>
           ) : null}
 
-          {holder && canReceive ? (
+          {(holder || (siteId && canHandOut)) && canReceive ? (
             <button
               type="button"
               onClick={() => void giveBack()}
@@ -375,6 +414,7 @@ export function ToolQuickSheet({
           ) : null}
         </section>
 
+        {role ? (
         <section className="rounded-2xl border border-zinc-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
             <History className="h-4 w-4" aria-hidden />
@@ -401,6 +441,7 @@ export function ToolQuickSheet({
             </ul>
           )}
         </section>
+        ) : null}
       </div>
     </div>
   );

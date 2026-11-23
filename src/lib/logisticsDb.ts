@@ -70,6 +70,8 @@ export function inventoryItemToRow(item: InventoryItem, companyId: string): Reco
     low_stock_threshold: item.lowStockThreshold ?? null,
     tool_status: item.toolStatus ?? null,
     assigned_to_project_id: item.assignedToProjectId ?? null,
+    // La misma obra en las dos columnas (el servidor usa current_project_id en algunos sitios).
+    current_project_id: item.assignedToProjectId ?? null,
     assigned_to_employee_id: item.assignedToEmployeeId ?? null,
     photo_url: strOrNull(item.imageUrl),
     serial_number: strOrNull(item.serialNumber),

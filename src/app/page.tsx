@@ -2634,6 +2634,9 @@ export default function Home() {
             ...i,
             quantity: q,
             assignedToProjectId: payload.toProjectId ?? undefined,
+            // Una herramienta que cambia de obra (o vuelve al almacén) deja de estar a nombre de quien la tenía.
+            assignedToEmployeeId:
+              isTool && (payload.toProjectId ?? undefined) !== i.assignedToProjectId ? undefined : i.assignedToEmployeeId,
             location: payload.toLocation,
             lastMovementAt: nowIso,
             toolStatus: isTool
@@ -7036,9 +7039,18 @@ export default function Home() {
     void resolveInventoryQrScan(scan, inventoryItems, companyId)
       .then((r) => {
         const id = r.kind === "item" || r.kind === "blank_consumed" ? r.itemId : r.kind === "legacy_plain" ? r.itemId : undefined;
-        if (id && inventoryItems.some((i) => i.id === id && !i.deletedAt)) {
+        const scanned = id ? inventoryItems.find((i) => i.id === id && !i.deletedAt) : undefined;
+        // Material o consumible: el almacén lo lleva a la pantalla de entradas y salidas de cantidad.
+        if (scanned && scanned.type !== "tool" && scanned.type !== "equipment" && perms.warehouse) {
+          setActiveSection("warehouse");
+          setWarehouseSubTab("inventory");
+          setPendingInventoryQrScan(scan);
           setToolScanOpen(false);
-          setToolSheetItemId(id);
+          return;
+        }
+        if (scanned) {
+          setToolScanOpen(false);
+          setToolSheetItemId(scanned.id);
           return;
         }
         if (perms.warehouse) {
@@ -8209,6 +8221,24 @@ export default function Home() {
                 onReturnTool={(itemId, condition, notes, photoUrl) => {
                   const newStatus: ToolStatus = condition === "good" ? "available" : "maintenance";
                   const today = new Date().toISOString().slice(0, 10);
+                  const retItem = inventoryItems.find((i) => i.id === itemId);
+                  if (retItem) {
+                    // Que la devolución quede en el historial, igual que con el QR.
+                    appendInventoryLedger({
+                      itemId,
+                      itemName: retItem.name,
+                      movementType: "return",
+                      quantity: 1,
+                      fromProjectId: retItem.assignedToProjectId,
+                      fromUserId: retItem.assignedToEmployeeId,
+                      toLocation: "warehouse",
+                      notes: notes || undefined,
+                      photoUrl: photoUrl || undefined,
+                      performedByProfileId: profile?.id,
+                      performedByName: profile?.fullName ?? profile?.email ?? undefined,
+                      createdAt: new Date().toISOString(),
+                    });
+                  }
                   setInventoryItems((prev) => {
                     const next = prev.map((i) =>
                       i.id === itemId
@@ -8509,14 +8539,63 @@ export default function Home() {
                 }
                 projectNameByIdForGps={projectNameByIdForGps}
                 onUpdateItemProject={(itemId, projectId) => {
+                  const it = inventoryItems.find((i) => i.id === itemId);
+                  const tracked = it?.type === "tool" || it?.type === "equipment";
                   setInventoryItems((prev) =>
                     prev.map((i) =>
-                      i.id === itemId ? { ...i, assignedToProjectId: projectId ?? undefined } : i
+                      i.id === itemId
+                        ? {
+                            ...i,
+                            assignedToProjectId: projectId ?? undefined,
+                            ...(tracked
+                              ? {
+                                  assignedToEmployeeId: undefined,
+                                  toolStatus:
+                                    i.toolStatus === "maintenance" || i.toolStatus === "out_of_service" || i.toolStatus === "lost"
+                                      ? i.toolStatus
+                                      : projectId
+                                        ? ("in_use" as ToolStatus)
+                                        : ("available" as ToolStatus),
+                                }
+                              : {}),
+                          }
+                        : i
                     )
                   );
+                  if (it) {
+                    appendInventoryLedger({
+                      itemId,
+                      itemName: it.name,
+                      movementType: "transfer",
+                      quantity: tracked ? 1 : it.quantity,
+                      fromLocation: it.assignedToProjectId ? "project" : it.location ?? "warehouse",
+                      toLocation: projectId ? "project" : "warehouse",
+                      fromProjectId: it.assignedToProjectId,
+                      toProjectId: projectId ?? undefined,
+                      fromUserId: tracked ? it.assignedToEmployeeId : undefined,
+                      performedByProfileId: profile?.id,
+                      performedByName: profile?.fullName ?? profile?.email ?? undefined,
+                      createdAt: new Date().toISOString(),
+                    });
+                  }
                 }}
                 onReturnToolFromProject={(toolId) => {
                   const today = new Date().toISOString().slice(0, 10);
+                  const retTool = inventoryItems.find((i) => i.id === toolId);
+                  if (retTool) {
+                    appendInventoryLedger({
+                      itemId: toolId,
+                      itemName: retTool.name,
+                      movementType: "return",
+                      quantity: 1,
+                      fromProjectId: retTool.assignedToProjectId,
+                      fromUserId: retTool.assignedToEmployeeId,
+                      toLocation: "warehouse",
+                      performedByProfileId: profile?.id,
+                      performedByName: profile?.fullName ?? profile?.email ?? undefined,
+                      createdAt: new Date().toISOString(),
+                    });
+                  }
                   setInventoryItems((prev) => {
                     const next = prev.map((i) =>
                       i.id === toolId
@@ -10737,7 +10816,7 @@ export default function Home() {
           defaultProjectId={myTodayProjectId}
           myProjects={toolProjects}
           canInspect={canInspectEquipment}
-          role={toolRole}
+          role={toolSheetItem.type === "tool" || toolSheetItem.type === "equipment" ? toolRole : null}
           people={toolPeople}
           onInspect={() => {
             const it = toolSheetItem;

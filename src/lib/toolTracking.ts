@@ -122,6 +122,10 @@ export function toolRoleFromPermissions(
 export const toolTake = (itemId: string, projectId: string | null, note?: string, toUserId?: string | null) =>
   rpc("tool_take", { p_item_id: itemId, p_project_id: projectId, p_note: note ?? null, p_to_user: toUserId ?? null });
 
+/** Dejarla en una obra sin persona (la caseta de la obra): logística o el supervisor en sus obras. */
+export const toolAssignProject = (itemId: string, projectId: string, note?: string) =>
+  rpc("tool_assign_project", { p_item_id: itemId, p_project_id: projectId, p_note: note ?? null });
+
 export const toolReturn = (itemId: string, note?: string) =>
   rpc("tool_return", { p_item_id: itemId, p_note: note ?? null });
 

@@ -1501,6 +1501,15 @@ export function LogisticsModule({
                       : null}
                     {canManageInventory && (
                       <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                        {onOpenToolSheet && isTrackedAsset(item) ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenToolSheet(item.id)}
+                            className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 dark:border-amber-700 dark:text-amber-300 min-h-[44px]"
+                          >
+                            {(t as Record<string, string>).tool_manage ?? "Asignar / recibir"}
+                          </button>
+                        ) : null}
                         {canTransferInventory && onInventoryTransfer ? (
                           <button
                             type="button"
@@ -1725,6 +1734,15 @@ export function LogisticsModule({
                           : null}
                         {canManageInventory && (
                           <>
+                            {onOpenToolSheet && isTrackedAsset(item) ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenToolSheet(item.id)}
+                                className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 dark:border-amber-700 dark:text-amber-300 min-h-[44px]"
+                              >
+                                {(t as Record<string, string>).tool_manage ?? "Asignar / recibir"}
+                              </button>
+                            ) : null}
                             {canTransferInventory && onInventoryTransfer ? (
                               <button
                                 type="button"
@@ -1804,7 +1822,12 @@ export function LogisticsModule({
           {(() => {
             const tx = t as Record<string, string>;
             const out = (inventoryItems ?? [])
-              .filter((i) => !i.deletedAt && i.assignedToEmployeeId && (i.type === "tool" || i.type === "equipment"))
+              .filter(
+                (i) =>
+                  !i.deletedAt &&
+                  (i.assignedToEmployeeId || i.assignedToProjectId) &&
+                  (i.type === "tool" || i.type === "equipment")
+              )
               .map((i) => {
                 const since = heldSince(inventoryMovements ?? [], i.id) ?? i.lastMovementAt ?? null;
                 return { i, since, days: since ? daysSince(since) : null };
@@ -1819,10 +1842,11 @@ export function LogisticsModule({
                 </h3>
                 <ul className="divide-y divide-zinc-200 dark:divide-slate-700 max-h-72 overflow-y-auto">
                   {out.map(({ i, days }) => {
-                    const who =
-                      personNameById[i.assignedToEmployeeId!] ??
-                      employees.find((e) => e.id === i.assignedToEmployeeId)?.name ??
-                      "—";
+                    const who = i.assignedToEmployeeId
+                      ? personNameById[i.assignedToEmployeeId] ??
+                        employees.find((e) => e.id === i.assignedToEmployeeId)?.name ??
+                        "—"
+                      : tx.tool_no_person ?? "Sin persona asignada";
                     const where = projName(i.assignedToProjectId) ?? i.location ?? "";
                     return (
                       <li
