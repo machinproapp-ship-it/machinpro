@@ -45,7 +45,9 @@ export async function POST(req: NextRequest) {
 
     let userId = "00000000-0000-0000-0000-000000000000";
     let userName = "";
-    let companyId = typeof body.companyId === "string" ? body.companyId.trim() : "";
+    // La empresa sale siempre de la sesión, nunca del cuerpo de la petición:
+    // así nadie puede escribir en el registro de otra empresa.
+    let companyId = "";
 
     if (token) {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
             display_name?: string | null;
             email?: string | null;
           } | null;
-          if (r?.company_id && !companyId) companyId = String(r.company_id);
+          if (r?.company_id) companyId = String(r.company_id);
           userName =
             (typeof r?.full_name === "string" && r.full_name.trim()) ||
             (typeof r?.display_name === "string" && r.display_name.trim()) ||
