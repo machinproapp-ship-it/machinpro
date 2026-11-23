@@ -205,6 +205,16 @@ export function ToolQuickSheet({
           ) : (
             <div className="h-24 w-24 shrink-0 rounded-xl bg-zinc-100 dark:bg-slate-800" aria-hidden />
           )}
+          {!role ? (
+            // Sin permiso de herramientas: solo qué herramienta es (nada de quién la tiene ni dónde está).
+            <div className="min-w-0 space-y-1 text-sm">
+              {item.model ? (
+                <p className="text-zinc-800 dark:text-zinc-200">
+                  {L(lx, "tool_model", "Modelo")}: {item.model}
+                </p>
+              ) : null}
+            </div>
+          ) : (
           <div className="min-w-0 space-y-1 text-sm">
             {item.serialNumber ? (
               <p className="text-zinc-500 dark:text-zinc-400">
@@ -235,6 +245,7 @@ export function ToolQuickSheet({
               </p>
             ) : null}
           </div>
+          )}
         </section>
 
         {msg ? (
