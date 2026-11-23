@@ -1,5 +1,6 @@
 "use client";
 
+import { HelpGuides } from "@/components/HelpGuides";
 import { passwordProblem, passwordProblemText } from "@/lib/passwordPolicy";
 import { userFacingErrorMessage } from "@/lib/userFacingError";
 import Link from "next/link";
@@ -1885,6 +1886,8 @@ export function SettingsModule({
                   {tl.help_documentation_url ?? "https://docs.machin.pro"}
                 </a>
               </div>
+
+              <HelpGuides labels={tl as Record<string, string>} />
 
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{tl.help_faq_title ?? "FAQ"}</h4>

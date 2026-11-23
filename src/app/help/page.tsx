@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BrandLogoImage } from "@/components/BrandLogoImage";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import { HelpGuides } from "@/components/HelpGuides";
 import { ALL_TRANSLATIONS, LANGUAGES } from "@/lib/i18n";
 import { supabase, type AuthGetSessionResult } from "@/lib/supabase";
 import type { Language } from "@/types/shared";
@@ -152,7 +153,10 @@ function HelpPageInner() {
           </a>
         </p>
 
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-white/10 dark:shadow-none sm:p-8">
+        <section className="mt-12">
+          <HelpGuides labels={t} variant="public" />
+        </section>
+        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-white/10 dark:shadow-none sm:p-8">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{L("help_faq_title", "")}</h2>
           <ul className="mt-6 space-y-5">
             {faqItems.map((item) => (
