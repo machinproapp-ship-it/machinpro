@@ -9523,6 +9523,7 @@ export default function Home() {
                 profileLocationSharingEnabled={profileLocationSharingEnabled}
                 setProfileLocationSharingEnabled={setProfileLocationSharingEnabled}
                 onSaveProfile={() => void handleSaveUserProfile()}
+                profileEditable={effectiveRole === "admin" || !!rolePerms.canManageEmployees}
                 profileSaveBusy={profileSaveBusy}
                 onRequestPasswordReset={() => void handleRequestPasswordReset()}
                 passwordResetBusy={passwordResetBusy}

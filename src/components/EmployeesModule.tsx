@@ -837,26 +837,9 @@ export function EmployeesModule({
   const saveProfile = async () => {
     if (!selected) return;
     if ((selected.profile_status ?? "") === "deleted") return;
-    const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
-    const workerSelf = isSelf && !canManageEmployees;
-    if (!canManageEmployees && !isSelf) return;
+    // Solo quien tiene permiso de gestionar empleados edita perfiles (también el propio).
+    if (!canManageEmployees) return;
     setSaving(true);
-    if (workerSelf) {
-      const { error } = await supabase
-        .from("user_profiles")
-        .update({
-          full_name: draft.full_name ?? selected.full_name,
-          phone: draft.phone ?? null,
-          avatar_url: draft.avatar_url ?? selected.avatar_url ?? null,
-          emergency_contact_name: draft.emergency_contact_name ?? null,
-          emergency_contact_phone: draft.emergency_contact_phone ?? null,
-          emergency_contact_relation: draft.emergency_contact_relation ?? null,
-        })
-        .eq("id", selected.id);
-      setSaving(false);
-      if (!error) void load();
-      return;
-    }
     const inherit = draft.use_role_permissions !== false;
     const payType = draft.pay_type ?? "unspecified";
     const payAmountRaw = draft.pay_amount;
@@ -1290,7 +1273,7 @@ export function EmployeesModule({
     const isSelf = currentUserProfileId != null && selected.id === currentUserProfileId;
     const workerSelf = isSelf && !canManageEmployees;
     const isDeletedProfile = (selected.profile_status ?? "") === "deleted";
-    const canEditBasicFields = (canManageEmployees || isSelf) && !isDeletedProfile;
+    const canEditBasicFields = canManageEmployees && !isDeletedProfile;
 
     const complianceFieldLabel = (field: ComplianceField): string =>
       employeeComplianceFieldLabel(field, tl);
@@ -1553,7 +1536,7 @@ export function EmployeesModule({
                 <Users className="h-4 w-4" />
                 {tl.employees_basic_info ?? ""}
               </h3>
-          {isSelf && !(draft.full_name ?? selected.full_name ?? "").trim() && (tl.employees_add_profile_name_hint ?? "").trim() ? (
+          {isSelf && canManageEmployees && !(draft.full_name ?? selected.full_name ?? "").trim() && (tl.employees_add_profile_name_hint ?? "").trim() ? (
             <p className="text-xs text-amber-700 dark:text-amber-300/90 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2">
               {tl.employees_add_profile_name_hint}
             </p>
@@ -2411,7 +2394,7 @@ export function EmployeesModule({
         </section>
 
         <section className="rounded-xl border border-zinc-200 dark:border-slate-700 p-4 flex flex-wrap gap-3 items-center">
-          {(canManageEmployees || workerSelf) && (
+          {canManageEmployees && (
             <button
               type="button"
               onClick={() => void saveProfile()}

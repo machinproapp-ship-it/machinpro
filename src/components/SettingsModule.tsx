@@ -115,6 +115,8 @@ export interface SettingsModuleProps {
   profileLocationSharingEnabled?: boolean;
   setProfileLocationSharingEnabled?: (v: boolean) => void;
   onSaveProfile?: () => void | Promise<void>;
+  /** Solo quien tiene permiso de gestionar empleados puede cambiar los datos del perfil (también el suyo). */
+  profileEditable?: boolean;
   profileSaveBusy?: boolean;
   onRequestPasswordReset?: () => void | Promise<void>;
   passwordResetBusy?: boolean;
@@ -299,6 +301,7 @@ export function SettingsModule({
   profileLocationSharingEnabled = true,
   setProfileLocationSharingEnabled,
   onSaveProfile,
+  profileEditable = false,
   profileSaveBusy = false,
   onRequestPasswordReset,
   passwordResetBusy = false,
@@ -1037,13 +1040,23 @@ export function SettingsModule({
                 <User className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
                 {tl.settingsProfile ?? tl.myProfile ?? ""}
               </h3>
+              {!profileEditable ? (
+                <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-zinc-300 sm:max-w-md">
+                  {tl.profile_readonly_hint ?? "Para cambiar tus datos, habla con la persona de tu empresa que se encarga del personal."}
+                </p>
+              ) : null}
               <div>
                 <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t.name ?? ""}</label>
                 <input
                   type="text"
                   value={profileFullName}
+                  readOnly={!profileEditable}
                   onChange={(e) => setProfileFullName(e.target.value)}
-                  className="w-full min-w-0 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px] sm:max-w-md"
+                  className={`w-full min-w-0 rounded-xl border px-4 py-3 text-sm min-h-[44px] sm:max-w-md ${
+                    profileEditable
+                      ? "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800"
+                      : "border-zinc-200 dark:border-slate-600 bg-zinc-100 dark:bg-slate-800/50 text-zinc-500"
+                  }`}
                 />
               </div>
               <div>
@@ -1067,8 +1080,13 @@ export function SettingsModule({
                 <input
                   type="tel"
                   value={profilePhone}
+                  readOnly={!profileEditable}
                   onChange={(e) => setProfilePhone(e.target.value)}
-                  className="w-full min-w-0 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm min-h-[44px] sm:max-w-md"
+                  className={`w-full min-w-0 rounded-xl border px-4 py-3 text-sm min-h-[44px] sm:max-w-md ${
+                    profileEditable
+                      ? "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-slate-800"
+                      : "border-zinc-200 dark:border-slate-600 bg-zinc-100 dark:bg-slate-800/50 text-zinc-500"
+                  }`}
                 />
               </div>
               <div className="w-full space-y-2 rounded-xl border border-zinc-200 dark:border-slate-700 bg-zinc-50/80 dark:bg-slate-800/40 px-4 py-3 sm:max-w-md">
@@ -1080,6 +1098,7 @@ export function SettingsModule({
                     type="checkbox"
                     className="h-5 w-5 rounded border-zinc-300 text-amber-600 focus:ring-amber-500"
                     checked={profileLocationSharingEnabled}
+                    disabled={!profileEditable}
                     onChange={(e) => setProfileLocationSharingEnabled(e.target.checked)}
                   />
                 </label>
@@ -1115,7 +1134,7 @@ export function SettingsModule({
                     className="mb-1 h-20 w-20 rounded-full border border-zinc-200 object-cover dark:border-slate-700 sm:mb-3"
                   />
                 ) : null}
-                {onProfileAvatarUpload ? (
+                {onProfileAvatarUpload && profileEditable ? (
                   <button
                     type="button"
                     onClick={onProfileAvatarUpload}
@@ -1265,6 +1284,7 @@ export function SettingsModule({
                 </div>
               ) : null}
 
+              {profileEditable ? (
               <button
                 type="button"
                 onClick={() => void onSaveProfile()}
@@ -1273,6 +1293,7 @@ export function SettingsModule({
               >
                 {t.save ?? ""}
               </button>
+              ) : null}
             </div>
           )}
 
