@@ -90,6 +90,11 @@ export async function POST(req: NextRequest) {
       ...(typeof body.email === "string" && body.email.trim() ? { email: body.email.trim() } : {}),
     };
 
+    // Sin sesión válida no sabemos a qué empresa pertenece: no se registra (nunca en otra empresa).
+    if (!companyId) {
+      return NextResponse.json({ ok: true });
+    }
+
     const { error } = await admin.from("audit_logs").insert({
       company_id: companyId || null,
       user_id: userId,

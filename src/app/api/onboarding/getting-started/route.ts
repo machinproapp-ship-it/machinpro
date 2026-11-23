@@ -82,7 +82,12 @@ export async function GET(req: NextRequest) {
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .eq("type", "shift"),
-      admin.from("certificates").select("id", { count: "exact", head: true }).eq("company_id", companyId),
+      // Los certificados de empleados se guardan en employee_documents (la tabla antigua "certificates" no tiene empresa).
+      admin
+        .from("employee_documents")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("deleted_at", null),
       admin
         .from("projects")
         .select("id", { count: "exact", head: true })

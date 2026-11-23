@@ -123,9 +123,10 @@ export async function runCronNotificationsForCompany(
     const in30 = new Date(now.getTime() + 30 * 86400000);
     const ymd = (d: Date) => d.toISOString().slice(0, 10);
     const { data, error } = await admin
-      .from("certificates")
-      .select("id, name, expiry_date, company_id, employee_id")
+      .from("employee_documents")
+      .select("id, name, expiry_date, company_id, user_id")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
       .lte("expiry_date", ymd(in30))
       .gt("expiry_date", ymd(now));
     if (error) return 0;
@@ -144,9 +145,10 @@ export async function runCronNotificationsForCompany(
     let n = 0;
     const today = new Date().toISOString().slice(0, 10);
     const { data, error } = await admin
-      .from("certificates")
-      .select("id, name, expiry_date, company_id")
+      .from("employee_documents")
+      .select("id, name, expiry_date, company_id, user_id")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
       .lt("expiry_date", today);
     if (error) return 0;
     for (const row of (data ?? []) as { id: string; name?: string; expiry_date?: string }[]) {
