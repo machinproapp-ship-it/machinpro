@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useOverlayOpen } from "@/hooks/useOverlayOpen";
 import { X } from "lucide-react";
+import { MODULE_GUIDES, helpGuideHref } from "@/lib/helpGuides";
 
 export type ModuleHelpKey =
   | "office"
@@ -18,9 +19,11 @@ export interface ModuleHelpFabProps {
   moduleKey: ModuleHelpKey;
   labels: Record<string, string>;
   onOpenSettingsHelp: () => void;
+  /** Idioma del usuario, para abrir las guías en su idioma. */
+  language?: string;
 }
 
-export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleHelpFabProps) {
+export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp, language }: ModuleHelpFabProps) {
   const [open, setOpen] = useState(false);
   const overlayOpen = useOverlayOpen();
   const L = (k: string, fb: string) => labels[k] ?? fb;
@@ -80,6 +83,22 @@ export function ModuleHelpFab({ moduleKey, labels, onOpenSettingsHelp }: ModuleH
               {a2 ? <li>{a2}</li> : null}
               {a3 ? <li>{a3}</li> : null}
             </ul>
+            {(MODULE_GUIDES[moduleKey] ?? []).length > 0 ? (
+              <div className="mt-4 space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  {L("guides_title", "Guías paso a paso")}
+                </p>
+                {(MODULE_GUIDES[moduleKey] ?? []).map((g) => (
+                  <a
+                    key={g}
+                    href={helpGuideHref(language, g)}
+                    className="flex min-h-[44px] items-center text-sm font-medium text-orange-600 hover:underline dark:text-orange-400"
+                  >
+                    {L(`${g}_title`, g)}
+                  </a>
+                ))}
+              </div>
+            ) : null}
             <button
               type="button"
               className="mt-4 w-full min-h-[44px] rounded-xl border border-amber-500 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-950 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-900/50"

@@ -1,14 +1,25 @@
 "use client";
 
+import { useEffect } from "react";
+import { HELP_GUIDES } from "@/lib/helpGuides";
+
 /**
  * Guías paso a paso (Ajustes → Ayuda y tutoriales, y machin.pro/help).
  * Cada guía: título, introducción y pasos numerados, todo traducido.
  */
-const GUIDES: { key: string; steps: number }[] = [{ key: "guide_tools", steps: 8 }];
-
 export function HelpGuides({ labels, variant = "app" }: { labels: Record<string, string>; variant?: "app" | "public" }) {
   const L = (k: string) => labels[k] ?? "";
   const pub = variant === "public";
+  // Si se llega con #guide_xxx (desde Primeros pasos o el botón "?"), esa guía se abre sola.
+  useEffect(() => {
+    const id = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
+    if (!id || !HELP_GUIDES.some((g) => g.key === id)) return;
+    const el = document.getElementById(id);
+    if (el instanceof HTMLDetailsElement) {
+      el.open = true;
+      el.scrollIntoView({ block: "start" });
+    }
+  }, []);
   return (
     <div className="space-y-2">
       <h4
@@ -20,7 +31,7 @@ export function HelpGuides({ labels, variant = "app" }: { labels: Record<string,
       >
         {L("guides_title")}
       </h4>
-      {GUIDES.map((g) => (
+      {HELP_GUIDES.map((g) => (
         <details
           key={g.key}
           id={g.key}

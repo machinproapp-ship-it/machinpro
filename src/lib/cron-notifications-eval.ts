@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runTrialExpiryNotificationsForCompany } from "@/lib/cron-trial-expiry";
+import { runOnboardingEmailsForCompany } from "@/lib/onboardingEmails";
 import { insertNotificationRow } from "@/lib/notifications-server";
 import { dispatchWebPushToUser } from "@/lib/push-dispatch";
 
@@ -352,6 +353,13 @@ export async function runCronNotificationsForCompany(
     if (r.skipped.length) {
       for (const s of r.skipped) skipped.push(`trial:${s}`);
     }
+    return r.created;
+  });
+
+  // Guías de bienvenida por correo a los 2 y 5 días del alta (una sola vez).
+  await run("onboarding_emails", async () => {
+    const r = await runOnboardingEmailsForCompany(admin, companyId);
+    for (const s of r.skipped) skipped.push(`onboarding:${s}`);
     return r.created;
   });
 

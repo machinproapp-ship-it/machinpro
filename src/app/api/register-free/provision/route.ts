@@ -6,6 +6,7 @@ import { getCountryConfig } from "@/lib/countryConfig";
 import { getLimitsForPlan } from "@/lib/stripe";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
 import { buildWelcomeEmailHtml, buildWelcomeEmailSubject } from "@/lib/transactionalEmailHtml";
+import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
 
 export const runtime = "nodejs";
 
@@ -171,9 +172,9 @@ export async function POST(req: NextRequest) {
         const html = buildWelcomeEmailHtml({
           userName: fullName,
           companyName,
-          lang: "en",
+          lang: transactionalEmailLangFromCode(lang),
         });
-        const subject = buildWelcomeEmailSubject(fullName, companyName, "en");
+        const subject = buildWelcomeEmailSubject(fullName, companyName, transactionalEmailLangFromCode(lang));
         const resend = new Resend(resendKey);
         const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
         await resend.emails.send({

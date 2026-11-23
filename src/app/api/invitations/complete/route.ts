@@ -7,6 +7,7 @@ import { getLimitsForPlan, type PlanKey, type PaidPlanKey } from "@/lib/stripe";
 import type { InvitationPlan } from "@/types/invitation";
 import { fullAdministratorPermissions } from "@/lib/roles-supabase";
 import { buildWelcomeEmailHtml, buildWelcomeEmailSubject } from "@/lib/transactionalEmailHtml";
+import { transactionalEmailLangFromCode } from "@/lib/emailTransactionalI18n";
 import { isValidLanguage } from "@/lib/localePreference";
 import { STATIC_MAIN_LOCALES } from "@/lib/i18n";
 import type { Language } from "@/types/shared";
@@ -298,9 +299,9 @@ export async function POST(req: NextRequest) {
         const html = buildWelcomeEmailHtml({
           userName: fullName,
           companyName,
-          lang: "en",
+          lang: transactionalEmailLangFromCode(companyLanguage),
         });
-        const subject = buildWelcomeEmailSubject(fullName, companyName, "en");
+        const subject = buildWelcomeEmailSubject(fullName, companyName, transactionalEmailLangFromCode(companyLanguage));
         const resend = new Resend(resendKey);
         const from = process.env.RESEND_FROM_EMAIL ?? "MachinPro <noreply@machin.pro>";
         const { error: mailErr } = await resend.emails.send({

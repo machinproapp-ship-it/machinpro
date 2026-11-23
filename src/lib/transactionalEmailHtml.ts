@@ -13,7 +13,7 @@ export const MACHINPRO_LOGIN_URL = `${MACHINPRO_EMAIL_ORIGIN}/login`;
 export const MACHINPRO_PRIVACY_URL = `${MACHINPRO_EMAIL_ORIGIN}/legal/privacy`;
 export const MACHINPRO_TERMS_URL = `${MACHINPRO_EMAIL_ORIGIN}/legal/terms`;
 
-function fillPlain(template: string, vars: Record<string, string>): string {
+export function fillPlain(template: string, vars: Record<string, string>): string {
   let out = template;
   for (const [k, v] of Object.entries(vars)) {
     out = out.replace(new RegExp(`\\{${k}\\}`, "g"), v);
@@ -21,13 +21,13 @@ function fillPlain(template: string, vars: Record<string, string>): string {
   return out;
 }
 
-function fillHtml(template: string, vars: Record<string, string>): string {
+export function fillHtml(template: string, vars: Record<string, string>): string {
   const esc: Record<string, string> = {};
   for (const [k, v] of Object.entries(vars)) esc[k] = escapeHtml(v);
   return fillPlain(template, esc);
 }
 
-function emailOuterTable(content: string): string {
+export function emailOuterTable(content: string): string {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -63,7 +63,7 @@ function emailGradientHeader(): string {
 }
 
 /** Card with gradient header + white body */
-function emailCardFramed(inner: string): string {
+export function emailCardFramed(inner: string): string {
   return `
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
   <tr>
@@ -79,7 +79,7 @@ function emailCardFramed(inner: string): string {
 }
 
 /** Primary CTA — orange #f97316, 6px radius. */
-function ctaButton(href: string, label: string): string {
+export function ctaButton(href: string, label: string): string {
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:28px auto;">
   <tr>
@@ -93,7 +93,7 @@ function ctaButton(href: string, label: string): string {
 `.trim();
 }
 
-function standardFooterLine(companyName: string): string {
+export function standardFooterLine(companyName: string): string {
   const co = companyName.trim() || "—";
   return `
 <p style="margin:28px 0 0;font-size:12px;line-height:1.55;color:#94a3b8;text-align:center;">
@@ -138,6 +138,9 @@ export function buildWelcomeEmailHtml(opts: {
   <li style="margin-bottom:10px;"><strong>${escapeHtml(c.welcomeStep2)}</strong> — ${escapeHtml(c.welcomeStep2Hint)}</li>
   <li style="margin-bottom:4px;"><strong>${escapeHtml(c.welcomeStep3)}</strong> — ${escapeHtml(c.welcomeStep3Hint)}</li>
 </ol>
+<p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#334155;text-align:left;">
+  ${escapeHtml(c.welcomeGuides)} <a href="${escapeHtml(`${MACHINPRO_EMAIL_ORIGIN}/help?lang=${opts.lang}`)}" style="color:#ea580c;font-weight:600;text-decoration:underline;">machin.pro/help</a>
+</p>
 ${ctaButton(MACHINPRO_APP_HOME_URL, c.welcomeCta)}
 <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;text-align:center;">
   ${escapeHtml(c.welcomeTrialReminder)}

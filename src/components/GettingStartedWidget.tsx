@@ -5,6 +5,18 @@ import { Check, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { MainSection } from "@/types/shared";
 import { s } from "@/lib/safeReactString";
+import { helpGuideHref } from "@/lib/helpGuides";
+
+/** Guía que explica cada paso de "Primeros pasos". */
+const STEP_GUIDE: Record<number, string> = {
+  2: "guide_roles",
+  3: "guide_roles",
+  4: "guide_roles",
+  5: "guide_shifts",
+  6: "guide_docs",
+  9: "guide_tools",
+  10: "guide_safety",
+};
 
 const ONBOARDING_COMPLETE_KEY = "machinpro_onboarding_complete";
 
@@ -13,6 +25,8 @@ export interface GettingStartedWidgetProps {
   labels: Record<string, string>;
   onNavigateAppSection: (section: MainSection) => void;
   refreshToken?: number;
+  /** Idioma del usuario, para abrir la guía en su idioma. */
+  language?: string;
 }
 
 type ApiItem = { id: number; done: boolean; section: MainSection };
@@ -22,6 +36,7 @@ export function GettingStartedWidget({
   labels,
   onNavigateAppSection,
   refreshToken = 0,
+  language,
 }: GettingStartedWidgetProps) {
   const L = (k: string, fb: string) => labels[k] ?? fb;
   const [minimized, setMinimized] = useState(false);
@@ -245,6 +260,15 @@ export function GettingStartedWidget({
                   <p className="mt-0.5 break-words text-xs text-amber-900/80 dark:text-amber-200/80">{s(hintFor(item.id))}</p>
                 </div>
               </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+              {STEP_GUIDE[item.id] ? (
+                <a
+                  href={helpGuideHref(language, STEP_GUIDE[item.id]!)}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-950 dark:text-amber-200 dark:hover:text-white"
+                >
+                  {L("guide_view", "Ver guía")}
+                </a>
+              ) : null}
               <button
                 type="button"
                 onClick={() => onNavigateAppSection(item.section)}
@@ -252,6 +276,7 @@ export function GettingStartedWidget({
               >
                 {L("onboarding_go", "Go")}
               </button>
+              </div>
             </div>
           </li>
         ))}

@@ -8045,6 +8045,7 @@ export default function Home() {
                 moduleKey="office"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
+                language={language}
               />
             </>
             )}
@@ -8324,6 +8325,7 @@ export default function Home() {
                 moduleKey="warehouse"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
+                language={language}
               />
             </>
             )}
@@ -8374,6 +8376,7 @@ export default function Home() {
                 moduleKey="employees"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
+                language={language}
               />
             </>
             )}
@@ -8857,6 +8860,7 @@ export default function Home() {
                 moduleKey="site"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
+                language={language}
               />
               </>
             )}
@@ -9219,6 +9223,7 @@ export default function Home() {
                 moduleKey="schedule"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
+                language={language}
               />
             </>
             )}
@@ -9298,6 +9303,7 @@ export default function Home() {
                   moduleKey="security"
                   labels={t as Record<string, string>}
                   onOpenSettingsHelp={openSettingsHelpFromFab}
+                  language={language}
                 />
               </>
             )}
@@ -9410,6 +9416,7 @@ export default function Home() {
                 moduleKey="forms"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
+                language={language}
               />
             </>
             )}
@@ -9569,6 +9576,7 @@ export default function Home() {
                 moduleKey="settings"
                 labels={t as Record<string, string>}
                 onOpenSettingsHelp={openSettingsHelpFromFab}
+                language={language}
               />
             </>
             )}

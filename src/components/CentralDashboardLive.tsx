@@ -2396,6 +2396,7 @@ function CentralDashboardBody(
             labels={labels}
             onNavigateAppSection={onNavigateAppSection}
             refreshToken={gettingStartedRefreshTk}
+            language={language}
           />
         </>
       ) : null}

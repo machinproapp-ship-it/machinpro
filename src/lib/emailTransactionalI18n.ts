@@ -16,6 +16,7 @@ export type TransactionalEmailCopy = {
   welcomeStep3Hint: string;
   welcomeCta: string;
   welcomeTrialReminder: string;
+  welcomeGuides: string;
   welcomeHelp: string;
   welcomeAddressLine: string;
   welcomePrivacy: string;
@@ -45,6 +46,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     welcomeStep3Hint: "En la app: Proyectos",
     welcomeCta: "Entrar a MachinPro",
     welcomeTrialReminder: "Tienes 14 días de prueba gratuita.",
+    welcomeGuides: "¿Cómo se usa cada parte? Tienes guías paso a paso aquí:",
     welcomeHelp: "¿Necesitas ayuda? Escríbenos a support@machin.pro",
     welcomeAddressLine: "MachinPro · Canariense Inc · Ottawa, Ontario, Canadá",
     welcomePrivacy: "Política de privacidad",
@@ -72,6 +74,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     welcomeStep3Hint: "Settings → Compliance",
     welcomeCta: "Open dashboard",
     welcomeTrialReminder: "You have a 14-day free trial.",
+    welcomeGuides: "How does each part work? Step-by-step guides are here:",
     welcomeHelp: "Need help? Email us at support@machin.pro",
     welcomeAddressLine: "MachinPro · Canariense Inc · Ottawa, Ontario, Canada",
     welcomePrivacy: "Privacy policy",
@@ -99,6 +102,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     welcomeStep3Hint: "Dans l'app : Projets",
     welcomeCta: "Ouvrir MachinPro",
     welcomeTrialReminder: "Vous disposez de 14 jours d'essai gratuit.",
+    welcomeGuides: "Comment fonctionne chaque partie ? Des guides pas à pas ici :",
     welcomeHelp: "Besoin d'aide ? Écrivez-nous à support@machin.pro",
     welcomeAddressLine: "MachinPro · Canariense Inc · Ottawa, Ontario, Canada",
     welcomePrivacy: "Politique de confidentialité",
@@ -126,6 +130,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     welcomeStep3Hint: "In der App: Projekte",
     welcomeCta: "Zu MachinPro anmelden",
     welcomeTrialReminder: "Sie haben 14 Tage kostenlose Testversion.",
+    welcomeGuides: "Wie funktioniert jeder Bereich? Schritt-für-Schritt-Anleitungen gibt es hier:",
     welcomeHelp: "Hilfe benötigt? Schreiben Sie an support@machin.pro",
     welcomeAddressLine: "MachinPro · Canariense Inc · Ottawa, Ontario, Kanada",
     welcomePrivacy: "Datenschutz",
@@ -153,6 +158,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     welcomeStep3Hint: "Nell'app: Progetti",
     welcomeCta: "Accedi a MachinPro",
     welcomeTrialReminder: "Hai 14 giorni di prova gratuita.",
+    welcomeGuides: "Come funziona ogni parte? Trovi le guide passo passo qui:",
     welcomeHelp: "Serve aiuto? Scrivi a support@machin.pro",
     welcomeAddressLine: "MachinPro · Canariense Inc · Ottawa, Ontario, Canada",
     welcomePrivacy: "Privacy",
@@ -180,6 +186,7 @@ const COPY: Record<TransactionalEmailLang, TransactionalEmailCopy> = {
     welcomeStep3Hint: "Na app: Projetos",
     welcomeCta: "Entrar na MachinPro",
     welcomeTrialReminder: "Tem 14 dias de teste gratuito.",
+    welcomeGuides: "Como funciona cada parte? Tem guias passo a passo aqui:",
     welcomeHelp: "Precisa de ajuda? Escreva para support@machin.pro",
     welcomeAddressLine: "MachinPro · Canariense Inc · Ottawa, Ontario, Canadá",
     welcomePrivacy: "Política de privacidade",
